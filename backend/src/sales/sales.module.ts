@@ -1,0 +1,23 @@
+import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
+import { SalesController } from './sales.controller';
+import { SalesService } from './sales.service';
+import { Sale, SaleSchema } from '../schemas/sale.schema';
+import { Product, ProductSchema } from '../schemas/product.schema';
+import { AuthModule } from '../auth/auth.module';
+import { MailModule } from '../mail/mail.module';
+
+@Module({
+  imports: [
+    MongooseModule.forFeature([
+      { name: Sale.name,    schema: SaleSchema },
+      { name: Product.name, schema: ProductSchema },
+    ]),
+    AuthModule,
+    MailModule,
+  ],
+  controllers: [SalesController],
+  providers: [SalesService],
+  exports: [SalesService],
+})
+export class SalesModule {}
