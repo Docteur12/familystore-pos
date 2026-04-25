@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
@@ -11,19 +12,25 @@ import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
   ) {}
 
   findAll() {
-    return this.productModel.find().sort({ name: 1 });
+    return this.productModel.find().sort({ name: 1 }).lean();
   }
 
-  async findByBarcode(barcode: string) {
-    const product = await this.productModel.findOne({ barcode });
+  async findByBarcode(rawBarcode: string) {
+    const barcode = rawBarcode.trim();
+    this.logger.log(`[barcode] recherche: "${barcode}" (reçu: "${rawBarcode}")`);
+    const product = await this.productModel.findOne({ barcode }).lean();
     if (!product) {
+      this.logger.warn(`[barcode] introuvable: "${barcode}"`);
       throw new NotFoundException(`Aucun produit avec le code-barres "${barcode}"`);
     }
+    this.logger.log(`[barcode] trouvé: "${product.name}" (_id: ${product._id})`);
     return product;
   }
 

@@ -4,17 +4,18 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { SalesService } from './sales.service';
-import { CreateSaleDto } from './dto/create-sale.dto';
-import { AuthGuard } from '../auth/auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { SalesService }    from './sales.service';
+import { CreateSaleDto }   from './dto/create-sale.dto';
+import { AuthGuard }       from '../auth/auth.guard';
+import { RolesGuard }      from '../auth/roles.guard';
+import { Roles }           from '../auth/roles.decorator';
 
 @Controller('sales')
-@UseGuards(AuthGuard)          // JWT requis sur toutes les routes
+@UseGuards(AuthGuard)
 export class SalesController {
   constructor(private salesService: SalesService) {}
 
@@ -25,36 +26,32 @@ export class SalesController {
     return this.salesService.create(dto);
   }
 
-  // GET /api/sales/stats/today — patron only
-  // Déclaré AVANT /:id pour éviter que "today" soit capturé comme paramètre
+  // ── Stats (déclarés AVANT /:id pour éviter le conflit de route) ────────────
+
   @Get('stats/today')
   @UseGuards(RolesGuard)
   @Roles('patron')
-  statsToday() {
-    return this.salesService.statsToday();
-  }
+  statsToday() { return this.salesService.statsToday(); }
 
-  // GET /api/sales/stats/week — patron only
   @Get('stats/week')
   @UseGuards(RolesGuard)
   @Roles('patron')
-  statsWeek() {
-    return this.salesService.statsWeek();
-  }
+  statsWeek() { return this.salesService.statsWeek(); }
 
-  // GET /api/sales/stats/top-products — patron only
   @Get('stats/top-products')
   @UseGuards(RolesGuard)
   @Roles('patron')
-  topProducts() {
-    return this.salesService.topProducts();
-  }
+  topProducts() { return this.salesService.topProducts(); }
 
-  // GET /api/sales — patron only
+  // GET /api/sales — historique complet (patron)
   @Get()
   @UseGuards(RolesGuard)
   @Roles('patron')
-  findAll() {
-    return this.salesService.findAll();
+  findAll() { return this.salesService.findAll(); }
+
+  // GET /api/sales/:id — détail d'une vente (patron + caissier)
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.salesService.findOne(id);
   }
 }

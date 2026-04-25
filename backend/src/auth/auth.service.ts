@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -49,5 +50,17 @@ export class AuthService {
 
   async findAll() {
     return this.userModel.find().select('-password');
+  }
+
+  async updateUser(id: string, data: { name?: string; password?: string }) {
+    const update: Record<string, string> = {};
+    if (data.name?.trim())     update.name     = data.name.trim();
+    if (data.password?.trim()) update.password = await bcrypt.hash(data.password.trim(), 10);
+    if (Object.keys(update).length === 0) return this.userModel.findById(id).select('-password');
+    const user = await this.userModel
+      .findByIdAndUpdate(id, update, { new: true })
+      .select('-password');
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+    return user;
   }
 }

@@ -8,7 +8,7 @@ export class Product {
   @Prop({ required: true, trim: true })
   name: string;
 
-  @Prop({ unique: true, sparse: true })
+  @Prop({ unique: true, sparse: true, trim: true })
   barcode: string;
 
   @Prop({ required: true, min: 0 })

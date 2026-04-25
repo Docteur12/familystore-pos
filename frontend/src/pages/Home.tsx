@@ -1,8 +1,20 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
+function getTokenPayload(): { name: string; role: string } | null {
+  const token = localStorage.getItem('access_token');
+  if (!token) return null;
+  try { return JSON.parse(atob(token.split('.')[1])); } catch { return null; }
+}
+
 export default function Home() {
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const payload   = getTokenPayload();
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen bg-cream flex flex-col">
@@ -14,7 +26,20 @@ export default function Home() {
             </div>
             <h1 className="text-2xl font-bold tracking-wide">Family Store POS</h1>
           </div>
-          <span className="text-gold text-sm font-medium">Point de Vente</span>
+          <div className="flex items-center gap-3">
+            {payload && (
+              <span className="text-cream/70 text-sm hidden sm:block">
+                {payload.name} <span className="text-gold">({payload.role})</span>
+              </span>
+            )}
+            <button
+              onClick={handleLogout}
+              className="text-cream/70 hover:text-cream text-sm border border-cream/20
+                px-3 py-1 rounded-lg transition-colors hover:bg-cream/10"
+            >
+              Déconnexion
+            </button>
+          </div>
         </div>
       </header>
 

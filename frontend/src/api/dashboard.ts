@@ -1,7 +1,4 @@
-function authHeaders(): HeadersInit {
-  const token = localStorage.getItem('access_token') ?? '';
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-}
+import { authHeaders } from './http';
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(path, { headers: authHeaders() });
@@ -38,6 +35,20 @@ export interface TopProduct {
 export const getStatsToday   = () => get<StatsToday>('/api/sales/stats/today');
 export const getStatsWeek    = () => get<WeekDay[]>('/api/sales/stats/week');
 export const getTopProducts  = () => get<TopProduct[]>('/api/sales/stats/top-products');
+
+export async function downloadFile(url: string, filename: string): Promise<void> {
+  const res = await fetch(url, { headers: authHeaders() });
+  if (res.status === 401) throw new Error('Non authentifié');
+  if (res.status === 403) throw new Error('Accès réservé au patron');
+  if (!res.ok) throw new Error(`Erreur génération rapport (${res.status})`);
+  const blob = await res.blob();
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = href;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(href);
+}
 
 // Decode JWT payload (base64) — no verification, frontend only
 export function getTokenPayload(): { sub: string; email: string; name: string; role: string } | null {

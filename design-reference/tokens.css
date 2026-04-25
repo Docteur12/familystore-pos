@@ -1,0 +1,94 @@
+/* Family Store — Design tokens
+ * Derived from the brand logo: deep bordeaux + champagne gold on ivory
+ */
+:root {
+  /* Brand — bordeaux (from logo wordmark) */
+  --fs-wine-900: #4A0E1C;
+  --fs-wine-800: #5E1324;
+  --fs-wine-700: #7A1D2E;   /* primary */
+  --fs-wine-600: #912739;
+  --fs-wine-500: #A83449;
+  --fs-wine-100: #F6E6E9;
+  --fs-wine-50:  #FBF3F4;
+
+  /* Brand — gold (from logo crown + flourishes) */
+  --fs-gold-700: #8A6329;
+  --fs-gold-600: #A37937;
+  --fs-gold-500: #B8893E;   /* accent */
+  --fs-gold-400: #D1A660;
+  --fs-gold-300: #E3C386;
+  --fs-gold-100: #F7ECD4;
+  --fs-gold-50:  #FCF6E8;
+
+  /* Warm neutrals */
+  --fs-ivory:    #F9F5ED;   /* app bg */
+  --fs-paper:    #FDFBF6;   /* cards */
+  --fs-line:     #E8E0D1;   /* hairlines */
+  --fs-line-2:   #D9CEB9;
+  --fs-ink-900:  #1F1A1A;   /* primary text */
+  --fs-ink-700:  #3A3231;
+  --fs-ink-500:  #6B5F5C;   /* secondary text */
+  --fs-ink-400:  #8C7F7B;
+  --fs-ink-300:  #B5A9A4;   /* placeholders */
+
+  /* Semantic */
+  --fs-success-700: #3F6B3A;
+  --fs-success-500: #5A8B53;
+  --fs-success-100: #E8F0E5;
+  --fs-warning-700: #8B5A14;
+  --fs-warning-500: #C48518;
+  --fs-warning-100: #FAEFD4;
+  --fs-danger-700: #8B2C1A;
+  --fs-danger-500: #C23E24;
+  --fs-danger-100: #FAE5DF;
+  --fs-info-700:    #1E4E6B;
+  --fs-info-500:    #2E7599;
+  --fs-info-100:    #DCECF4;
+
+  /* Radii */
+  --fs-r-xs: 3px;
+  --fs-r-sm: 5px;
+  --fs-r-md: 8px;
+  --fs-r-lg: 12px;
+  --fs-r-xl: 18px;
+
+  /* Shadows */
+  --fs-shadow-sm: 0 1px 2px rgba(31,26,26,0.06), 0 1px 1px rgba(31,26,26,0.04);
+  --fs-shadow-md: 0 2px 6px rgba(31,26,26,0.08), 0 1px 2px rgba(31,26,26,0.05);
+  --fs-shadow-lg: 0 10px 30px rgba(31,26,26,0.10), 0 2px 6px rgba(31,26,26,0.06);
+  --fs-shadow-inset: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 -1px 0 rgba(31,26,26,0.04);
+
+  /* Typography */
+  --fs-font-display: "Cormorant Garamond", "Playfair Display", Georgia, serif;
+  --fs-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --fs-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Utility classes */
+.fs-display { font-family: var(--fs-font-display); font-weight: 600; letter-spacing: -0.01em; }
+.fs-sans    { font-family: var(--fs-font-sans); }
+.fs-mono    { font-family: var(--fs-font-mono); font-variant-numeric: tabular-nums; }
+.fs-tabular { font-variant-numeric: tabular-nums; }
+
+/* Reset-ish within our app surface */
+.fs-app, .fs-app * { box-sizing: border-box; }
+.fs-app {
+  font-family: var(--fs-font-sans);
+  color: var(--fs-ink-900);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss01", "cv11";
+}
+.fs-app button { font-family: inherit; cursor: pointer; }
+.fs-app input, .fs-app textarea, .fs-app select { font-family: inherit; }
+
+/* Scrollbars — subtle */
+.fs-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.fs-scroll::-webkit-scrollbar-thumb { background: var(--fs-line-2); border-radius: 4px; }
+.fs-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* Decorative gold hairline — used as section dividers */
+.fs-gold-rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--fs-gold-400) 20%, var(--fs-gold-400) 80%, transparent);
+  opacity: 0.7;
+}

@@ -8,7 +8,7 @@ const UserSchema = new mongoose.Schema({
   name:     { type: String, required: true },
   email:    { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true },
-  role:     { type: String, enum: ['caissier', 'patron'], default: 'caissier' },
+  role:     { type: String, enum: ['caissier', 'patron', 'gestionnaire'], default: 'caissier' },
 }, { timestamps: true });
 
 const ProductSchema = new mongoose.Schema({
@@ -39,6 +39,12 @@ const USERS = [
     email:    'caisse@familystore.cm',
     password: 'caisse123',
     role:     'caissier',
+  },
+  {
+    name:     'Gestionnaire Stock',
+    email:    'stock@familystore.cm',
+    password: 'stock123',
+    role:     'gestionnaire',
   },
 ];
 

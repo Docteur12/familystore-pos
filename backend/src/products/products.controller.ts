@@ -38,18 +38,18 @@ export class ProductsController {
     return this.productsService.findById(id);
   }
 
-  // POST /api/products — patron only
+  // POST /api/products — patron + gestionnaire
   @Post()
   @UseGuards(RolesGuard)
-  @Roles('patron')
+  @Roles('patron', 'gestionnaire')
   create(@Body() dto: CreateProductDto) {
     return this.productsService.create(dto);
   }
 
-  // PATCH /api/products/:id — patron only
+  // PATCH /api/products/:id — patron + gestionnaire
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles('patron')
+  @Roles('patron', 'gestionnaire')
   update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
     return this.productsService.update(id, dto);
   }

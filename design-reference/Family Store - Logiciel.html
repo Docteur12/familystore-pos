@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Family Store — Logiciel de caisse et de gestion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="tokens.css"/>
+<style>
+  html, body { margin:0; padding:0; background:#f0eee9; font-family:"Inter", system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="shared.jsx"></script>
+<script type="text/babel" src="module-caisse.jsx"></script>
+<script type="text/babel" src="module-stock.jsx"></script>
+<script type="text/babel" src="module-admin.jsx"></script>
+<script type="text/babel" src="module-extras.jsx"></script>
+
+<script type="text/babel">
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="intro" title="Family Store · Logiciel de caisse et de gestion"
+        subtitle="Trois modules pensés pour Family Store by RDCT — Beauté · Saveurs · Bien-être. Ambiance bordeaux & or, typographie Cormorant Garamond + Inter, devise XAF. Cliquez une artboard pour l'ouvrir en plein écran.">
+        <DCArtboard id="brand" label="Identité · Rappel de marque" width={720} height={360}>
+          <div style={{width:'100%', height:'100%', background:'linear-gradient(135deg, #FBF3F4, #F9F5ED)',
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        flexDirection:'column', gap:24, padding:40, fontFamily:'Inter'}}>
+            <img src="assets/logo.png" alt="Family Store" style={{maxWidth:420, maxHeight:200, objectFit:'contain'}}/>
+            <div style={{display:'flex', gap:14, alignItems:'center'}}>
+              <Swatch color="#4A0E1C" name="Bordeaux"/>
+              <Swatch color="#7A1D2E" name="Primaire"/>
+              <Swatch color="#B8893E" name="Or"/>
+              <Swatch color="#F9F5ED" name="Ivoire" border/>
+              <Swatch color="#1F1A1A" name="Encre"/>
+            </div>
+            <div style={{fontFamily:'"Cormorant Garamond", serif', fontSize:14, color:'#6B5F5C',
+                          fontStyle:'italic', letterSpacing:'0.08em'}}>
+              Beauté · Saveurs · Bien-être
+            </div>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="login" title="⓪ Authentification · Verrouillage caisse"
+        subtitle="Écran d'accueil — chaque caissière s'identifie par son code PIN avant d'ouvrir une session">
+        <DCArtboard id="login-main" label="Login PIN" width={1312} height={832}>
+          <TabletFrame width={1280} height={800}>
+            <LoginScreen/>
+          </TabletFrame>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="caisse" title="① Module Caisse · Tablette tactile"
+        subtitle="Interface caissière (1280×800) — grille produits, scanner, panier, paiements, ticket Z">
+        <DCArtboard id="caisse-main" label="Écran principal · encaissement en cours"
+          width={1312} height={832}>
+          <TabletFrame width={1280} height={800}>
+            <CaisseScreen/>
+          </TabletFrame>
+        </DCArtboard>
+        <DCArtboard id="caisse-momo" label="Paiement Mobile Money · validation client"
+          width={1312} height={832}>
+          <TabletFrame width={1280} height={800}>
+            <MobileMoneyPaymentScreen/>
+          </TabletFrame>
+        </DCArtboard>
+        <DCArtboard id="caisse-ticket" label="Ticket de caisse imprimé · 80mm" width={500} height={832}>
+          <TicketReceipt/>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="stock" title="② Module Gestion de stock · Desktop"
+        subtitle="Gestionnaire (1440×900) — catalogue, réceptions, inventaire, alertes seuil/péremption">
+        <DCArtboard id="stock-main" label="Catalogue produits · fiche détaillée"
+          width={1464} height={948}>
+          <DesktopFrame width={1440} height={900}>
+            <StockScreen/>
+          </DesktopFrame>
+        </DCArtboard>
+        <DCArtboard id="stock-reception" label="Réception fournisseur · contrôle BL"
+          width={1464} height={948}>
+          <DesktopFrame width={1440} height={900}>
+            <StockReceptionScreen/>
+          </DesktopFrame>
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="admin" title="③ Module Admin · Direction & personnel"
+        subtitle="Administration (1440×900) — tableau de bord, rapports, équipe, comptabilité">
+        <DCArtboard id="admin-main" label="Tableau de bord · vue d'ensemble"
+          width={1464} height={948}>
+          <DesktopFrame width={1440} height={900}>
+            <AdminScreen/>
+          </DesktopFrame>
+        </DCArtboard>
+        <DCArtboard id="admin-staff" label="Gestion du personnel · création caissier"
+          width={1464} height={948}>
+          <DesktopFrame width={1440} height={900}>
+            <StaffManagementScreen/>
+          </DesktopFrame>
+        </DCArtboard>
+        <DCArtboard id="admin-report" label="Rapport mensuel · avril 2026"
+          width={1464} height={948}>
+          <DesktopFrame width={1440} height={900}>
+            <MonthlyReportScreen/>
+          </DesktopFrame>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+function Swatch({ color, name, border }) {
+  return (
+    <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:6}}>
+      <div style={{width:48, height:48, borderRadius:10, background:color,
+                    border: border ? '1px solid #D9CEB9' : 'none',
+                    boxShadow:'0 2px 6px rgba(0,0,0,0.08)'}}/>
+      <span style={{fontSize:10, color:'#6B5F5C', fontWeight:600, letterSpacing:'0.04em'}}>{name}</span>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

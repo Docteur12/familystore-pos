@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  downloadFile,
   getStatsToday,
   getStatsWeek,
   getTokenPayload,
@@ -67,6 +68,44 @@ export default function Dashboard() {
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState<string | null>(null);
 
+  // ── Reports ───────────────────────────────────────────────────────────────
+  const todayISO  = new Date().toISOString().split('T')[0];
+  const monthISO  = new Date().toISOString().substring(0, 7);
+  const [selectedMonth, setSelectedMonth] = useState(monthISO);
+  const [pdfLoading,    setPdfLoading]    = useState(false);
+  const [xlsLoading,    setXlsLoading]    = useState(false);
+  const [reportError,   setReportError]   = useState<string | null>(null);
+
+  const handleDownloadPdf = async () => {
+    setPdfLoading(true);
+    setReportError(null);
+    try {
+      await downloadFile(
+        `/api/reports/daily/pdf?date=${todayISO}`,
+        `rapport-journalier-${todayISO}.pdf`,
+      );
+    } catch (e: any) {
+      setReportError(e.message ?? 'Erreur PDF');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    setXlsLoading(true);
+    setReportError(null);
+    try {
+      await downloadFile(
+        `/api/reports/monthly/excel?month=${selectedMonth}`,
+        `rapport-mensuel-${selectedMonth}.xlsx`,
+      );
+    } catch (e: any) {
+      setReportError(e.message ?? 'Erreur Excel');
+    } finally {
+      setXlsLoading(false);
+    }
+  };
+
   useEffect(() => {
     Promise.all([
       getStatsToday(),
@@ -93,45 +132,17 @@ export default function Dashboard() {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
-  const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    navigate('/');
-  };
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-cream flex flex-col">
 
       {/* ── Header ── */}
-      <header className="bg-bordeaux flex items-center justify-between px-6 py-3 shadow-lg shrink-0">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/')}
-            className="text-cream/50 hover:text-cream mr-2 transition-colors text-xl leading-none"
-          >
-            ←
-          </button>
-          <span className="text-xl font-black tracking-widest text-cream">FAMILY</span>
-          <span className="text-xl font-black tracking-widest text-gold">STORE</span>
-          <span className="ml-3 pl-3 border-l border-cream/20 text-cream/60 text-sm font-medium">
-            Dashboard
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right hidden md:block">
-            <p className="text-cream text-sm font-medium capitalize">{dateLabel}</p>
-            <p className="text-cream/50 text-xs">{userName}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 bg-cream/10 hover:bg-cream/20
-              text-cream text-sm font-medium px-3 py-1.5 rounded-lg transition-colors border
-              border-cream/20"
-          >
-            <span>↗</span>
-            <span>Déconnexion</span>
-          </button>
+      <header className="bg-white border-b border-gray-100 flex items-center justify-between px-6 py-3 shrink-0 shadow-sm">
+        <h2 className="font-bold text-bordeaux text-lg">Dashboard</h2>
+        <div className="text-right hidden md:block">
+          <p className="text-gray-700 text-sm font-medium capitalize">{dateLabel}</p>
+          <p className="text-gray-400 text-xs">{userName}</p>
         </div>
       </header>
 
@@ -219,14 +230,14 @@ export default function Dashboard() {
                     tickLine={false}
                     width={36}
                   />
-                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: '#C9A84C', strokeWidth: 1, strokeDasharray: '4 2' }} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: '#D1A660', strokeWidth: 1, strokeDasharray: '4 2' }} />
                   <Line
                     type="monotone"
                     dataKey="totalCA"
-                    stroke="#8B1A2B"
+                    stroke="#7A1D2E"
                     strokeWidth={2.5}
-                    dot={{ fill: '#8B1A2B', r: 4, strokeWidth: 0 }}
-                    activeDot={{ r: 6, fill: '#C9A84C', strokeWidth: 0 }}
+                    dot={{ fill: '#7A1D2E', r: 4, strokeWidth: 0 }}
+                    activeDot={{ r: 6, fill: '#B8893E', strokeWidth: 0 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -289,6 +300,71 @@ export default function Dashboard() {
             <span>Tous les stocks sont au-dessus des seuils d'alerte.</span>
           </div>
         )}
+
+        {/* ── Row 4: Reports ── */}
+        <section className="bg-white rounded-2xl shadow border border-cream-dark p-5">
+          <h3 className="font-bold text-bordeaux text-sm uppercase tracking-widest mb-4">
+            Rapports
+          </h3>
+
+          {reportError && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700
+              rounded-xl px-4 py-2 text-sm flex items-center gap-2">
+              <span>✕</span>{reportError}
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-4">
+
+            {/* Daily PDF */}
+            <div className="flex-1 flex flex-col gap-2 bg-cream/50 rounded-xl p-4 border border-cream-dark">
+              <p className="font-semibold text-gray-700 text-sm">Rapport du jour</p>
+              <p className="text-xs text-gray-400">{todayISO}</p>
+              <button
+                onClick={handleDownloadPdf}
+                disabled={pdfLoading}
+                className="mt-auto flex items-center justify-center gap-2 bg-bordeaux hover:bg-bordeaux-dark
+                  disabled:opacity-50 text-cream text-sm font-semibold px-4 py-2 rounded-lg
+                  transition-colors"
+              >
+                {pdfLoading ? (
+                  <span className="w-4 h-4 border-2 border-cream/30 border-t-cream rounded-full animate-spin" />
+                ) : (
+                  <span>↓</span>
+                )}
+                Télécharger PDF
+              </button>
+            </div>
+
+            {/* Monthly Excel */}
+            <div className="flex-1 flex flex-col gap-2 bg-cream/50 rounded-xl p-4 border border-cream-dark">
+              <p className="font-semibold text-gray-700 text-sm">Rapport mensuel</p>
+              <input
+                type="month"
+                value={selectedMonth}
+                max={monthISO}
+                onChange={e => setSelectedMonth(e.target.value)}
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-700
+                  focus:outline-none focus:ring-2 focus:ring-bordeaux/30 bg-white w-full"
+              />
+              <button
+                onClick={handleDownloadExcel}
+                disabled={xlsLoading}
+                className="mt-auto flex items-center justify-center gap-2 bg-gold hover:bg-gold-dark
+                  disabled:opacity-50 text-bordeaux text-sm font-semibold px-4 py-2 rounded-lg
+                  transition-colors"
+              >
+                {xlsLoading ? (
+                  <span className="w-4 h-4 border-2 border-bordeaux/30 border-t-bordeaux rounded-full animate-spin" />
+                ) : (
+                  <span>↓</span>
+                )}
+                Télécharger Excel
+              </button>
+            </div>
+
+          </div>
+        </section>
 
       </main>
     </div>

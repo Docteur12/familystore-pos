@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: familystore-api
+    env: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: node dist/main.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: MONGODB_URI
+        sync: false   # À définir dans le dashboard Render (MongoDB Atlas URI)
+      - key: JWT_SECRET
+        sync: false   # À définir dans le dashboard Render
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: EMAIL_USER
+        sync: false   # À définir dans le dashboard Render
+      - key: EMAIL_PASS
+        sync: false   # À définir dans le dashboard Render
+      - key: EMAIL_ALERT_TO
+        sync: false   # À définir dans le dashboard Render

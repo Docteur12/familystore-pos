@@ -147,21 +147,9 @@ export default function Depenses() {
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* ── Header ── */}
-      <header className="bg-bordeaux flex items-center justify-between px-6 py-3 shadow-lg shrink-0">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/')}
-            className="text-cream/50 hover:text-cream mr-2 transition-colors text-xl leading-none"
-          >
-            ←
-          </button>
-          <span className="text-xl font-black tracking-widest text-cream">FAMILY</span>
-          <span className="text-xl font-black tracking-widest text-gold">STORE</span>
-          <span className="ml-3 pl-3 border-l border-cream/20 text-cream/60 text-sm font-medium">
-            Dépenses
-          </span>
-        </div>
-        <span className="text-cream/50 text-sm hidden md:block capitalize">{currentMonth}</span>
+      <header className="bg-white border-b border-gray-100 flex items-center justify-between px-6 py-3 shrink-0 shadow-sm">
+        <h2 className="font-bold text-bordeaux text-lg">Dépenses</h2>
+        <span className="text-gray-400 text-sm hidden md:block capitalize">{currentMonth}</span>
       </header>
 
       {/* ── Body ── */}

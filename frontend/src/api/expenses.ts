@@ -30,10 +30,7 @@ export interface CreateExpensePayload {
   date?: string;
 }
 
-function authHeaders(): HeadersInit {
-  const token = localStorage.getItem('access_token') ?? '';
-  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-}
+import { authHeaders } from './http';
 
 export async function createExpense(payload: CreateExpensePayload): Promise<Expense> {
   const res = await fetch('/api/expenses', {

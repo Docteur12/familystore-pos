@@ -1,0 +1,141 @@
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { getTokenPayload } from '../api/dashboard';
+
+const BG  = '#6B1221';
+const ACT = '#4A0E1C';
+
+function I({ d, size = 14 }: { d: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round">
+      <path d={d}/>
+    </svg>
+  );
+}
+
+const D = {
+  dashboard:    'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+  rapports:     'M18 20V10M12 20V4M6 20v-6',
+  journal:      'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
+  compta:       'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+  equipe:       'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+  caissiers:    'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  gestionnaires:'M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM1 10h22',
+  roles:        'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+  parametres:   'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+  audit:        'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4',
+  exports:      'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+  logout:       'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h12',
+};
+
+const SECTIONS = [
+  {
+    title: 'Pilotage',
+    items: [
+      { id: 'dashboard',    label: 'Tableau de bord',   icon: D.dashboard,    path: '/admin/dashboard' },
+      { id: 'rapports',     label: 'Rapports & analyses',icon: D.rapports,     path: '/admin/rapports'  },
+      { id: 'journal',      label: 'Journal des ventes', icon: D.journal,      path: '/admin/journal'   },
+      { id: 'compta',       label: 'Comptabilité',       icon: D.compta,       path: '/admin/comptabilite' },
+    ],
+  },
+  {
+    title: 'Personnel',
+    items: [
+      { id: 'equipe',       label: 'Équipe',             icon: D.equipe,       path: '/admin/equipe',       badge: 12 },
+      { id: 'caissiers',   label: 'Caissiers',           icon: D.caissiers,    path: '/admin/caissiers'  },
+      { id: 'gestionnaires',label: 'Gestionnaires',      icon: D.gestionnaires,path: '/admin/gestionnaires' },
+      { id: 'roles',        label: 'Rôles & accès',      icon: D.roles,        path: '/admin/roles'      },
+    ],
+  },
+  {
+    title: 'Système',
+    items: [
+      { id: 'parametres',   label: 'Paramètres magasin', icon: D.parametres,   path: '/admin/parametres' },
+      { id: 'audit',        label: 'Audit & logs',       icon: D.audit,        path: '/admin/audit'      },
+      { id: 'exports',      label: 'Exports',            icon: D.exports,      path: '/admin/exports'    },
+    ],
+  },
+];
+
+export default function AdminSidebar() {
+  const location = useLocation();
+  const payload  = getTokenPayload();
+  const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+
+  const activeId = SECTIONS.flatMap(s => s.items).find(it =>
+    location.pathname === it.path || location.pathname.startsWith(it.path + '/')
+  )?.id ?? 'dashboard';
+
+  return (
+    <aside style={{
+      width: 200, height: '100vh', background: BG,
+      display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden',
+    }}>
+      {/* Logo */}
+      <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(255,255,255,0.1)', border: '1px solid var(--fs-gold-400)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M7 11 L9 6 L11 9.5 L12 5 L13 9.5 L15 6 L17 11 L17 13.5 L7 13.5 Z" fill="var(--fs-gold-400)"/>
+              <path d="M7 13.5 L17 13.5" stroke="var(--fs-gold-400)" strokeWidth="1.2"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 13, fontWeight: 700, color: '#f5ebd9', letterSpacing: '0.05em', lineHeight: 1 }}>Family Store</div>
+            <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.1em', marginTop: 2 }}>Administration</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0' }}>
+        {SECTIONS.map(section => (
+          <div key={section.title} style={{ marginBottom: 8 }}>
+            <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', padding: '6px 14px 4px', margin: 0 }}>
+              {section.title}
+            </p>
+            {section.items.map(item => {
+              const isActive = item.id === activeId;
+              return (
+                <Link key={item.id} to={item.path} style={{
+                  display: 'flex', alignItems: 'center', gap: 9,
+                  padding: '7px 14px', textDecoration: 'none',
+                  background: isActive ? ACT : 'transparent',
+                  borderLeft: isActive ? '3px solid var(--fs-gold-400)' : '3px solid transparent',
+                  color: isActive ? '#fff' : 'rgba(245,235,217,0.6)',
+                  fontSize: 12, fontWeight: isActive ? 600 : 400,
+                  transition: 'background 0.1s',
+                }}>
+                  <I d={item.icon} size={13}/>
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  {'badge' in item && item.badge && (
+                    <span style={{ background: 'var(--fs-gold-500)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 8 }}>
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      {/* User */}
+      <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--fs-gold-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+          {initials}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
+          <div style={{ fontSize: 10, color: 'var(--fs-gold-400)', textTransform: 'capitalize' }}>{payload?.role ?? 'Administrateur'}</div>
+        </div>
+        <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
+          title="Déconnexion"
+          style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.4)', cursor: 'pointer', display: 'flex', padding: 2, flexShrink: 0 }}>
+          <I d={D.logout} size={13}/>
+        </button>
+      </div>
+    </aside>
+  );
+}
