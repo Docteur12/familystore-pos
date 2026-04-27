@@ -4,7 +4,8 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { getAllProducts, Product, createProduct } from '../api/products';
+import { getAllProducts, Product } from '../api/products';
+import NouveauProduitModal from '../components/NouveauProduitModal';
 import { addStockWithMovement, getMovements, StockMovement } from '../api/stock';
 import ToastContainer, { useToast }            from '../components/Toast';
 import StocksSidebar                           from '../components/StocksSidebar';
@@ -422,112 +423,6 @@ function DetailPanel({ product, onClose, onReception, onRefresh }:
   );
 }
 
-// ── New Product Modal ─────────────────────────────────────────────────────────
-
-function NewProductModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({
-    name: '', barcode: '', category: '', unit: 'unité',
-    price: '', costPrice: '', stock: '', alertThreshold: '',
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
-
-  const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
-
-  const handleSubmit = async () => {
-    if (!form.name || !form.price || !form.stock) { setError('Nom, prix et stock initial sont requis.'); return; }
-    setLoading(true); setError('');
-    try {
-      await createProduct({
-        name: form.name,
-        barcode: form.barcode || undefined,
-        category: form.category || undefined,
-        unit: form.unit,
-        price: parseFloat(form.price),
-        costPrice: parseFloat(form.costPrice) || 0,
-        stock: parseInt(form.stock),
-        alertThreshold: parseInt(form.alertThreshold) || 5,
-      });
-      onCreated();
-      onClose();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erreur');
-    } finally { setLoading(false); }
-  };
-
-  const Field = ({ label, k, type = 'text', placeholder = '' }: { label: string; k: keyof typeof form; type?: string; placeholder?: string }) => (
-    <div>
-      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 4 }}>{label}</label>
-      <input type={type} value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder}
-        style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
-    </div>
-  );
-
-  return (
-    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: '#fff', borderRadius: 14, width: 560, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--fs-shadow-lg)' }}>
-        {/* Header */}
-        <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div>
-            <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>Nouveau produit</p>
-            <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '2px 0 0' }}>Remplir le formulaire et enregistrer</p>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.7)', cursor: 'pointer', display: 'flex' }}>
-            <I d={D.x} size={16}/>
-          </button>
-        </div>
-
-        <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {error && <div style={{ background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{error}</div>}
-
-          <Field label="Nom du produit *" k="name" placeholder="ex: Savon Lux Rose 90g"/>
-          <Field label="Code-barres / EAN" k="barcode" placeholder="ex: 5900123456789"/>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 4 }}>Catégorie</label>
-              <select value={form.category} onChange={e => set('category', e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-                <option value="">— Sélectionner —</option>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 4 }}>Unité</label>
-              <select value={form.unit} onChange={e => set('unit', e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="Prix de vente * (XAF)" k="price" type="number" placeholder="ex: 500"/>
-            <Field label="Prix d'achat (XAF)" k="costPrice" type="number" placeholder="ex: 300"/>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="Stock initial *" k="stock" type="number" placeholder="ex: 50"/>
-            <Field label="Seuil d'alerte" k="alertThreshold" type="number" placeholder="ex: 10"/>
-          </div>
-        </div>
-
-        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 10, flexShrink: 0 }}>
-          <button onClick={handleSubmit} disabled={loading}
-            style={{ flex: 1, padding: '11px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
-            {loading ? 'Enregistrement…' : 'Enregistrer le produit'}
-          </button>
-          <button onClick={onClose}
-            style={{ flex: 1, padding: '11px', background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
-            Annuler
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 type TabMode = 'all' | 'low' | 'expiry';
@@ -598,7 +493,7 @@ export default function Stocks() {
         <ReceptionModal product={reception} onConfirm={handleAddStock} onClose={() => setReception(null)}/>
       )}
       {newProduct && (
-        <NewProductModal onClose={() => setNewProduct(false)} onCreated={fetchProducts}/>
+        <NouveauProduitModal onClose={() => setNewProduct(false)} onCreated={fetchProducts}/>
       )}
 
       {/* ── Sidebar ── */}

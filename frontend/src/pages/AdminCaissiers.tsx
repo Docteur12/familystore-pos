@@ -43,6 +43,18 @@ const D = {
   bar:   'M18 20V10M12 20V4M6 20v-6',
 };
 
+function Field({ label, value, onChange, type = 'text', placeholder = '' }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
+}) {
+  return (
+    <div>
+      <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{label}</label>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}/>
+    </div>
+  );
+}
+
 // ── Caissier card ────────────────────────────────────────────────────────────
 
 function CaissierCard({ user, selected, onStats, onEdit, onDelete }: {
@@ -302,14 +314,6 @@ function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel:
     finally { setLoading(false); }
   };
 
-  const Field = ({ label, k, type = 'text', placeholder = '' }: { label: string; k: keyof typeof form; type?: string; placeholder?: string }) => (
-    <div>
-      <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{label}</label>
-      <input type={type} value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder}
-        style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}/>
-    </div>
-  );
-
   return (
     <div style={{ width: 320, borderLeft: '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -326,10 +330,10 @@ function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel:
         {error && <div style={{ background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{error}</div>}
 
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Identité</p>
-        <Field label="Prénom" k="prenom" placeholder="Esther"/>
-        <Field label="Nom" k="nom" placeholder="Bidias"/>
-        <Field label="Téléphone" k="phone" placeholder="+237 6 91 23 45 67"/>
-        <Field label="Email" k="email" placeholder="esther.b@familystore.cm"/>
+        <Field label="Prénom" value={form.prenom} onChange={v => set('prenom', v)} placeholder="Esther"/>
+        <Field label="Nom" value={form.nom} onChange={v => set('nom', v)} placeholder="Bidias"/>
+        <Field label="Téléphone" value={form.phone} onChange={v => set('phone', v)} placeholder="+237 6 91 23 45 67"/>
+        <Field label="Email" value={form.email} onChange={v => set('email', v)} placeholder="esther.b@familystore.cm"/>
 
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Poste</p>
         <div>
@@ -339,7 +343,7 @@ function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel:
             {CAISSES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-        <Field label="Date d'embauche" k="dateEmb" type="date"/>
+        <Field label="Date d'embauche" value={form.dateEmb} onChange={v => set('dateEmb', v)} type="date"/>
 
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Accès caisse</p>
         <div>

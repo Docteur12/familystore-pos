@@ -14,6 +14,18 @@ function I({ d, size = 14 }: { d: string; size?: number }) {
 }
 const D = { plus: 'M12 5v14M5 12h14', filter: 'M22 3H2l8 9.46V19l4 2v-8.54L22 3z', x: 'M18 6L6 18M6 6l12 12', edit: 'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z', trash: 'M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2', close: 'M18 6L6 18M6 6l12 12', eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z' };
 
+function Field({ label, value, onChange, type = 'text', placeholder = '' }: {
+  label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string;
+}) {
+  return (
+    <div>
+      <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{label}</label>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}/>
+    </div>
+  );
+}
+
 function getExtra(id: string) {
   const h = id.charCodeAt(0);
   return {
@@ -182,14 +194,6 @@ function FormPanel({ onCreated, onCancel }: { onCreated: () => void; onCancel: (
     finally { setLoading(false); }
   };
 
-  const Field = ({ label, k, type = 'text', placeholder = '' }: { label: string; k: keyof typeof form; type?: string; placeholder?: string }) => (
-    <div>
-      <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{label}</label>
-      <input type={type} value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder}
-        style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}/>
-    </div>
-  );
-
   return (
     <div style={{ width: 310, borderLeft: '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0 }}>
@@ -199,10 +203,10 @@ function FormPanel({ onCreated, onCancel }: { onCreated: () => void; onCancel: (
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {error && <div style={{ background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{error}</div>}
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Identité</p>
-        <Field label="Prénom" k="prenom" placeholder="Samuel"/>
-        <Field label="Nom" k="nom" placeholder="Onana"/>
-        <Field label="Téléphone" k="phone" placeholder="+237 6 XX XX XX XX"/>
-        <Field label="Email" k="email" placeholder="samuel.o@familystore.cm"/>
+        <Field label="Prénom" value={form.prenom} onChange={v => set('prenom', v)} placeholder="Samuel"/>
+        <Field label="Nom" value={form.nom} onChange={v => set('nom', v)} placeholder="Onana"/>
+        <Field label="Téléphone" value={form.phone} onChange={v => set('phone', v)} placeholder="+237 6 XX XX XX XX"/>
+        <Field label="Email" value={form.email} onChange={v => set('email', v)} placeholder="samuel.o@familystore.cm"/>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Affectation</p>
         <div>
           <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Dépôt assigné</label>
@@ -211,9 +215,9 @@ function FormPanel({ onCreated, onCancel }: { onCreated: () => void; onCancel: (
             {DEPOTS.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
         </div>
-        <Field label="Date d'embauche" k="dateEmb" type="date"/>
+        <Field label="Date d'embauche" value={form.dateEmb} onChange={v => set('dateEmb', v)} type="date"/>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Sécurité</p>
-        <Field label="Mot de passe *" k="password" type="password" placeholder="Min. 6 caractères"/>
+        <Field label="Mot de passe *" value={form.password} onChange={v => set('password', v)} type="password" placeholder="Min. 6 caractères"/>
       </div>
       <div style={{ padding: '12px 18px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 10, flexShrink: 0 }}>
         <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>Annuler</button>
