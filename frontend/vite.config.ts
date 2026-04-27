@@ -1,3 +1,4 @@
+// @node_modules\fork-ts-checker-webpack-plugin\
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
