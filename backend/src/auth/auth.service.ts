@@ -52,6 +52,12 @@ export class AuthService {
     return this.userModel.find().select('-password');
   }
 
+  async deleteUser(id: string) {
+    const user = await this.userModel.findByIdAndDelete(id);
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+    return { deleted: true };
+  }
+
   async updateUser(id: string, data: { name?: string; password?: string }) {
     const update: Record<string, string> = {};
     if (data.name?.trim())     update.name     = data.name.trim();

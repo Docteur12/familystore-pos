@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   HttpCode,
@@ -44,6 +45,14 @@ export class AuthController {
   @Roles('patron')
   findAll() {
     return this.authService.findAll();
+  }
+
+  // Supprimer un compte (patron uniquement)
+  @Delete('users/:id')
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles('patron')
+  deleteUser(@Param('id') id: string) {
+    return this.authService.deleteUser(id);
   }
 
   // Modifier un compte (patron ou l'utilisateur lui-même uniquement)
