@@ -117,6 +117,14 @@ function genTicketNo() {
 
 interface CartItem { product: Product; quantity: number }
 
+interface HeldTicket {
+  id: string;
+  ticketNo: string;
+  time: string;
+  cart: CartItem[];
+  total: number;
+}
+
 export default function Caisse() {
   const payload   = getTokenPayload();
   const navigate  = undefined; // not needed here
@@ -138,6 +146,8 @@ export default function Caisse() {
   const [scanning,       setScanning]       = useState(false);
   const [scanError,      setScanError]      = useState<string | null>(null);
   const [validating,     setValidating]     = useState(false);
+  const [heldTickets,    setHeldTickets]    = useState<HeldTicket[]>([]);
+  const [showHeld,       setShowHeld]       = useState(false);
   const [paymentMethod,  setPaymentMethod]  = useState<PaymentMethod>('cash');
   const [amountPaid,     setAmountPaid]     = useState('');
   const [showQR,         setShowQR]         = useState(false);
@@ -285,6 +295,44 @@ export default function Caisse() {
   const change     = Math.max(0, paid - total);
   const notEnough  = paymentMethod === 'cash' && paid > 0 && paid < total;
   const canValidate = cart.length > 0 && !validating && !(paymentMethod === 'cash' && (paid === 0 || paid < total));
+
+  // ── Hold / resume ─────────────────────────────────────────────────────────
+  const handleHold = useCallback(() => {
+    if (cart.length === 0) return;
+    if (heldTickets.length >= 5) {
+      addToast('Maximum 5 tickets en attente simultanément', 'error');
+      return;
+    }
+    const held: HeldTicket = {
+      id: Date.now().toString(),
+      ticketNo,
+      time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+      cart: [...cart],
+      total,
+    };
+    setHeldTickets(prev => [...prev, held]);
+    setCart([]);
+    setAmountPaid('');
+    addToast(`Ticket #${ticketNo} mis en attente`, 'success');
+    focusScan();
+  }, [cart, heldTickets.length, ticketNo, total, addToast, focusScan]);
+
+  const handleResume = useCallback((id: string) => {
+    if (cart.length > 0) {
+      addToast('Encaissez ou annulez le ticket courant avant de reprendre', 'warning');
+      return;
+    }
+    const ticket = heldTickets.find(t => t.id === id);
+    if (!ticket) return;
+    setCart(ticket.cart);
+    setHeldTickets(prev => prev.filter(t => t.id !== id));
+    setShowHeld(false);
+    focusScan();
+  }, [cart.length, heldTickets, addToast, focusScan]);
+
+  const handleCancelHeld = useCallback((id: string) => {
+    setHeldTickets(prev => prev.filter(t => t.id !== id));
+  }, []);
 
   // ── Validate ──────────────────────────────────────────────────────────────
   const handleValidate = useCallback(async () => {
@@ -669,7 +717,69 @@ export default function Caisse() {
         flexDirection: 'column',
         flexShrink: 0,
         overflow: 'hidden',
+        position: 'relative',
       }}>
+
+        {/* ── Held tickets overlay ── */}
+        {showHeld && (
+          <div style={{
+            position: 'absolute', inset: 0, background: 'var(--fs-paper)',
+            zIndex: 20, display: 'flex', flexDirection: 'column',
+          }}>
+            <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Tickets en attente</div>
+                <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', marginTop: 1 }}>{heldTickets.length} / 5 ticket{heldTickets.length > 1 ? 's' : ''}</div>
+              </div>
+              <button onClick={() => setShowHeld(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex', padding: 4 }}>
+                <Ico d={ICO_X} size={16}/>
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+              {heldTickets.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--fs-ink-300)', fontSize: 13 }}>
+                  Aucun ticket en attente
+                </div>
+              ) : heldTickets.map(t => (
+                <div key={t.id} style={{ margin: '0 10px 8px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--fs-line)', background: 'var(--fs-ivory)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>#{t.ticketNo}</span>
+                    <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{t.time}</span>
+                  </div>
+                  <div style={{ padding: '8px 12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <span style={{ fontSize: 12, color: 'var(--fs-ink-500)' }}>
+                        {t.cart.reduce((s, i) => s + i.quantity, 0)} article{t.cart.reduce((s, i) => s + i.quantity, 0) > 1 ? 's' : ''}
+                      </span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-mono)' }}>
+                        {fmtN(t.total)} XAF
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 10, lineHeight: 1.5 }}>
+                      {t.cart.slice(0, 3).map(i => i.product.name).join(', ')}
+                      {t.cart.length > 3 ? `… +${t.cart.length - 3}` : ''}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={() => handleResume(t.id)}
+                        style={{ flex: 2, padding: '8px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)' }}
+                      >
+                        ↩ Reprendre
+                      </button>
+                      <button
+                        onClick={() => handleCancelHeld(t.id)}
+                        style={{ flex: 1, padding: '8px', border: '1.5px solid rgba(194,62,36,0.25)', borderRadius: 8, background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)' }}
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Ticket header */}
         <div style={{
@@ -688,14 +798,32 @@ export default function Caisse() {
               #{ticketNo} · {ticketTime}
             </div>
           </div>
-          {itemCount > 0 && (
-            <div style={{
-              width: 30, height: 30, borderRadius: '50%',
-              background: 'var(--fs-wine-700)',
-              color: '#fff', fontSize: 13, fontWeight: 700,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>{itemCount}</div>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {heldTickets.length > 0 && (
+              <button
+                onClick={() => setShowHeld(v => !v)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '5px 10px', border: '1.5px solid var(--fs-wine-700)',
+                  borderRadius: 8, background: showHeld ? 'var(--fs-wine-700)' : 'var(--fs-wine-50)',
+                  color: showHeld ? '#fff' : 'var(--fs-wine-700)',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: 'var(--fs-font-sans)', whiteSpace: 'nowrap',
+                }}
+              >
+                <Ico d={ICO_PAUSE} size={12}/>
+                En attente ({heldTickets.length})
+              </button>
+            )}
+            {itemCount > 0 && (
+              <div style={{
+                width: 30, height: 30, borderRadius: '50%',
+                background: 'var(--fs-wine-700)',
+                color: '#fff', fontSize: 13, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>{itemCount}</div>
+            )}
+          </div>
         </div>
 
         {/* Loyalty row */}
@@ -867,7 +995,10 @@ export default function Caisse() {
               padding: '0 14px 12px',
             }}>
               <button
-                style={{ background: 'none', border: 'none', color: 'var(--fs-ink-400)', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--fs-font-sans)' }}
+                onClick={handleHold}
+                disabled={heldTickets.length >= 5}
+                style={{ background: 'none', border: 'none', color: heldTickets.length >= 5 ? 'var(--fs-ink-200)' : 'var(--fs-ink-400)', fontSize: 13, cursor: heldTickets.length >= 5 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--fs-font-sans)' }}
+                title={heldTickets.length >= 5 ? 'Maximum 5 tickets en attente' : ''}
               >
                 <Ico d={ICO_PAUSE} size={14}/>
                 Mettre en attente
