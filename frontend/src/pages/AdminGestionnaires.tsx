@@ -188,7 +188,7 @@ function FormPanel({ onCreated, onCancel }: { onCreated: () => void; onCancel: (
     if (!form.prenom || !form.nom || !form.password) { setError('Prénom, nom et mot de passe obligatoires.'); return; }
     setLoading(true); setError('');
     try {
-      await createUser({ name: `${form.prenom} ${form.nom}`, email: form.email || `${form.prenom.toLowerCase()}.${form.nom[0].toLowerCase()}@familystore.cm`, password: form.password, role: 'gestionnaire' });
+      await createUser({ name: `${form.prenom} ${form.nom}`, email: form.email || `${form.prenom.toLowerCase()}.${form.nom[0].toLowerCase()}@familystore.cm`, password: form.password, role: 'gestionnaire', phone: form.phone || undefined });
       onCreated();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
     finally { setLoading(false); }

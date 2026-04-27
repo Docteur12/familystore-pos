@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { forgotPassword } from '../api/auth';
 
 function LockIcon() {
   return (
@@ -27,6 +28,23 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error,    setError]    = useState<string | null>(null);
   const [loading,  setLoading]  = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotMsg, setForgotMsg] = useState<string | null>(null);
+  const [forgotLoading, setForgotLoading] = useState(false);
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotLoading(true); setForgotMsg(null); setError(null);
+    try {
+      const res = await forgotPassword(forgotEmail);
+      setForgotMsg(res.message);
+    } catch (err: any) {
+      setError(err.message ?? 'Erreur inconnue');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,6 +139,36 @@ export default function Login() {
             opacity: 0.7,
           }}/>
 
+          {forgotMode ? (
+            <form onSubmit={handleForgot} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 6px' }}>Mot de passe oublié</p>
+                <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: 0 }}>Entrez votre email pour recevoir un mot de passe temporaire.</p>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--fs-ink-500)', marginBottom: 6 }}>Adresse email</label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-400)', display: 'flex', alignItems: 'center' }}>
+                    <MailIcon/>
+                  </span>
+                  <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder="email@familystore.cm" required autoFocus
+                    style={{ width: '100%', paddingLeft: 40, paddingRight: 14, paddingTop: 11, paddingBottom: 11, border: '1px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-md)', outline: 'none', fontSize: 14, background: 'var(--fs-ivory)', color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-sans)', boxSizing: 'border-box' }}/>
+                </div>
+              </div>
+              {error && (
+                <div style={{ background: 'var(--fs-danger-100)', border: '1px solid rgba(194,62,36,0.2)', color: 'var(--fs-danger-700)', borderRadius: 'var(--fs-r-md)', padding: '10px 14px', fontSize: 13 }}>{error}</div>
+              )}
+              {forgotMsg && (
+                <div style={{ background: '#e8f0e5', border: '1px solid rgba(90,139,83,0.3)', color: 'var(--fs-success-700)', borderRadius: 'var(--fs-r-md)', padding: '10px 14px', fontSize: 13 }}>{forgotMsg}</div>
+              )}
+              <button type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '13px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 'var(--fs-r-md)', fontSize: 14, fontWeight: 600, cursor: forgotLoading ? 'not-allowed' : 'pointer', opacity: forgotLoading ? 0.8 : 1 }}>
+                {forgotLoading ? 'Envoi en cours…' : 'Envoyer le mot de passe temporaire'}
+              </button>
+              <button type="button" onClick={() => { setForgotMode(false); setError(null); setForgotMsg(null); }} style={{ background: 'none', border: 'none', color: 'var(--fs-ink-400)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
+                Retour à la connexion
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
             {/* Email */}
@@ -295,7 +343,12 @@ export default function Login() {
               ) : 'Se connecter'}
             </button>
 
+            <button type="button" onClick={() => { setForgotMode(true); setError(null); }} style={{ background: 'none', border: 'none', color: 'var(--fs-ink-400)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', textAlign: 'center' }}>
+              Mot de passe oublié ?
+            </button>
+
           </form>
+          )}
         </div>
 
         {/* ── Footer ── */}

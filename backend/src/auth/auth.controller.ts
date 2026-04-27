@@ -34,9 +34,9 @@ export class AuthController {
   @Roles('patron')
   register(
     @Body()
-    body: { name: string; email: string; password: string; role: 'caissier' | 'patron' | 'gestionnaire' },
+    body: { name: string; email: string; password: string; role: 'caissier' | 'patron' | 'gestionnaire'; phone?: string },
   ) {
-    return this.authService.register(body.name, body.email, body.password, body.role ?? 'caissier');
+    return this.authService.register(body.name, body.email, body.password, body.role ?? 'caissier', body.phone);
   }
 
   // Liste des utilisateurs (patron only)
@@ -60,7 +60,7 @@ export class AuthController {
   @UseGuards(AuthGuard)
   updateUser(
     @Param('id') id: string,
-    @Body() body: { name?: string; password?: string },
+    @Body() body: { name?: string; email?: string; phone?: string; password?: string; oldPassword?: string },
     @Req() req: Request,
   ) {
     const user = (req as any)['user'];
@@ -68,5 +68,12 @@ export class AuthController {
       throw new ForbiddenException('Accès non autorisé');
     }
     return this.authService.updateUser(id, body);
+  }
+
+  // Mot de passe oublié — pas d'auth requise
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body() body: { email: string }) {
+    return this.authService.forgotPassword(body.email);
   }
 }

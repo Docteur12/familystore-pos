@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
+import { updateUser } from '../api/auth';
 
 const BG  = '#6B1221';
 const ACT = '#4A0E1C';
@@ -58,16 +59,137 @@ const SECTIONS = [
   },
 ];
 
+// ── Mon Compte Modal ──────────────────────────────────────────────────────────
+
+function MonCompteModal({ onClose }: { onClose: () => void }) {
+  const payload = getTokenPayload();
+  const [name, setName]       = useState(payload?.name ?? '');
+  const [email, setEmail]     = useState(payload?.email ?? '');
+  const [phone, setPhone]     = useState('');
+  const [oldPwd, setOldPwd]   = useState('');
+  const [newPwd, setNewPwd]   = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState('');
+  const [success, setSuccess] = useState('');
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '9px 12px', border: '1.5px solid rgba(255,255,255,0.2)',
+    borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box',
+    fontFamily: 'var(--fs-font-sans)', background: 'rgba(255,255,255,0.08)',
+    color: '#fff',
+  };
+  const labelStyle: React.CSSProperties = {
+    fontSize: 10, fontWeight: 700, color: 'rgba(245,235,217,0.5)',
+    textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4,
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) { setError('Le nom est obligatoire.'); return; }
+    if (newPwd && newPwd !== confirmPwd) { setError('Les mots de passe ne correspondent pas.'); return; }
+    if (newPwd && !oldPwd) { setError('Saisir l\'ancien mot de passe pour changer.'); return; }
+    if (newPwd && newPwd.length < 4) { setError('Le nouveau mot de passe doit contenir au moins 4 caractères.'); return; }
+
+    setLoading(true); setError(''); setSuccess('');
+    const patch: Record<string, string> = {};
+    if (name.trim() !== payload?.name) patch.name = name.trim();
+    if (email.trim() && email.toLowerCase() !== payload?.email) patch.email = email.trim();
+    if (phone.trim()) patch.phone = phone.trim();
+    if (newPwd) { patch.password = newPwd; patch.oldPassword = oldPwd; }
+
+    if (Object.keys(patch).length === 0) { setLoading(false); onClose(); return; }
+
+    try {
+      await updateUser(payload!.sub, patch);
+      setSuccess('Profil mis à jour. Reconnectez-vous pour voir les changements.');
+      setTimeout(() => {
+        if (newPwd) { localStorage.removeItem('access_token'); window.location.href = '/login'; }
+        else onClose();
+      }, 1500);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erreur');
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      <div style={{ background: '#4A0E1C', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, width: 400, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+        {/* Header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div>
+            <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>Mon compte</p>
+            <p style={{ color: 'rgba(245,235,217,0.5)', fontSize: 11, margin: '2px 0 0' }}>Modifier vos informations</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.5)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 4 }}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '18px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {error && <div style={{ background: 'rgba(194,62,36,0.2)', color: '#f88', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{error}</div>}
+          {success && <div style={{ background: 'rgba(90,139,83,0.25)', color: '#9f9', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{success}</div>}
+
+          <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-gold-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Identité</p>
+
+          <div>
+            <label style={labelStyle}>Nom complet</label>
+            <input value={name} onChange={e => setName(e.target.value)} style={inputStyle} placeholder="Prénom Nom"/>
+          </div>
+          <div>
+            <label style={labelStyle}>Email</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} placeholder="email@familystore.cm"/>
+          </div>
+          <div>
+            <label style={labelStyle}>Téléphone</label>
+            <input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} placeholder="+237 6 XX XX XX XX"/>
+          </div>
+
+          <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-gold-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '4px 0 0' }}>Changer le mot de passe</p>
+          <div>
+            <label style={labelStyle}>Ancien mot de passe</label>
+            <input type="password" value={oldPwd} onChange={e => setOldPwd(e.target.value)} style={inputStyle} placeholder="Mot de passe actuel"/>
+          </div>
+          <div>
+            <label style={labelStyle}>Nouveau mot de passe</label>
+            <input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} style={inputStyle} placeholder="Min. 4 caractères"/>
+          </div>
+          <div>
+            <label style={labelStyle}>Confirmer le nouveau mot de passe</label>
+            <input type="password" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} style={inputStyle} placeholder="Répéter le mot de passe"/>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', gap: 10, flexShrink: 0 }}>
+          <button onClick={handleSave} disabled={loading} style={{ flex: 2, padding: '11px', background: 'var(--fs-gold-500)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
+            {loading ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+          <button onClick={onClose} style={{ flex: 1, padding: '11px', background: 'none', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'rgba(245,235,217,0.6)' }}>
+            Annuler
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+
 export default function AdminSidebar() {
   const location = useLocation();
   const payload  = getTokenPayload();
   const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+  const [showSettings, setShowSettings] = useState(false);
 
   const activeId = SECTIONS.flatMap(s => s.items).find(it =>
     location.pathname === it.path || location.pathname.startsWith(it.path + '/')
   )?.id ?? 'dashboard';
 
   return (
+    <>
+    {showSettings && <MonCompteModal onClose={() => setShowSettings(false)}/>}
     <aside style={{
       width: 200, height: '100vh', background: BG,
       display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden',
@@ -130,6 +252,11 @@ export default function AdminSidebar() {
           <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
           <div style={{ fontSize: 10, color: 'var(--fs-gold-400)', textTransform: 'capitalize' }}>{payload?.role ?? 'Administrateur'}</div>
         </div>
+        <button onClick={() => setShowSettings(true)}
+          title="Paramètres du compte"
+          style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.4)', cursor: 'pointer', display: 'flex', padding: 2, flexShrink: 0 }}>
+          <I d={D.parametres} size={13}/>
+        </button>
         <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
           title="Déconnexion"
           style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.4)', cursor: 'pointer', display: 'flex', padding: 2, flexShrink: 0 }}>
@@ -137,5 +264,6 @@ export default function AdminSidebar() {
         </button>
       </div>
     </aside>
+    </>
   );
 }

@@ -308,6 +308,7 @@ function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel:
         email: form.email || `${identifiant}@familystore.cm`,
         password: form.pin,
         role: 'caissier',
+        phone: form.phone || undefined,
       });
       onCreated();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
