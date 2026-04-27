@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { SettingsProvider } from './contexts/SettingsContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Caisse from './pages/Caisse';
@@ -54,6 +55,7 @@ function HomeRedirect() {
 
 export default function App() {
   return (
+    <SettingsProvider>
     <BrowserRouter>
       <Routes>
         <Route path="/login"     element={<Login />} />
@@ -88,5 +90,6 @@ export default function App() {
         <Route path="/admin/exports"       element={<RequireAuthBare><AdminExports /></RequireAuthBare>} />
       </Routes>
     </BrowserRouter>
+    </SettingsProvider>
   );
 }

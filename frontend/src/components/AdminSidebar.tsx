@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
 import { updateUser } from '../api/auth';
+import { useSettings } from '../contexts/SettingsContext';
 
 const BG  = '#6B1221';
 const ACT = '#4A0E1C';
@@ -182,6 +183,7 @@ export default function AdminSidebar() {
   const payload  = getTokenPayload();
   const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
   const [showSettings, setShowSettings] = useState(false);
+  const { settings } = useSettings();
 
   const activeId = SECTIONS.flatMap(s => s.items).find(it =>
     location.pathname === it.path || location.pathname.startsWith(it.path + '/')
@@ -204,7 +206,7 @@ export default function AdminSidebar() {
             </svg>
           </div>
           <div>
-            <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 13, fontWeight: 700, color: '#f5ebd9', letterSpacing: '0.05em', lineHeight: 1 }}>Family Store</div>
+            <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 13, fontWeight: 700, color: '#f5ebd9', letterSpacing: '0.05em', lineHeight: 1 }}>{settings.nomMagasin}</div>
             <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.1em', marginTop: 2 }}>Administration</div>
           </div>
         </div>

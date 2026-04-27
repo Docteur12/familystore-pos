@@ -8,6 +8,7 @@ import { SalesModule } from './sales/sales.module';
 import { ExpensesModule } from './expenses/expenses.module';
 import { ReportsModule } from './reports/reports.module';
 import { StockModule } from './stock/stock.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { StockModule } from './stock/stock.module';
     ExpensesModule,
     ReportsModule,
     StockModule,
+    SettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
