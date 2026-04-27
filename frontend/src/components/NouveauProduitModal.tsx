@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { createProduct } from '../api/products';
+import { createProduct, updateProduct, Product } from '../api/products';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -173,7 +173,9 @@ function CloseIcon() {
 
 interface Props {
   onClose: () => void;
-  onCreated: () => void;
+  onCreated?: () => void;
+  onUpdated?: () => void;
+  product?: Product;
 }
 
 type FormState = {
@@ -194,8 +196,17 @@ const INITIAL_FORM: FormState = {
 
 // ── Modal component ───────────────────────────────────────────────────────────
 
-export default function NouveauProduitModal({ onClose, onCreated }: Props) {
-  const [form, setForm]       = useState<FormState>(INITIAL_FORM);
+export default function NouveauProduitModal({ onClose, onCreated, onUpdated, product }: Props) {
+  const [form, setForm] = useState<FormState>(() => product ? {
+    name:           product.name,
+    barcode:        product.barcode ?? '',
+    category:       product.category ?? '',
+    unit:           product.unit,
+    price:          String(product.price),
+    costPrice:      String(product.costPrice),
+    stock:          String(product.stock),
+    alertThreshold: String(product.alertThreshold),
+  } : INITIAL_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
 
@@ -210,18 +221,24 @@ export default function NouveauProduitModal({ onClose, onCreated }: Props) {
     }
     setLoading(true);
     setError('');
+    const payload = {
+      name:           form.name.trim(),
+      barcode:        form.barcode.trim() || undefined,
+      category:       form.category || undefined,
+      unit:           form.unit,
+      price:          parseFloat(form.price),
+      costPrice:      parseFloat(form.costPrice) || 0,
+      stock:          parseInt(form.stock),
+      alertThreshold: parseInt(form.alertThreshold) || 5,
+    };
     try {
-      await createProduct({
-        name:           form.name.trim(),
-        barcode:        form.barcode.trim() || undefined,
-        category:       form.category || undefined,
-        unit:           form.unit,
-        price:          parseFloat(form.price),
-        costPrice:      parseFloat(form.costPrice) || 0,
-        stock:          parseInt(form.stock),
-        alertThreshold: parseInt(form.alertThreshold) || 5,
-      });
-      onCreated();
+      if (product) {
+        await updateProduct(product._id, payload);
+        onUpdated?.();
+      } else {
+        await createProduct(payload);
+        onCreated?.();
+      }
       onClose();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Erreur');
@@ -240,8 +257,8 @@ export default function NouveauProduitModal({ onClose, onCreated }: Props) {
         {/* Header */}
         <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>Nouveau produit</p>
-            <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '2px 0 0' }}>Remplir le formulaire et enregistrer</p>
+            <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{product ? 'Modifier le produit' : 'Nouveau produit'}</p>
+            <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '2px 0 0' }}>{product ? product.name : 'Remplir le formulaire et enregistrer'}</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.7)', cursor: 'pointer', display: 'flex' }}>
             <CloseIcon/>
@@ -302,7 +319,7 @@ export default function NouveauProduitModal({ onClose, onCreated }: Props) {
             disabled={loading}
             style={{ flex: 1, padding: '11px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}
           >
-            {loading ? 'Enregistrement…' : 'Enregistrer le produit'}
+            {loading ? (product ? 'Mise à jour…' : 'Enregistrement…') : (product ? 'Mettre à jour' : 'Enregistrer le produit')}
           </button>
           <button
             onClick={onClose}

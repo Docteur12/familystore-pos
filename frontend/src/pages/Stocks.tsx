@@ -4,7 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { getAllProducts, Product } from '../api/products';
+import { getAllProducts, deleteProduct, Product } from '../api/products';
 import NouveauProduitModal from '../components/NouveauProduitModal';
 import { addStockWithMovement, getMovements, StockMovement } from '../api/stock';
 import ToastContainer, { useToast }            from '../components/Toast';
@@ -258,9 +258,11 @@ function ReceptionModal({ product, onConfirm, onClose }:
 
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
-function DetailPanel({ product, onClose, onReception, onRefresh }:
-  { product: Product; onClose: () => void; onReception: () => void; onRefresh: () => void }) {
-  const [movements, setMovements] = useState<StockMovement[]>([]);
+function DetailPanel({ product, onClose, onReception, onRefresh, onEdit, onDelete }:
+  { product: Product; onClose: () => void; onReception: () => void; onRefresh: () => void; onEdit: () => void; onDelete: () => Promise<void> }) {
+  const [movements, setMovements]     = useState<StockMovement[]>([]);
+  const [confirmDel, setConfirmDel]   = useState(false);
+  const [deleting,   setDeleting]     = useState(false);
   const expiry   = expiryOf(product);
   const location = locationOf(product);
   const supplier = supplierOf(product);
@@ -396,29 +398,50 @@ function DetailPanel({ product, onClose, onReception, onRefresh }:
       </div>
 
       {/* Action buttons */}
-      <div style={{ padding: '12px 16px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 8, flexShrink: 0 }}>
-        <button onClick={onReception} style={{
-          flex: 1, padding: '9px 6px', background: 'var(--fs-wine-700)', color: '#fff',
-          border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-        }}>
-          <I d={D.plus} size={12}/> Réception
-        </button>
-        <button style={{
-          flex: 1, padding: '9px 6px', background: 'var(--fs-ivory)',
-          border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, color: 'var(--fs-ink-700)',
-        }}>
-          <I d={D.edit} size={12}/> Modifier
-        </button>
-        <button style={{
-          padding: '9px 10px', background: 'var(--fs-danger-100)',
-          border: '1.5px solid rgba(194,62,36,0.2)', borderRadius: 8, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', color: 'var(--fs-danger-700)',
-        }}>
-          <I d={D.trash} size={13}/>
-        </button>
-      </div>
+      {confirmDel ? (
+        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--fs-line)', flexShrink: 0 }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 10px', lineHeight: 1.4 }}>
+            Supprimer <strong>{product.name}</strong> ?<br/>
+            <span style={{ fontWeight: 400, color: 'var(--fs-ink-400)' }}>Cette action est irréversible.</span>
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setConfirmDel(false)}
+              style={{ flex: 1, padding: '9px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>
+              Annuler
+            </button>
+            <button
+              onClick={async () => { setDeleting(true); await onDelete(); setDeleting(false); }}
+              disabled={deleting}
+              style={{ flex: 2, padding: '9px', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-danger-700)', color: '#fff', opacity: deleting ? 0.7 : 1 }}>
+              {deleting ? 'Suppression…' : 'Confirmer la suppression'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button onClick={onReception} style={{
+            flex: 1, padding: '9px 6px', background: 'var(--fs-wine-700)', color: '#fff',
+            border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+          }}>
+            <I d={D.plus} size={12}/> Réception
+          </button>
+          <button onClick={onEdit} style={{
+            flex: 1, padding: '9px 6px', background: 'var(--fs-ivory)',
+            border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, color: 'var(--fs-ink-700)',
+          }}>
+            <I d={D.edit} size={12}/> Modifier
+          </button>
+          <button onClick={() => setConfirmDel(true)} style={{
+            padding: '9px 10px', background: 'var(--fs-danger-100)',
+            border: '1.5px solid rgba(194,62,36,0.2)', borderRadius: 8, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', color: 'var(--fs-danger-700)',
+          }}>
+            <I d={D.trash} size={13}/>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -434,8 +457,9 @@ export default function Stocks() {
   const [search,    setSearch]    = useState('');
   const [tab,       setTab]       = useState<TabMode>('all');
   const [selected,  setSelected]  = useState<Product | null>(null);
-  const [reception, setReception] = useState<Product | null>(null);
-  const [newProduct, setNewProduct] = useState(false);
+  const [reception,   setReception]   = useState<Product | null>(null);
+  const [newProduct,  setNewProduct]  = useState(false);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -468,6 +492,46 @@ export default function Stocks() {
     });
   }, [products, search, tab]);
 
+  const handleExport = () => {
+    const BOM = '\uFEFF';
+    const headers = ['SKU','Nom','Catégorie','Prix vente','Prix achat','Marge%','Stock','Seuil','Emplacement','Fournisseur','Date péremption'];
+    const rows = products.map(p => {
+      const marge = p.costPrice > 0 ? Math.round(((p.price - p.costPrice) / p.price) * 1000) / 10 : 0;
+      return [skuOf(p), p.name, p.category ?? '', p.price, p.costPrice, marge, p.stock, p.alertThreshold, locationOf(p), supplierOf(p), fmtDate(expiryOf(p))]
+        .map(v => `"${String(v).replace(/"/g, '""')}"`).join(';');
+    });
+    const csv  = BOM + [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `catalogue_produits_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!selected) return;
+    const name = selected.name;
+    try {
+      await deleteProduct(selected._id);
+      setSelected(null);
+      setProducts(prev => prev.filter(p => p._id !== selected._id));
+      addToast(`"${name}" supprimé avec succès`, 'success');
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Erreur suppression', 'error');
+    }
+  };
+
+  const handleProductUpdated = () => {
+    setEditProduct(null);
+    addToast('Produit mis à jour avec succès', 'success');
+    getAllProducts().then(list => {
+      setProducts(list);
+      setSelected(prev => prev ? (list.find(p => p._id === prev._id) ?? prev) : null);
+    }).catch(() => {});
+  };
+
   const handleAddStock = async (qty: number) => {
     if (!reception) return;
     try {
@@ -494,6 +558,9 @@ export default function Stocks() {
       )}
       {newProduct && (
         <NouveauProduitModal onClose={() => setNewProduct(false)} onCreated={fetchProducts}/>
+      )}
+      {editProduct && (
+        <NouveauProduitModal product={editProduct} onClose={() => setEditProduct(null)} onUpdated={handleProductUpdated}/>
       )}
 
       {/* ── Sidebar ── */}
@@ -533,7 +600,7 @@ export default function Stocks() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button style={{
+              <button onClick={handleExport} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
                 border: '1.5px solid var(--fs-wine-700)', borderRadius: 'var(--fs-r-md)',
                 background: 'none', color: 'var(--fs-wine-700)', fontSize: 13, fontWeight: 600,
@@ -724,6 +791,8 @@ export default function Stocks() {
           onClose={() => setSelected(null)}
           onReception={() => setReception(selected)}
           onRefresh={fetchProducts}
+          onEdit={() => setEditProduct(selected)}
+          onDelete={handleDeleteProduct}
         />
       )}
     </div>
