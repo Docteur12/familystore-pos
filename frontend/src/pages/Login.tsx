@@ -44,7 +44,7 @@ export default function Login() {
       localStorage.setItem('access_token', data.access_token);
       const pl = JSON.parse(atob(data.access_token.split('.')[1]));
       if (pl.role === 'patron') navigate('/admin/dashboard');
-      else if (pl.role === 'gestionnaire') navigate('/stocks');
+      else if (pl.role === 'gestionnaire') navigate('/stocks/dashboard');
       else navigate('/caisse-pin');
     } catch (err: any) {
       setError(err.message ?? 'Erreur inconnue');
