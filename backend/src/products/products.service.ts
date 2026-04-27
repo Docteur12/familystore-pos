@@ -18,17 +18,29 @@ export class ProductsService {
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
   ) {}
 
-  findAll() {
-    return this.productModel.find().sort({ name: 1 }).lean();
+  findAll(search?: string) {
+    if (!search?.trim()) {
+      return this.productModel.find().sort({ name: 1 }).lean();
+    }
+    const regex = new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    return this.productModel.find({
+      $or: [{ name: regex }, { barcode: regex }, { category: regex }],
+    }).sort({ name: 1 }).lean();
   }
 
   async findByBarcode(rawBarcode: string) {
-    const barcode = rawBarcode.trim();
-    this.logger.log(`[barcode] recherche: "${barcode}" (reçu: "${rawBarcode}")`);
-    const product = await this.productModel.findOne({ barcode }).lean();
+    const code = rawBarcode.trim();
+    this.logger.log(`[barcode] recherche: "${code}"`);
+    const product = await this.productModel.findOne({
+      $or: [
+        { barcode: code },
+        { barcode: new RegExp(`^${code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        { name:    new RegExp(`^${code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      ],
+    }).lean();
     if (!product) {
-      this.logger.warn(`[barcode] introuvable: "${barcode}"`);
-      throw new NotFoundException(`Aucun produit avec le code-barres "${barcode}"`);
+      this.logger.warn(`[barcode] introuvable: "${code}"`);
+      throw new NotFoundException(`Aucun produit avec le code "${code}"`);
     }
     this.logger.log(`[barcode] trouvé: "${product.name}" (_id: ${product._id})`);
     return product;

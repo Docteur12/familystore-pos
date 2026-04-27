@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
@@ -20,10 +21,10 @@ import { Roles } from '../auth/roles.decorator';
 export class ProductsController {
   constructor(private productsService: ProductsService) {}
 
-  // GET /api/products — tous les rôles
+  // GET /api/products?search=xxx — tous les rôles
   @Get()
-  findAll() {
-    return this.productsService.findAll();
+  findAll(@Query('search') search?: string) {
+    return this.productsService.findAll(search);
   }
 
   // GET /api/products/barcode/:code — tous les rôles

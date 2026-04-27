@@ -177,7 +177,11 @@ export default function Caisse() {
     if (selectedCat) list = list.filter(p => (p.category?.trim() || 'Autre') === selectedCat);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(p => p.name.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q));
+      list = list.filter(p =>
+        p.name.toLowerCase().includes(q) ||
+        p.category?.toLowerCase().includes(q) ||
+        p.barcode?.toLowerCase().includes(q)
+      );
     }
     return [...list].sort((a, b) => {
       if (sortBy === 'name')  return a.name.localeCompare(b.name, 'fr');
@@ -228,14 +232,23 @@ export default function Caisse() {
     setScanError(null);
     setScanning(true);
     try {
-      addToCart(await getProductByBarcode(code));
+      // Recherche locale d'abord (instantané, pas de réseau)
+      const local = allProducts.find(
+        p => p.barcode && p.barcode.toLowerCase() === code.toLowerCase()
+      );
+      if (local) {
+        addToCart(local);
+      } else {
+        // Fallback API si la liste locale ne contient pas le produit
+        addToCart(await getProductByBarcode(code));
+      }
     } catch (err: unknown) {
       setScanError(err instanceof Error ? err.message : 'Produit non trouvé');
       playBeep(false); vibrate(150);
     } finally {
       setScanning(false); focusScan();
     }
-  }, [searchQuery, scanning, addToCart, focusScan]);
+  }, [searchQuery, scanning, allProducts, addToCart, focusScan]);
 
   const handleQRDetected = useCallback((code: string) => {
     setScanError(null); setScanning(true);
