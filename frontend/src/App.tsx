@@ -18,6 +18,7 @@ import StocksAlertes     from './pages/StocksAlertes';
 import StocksEtiquettes  from './pages/StocksEtiquettes';
 import StocksDepots      from './pages/StocksDepots';
 import StocksFournisseurs from './pages/StocksFournisseurs';
+import StocksDashboard   from './pages/StocksDashboard';
 import AdminDashboard    from './pages/AdminDashboard';
 import AdminCaissiers    from './pages/AdminCaissiers';
 import AdminGestionnaires from './pages/AdminGestionnaires';
@@ -47,7 +48,7 @@ function HomeRedirect() {
   const payload = getTokenPayload();
   const role = payload?.role;
   if (role === 'patron') return <Navigate to="/admin/dashboard" replace />;
-  if (role === 'gestionnaire') return <Navigate to="/stocks" replace />;
+  if (role === 'gestionnaire') return <Navigate to="/stocks/dashboard" replace />;
   return <Navigate to="/caisse-pin" replace />;
 }
 
@@ -73,6 +74,7 @@ export default function App() {
         <Route path="/stocks/etiquettes"    element={<RequireAuthBare><StocksEtiquettes /></RequireAuthBare>} />
         <Route path="/stocks/depots"        element={<RequireAuthBare><StocksDepots /></RequireAuthBare>} />
         <Route path="/stocks/fournisseurs"  element={<RequireAuthBare><StocksFournisseurs /></RequireAuthBare>} />
+        <Route path="/stocks/dashboard"     element={<RequireAuthBare><StocksDashboard /></RequireAuthBare>} />
         <Route path="/admin/dashboard"    element={<RequireAuthBare><AdminDashboard /></RequireAuthBare>} />
         <Route path="/admin/caissiers"     element={<RequireAuthBare><AdminCaissiers /></RequireAuthBare>} />
         <Route path="/admin/gestionnaires" element={<RequireAuthBare><AdminGestionnaires /></RequireAuthBare>} />

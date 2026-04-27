@@ -27,7 +27,7 @@ const D = {
 };
 
 const NAV_ITEMS = [
-  { id: 'dashboard',    label: 'Tableau de bord',   icon: D.dashboard,    path: '/dashboard'           },
+  { id: 'dashboard',    label: 'Tableau de bord',   icon: D.dashboard,    path: '/stocks/dashboard'    },
   { id: 'catalogue',   label: 'Catalogue produits', icon: D.catalogue,    path: '/stocks'              },
   { id: 'receptions',  label: 'Réceptions',         icon: D.reception,    path: '/stocks/receptions'   },
   { id: 'inventaire',  label: 'Inventaire',         icon: D.inventaire,   path: '/stocks/inventaire'   },

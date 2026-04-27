@@ -4,14 +4,36 @@ import { getAllProducts, Product } from '../api/products';
 import { addStockWithMovement } from '../api/stock';
 import ToastContainer, { useToast } from '../components/Toast';
 
-interface Reception {
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+interface BLLine {
   id: string;
-  date: string;
-  product: string;
-  qty: number;
-  fournisseur: string;
-  bl: string;
+  productId: string;
+  productName: string;
+  unit: string;
+  qteAttendue: string;
+  qteRecue: string;
+  datePeremption: string;
+  etatEmballage: 'bon' | 'endommage' | '';
 }
+
+interface BonLivraison {
+  id: string;
+  numeroBL: string;
+  fournisseur: string;
+  date: string;
+  lignes: BLLine[];
+  totalEcarts: number;
+  createdAt: string;
+}
+
+const LS_KEY = 'fs_receptions_bl';
+function loadBLs(): BonLivraison[] {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) ?? '[]'); } catch { return []; }
+}
+function saveBLs(list: BonLivraison[]) { localStorage.setItem(LS_KEY, JSON.stringify(list)); }
+
+const SUPPLIERS = ['Import Maroc', 'Soleco SA', 'Import France', 'Coop. Cameroun', 'Coop. Douala', 'SABC', 'Fournisseur Local', 'Coop. Locale'];
 
 function I({ d, size = 14 }: { d: string; size?: number }) {
   return (
@@ -22,64 +44,125 @@ function I({ d, size = 14 }: { d: string; size?: number }) {
   );
 }
 const D = {
-  search: 'M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z',
   plus:   'M12 5v14M5 12h14',
+  trash:  'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6',
+  check:  'M20 6L9 17l-5-5',
+  search: 'M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z',
   pkg:    'M12 2l9 4.5v11L12 22 3 17.5v-11L12 2zM12 22V11.5M3 6.5l9 5 9-5',
 };
 
-const SUPPLIERS = ['Import Maroc', 'Soleco SA', 'Import France', 'Coop. Cameroun', 'Coop. Douala', 'SABC', 'Fournisseur Local', 'Coop. Locale'];
+function newLine(): BLLine {
+  return { id: Date.now().toString() + Math.random(), productId: '', productName: '', unit: 'unité', qteAttendue: '', qteRecue: '', datePeremption: '', etatEmballage: '' };
+}
 
-const LS_KEY = 'fs_receptions';
-function loadReceptions(): Reception[] {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) ?? '[]'); } catch { return []; }
+// ── Product selector ───────────────────────────────────────────────────────────
+
+function ProductPicker({ products, value, onChange }: {
+  products: Product[];
+  value: { id: string; name: string; unit: string } | null;
+  onChange: (p: Product) => void;
+}) {
+  const [search, setSearch] = useState(value?.name ?? '');
+  const [open, setOpen]     = useState(false);
+
+  useEffect(() => { setSearch(value?.name ?? ''); }, [value]);
+
+  const filtered = products.filter(p =>
+    search.trim() && p.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input value={search}
+        onChange={e => { setSearch(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Chercher produit…"
+        style={{ width: '100%', padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
+      {open && filtered.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 8, boxShadow: 'var(--fs-shadow-md)', zIndex: 10, maxHeight: 160, overflowY: 'auto' }}>
+          {filtered.slice(0, 8).map(p => (
+            <button key={p._id} onMouseDown={() => { onChange(p); setOpen(false); }}
+              style={{ width: '100%', padding: '7px 12px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--fs-line)', display: 'block' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
+              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Stock : {p.stock} {p.unit}</div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
-function saveReceptions(list: Reception[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(list));
-}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
+type ViewMode = 'form' | 'history';
 
 export default function StocksReceptions() {
   const { toasts, addToast, removeToast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
-  const [receptions, setReceptions] = useState<Reception[]>(loadReceptions);
-
-  const [search, setSearch]     = useState('');
-  const [selected, setSelected] = useState<Product | null>(null);
-  const [qty, setQty]           = useState('');
-  const [fournisseur, setFourn] = useState('');
-  const [bl, setBl]             = useState('');
-  const [date, setDate]         = useState(new Date().toISOString().slice(0, 10));
+  const [bls, setBls]           = useState<BonLivraison[]>(loadBLs);
+  const [view, setView]         = useState<ViewMode>('form');
   const [loading, setLoading]   = useState(false);
+
+  // BL header
+  const [numeroBL, setNumeroBL]   = useState('');
+  const [fournisseur, setFourn]   = useState('');
+  const [date, setDate]           = useState(new Date().toISOString().slice(0, 10));
+
+  // Lines
+  const [lines, setLines] = useState<BLLine[]>([newLine()]);
 
   useEffect(() => { getAllProducts().then(setProducts).catch(() => {}); }, []);
 
-  const filtered = products.filter(p =>
-    !search || p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.barcode ?? '').includes(search)
-  );
+  const setLine = (id: string, patch: Partial<BLLine>) => {
+    setLines(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l));
+  };
+
+  const removeLine = (id: string) => {
+    setLines(prev => prev.filter(l => l.id !== id));
+  };
 
   const handleSubmit = async () => {
-    if (!selected || !qty || parseInt(qty) <= 0) return;
-    setLoading(true);
-    try {
-      await addStockWithMovement(selected._id, parseInt(qty));
-      const rec: Reception = {
-        id: Date.now().toString(),
-        date,
-        product: selected.name,
-        qty: parseInt(qty),
-        fournisseur: fournisseur || 'Non renseigné',
-        bl: bl || '—',
-      };
-      const updated = [rec, ...receptions];
-      setReceptions(updated);
-      saveReceptions(updated);
-      addToast(`+${qty} ${selected.unit} — ${selected.name}`, 'success');
-      setSelected(null); setQty(''); setFourn(''); setBl('');
-    } catch (e: unknown) {
-      addToast(e instanceof Error ? e.message : 'Erreur', 'error');
-    } finally {
-      setLoading(false);
+    const validLines = lines.filter(l => l.productId && parseInt(l.qteRecue) > 0);
+    if (!fournisseur || validLines.length === 0) {
+      addToast('Fournisseur et au moins une ligne avec quantité reçue sont requis', 'error');
+      return;
     }
+    setLoading(true);
+    let ok = 0;
+    for (const l of validLines) {
+      try {
+        await addStockWithMovement(l.productId, parseInt(l.qteRecue), `BL ${numeroBL || '—'}`);
+        ok++;
+      } catch { /* continue other lines */ }
+    }
+    setLoading(false);
+
+    const totalEcarts = validLines.reduce((s, l) => {
+      const att = parseInt(l.qteAttendue) || 0;
+      const rec = parseInt(l.qteRecue) || 0;
+      return s + (rec - att);
+    }, 0);
+
+    const bl: BonLivraison = {
+      id: Date.now().toString(),
+      numeroBL: numeroBL || `BL-${Date.now().toString().slice(-6)}`,
+      fournisseur,
+      date,
+      lignes: validLines,
+      totalEcarts,
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [bl, ...bls];
+    setBls(updated);
+    saveBLs(updated);
+
+    addToast(`${ok} produit(s) réceptionné(s) — ${bl.numeroBL}`, 'success');
+    setLines([newLine()]);
+    setNumeroBL('');
+    setFourn('');
+    setDate(new Date().toISOString().slice(0, 10));
   };
 
   return (
@@ -90,114 +173,193 @@ export default function StocksReceptions() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
         {/* Header */}
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 24px', flexShrink: 0 }}>
-          <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Réceptions</h1>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
+              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Réceptions</h1>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {(['form', 'history'] as ViewMode[]).map(v => (
+                <button key={v} onClick={() => setView(v)} style={{
+                  padding: '7px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  border: view === v ? 'none' : '1.5px solid var(--fs-line-2)',
+                  background: view === v ? 'var(--fs-wine-700)' : '#fff',
+                  color: view === v ? '#fff' : 'var(--fs-ink-500)',
+                  fontFamily: 'var(--fs-font-sans)',
+                }}>
+                  {v === 'form' ? 'Nouveau BL' : `Historique (${bls.length})`}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div style={{ flex: 1, display: 'flex', gap: 0, overflow: 'hidden' }}>
-          {/* Form panel */}
-          <div style={{ width: 380, borderRight: '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--fs-line)' }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 10px' }}>Nouveau bon de réception</p>
-
-              {/* Search product */}
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Produit *</label>
-              <div style={{ position: 'relative', marginBottom: 8 }}>
-                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-300)' }}><I d={D.search} size={13}/></span>
-                <input value={search} onChange={e => { setSearch(e.target.value); setSelected(null); }}
-                  placeholder="Nom ou code-barres..."
-                  style={{ width: '100%', paddingLeft: 30, paddingRight: 10, paddingTop: 8, paddingBottom: 8, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: 'var(--fs-ivory)' }}/>
-              </div>
-
-              {/* Product list */}
-              {search && !selected && (
-                <div style={{ border: '1px solid var(--fs-line)', borderRadius: 8, overflow: 'hidden', maxHeight: 160, overflowY: 'auto', marginBottom: 8 }}>
-                  {filtered.length === 0 ? (
-                    <p style={{ padding: '10px 12px', fontSize: 12, color: 'var(--fs-ink-300)' }}>Aucun produit</p>
-                  ) : filtered.map(p => (
-                    <button key={p._id} onClick={() => { setSelected(p); setSearch(p.name); }}
-                      style={{ width: '100%', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10, border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--fs-line)' }}>
-                      <I d={D.pkg} size={13}/>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
-                        <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Stock : {p.stock} {p.unit}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {selected && (
-                <div style={{ background: 'var(--fs-wine-50)', border: '1px solid rgba(122,29,46,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: 12, color: 'var(--fs-wine-800)', fontWeight: 600 }}>
-                  {selected.name} — stock actuel : {selected.stock} {selected.unit}
-                </div>
-              )}
-
-              {/* Qty */}
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Quantité reçue *</label>
-              <input type="number" min={1} value={qty} onChange={e => setQty(e.target.value)} placeholder="ex: 50"
-                style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', marginBottom: 10, boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
-
-              {/* Fournisseur */}
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Fournisseur</label>
-              <select value={fournisseur} onChange={e => setFourn(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', marginBottom: 10, boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-                <option value="">— Sélectionner —</option>
-                {SUPPLIERS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-
-              {/* Date + BL */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+        {view === 'form' ? (
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+            {/* BL Header */}
+            <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 14px' }}>
+                Entête du bon de livraison
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Date</label>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Fournisseur *</label>
+                  <select value={fournisseur} onChange={e => setFourn(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
+                    <option value="">— Sélectionner —</option>
+                    {SUPPLIERS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>N° BL</label>
-                  <input type="text" value={bl} onChange={e => setBl(e.target.value)} placeholder="BL-2026-001"
-                    style={{ width: '100%', padding: '8px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
+                  <input value={numeroBL} onChange={e => setNumeroBL(e.target.value)} placeholder="BL-2026-001"
+                    style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Date de réception</label>
+                  <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                    style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
                 </div>
               </div>
-
-              <button onClick={handleSubmit} disabled={!selected || !qty || loading}
-                style={{ width: '100%', padding: '11px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: (!selected || !qty || loading) ? 0.5 : 1 }}>
-                {loading ? 'Enregistrement…' : `Enregistrer la réception`}
-              </button>
             </div>
-          </div>
 
-          {/* Receptions table */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>Réceptions récentes</p>
-            {receptions.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--fs-ink-300)', fontSize: 14 }}>
-                Aucune réception enregistrée
-              </div>
-            ) : (
+            {/* Lines table */}
+            <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)', marginBottom: 14 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
-                  <tr>
-                    {['Date', 'Produit', 'Qté reçue', 'Fournisseur', 'N° BL'].map(h => (
-                      <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid var(--fs-line)', background: '#fff', position: 'sticky', top: 0 }}>{h}</th>
+                  <tr style={{ background: 'var(--fs-ivory)' }}>
+                    {['Produit', 'Qté attendue', 'Qté reçue', 'Date péremption', 'État emballage', 'Écart', ''].map(h => (
+                      <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {receptions.map((r, i) => (
-                    <tr key={r.id} style={{ background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
-                      <td style={{ padding: '10px 12px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-500)' }}>{r.date}</td>
-                      <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{r.product}</td>
-                      <td style={{ padding: '10px 12px', fontSize: 14, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-success-700)' }}>+{r.qty}</td>
-                      <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{r.fournisseur}</td>
-                      <td style={{ padding: '10px 12px', fontSize: 11, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-400)' }}>{r.bl}</td>
-                    </tr>
-                  ))}
+                  {lines.map((line, idx) => {
+                    const att = parseInt(line.qteAttendue) || 0;
+                    const rec = parseInt(line.qteRecue) || 0;
+                    const ecart = line.qteAttendue && line.qteRecue ? rec - att : null;
+                    return (
+                      <tr key={line.id} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
+                        <td style={{ padding: '8px 12px', minWidth: 220 }}>
+                          <ProductPicker
+                            products={products}
+                            value={line.productId ? { id: line.productId, name: line.productName, unit: line.unit } : null}
+                            onChange={p => setLine(line.id, { productId: p._id, productName: p.name, unit: p.unit })}
+                          />
+                        </td>
+                        <td style={{ padding: '8px 12px', minWidth: 100 }}>
+                          <input type="number" min={0} value={line.qteAttendue}
+                            onChange={e => setLine(line.id, { qteAttendue: e.target.value })}
+                            placeholder="0"
+                            style={{ width: 80, padding: '6px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, fontFamily: 'var(--fs-font-mono)', outline: 'none', textAlign: 'center' }}/>
+                        </td>
+                        <td style={{ padding: '8px 12px', minWidth: 100 }}>
+                          <input type="number" min={0} value={line.qteRecue}
+                            onChange={e => setLine(line.id, { qteRecue: e.target.value })}
+                            placeholder="0"
+                            style={{ width: 80, padding: '6px 8px', border: '2px solid var(--fs-wine-700)', borderRadius: 8, fontSize: 13, fontFamily: 'var(--fs-font-mono)', outline: 'none', textAlign: 'center', background: 'var(--fs-wine-50)' }}/>
+                        </td>
+                        <td style={{ padding: '8px 12px', minWidth: 140 }}>
+                          <input type="date" value={line.datePeremption}
+                            onChange={e => setLine(line.id, { datePeremption: e.target.value })}
+                            style={{ padding: '6px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', fontFamily: 'var(--fs-font-sans)' }}/>
+                        </td>
+                        <td style={{ padding: '8px 12px', minWidth: 130 }}>
+                          <select value={line.etatEmballage} onChange={e => setLine(line.id, { etatEmballage: e.target.value as BLLine['etatEmballage'] })}
+                            style={{ padding: '6px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff', color: line.etatEmballage === 'endommage' ? 'var(--fs-danger-700)' : 'var(--fs-ink-700)' }}>
+                            <option value="">— État —</option>
+                            <option value="bon">Bon état</option>
+                            <option value="endommage">Endommagé</option>
+                          </select>
+                        </td>
+                        <td style={{ padding: '8px 12px', textAlign: 'center', minWidth: 60 }}>
+                          {ecart !== null && (
+                            <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: ecart > 0 ? 'var(--fs-success-700)' : ecart < 0 ? 'var(--fs-danger-700)' : 'var(--fs-ink-400)' }}>
+                              {ecart > 0 ? `+${ecart}` : ecart === 0 ? '=' : ecart}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '8px 12px' }}>
+                          <button onClick={() => removeLine(line.id)} disabled={lines.length === 1}
+                            style={{ background: 'none', border: 'none', cursor: lines.length > 1 ? 'pointer' : 'default', color: 'var(--fs-ink-300)', opacity: lines.length > 1 ? 1 : 0.3, display: 'flex' }}>
+                            <I d={D.trash} size={14}/>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
-            )}
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <button onClick={() => setLines(prev => [...prev, newLine()])}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', border: '1.5px dashed var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)' }}>
+                <I d={D.plus} size={13}/> Ajouter une ligne
+              </button>
+              <button onClick={handleSubmit} disabled={loading}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 24px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
+                <I d={D.check} size={13}/> {loading ? 'Enregistrement…' : 'Valider la réception'}
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          // History view
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+            {bls.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Aucune réception enregistrée</div>
+            ) : bls.map(bl => (
+              <div key={bl.id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, marginBottom: 14, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: '1px solid var(--fs-line)', background: 'var(--fs-ivory)' }}>
+                  <div style={{ display: 'flex', gap: 14 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-mono)' }}>{bl.numeroBL}</span>
+                    <span style={{ fontSize: 12, color: 'var(--fs-ink-500)' }}>{bl.fournisseur}</span>
+                    <span style={{ fontSize: 12, color: 'var(--fs-ink-400)', fontFamily: 'var(--fs-font-mono)' }}>{bl.date}</span>
+                  </div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 10,
+                    background: bl.totalEcarts < 0 ? '#FAE5DF' : bl.totalEcarts > 0 ? '#E8F0E5' : 'var(--fs-ivory)',
+                    color: bl.totalEcarts < 0 ? 'var(--fs-danger-700)' : bl.totalEcarts > 0 ? 'var(--fs-success-700)' : 'var(--fs-ink-400)',
+                  }}>
+                    Écart total : {bl.totalEcarts > 0 ? `+${bl.totalEcarts}` : bl.totalEcarts}
+                  </span>
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      {['Produit', 'Qté attendue', 'Qté reçue', 'Date péremption', 'État', 'Écart'].map(h => (
+                        <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bl.lignes.map((l, i) => {
+                      const ecart = (parseInt(l.qteRecue) || 0) - (parseInt(l.qteAttendue) || 0);
+                      return (
+                        <tr key={l.id} style={{ background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
+                          <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{l.productName}</td>
+                          <td style={{ padding: '9px 14px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-500)' }}>{l.qteAttendue || '—'}</td>
+                          <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-success-700)' }}>+{l.qteRecue}</td>
+                          <td style={{ padding: '9px 14px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-400)' }}>{l.datePeremption || '—'}</td>
+                          <td style={{ padding: '9px 14px' }}>
+                            {l.etatEmballage && (
+                              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 8, background: l.etatEmballage === 'bon' ? '#E8F0E5' : '#FAE5DF', color: l.etatEmballage === 'bon' ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' }}>
+                                {l.etatEmballage === 'bon' ? 'Bon état' : 'Endommagé'}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: ecart > 0 ? 'var(--fs-success-700)' : ecart < 0 ? 'var(--fs-danger-700)' : 'var(--fs-ink-400)' }}>
+                            {l.qteAttendue ? (ecart > 0 ? `+${ecart}` : ecart === 0 ? '=' : ecart) : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

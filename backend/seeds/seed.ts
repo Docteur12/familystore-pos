@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 // ── Schemas inline (évite d'importer NestJS) ─────────────────────────────────
 
@@ -104,21 +104,19 @@ const PRODUCTS = [
 // ── Seed ──────────────────────────────────────────────────────────────────────
 
 async function seed() {
-  const uri = process.env.MONGODB_URI ?? 'mongodb://localhost:27017/familystore';
+  const uri = process.env.MONGO_URI ?? 'mongodb://localhost:27017/familystore';
   console.log(`\nConnexion à MongoDB : ${uri}`);
   await mongoose.connect(uri);
   console.log('Connecté.\n');
 
   // ── Utilisateurs ────────────────────────────────────────────────────────────
   console.log('--- Utilisateurs ---');
+  const deleted = await UserModel.deleteMany({ email: { $in: USERS.map(u => u.email) } });
+  console.log(`  ${deleted.deletedCount} ancien(s) utilisateur(s) supprimé(s)`);
   for (const u of USERS) {
     const hashed = await bcrypt.hash(u.password, 10);
-    const result = await UserModel.findOneAndUpdate(
-      { email: u.email },
-      { name: u.name, email: u.email, password: hashed, role: u.role },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
-    console.log(`  [${result.role.padEnd(8)}] ${result.email}`);
+    const result = await UserModel.create({ name: u.name, email: u.email, password: hashed, role: u.role });
+    console.log(`  [${result.role.padEnd(12)}] ${result.email}  (bcryptjs)`);
   }
 
   // ── Produits ─────────────────────────────────────────────────────────────────
