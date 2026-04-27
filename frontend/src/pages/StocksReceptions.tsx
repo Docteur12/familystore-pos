@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
 import { addStockWithMovement } from '../api/stock';
@@ -11,6 +11,7 @@ interface BLLine {
   productId: string;
   productName: string;
   unit: string;
+  barcode: string;
   qteAttendue: string;
   qteRecue: string;
   datePeremption: string;
@@ -52,7 +53,124 @@ const D = {
 };
 
 function newLine(): BLLine {
-  return { id: Date.now().toString() + Math.random(), productId: '', productName: '', unit: 'unité', qteAttendue: '', qteRecue: '', datePeremption: '', etatEmballage: '' };
+  return { id: Date.now().toString() + Math.random(), productId: '', productName: '', unit: 'unité', barcode: '', qteAttendue: '', qteRecue: '', datePeremption: '', etatEmballage: '' };
+}
+
+// ── Code39 barcode renderer ───────────────────────────────────────────────────
+
+const CODE39_MAP: Record<string, string> = {
+  '0':'101001101101','1':'110100101011','2':'101100101011','3':'110110010101',
+  '4':'101001101011','5':'110100110101','6':'101100110101','7':'101001011011',
+  '8':'110100101101','9':'101100101101','A':'110101001011','B':'101101001011',
+  'C':'110110100101','D':'101011001011','E':'110101100101','F':'101101100101',
+  'G':'101010011011','H':'110101001101','I':'101101001101','J':'101011001101',
+  'K':'110101010011','L':'101101010011','M':'110110101001','N':'101011010011',
+  'O':'110101101001','P':'101101101001','Q':'101010110011','R':'110101011001',
+  'S':'101101011001','T':'101011011001','U':'110010101011','V':'100110101011',
+  'W':'110011010101','X':'100101101011','Y':'110010110101','Z':'100110110101',
+  '-':'100101011011','*':'100101101101',
+};
+
+function drawCode39(canvas: HTMLCanvasElement, text: string, barW = 1.0, h = 26) {
+  const raw = ('*' + text.toUpperCase().replace(/[^0-9A-Z\-]/g, '') + '*')
+    .split('').map(c => CODE39_MAP[c] ?? '').filter(Boolean).join('0');
+  if (!raw) return;
+  canvas.width  = Math.ceil(raw.length * barW);
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, h);
+  ctx.fillStyle = '#1a1a1a';
+  [...raw].forEach((bit, i) => {
+    if (bit === '1') ctx.fillRect(Math.round(i * barW), 0, Math.ceil(barW), h);
+  });
+}
+
+// ── BLProductCell — sélecteur produit avec scan code-barres ───────────────────
+
+function BLProductCell({ products, line, onChange }: {
+  products: Product[];
+  line: BLLine;
+  onChange: (patch: Partial<BLLine>) => void;
+}) {
+  const [scanMode, setScanMode] = useState(false);
+  const scanRef   = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (line.barcode && canvasRef.current) drawCode39(canvasRef.current, line.barcode);
+  }, [line.barcode]);
+
+  const activateScan = () => {
+    setScanMode(true);
+    setTimeout(() => scanRef.current?.focus(), 30);
+  };
+
+  const handleBarcode = (raw: string) => {
+    const match = products.find(p => p.barcode === raw);
+    if (match) {
+      onChange({ barcode: raw, productId: match._id, productName: match.name, unit: match.unit });
+      setScanMode(false);
+    } else {
+      onChange({ barcode: raw });
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      {/* Ligne scan */}
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        {scanMode ? (
+          <input
+            ref={scanRef}
+            type="text"
+            value={line.barcode}
+            onChange={e => handleBarcode(e.target.value)}
+            onBlur={() => { if (!line.barcode) setScanMode(false); }}
+            placeholder="Pointez le scanner..."
+            style={{ flex: 1, padding: '5px 8px', border: '1.5px solid var(--fs-wine-700)', borderRadius: 7,
+              fontSize: 11, outline: 'none', fontFamily: 'var(--fs-font-mono)', boxSizing: 'border-box',
+              animation: 'scanPulse 1.2s ease-in-out infinite' }}
+          />
+        ) : (
+          <div style={{ flex: 1, fontSize: 10, fontFamily: 'var(--fs-font-mono)',
+            color: line.barcode ? 'var(--fs-ink-600)' : 'var(--fs-ink-300)',
+            background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)',
+            borderRadius: 7, padding: '4px 8px', minHeight: 26 }}>
+            {line.barcode || 'Aucun code-barres'}
+          </div>
+        )}
+        <button type="button" onClick={activateScan}
+          style={{ width: 28, height: 28, flexShrink: 0, border: `1.5px solid ${scanMode ? 'var(--fs-wine-700)' : 'var(--fs-line-2)'}`,
+            borderRadius: 7, background: scanMode ? 'rgba(122,29,46,0.07)' : '#fff',
+            cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          title="Scanner le code-barres">
+          📷
+        </button>
+      </div>
+
+      {/* Preview code-barres */}
+      {line.barcode && (
+        <div style={{ borderRadius: 6, border: '1px solid var(--fs-line)', overflow: 'hidden', lineHeight: 0 }}>
+          <canvas ref={canvasRef} style={{ display: 'block', height: 26, imageRendering: 'pixelated' }}/>
+        </div>
+      )}
+
+      {/* Sélecteur produit par nom */}
+      <ProductPicker
+        products={products}
+        value={line.productId ? { id: line.productId, name: line.productName, unit: line.unit } : null}
+        onChange={p => onChange({ productId: p._id, productName: p.name, unit: p.unit })}
+      />
+      {line.barcode && !line.productId && (
+        <div style={{ fontSize: 10, color: 'var(--fs-danger-700)', fontWeight: 600 }}>
+          Produit non trouvé — chercher manuellement
+        </div>
+      )}
+      <style>{`@keyframes scanPulse{0%,100%{box-shadow:0 0 0 3px rgba(122,29,46,0.10)}50%{box-shadow:0 0 0 5px rgba(122,29,46,0.22)}}`}</style>
+    </div>
+  );
 }
 
 // ── Product selector ───────────────────────────────────────────────────────────
@@ -240,11 +358,11 @@ export default function StocksReceptions() {
                     const ecart = line.qteAttendue && line.qteRecue ? rec - att : null;
                     return (
                       <tr key={line.id} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
-                        <td style={{ padding: '8px 12px', minWidth: 220 }}>
-                          <ProductPicker
+                        <td style={{ padding: '8px 12px', minWidth: 240 }}>
+                          <BLProductCell
                             products={products}
-                            value={line.productId ? { id: line.productId, name: line.productName, unit: line.unit } : null}
-                            onChange={p => setLine(line.id, { productId: p._id, productName: p.name, unit: p.unit })}
+                            line={line}
+                            onChange={patch => setLine(line.id, patch)}
                           />
                         </td>
                         <td style={{ padding: '8px 12px', minWidth: 100 }}>
