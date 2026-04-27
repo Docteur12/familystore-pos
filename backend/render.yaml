@@ -11,7 +11,7 @@ services:
         value: production
       - key: PORT
         value: 3000
-      - key: MONGODB_URI
+      - key: MONGO_URI
         sync: false   # À définir dans le dashboard Render (MongoDB Atlas URI)
       - key: JWT_SECRET
         sync: false   # À définir dans le dashboard Render

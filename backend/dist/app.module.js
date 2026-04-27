@@ -7,7 +7,6 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
-require("dotenv/config");
 const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const app_controller_1 = require("./app.controller");
@@ -24,7 +23,11 @@ exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forRoot(process.env.MONGODB_URI ?? 'mongodb://localhost:27017/familystore'),
+            mongoose_1.MongooseModule.forRootAsync({
+                useFactory: () => ({
+                    uri: process.env.MONGO_URI,
+                }),
+            }),
             auth_module_1.AuthModule,
             products_module_1.ProductsModule,
             sales_module_1.SalesModule,
