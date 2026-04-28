@@ -61,6 +61,18 @@ export async function marquerEnvoye(demandeId: string): Promise<DemandeStock> {
   return res.json();
 }
 
+export interface ReceptionFull extends ReceptionRecord {
+  creePar: { _id: string; name: string; role: string } | null;
+  createdAt: string;
+}
+
+export async function getAllReceptions(userId?: string): Promise<ReceptionFull[]> {
+  const url = userId ? `/api/magazinier/receptions?userId=${userId}` : '/api/magazinier/receptions';
+  const res = await fetch(url, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement réceptions');
+  return res.json();
+}
+
 export async function getHistorique(): Promise<{
   receptions: ReceptionRecord[];
   envois: DemandeStock[];

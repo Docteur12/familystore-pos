@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
+import { getAllReceptions } from '../api/magazinier';
+
+const LS_RECEPTION_SEEN = 'receptions_last_seen';
 
 const SIDEBAR_BG  = '#6B1221';
 const SIDEBAR_ACT = '#8B1A2B';
@@ -41,6 +44,16 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
   const location = useLocation();
   const payload  = getTokenPayload();
   const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
+
+  const [receptionBadge, setReceptionBadge] = useState(0);
+
+  useEffect(() => {
+    getAllReceptions().then(recs => {
+      const lastSeen = parseInt(localStorage.getItem(LS_RECEPTION_SEEN) ?? '0');
+      const newCount = recs.filter(r => r.creePar?.role === 'magazinier' && new Date(r.createdAt).getTime() > lastSeen).length;
+      setReceptionBadge(newCount);
+    }).catch(() => {});
+  }, [location.pathname]);
 
   const activeId = NAV_ITEMS.find(it =>
     it.path === location.pathname ||
@@ -92,6 +105,11 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
               {item.id === 'alertes' && alertCount > 0 && (
                 <span style={{ background: 'var(--fs-danger-500)', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8 }}>
                   {alertCount}
+                </span>
+              )}
+              {item.id === 'receptions' && receptionBadge > 0 && (
+                <span style={{ background: '#ef4444', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8 }}>
+                  {receptionBadge}
                 </span>
               )}
             </Link>

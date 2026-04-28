@@ -17,6 +17,14 @@ export class MagazinierController {
     return this.svc.createReception(body, req.user.sub);
   }
 
+  // Toutes les réceptions (optionnel ?userId=xxx)
+  @Get('receptions')
+  @UseGuards(RolesGuard)
+  @Roles('magazinier', 'gestionnaire', 'patron')
+  getAllReceptions(@Query('userId') userId?: string) {
+    return this.svc.getAllReceptions(userId);
+  }
+
   // Voir les demandes (en_attente par défaut, ?statut=all pour tout)
   @Get('demandes')
   @UseGuards(RolesGuard)

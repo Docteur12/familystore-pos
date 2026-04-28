@@ -3,6 +3,9 @@ import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
 import { addStockWithMovement } from '../api/stock';
 import ToastContainer, { useToast } from '../components/Toast';
+import { getAllReceptions, ReceptionFull } from '../api/magazinier';
+
+const LS_RECEPTION_SEEN = 'receptions_last_seen';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -215,6 +218,7 @@ function ProductPicker({ products, value, onChange }: {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 type ViewMode = 'form' | 'history';
+type HistoFilter = 'tous' | 'moi' | 'magazinier';
 
 export default function StocksReceptions() {
   const { toasts, addToast, removeToast } = useToast();
@@ -222,6 +226,8 @@ export default function StocksReceptions() {
   const [bls, setBls]           = useState<BonLivraison[]>(loadBLs);
   const [view, setView]         = useState<ViewMode>('form');
   const [loading, setLoading]   = useState(false);
+  const [magRecs, setMagRecs]   = useState<ReceptionFull[]>([]);
+  const [histoFilter, setHistoFilter] = useState<HistoFilter>('tous');
 
   // BL header
   const [numeroBL, setNumeroBL]   = useState('');
@@ -232,6 +238,14 @@ export default function StocksReceptions() {
   const [lines, setLines] = useState<BLLine[]>([newLine()]);
 
   useEffect(() => { getAllProducts().then(setProducts).catch(() => {}); }, []);
+
+  // Charge les réceptions magazinier + marque comme vu
+  useEffect(() => {
+    getAllReceptions().then(recs => {
+      setMagRecs(recs);
+      localStorage.setItem(LS_RECEPTION_SEEN, Date.now().toString());
+    }).catch(() => {});
+  }, []);
 
   const setLine = (id: string, patch: Partial<BLLine>) => {
     setLines(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l));
@@ -424,9 +438,96 @@ export default function StocksReceptions() {
         ) : (
           // History view
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
-            {bls.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Aucune réception enregistrée</div>
-            ) : bls.map(bl => (
+
+            {/* Filtre */}
+            <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+              {([['tous', 'Tous'], ['moi', 'Par moi'], ['magazinier', 'Par magazinier']] as [HistoFilter, string][]).map(([key, label]) => (
+                <button key={key} onClick={() => setHistoFilter(key)} style={{
+                  padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)',
+                  border: histoFilter === key ? 'none' : '1.5px solid var(--fs-line-2)',
+                  background: histoFilter === key ? 'var(--fs-wine-700)' : '#fff',
+                  color: histoFilter === key ? '#fff' : 'var(--fs-ink-500)',
+                }}>
+                  {label}
+                  {key === 'magazinier' && magRecs.length > 0 && (
+                    <span style={{ marginLeft: 6, background: histoFilter === key ? 'rgba(255,255,255,0.25)' : 'var(--fs-ivory)', padding: '0 5px', borderRadius: 8, fontSize: 10 }}>
+                      {magRecs.length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Réceptions magazinier (backend) */}
+            {(histoFilter === 'tous' || histoFilter === 'magazinier') && magRecs.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                {histoFilter === 'tous' && (
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 10px' }}>
+                    Réceptions magazinier
+                  </p>
+                )}
+                {magRecs.map(r => (
+                  <div key={r._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, marginBottom: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: '1px solid var(--fs-line)', background: '#f0fdf4' }}>
+                      <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{r.fournisseur}</span>
+                        <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', fontFamily: 'var(--fs-font-mono)' }}>
+                          {new Date(r.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </span>
+                        {r.creePar?.role === 'gestionnaire' || r.creePar?.role === 'patron' ? (
+                          <span style={{ fontSize: 11, fontWeight: 700, background: '#6B1221', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>
+                            Gestionnaire
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-gold-500)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>
+                            Magazinier · {r.creePar?.name ?? '—'}
+                          </span>
+                        )}
+                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{r.items.length} article(s)</span>
+                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>
+                          {['Produit', 'Qté reçue', 'Reçu par'].map(h => (
+                            <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.items.map((item, i) => (
+                          <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
+                            <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{item.productName}</td>
+                            <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: '#16a34a' }}>+{item.quantity}</td>
+                            <td style={{ padding: '9px 14px' }}>
+                              {r.creePar?.role === 'gestionnaire' || r.creePar?.role === 'patron' ? (
+                                <span style={{ fontSize: 11, fontWeight: 700, background: '#6B1221', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Gestionnaire</span>
+                              ) : (
+                                <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-gold-500)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Magazinier · {r.creePar?.name ?? '—'}</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {r.note && <div style={{ padding: '8px 18px', fontSize: 11, color: 'var(--fs-ink-400)', borderTop: '1px solid var(--fs-line)', background: 'var(--fs-ivory)' }}>Note : {r.note}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Réceptions gestionnaire (localStorage) */}
+            {(histoFilter === 'tous' || histoFilter === 'moi') && (
+              <div>
+                {histoFilter === 'tous' && bls.length > 0 && (
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 10px' }}>
+                    Mes bons de livraison
+                  </p>
+                )}
+                {bls.length === 0 && histoFilter === 'moi' && (
+                  <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Aucun BL enregistré</div>
+                )}
+                {bls.map(bl => (
               <div key={bl.id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, marginBottom: 14, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: '1px solid var(--fs-line)', background: 'var(--fs-ivory)' }}>
                   <div style={{ display: 'flex', gap: 14 }}>
@@ -475,7 +576,14 @@ export default function StocksReceptions() {
                   </tbody>
                 </table>
               </div>
-            ))}
+                ))}
+              </div>
+            )}
+
+            {/* État vide global */}
+            {histoFilter === 'tous' && bls.length === 0 && magRecs.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Aucune réception enregistrée</div>
+            )}
           </div>
         )}
       </main>

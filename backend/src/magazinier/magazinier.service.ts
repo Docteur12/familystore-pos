@@ -93,6 +93,18 @@ export class MagazinierService {
       .lean();
   }
 
+  // ── GET /magazinier/receptions (toutes, filtre optionnel) ────────────────
+
+  getAllReceptions(userId?: string) {
+    const filter = userId ? { creePar: new Types.ObjectId(userId) } : {};
+    return this.receptionModel
+      .find(filter)
+      .populate('creePar', 'name role')
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean();
+  }
+
   // ── GET /magazinier/historique ────────────────────────────────────────────
 
   async getHistorique(userId: string) {
