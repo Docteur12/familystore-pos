@@ -14,7 +14,7 @@ export class User {
   @Prop({ required: true })
   password: string;
 
-  @Prop({ required: true, enum: ['caissier', 'patron', 'gestionnaire'], default: 'caissier' })
+  @Prop({ required: true, enum: ['caissier', 'patron', 'gestionnaire', 'magazinier'], default: 'caissier' })
   role: string;
 
   @Prop({ required: false, trim: true, default: '' })

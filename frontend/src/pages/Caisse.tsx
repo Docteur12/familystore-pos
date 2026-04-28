@@ -9,6 +9,10 @@ import React, {
 import { getAllProducts, createSale, getProductByBarcode, Product } from '../api/products';
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
+import {
+  cacheProducts, getCachedProducts, savePendingSale, getPendingSales,
+  syncPendingSales, decrementCachedStock,
+} from '../services/offlineSync';
 import QRScanner from '../components/QRScanner';
 import Receipt, { ReceiptData } from '../components/Receipt';
 
@@ -156,16 +160,59 @@ export default function Caisse() {
   const [ticketTime]                        = useState(() =>
     new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   );
+  const [isOnline,       setIsOnline]       = useState(() => navigator.onLine);
+  const [pendingCount,   setPendingCount]   = useState(0);
 
   // Dynamic row height — computed after filteredProducts (see below)
 
-  // ── Load products ─────────────────────────────────────────────────────────
+  // ── Load products (online → API + cache / offline → IndexedDB) ───────────
   useEffect(() => {
-    getAllProducts()
-      .then(setAllProducts)
-      .catch(() => {})
-      .finally(() => setLoadingProds(false));
+    (async () => {
+      if (navigator.onLine) {
+        try {
+          const prods = await getAllProducts();
+          setAllProducts(prods);
+          await cacheProducts(prods);
+        } catch {
+          const cached = await getCachedProducts();
+          setAllProducts(cached);
+        }
+      } else {
+        const cached = await getCachedProducts();
+        setAllProducts(cached);
+      }
+      setLoadingProds(false);
+      const pending = await getPendingSales();
+      setPendingCount(pending.length);
+    })();
   }, []);
+
+  // Refresh cache every 30 minutes when online
+  useEffect(() => {
+    if (!isOnline) return;
+    const id = setInterval(async () => {
+      const prods = await getAllProducts().catch(() => null);
+      if (prods) { setAllProducts(prods); await cacheProducts(prods); }
+    }, 30 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [isOnline]);
+
+  // Online / offline events
+  useEffect(() => {
+    const onOnline = () => {
+      setIsOnline(true);
+      syncPendingSales(addToast).then(() =>
+        getPendingSales().then(p => setPendingCount(p.length)),
+      );
+    };
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online',  onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online',  onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, [addToast]);
 
   // ── Categories ────────────────────────────────────────────────────────────
   const categories = useMemo(() => {
@@ -344,6 +391,30 @@ export default function Caisse() {
     const pmLabel  = PAYMENT_METHODS.find(p => p.value === paymentMethod)?.label ?? paymentMethod;
     const effPaid  = paymentMethod === 'cash' ? paid : total;
     setValidating(true);
+
+    // ── Offline path ─────────────────────────────────────────────────────────
+    if (!navigator.onLine) {
+      try {
+        await savePendingSale({
+          items: cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: i.product.price })),
+          total, paymentMethod, amountPaid: effPaid,
+        });
+        for (const item of cart) {
+          await decrementCachedStock(item.product._id, item.quantity);
+        }
+        const cached = await getCachedProducts();
+        setAllProducts(cached);
+        setPendingCount(prev => prev + 1);
+        addToast('Mode hors ligne — vente sauvegardée localement', 'warning');
+        setCart([]); setAmountPaid(''); setPaymentMethod('cash');
+      } catch {
+        addToast('Erreur sauvegarde locale', 'error');
+      } finally {
+        setValidating(false); focusScan();
+      }
+      return;
+    }
+
     try {
       const result = await createSale({
         items: cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: i.product.price })),
@@ -582,6 +653,30 @@ export default function Caisse() {
           }} onClick={() => setShowQR(true)}>
             <Ico d={ICO_SCAN} size={13}/>
             SCANNER PRÊT
+          </div>
+
+          {/* Connection indicator */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 12px',
+            border: `1.5px solid ${isOnline ? '#22c55e' : '#f97316'}`,
+            borderRadius: 'var(--fs-r-md)',
+            background: isOnline ? '#f0fdf4' : '#fff7ed',
+            color: isOnline ? '#16a34a' : '#c2410c',
+            fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+          }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+              background: isOnline ? '#22c55e' : '#f97316',
+              boxShadow: isOnline ? '0 0 0 2px #bbf7d0' : '0 0 0 2px #fed7aa',
+            }}/>
+            {isOnline ? 'En ligne' : 'Hors ligne'}
+            {!isOnline && pendingCount > 0 && (
+              <span style={{
+                background: '#f97316', color: '#fff',
+                borderRadius: 10, padding: '1px 6px', fontSize: 11, fontWeight: 700,
+              }}>{pendingCount}</span>
+            )}
           </div>
 
           {/* View toggle */}

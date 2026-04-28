@@ -5,6 +5,7 @@ import { updateUser } from '../api/auth';
 import { getTokenPayload } from '../api/dashboard';
 import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings } from '../api/settings';
 import { useSettings } from '../contexts/SettingsContext';
+import { getPendingSales, getLastSyncTime, syncPendingSales } from '../services/offlineSync';
 
 // ── Styles partagés ──────────────────────────────────────────────────────────
 
@@ -128,6 +129,36 @@ function fromSForm(f: SForm): Partial<StoreSettings> {
 export default function AdminParametres() {
   const { reloadSettings } = useSettings();
   const { toasts, addToast, removeToast } = useToast();
+
+  // ── Sync status ──────────────────────────────────────────────────────────
+  const [syncPending,  setSyncPending]  = useState(0);
+  const [lastSync,     setLastSync]     = useState<Date | null>(null);
+  const [isSyncing,    setIsSyncing]    = useState(false);
+
+  const loadSyncStatus = useCallback(async () => {
+    const [pending, last] = await Promise.all([getPendingSales(), getLastSyncTime()]);
+    setSyncPending(pending.length);
+    setLastSync(last);
+  }, []);
+
+  useEffect(() => { loadSyncStatus(); }, [loadSyncStatus]);
+
+  const handleForceSync = useCallback(async () => {
+    setIsSyncing(true);
+    await syncPendingSales(addToast);
+    await loadSyncStatus();
+    setIsSyncing(false);
+  }, [addToast, loadSyncStatus]);
+
+  function formatLastSync(d: Date | null): string {
+    if (!d) return 'Jamais';
+    const diff = Math.floor((Date.now() - d.getTime()) / 60000);
+    if (diff < 1) return 'À l\'instant';
+    if (diff === 1) return 'Il y a 1 minute';
+    if (diff < 60) return `Il y a ${diff} minutes`;
+    const h = Math.floor(diff / 60);
+    return `Il y a ${h} heure${h > 1 ? 's' : ''}`;
+  }
 
   // ── Settings form ────────────────────────────────────────────────────────
   const [form, setForm]       = useState<SForm>(toSForm(SETTINGS_DEFAULTS));
@@ -295,6 +326,36 @@ export default function AdminParametres() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <Field label="Page Facebook"   value={form.facebook} onChange={mkChange('facebook')} placeholder="https://facebook.com/familystore"/>
               <Field label="WhatsApp Business" value={form.whatsapp} onChange={mkChange('whatsapp')} placeholder="+237 6XX XXX XXX"/>
+            </div>
+          </div>
+
+          {/* ── Synchronisation hors-ligne ───────────────────────────────── */}
+          <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
+            <p style={SECTION_TITLE}>Synchronisation hors-ligne</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--fs-ivory)', borderRadius: 8, fontSize: 13 }}>
+                <span style={{ color: 'var(--fs-ink-500)', fontWeight: 500 }}>Dernière synchronisation</span>
+                <span style={{ color: 'var(--fs-ink-900)', fontWeight: 600, fontFamily: 'var(--fs-font-mono)' }}>{formatLastSync(lastSync)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: syncPending > 0 ? '#fff7ed' : 'var(--fs-ivory)', borderRadius: 8, fontSize: 13, border: syncPending > 0 ? '1px solid #fed7aa' : 'none' }}>
+                <span style={{ color: 'var(--fs-ink-500)', fontWeight: 500 }}>Ventes en attente</span>
+                <span style={{ color: syncPending > 0 ? '#c2410c' : '#16a34a', fontWeight: 700, fontFamily: 'var(--fs-font-mono)' }}>
+                  {syncPending > 0 ? `${syncPending} vente(s)` : 'Aucune'}
+                </span>
+              </div>
+              <button
+                onClick={handleForceSync}
+                disabled={isSyncing || syncPending === 0}
+                style={{
+                  alignSelf: 'flex-start',
+                  padding: '9px 22px',
+                  background: isSyncing || syncPending === 0 ? 'var(--fs-ink-200)' : 'var(--fs-wine-700)',
+                  color: isSyncing || syncPending === 0 ? 'var(--fs-ink-400)' : '#fff',
+                  border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700,
+                  cursor: isSyncing || syncPending === 0 ? 'not-allowed' : 'pointer',
+                }}>
+                {isSyncing ? 'Synchronisation…' : 'Forcer la synchronisation'}
+              </button>
             </div>
           </div>
 

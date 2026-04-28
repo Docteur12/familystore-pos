@@ -31,6 +31,7 @@ import AdminComptabilite from './pages/AdminComptabilite';
 import AdminRoles        from './pages/AdminRoles';
 import AdminAudit        from './pages/AdminAudit';
 import AdminExports      from './pages/AdminExports';
+import Magazinier        from './pages/Magazinier';
 import { getTokenPayload } from './api/dashboard';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -48,8 +49,9 @@ function RequireAuthBare({ children }: { children: React.ReactNode }) {
 function HomeRedirect() {
   const payload = getTokenPayload();
   const role = payload?.role;
-  if (role === 'patron') return <Navigate to="/admin/dashboard" replace />;
+  if (role === 'patron')       return <Navigate to="/admin/dashboard" replace />;
   if (role === 'gestionnaire') return <Navigate to="/stocks/dashboard" replace />;
+  if (role === 'magazinier')   return <Navigate to="/magazinier" replace />;
   return <Navigate to="/caisse-pin" replace />;
 }
 
@@ -88,6 +90,7 @@ export default function App() {
         <Route path="/admin/roles"         element={<RequireAuthBare><AdminRoles /></RequireAuthBare>} />
         <Route path="/admin/audit"         element={<RequireAuthBare><AdminAudit /></RequireAuthBare>} />
         <Route path="/admin/exports"       element={<RequireAuthBare><AdminExports /></RequireAuthBare>} />
+        <Route path="/magazinier"          element={<RequireAuthBare><Magazinier /></RequireAuthBare>} />
       </Routes>
     </BrowserRouter>
     </SettingsProvider>

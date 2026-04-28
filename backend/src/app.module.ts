@@ -9,6 +9,7 @@ import { ExpensesModule } from './expenses/expenses.module';
 import { ReportsModule } from './reports/reports.module';
 import { StockModule } from './stock/stock.module';
 import { SettingsModule } from './settings/settings.module';
+import { MagazinierModule } from './magazinier/magazinier.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SettingsModule } from './settings/settings.module';
     ReportsModule,
     StockModule,
     SettingsModule,
+    MagazinierModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
 import { getStatsWeek, getTopProducts, WeekDay, TopProduct } from '../api/dashboard';
+import { createDemande } from '../api/magazinier';
+import ToastContainer, { useToast } from '../components/Toast';
 
 function I({ d, size = 15 }: { d: string; size?: number }) {
   return (
@@ -41,10 +43,30 @@ const catColor = (c?: string) => CAT_COLORS[c?.toLowerCase() ?? ''] ?? '#DDD4C8'
 
 export default function StocksDashboard() {
   const navigate = useNavigate();
+  const { toasts, addToast, removeToast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [weekData, setWeekData] = useState<WeekDay[]>([]);
   const [topProds, setTopProds] = useState<TopProduct[]>([]);
   const [loading,  setLoading]  = useState(true);
+
+  // Demande magazinier modal
+  const [demandeModal, setDemandeModal] = useState<{ product: Product } | null>(null);
+  const [demandeQty,   setDemandeQty]   = useState('');
+  const [dSending,     setDSending]     = useState(false);
+
+  const handleDemander = useCallback(async () => {
+    if (!demandeModal) return;
+    const qty = parseInt(demandeQty);
+    if (!qty || qty < 1) { addToast('Quantité invalide', 'error'); return; }
+    setDSending(true);
+    try {
+      await createDemande({ produitId: demandeModal.product._id, quantiteDemandee: qty });
+      addToast(`Demande envoyée au magazinier — ${demandeModal.product.name}`, 'success');
+      setDemandeModal(null); setDemandeQty('');
+    } catch (e: unknown) {
+      addToast(e instanceof Error ? e.message : 'Erreur', 'error');
+    } finally { setDSending(false); }
+  }, [demandeModal, demandeQty, addToast]);
 
   useEffect(() => {
     Promise.all([
@@ -84,7 +106,46 @@ export default function StocksDashboard() {
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
+      <ToastContainer toasts={toasts} onRemove={removeToast}/>
       <StocksSidebar alertCount={lowCount}/>
+
+      {/* ── Modal demande magazinier ───────────────────────────────────── */}
+      {demandeModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setDemandeModal(null)}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}
+            onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>Demande au magazinier</p>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', margin: '0 0 16px' }}>{demandeModal.product.name}</h3>
+            <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: '0 0 14px' }}>
+              Stock actuel : <strong style={{ color: 'var(--fs-danger-700)' }}>{demandeModal.product.stock} {demandeModal.product.unit}</strong>
+            </p>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>
+                Quantité à demander
+              </label>
+              <input
+                type="number" min={1} autoFocus
+                value={demandeQty}
+                onChange={e => setDemandeQty(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleDemander(); if (e.key === 'Escape') setDemandeModal(null); }}
+                style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
+                placeholder={`Nombre de ${demandeModal.product.unit}s`}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setDemandeModal(null)}
+                style={{ flex: 1, padding: '10px', background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
+                Annuler
+              </button>
+              <button onClick={handleDemander} disabled={dSending}
+                style={{ flex: 1, padding: '10px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: dSending ? 0.7 : 1 }}>
+                {dSending ? 'Envoi…' : 'Envoyer la demande'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
         {/* Header */}
@@ -201,10 +262,17 @@ export default function StocksDashboard() {
                 return (
                   <div key={p._id} style={{ padding: '9px 0', borderBottom: i < lowProducts.length - 1 ? '1px solid var(--fs-line)' : 'none' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '75%' }}>{p.name}</span>
-                      <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: p.stock === 0 ? 'var(--fs-danger-700)' : '#D97706', flexShrink: 0 }}>
-                        {p.stock} <span style={{ fontSize: 10, fontWeight: 400 }}>u.</span>
-                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{p.name}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: p.stock === 0 ? 'var(--fs-danger-700)' : '#D97706' }}>
+                          {p.stock} <span style={{ fontSize: 10, fontWeight: 400 }}>u.</span>
+                        </span>
+                        <button
+                          onClick={() => { setDemandeModal({ product: p }); setDemandeQty(''); }}
+                          style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', background: '#FEF0E0', color: '#92400e', border: '1px solid #FCD34D', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          + Demander
+                        </button>
+                      </div>
                     </div>
                     <div style={{ height: 4, background: 'var(--fs-line)', borderRadius: 2, overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${Math.round(ratio * 100)}%`, background: p.stock === 0 ? 'var(--fs-danger-500)' : '#D97706', borderRadius: 2 }}/>

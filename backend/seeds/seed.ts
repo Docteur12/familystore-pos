@@ -8,7 +8,7 @@ const UserSchema = new mongoose.Schema({
   name:     { type: String, required: true },
   email:    { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true },
-  role:     { type: String, enum: ['caissier', 'patron', 'gestionnaire'], default: 'caissier' },
+  role:     { type: String, enum: ['caissier', 'patron', 'gestionnaire', 'magazinier'], default: 'caissier' },
 }, { timestamps: true });
 
 const ProductSchema = new mongoose.Schema({
@@ -45,6 +45,12 @@ const USERS = [
     email:    'stock@familystore.cm',
     password: 'stock123',
     role:     'gestionnaire',
+  },
+  {
+    name:     'Magazinier Principal',
+    email:    'magazinier@familystore.cm',
+    password: 'magazin123',
+    role:     'magazinier',
   },
 ];
 
@@ -111,7 +117,7 @@ async function seed() {
 
   // ── Utilisateurs ────────────────────────────────────────────────────────────
   console.log('--- Utilisateurs ---');
-  const deleted = await UserModel.deleteMany({ email: { $in: USERS.map(u => u.email) } });
+  const deleted = await UserModel.deleteMany({ email: { $in: USERS.map((u: { email: string }) => u.email) } });
   console.log(`  ${deleted.deletedCount} ancien(s) utilisateur(s) supprimé(s)`);
   for (const u of USERS) {
     const hashed = await bcrypt.hash(u.password, 10);
