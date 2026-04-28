@@ -45,9 +45,10 @@ const SECTIONS = [
     title: 'Personnel',
     items: [
       { id: 'equipe',       label: 'Équipe',             icon: D.equipe,       path: '/admin/equipe',       badge: 12 },
-      { id: 'caissiers',   label: 'Caissiers',           icon: D.caissiers,    path: '/admin/caissiers'  },
-      { id: 'gestionnaires',label: 'Gestionnaires',      icon: D.gestionnaires,path: '/admin/gestionnaires' },
-      { id: 'roles',        label: 'Rôles & accès',      icon: D.roles,        path: '/admin/roles'      },
+      { id: 'caissiers',    label: 'Caissiers',            icon: D.caissiers,    path: '/admin/caissiers'     },
+      { id: 'gestionnaires',label: 'Gestionnaires',       icon: D.gestionnaires,path: '/admin/gestionnaires' },
+      { id: 'magaziniers',  label: 'Magaziniers',         icon: D.equipe,       path: '/admin/magaziniers'   },
+      { id: 'roles',        label: 'Rôles & accès',       icon: D.roles,        path: '/admin/roles'         },
     ],
   },
   {

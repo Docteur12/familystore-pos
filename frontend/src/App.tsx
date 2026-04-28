@@ -31,6 +31,7 @@ import AdminComptabilite from './pages/AdminComptabilite';
 import AdminRoles        from './pages/AdminRoles';
 import AdminAudit        from './pages/AdminAudit';
 import AdminExports      from './pages/AdminExports';
+import AdminMagaziniers  from './pages/AdminMagaziniers';
 import Magazinier        from './pages/Magazinier';
 import { getTokenPayload } from './api/dashboard';
 
@@ -90,6 +91,7 @@ export default function App() {
         <Route path="/admin/roles"         element={<RequireAuthBare><AdminRoles /></RequireAuthBare>} />
         <Route path="/admin/audit"         element={<RequireAuthBare><AdminAudit /></RequireAuthBare>} />
         <Route path="/admin/exports"       element={<RequireAuthBare><AdminExports /></RequireAuthBare>} />
+        <Route path="/admin/magaziniers"   element={<RequireAuthBare><AdminMagaziniers /></RequireAuthBare>} />
         <Route path="/magazinier"          element={<RequireAuthBare><Magazinier /></RequireAuthBare>} />
       </Routes>
     </BrowserRouter>

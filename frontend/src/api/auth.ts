@@ -4,7 +4,7 @@ export interface UserRecord {
   _id:   string;
   name:  string;
   email: string;
-  role:  'patron' | 'caissier' | 'gestionnaire';
+  role:  'patron' | 'caissier' | 'gestionnaire' | 'magazinier';
   phone?: string;
 }
 
@@ -16,7 +16,7 @@ export async function getUsers(): Promise<UserRecord[]> {
 
 export async function createUser(data: {
   name: string; email: string; password: string;
-  role: 'caissier' | 'gestionnaire'; phone?: string;
+  role: 'caissier' | 'gestionnaire' | 'magazinier'; phone?: string;
 }): Promise<UserRecord> {
   const res = await fetch('/api/auth/register', {
     method: 'POST',
