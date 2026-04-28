@@ -319,7 +319,7 @@ export default function StocksReceptions() {
                   color: view === v ? '#fff' : 'var(--fs-ink-500)',
                   fontFamily: 'var(--fs-font-sans)',
                 }}>
-                  {v === 'form' ? 'Nouveau BL' : `Historique (${bls.length})`}
+                  {v === 'form' ? 'Nouveau BL' : `Historique (${bls.length + magRecs.length})`}
                 </button>
               ))}
             </div>
