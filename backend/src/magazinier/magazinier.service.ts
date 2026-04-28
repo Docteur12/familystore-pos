@@ -35,7 +35,7 @@ export class MagazinierService {
         productId: new Types.ObjectId(item.productId),
         type:      'IN',
         quantity:  item.quantity,
-        reason:    'magazinier-reception',
+        reason:    'reception',
         note:      `Fournisseur: ${body.fournisseur}`,
       });
 
