@@ -411,8 +411,33 @@ export default function Caisse() {
         const cached = await getCachedProducts();
         setAllProducts(cached);
         setPendingCount(prev => prev + 1);
-        addToast('Mode hors ligne — vente sauvegardée localement', 'warning');
+        addToast('Mode hors ligne — vente sauvegardée, à synchroniser', 'warning');
+
+        // Générer et afficher le reçu hors ligne (impression possible)
+        const d       = new Date();
+        const dateP   = d.toISOString().slice(0, 10).replace(/-/g, '');
+        const tvaAmt  = Math.round(total * TVA_RATE / (1 + TVA_RATE));
+        const offlineData: ReceiptData = {
+          receiptNo:    `OFF-${dateP}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+          date:         d,
+          cashierName:  payload?.name ?? 'Caissier',
+          storePhone:   settings.telephone || undefined,
+          items:        cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: i.product.price })),
+          total,
+          tva:          tvaAmt,
+          paymentLabel: pmLabel,
+          amountPaid:   effPaid,
+          change:       Math.max(0, effPaid - total),
+        };
+        setReceiptData(offlineData);
         setCart([]); setAmountPaid(''); setPaymentMethod('cash');
+
+        // Auto-impression si activée
+        const ps = getPrintSettings();
+        if (ps.auto) {
+          const html = buildReceiptHTML(offlineData, ps.showTva);
+          doPrint(html, ps.copies);
+        }
       } catch {
         addToast('Erreur sauvegarde locale', 'error');
       } finally {
