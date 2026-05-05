@@ -11,16 +11,20 @@ import { Model } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import * as nodemailer from 'nodemailer';
 import { User, UserDocument } from '../schemas/user.schema';
+import { AuditLog, AuditLogDocument } from '../schemas/audit-log.schema';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(User.name)     private userModel:     Model<UserDocument>,
+    @InjectModel(AuditLog.name) private auditLogModel: Model<AuditLogDocument>,
     private jwtService: JwtService,
   ) {}
 
   async login(email: string, password: string) {
-    const user = await this.userModel.findOne({ email: email.toLowerCase() });
+    const user = await this.userModel
+      .findOne({ email: email.toLowerCase() })
+      .populate('caisseId');
     if (!user) {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
@@ -28,25 +32,39 @@ export class AuthService {
     if (!isMatch) {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
+    const caisse = user.caisseId
+      ? {
+          _id:   (user.caisseId as any)._id,
+          nom:   (user.caisseId as any).nom,
+          code:  (user.caisseId as any).code,
+          pin:   (user.caisseId as any).pin,
+          ville: (user.caisseId as any).ville,
+        }
+      : null;
     const payload = {
-      sub: user._id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
+      sub:    user._id,
+      email:  user.email,
+      name:   user.name,
+      role:   user.role,
+      caisse,
     };
     return {
       access_token: await this.jwtService.signAsync(payload),
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, caisse },
     };
   }
 
-  async register(name: string, email: string, password: string, role: string, phone?: string) {
+  async register(name: string, email: string, password: string, role: string, phone?: string, caisseId?: string) {
     const existing = await this.userModel.findOne({ email: email.toLowerCase() });
     if (existing) {
       throw new ConflictException('Cet email est déjà utilisé');
     }
     const hashed = await bcrypt.hash(password, 10);
-    const user = await this.userModel.create({ name, email, password: hashed, role, phone: phone ?? '' });
+    const user = await this.userModel.create({
+      name, email, password: hashed, role,
+      phone: phone ?? '',
+      caisseId: caisseId ?? null,
+    });
     return { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone };
   }
 
@@ -71,11 +89,12 @@ export class AuthService {
       }
     }
 
-    const update: Record<string, string> = {};
-    if (data.name?.trim())     update.name     = data.name.trim();
-    if (data.email?.trim())    update.email    = data.email.toLowerCase().trim();
-    if (data.phone !== undefined) update.phone = data.phone.trim();
-    if (data.password?.trim()) update.password = await bcrypt.hash(data.password.trim(), 10);
+    const update: Record<string, any> = {};
+    if (data.name?.trim())        update.name     = data.name.trim();
+    if (data.email?.trim())       update.email    = data.email.toLowerCase().trim();
+    if (data.phone !== undefined) update.phone    = data.phone.trim();
+    if (data.password?.trim())    update.password = await bcrypt.hash(data.password.trim(), 10);
+    if ('caisseId' in data)       update.caisseId = (data as any).caisseId ?? null;
 
     if (Object.keys(update).length === 0) return this.userModel.findById(id).select('-password');
     const user = await this.userModel
@@ -83,6 +102,61 @@ export class AuthService {
       .select('-password');
     if (!user) throw new NotFoundException('Utilisateur introuvable');
     return user;
+  }
+
+  // ── GET /api/auth/users/activity — users enrichis avec données AuditLog ──────
+
+  async getUserActivity() {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [users, auditStats] = await Promise.all([
+      this.userModel.find().select('-password').lean(),
+      this.auditLogModel.aggregate([
+        { $sort: { createdAt: -1 } },
+        {
+          $group: {
+            _id:              '$actorName',
+            lastActionAt:     { $first: '$createdAt' },
+            lastActionDetail: { $first: '$detail' },
+            allCreatedAt:     { $push: '$createdAt' },
+          },
+        },
+        {
+          $project: {
+            lastActionAt:     1,
+            lastActionDetail: 1,
+            actionsToday: {
+              $size: {
+                $filter: {
+                  input: '$allCreatedAt',
+                  cond:  { $gte: ['$$this', todayStart] },
+                },
+              },
+            },
+          },
+        },
+      ]),
+    ]);
+
+    const byName = new Map<string, { lastActionAt: Date; actionsToday: number; lastActionDetail: string }>(
+      auditStats.map(a => [a._id as string, a]),
+    );
+
+    return users.map(u => {
+      const audit = byName.get(u.name);
+      return {
+        _id:              String(u._id),
+        name:             u.name,
+        email:            u.email,
+        role:             u.role,
+        phone:            u.phone ?? '',
+        caisseId:         u.caisseId ? String(u.caisseId) : null,
+        lastActionAt:     audit?.lastActionAt     ?? null,
+        actionsToday:     audit?.actionsToday     ?? 0,
+        lastActionDetail: audit?.lastActionDetail ?? null,
+      };
+    });
   }
 
   async forgotPassword(email: string) {

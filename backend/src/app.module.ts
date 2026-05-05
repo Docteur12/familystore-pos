@@ -10,6 +10,8 @@ import { ReportsModule } from './reports/reports.module';
 import { StockModule } from './stock/stock.module';
 import { SettingsModule } from './settings/settings.module';
 import { MagazinierModule } from './magazinier/magazinier.module';
+import { CaissesModule } from './caisses/caisses.module';
+import { AuditModule }  from './audit/audit.module';
 
 @Module({
   imports: [
@@ -18,6 +20,7 @@ import { MagazinierModule } from './magazinier/magazinier.module';
         uri: process.env.MONGO_URI,
       }),
     }),
+    AuditModule,   // global — doit être avant les autres modules
     AuthModule,
     ProductsModule,
     SalesModule,
@@ -26,6 +29,7 @@ import { MagazinierModule } from './magazinier/magazinier.module';
     StockModule,
     SettingsModule,
     MagazinierModule,
+    CaissesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

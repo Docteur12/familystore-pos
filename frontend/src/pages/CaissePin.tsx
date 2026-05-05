@@ -2,14 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
 
-const PIN_LENGTH      = 6;
-const REGISTER_NAME   = 'CAISSE 01';
-const REGISTER_CITY   = 'Akwa, Douala';
-const APP_VERSION     = '2.4.1';
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function pinKey(userId: string) { return `pin_${userId}`; }
+const PIN_LENGTH  = 4;
+const APP_VERSION = '2.4.1';
 
 // ── SVG helpers ───────────────────────────────────────────────────────────────
 
@@ -80,6 +74,9 @@ export default function CaissePin() {
   const navigate = useNavigate();
   const payload  = getTokenPayload();
 
+  // Caisse assignée au caissier — incluse dans le JWT lors du login
+  const caisse = payload?.caisse;
+
   const [pin,   setPin]   = useState('');
   const [error, setError] = useState(false);
   const [time,  setTime]  = useState(new Date());
@@ -98,21 +95,18 @@ export default function CaissePin() {
     .toUpperCase();
 
   const verify = useCallback((entered: string) => {
-    const userId = String(payload?.sub ?? '');
-    const stored = localStorage.getItem(pinKey(userId));
-    if (!stored) {
-      // First-time: save whatever the user enters as their PIN
-      localStorage.setItem(pinKey(userId), entered);
+    if (!caisse?.pin) {
+      // Aucune caisse assignée — accès direct (cas patron/gestionnaire)
       navigate('/caisse');
       return;
     }
-    if (stored === entered) {
+    if (entered === caisse.pin) {
       navigate('/caisse');
     } else {
       setError(true);
       setTimeout(() => { setPin(''); setError(false); }, 700);
     }
-  }, [navigate, payload]);
+  }, [navigate, caisse]);
 
   const handleDigit = useCallback((d: string) => {
     setPin(prev => {
@@ -193,7 +187,7 @@ export default function CaissePin() {
           }}/>
 
           <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, margin: '0 0 5px' }}>
-            Espace de caisse · {REGISTER_CITY}
+            Espace de caisse · {caisse?.ville ?? 'Douala'}
           </p>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, margin: 0 }}>
             {dateStr} — {timeLabel}
@@ -207,7 +201,7 @@ export default function CaissePin() {
           textTransform: 'uppercase',
           margin: 0,
         }}>
-          Version {APP_VERSION} · {REGISTER_NAME}
+          Version {APP_VERSION} · {caisse?.nom ?? 'CAISSE'}
         </p>
       </div>
 
@@ -246,7 +240,7 @@ export default function CaissePin() {
             {payload?.name ?? '—'}
           </div>
           <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', letterSpacing: '0.02em' }}>
-            Caissière · {REGISTER_NAME}
+            Caissière · {caisse?.nom ?? '—'}
           </div>
         </div>
 

@@ -6,10 +6,14 @@ import { AuthService } from './auth.service';
 import { AuthGuard } from './auth.guard';
 import { RolesGuard } from './roles.guard';
 import { User, UserSchema } from '../schemas/user.schema';
+import { AuditLog, AuditLogSchema } from '../schemas/audit-log.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    MongooseModule.forFeature([
+      { name: User.name,     schema: UserSchema     },
+      { name: AuditLog.name, schema: AuditLogSchema },
+    ]),
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET ?? 'fallback_secret',

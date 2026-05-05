@@ -1,0 +1,9 @@
+Placer ici l'icône de l'application :
+
+  assets/icon.ico   — requis pour la build Windows (256x256 px minimum)
+
+L'application fonctionne sans l'icône en mode développement (npm start).
+La build de production (npm run build) échouera si icon.ico est absent.
+
+Convertisseur recommandé : https://convertio.co/png-ico/
+Taille cible : 256x256 px

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
-import { getStatsWeek, getTopProducts, WeekDay, TopProduct } from '../api/dashboard';
+import { getStatsWeek, getTopProducts, PeriodDay, TopProduct } from '../api/dashboard';
 import { createDemande } from '../api/magazinier';
 import ToastContainer, { useToast } from '../components/Toast';
 
@@ -45,7 +45,7 @@ export default function StocksDashboard() {
   const navigate = useNavigate();
   const { toasts, addToast, removeToast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
-  const [weekData, setWeekData] = useState<WeekDay[]>([]);
+  const [weekData, setWeekData] = useState<PeriodDay[]>([]);
   const [topProds, setTopProds] = useState<TopProduct[]>([]);
   const [loading,  setLoading]  = useState(true);
 
@@ -71,7 +71,7 @@ export default function StocksDashboard() {
   useEffect(() => {
     Promise.all([
       getAllProducts(),
-      getStatsWeek().catch(() => [] as WeekDay[]),
+      getStatsWeek().catch(() => [] as PeriodDay[]),
       getTopProducts().catch(() => [] as TopProduct[]),
     ]).then(([prods, week, top]) => {
       setProducts(prods);

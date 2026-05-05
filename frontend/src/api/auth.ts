@@ -1,11 +1,18 @@
 import { authHeaders } from './http';
 
 export interface UserRecord {
-  _id:   string;
-  name:  string;
-  email: string;
-  role:  'patron' | 'caissier' | 'gestionnaire' | 'magazinier';
-  phone?: string;
+  _id:      string;
+  name:     string;
+  email:    string;
+  role:     'patron' | 'caissier' | 'gestionnaire' | 'magazinier';
+  phone?:   string;
+  caisseId?: string | null;
+}
+
+export interface UserActivity extends UserRecord {
+  lastActionAt:     string | null;
+  actionsToday:     number;
+  lastActionDetail: string | null;
 }
 
 export async function getUsers(): Promise<UserRecord[]> {
@@ -14,9 +21,15 @@ export async function getUsers(): Promise<UserRecord[]> {
   return res.json();
 }
 
+export async function getUserActivity(): Promise<UserActivity[]> {
+  const res = await fetch('/api/auth/users/activity', { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement activité');
+  return res.json();
+}
+
 export async function createUser(data: {
   name: string; email: string; password: string;
-  role: 'caissier' | 'gestionnaire' | 'magazinier'; phone?: string;
+  role: 'caissier' | 'gestionnaire' | 'magazinier'; phone?: string; caisseId?: string;
 }): Promise<UserRecord> {
   const res = await fetch('/api/auth/register', {
     method: 'POST',
@@ -30,7 +43,7 @@ export async function createUser(data: {
 
 export async function updateUser(
   id: string,
-  data: { name?: string; email?: string; phone?: string; password?: string; oldPassword?: string },
+  data: { name?: string; email?: string; phone?: string; password?: string; oldPassword?: string; caisseId?: string | null },
 ): Promise<UserRecord> {
   const res = await fetch(`/api/auth/users/${id}`, {
     method: 'PATCH',

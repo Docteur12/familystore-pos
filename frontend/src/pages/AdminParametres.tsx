@@ -6,6 +6,7 @@ import { getTokenPayload } from '../api/dashboard';
 import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings } from '../api/settings';
 import { useSettings } from '../contexts/SettingsContext';
 import { getPendingSales, getLastSyncTime, syncPendingSales } from '../services/offlineSync';
+import { getPrintSettings, savePrintSettings, PrintSettings } from '../components/ReceiptPrint';
 
 // ── Styles partagés ──────────────────────────────────────────────────────────
 
@@ -159,6 +160,17 @@ export default function AdminParametres() {
     const h = Math.floor(diff / 60);
     return `Il y a ${h} heure${h > 1 ? 's' : ''}`;
   }
+
+  // ── Print settings (localStorage) ───────────────────────────────────────
+  const [printSettings, setPrintSettings] = useState<PrintSettings>(() => getPrintSettings());
+
+  const updatePrint = useCallback(<K extends keyof PrintSettings>(k: K, v: PrintSettings[K]) => {
+    setPrintSettings(prev => {
+      const next = { ...prev, [k]: v };
+      savePrintSettings(next);
+      return next;
+    });
+  }, []);
 
   // ── Settings form ────────────────────────────────────────────────────────
   const [form, setForm]       = useState<SForm>(toSForm(SETTINGS_DEFAULTS));
@@ -326,6 +338,79 @@ export default function AdminParametres() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <Field label="Page Facebook"   value={form.facebook} onChange={mkChange('facebook')} placeholder="https://facebook.com/familystore"/>
               <Field label="WhatsApp Business" value={form.whatsapp} onChange={mkChange('whatsapp')} placeholder="+237 6XX XXX XXX"/>
+            </div>
+          </div>
+
+          {/* ── Impression des reçus ─────────────────────────────────────── */}
+          <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
+            <p style={SECTION_TITLE}>Impression des reçus</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+              {/* Toggle impression automatique */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>Impression automatique</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>Imprimer le reçu dès la validation d'une vente</div>
+                </div>
+                <button
+                  onClick={() => updatePrint('auto', !printSettings.auto)}
+                  style={{
+                    width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
+                    background: printSettings.auto ? 'var(--fs-wine-700)' : 'var(--fs-line-2)',
+                    position: 'relative', flexShrink: 0, transition: 'background 0.2s',
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: 3, left: printSettings.auto ? 22 : 3,
+                    width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'left 0.2s',
+                  }}/>
+                </button>
+              </div>
+
+              {/* Nombre de copies */}
+              <div>
+                <label style={LABEL_STYLE}>Nombre de copies</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[1, 2].map(n => (
+                    <button
+                      key={n}
+                      onClick={() => updatePrint('copies', n)}
+                      style={{
+                        flex: 1, padding: '8px 0', border: printSettings.copies === n ? '2px solid var(--fs-wine-700)' : '1.5px solid var(--fs-line-2)',
+                        borderRadius: 8, background: printSettings.copies === n ? 'var(--fs-wine-50)' : '#fff',
+                        color: printSettings.copies === n ? 'var(--fs-wine-700)' : 'var(--fs-ink-600)',
+                        fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                      }}
+                    >
+                      {n} copie{n > 1 ? 's' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Toggle afficher TVA */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>Afficher la TVA sur le reçu</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>Affiche le montant TVA incluse (19.25%)</div>
+                </div>
+                <button
+                  onClick={() => updatePrint('showTva', !printSettings.showTva)}
+                  style={{
+                    width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
+                    background: printSettings.showTva ? 'var(--fs-wine-700)' : 'var(--fs-line-2)',
+                    position: 'relative', flexShrink: 0, transition: 'background 0.2s',
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: 3, left: printSettings.showTva ? 22 : 3,
+                    width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'left 0.2s',
+                  }}/>
+                </button>
+              </div>
+
             </div>
           </div>
 

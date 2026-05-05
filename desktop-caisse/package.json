@@ -1,0 +1,42 @@
+{
+  "name": "familystore-caisse",
+  "version": "1.0.0",
+  "description": "Family Store POS — Application Caisse (mode kiosque)",
+  "main": "main.js",
+  "author": "RDCT",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.familystore.caisse",
+    "productName": "FamilyStore Caisse",
+    "copyright": "© 2025 RDCT",
+    "files": [
+      "main.js",
+      "preload.js",
+      "splash.html",
+      "offline.html",
+      "assets/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "portable": {
+      "artifactName": "FamilyStore-Caisse-${version}.exe"
+    }
+  }
+}

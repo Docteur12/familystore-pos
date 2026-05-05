@@ -15,6 +15,8 @@ import {
 } from '../services/offlineSync';
 import QRScanner from '../components/QRScanner';
 import Receipt, { ReceiptData } from '../components/Receipt';
+import { buildReceiptHTML, doPrint, getPrintSettings, openCashDrawer } from '../components/ReceiptPrint';
+import { useSettings } from '../contexts/SettingsContext';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -133,6 +135,7 @@ export default function Caisse() {
   const payload   = getTokenPayload();
   const navigate  = undefined; // not needed here
   const { toasts, addToast, removeToast } = useToast();
+  const { settings } = useSettings();
 
   const scanInputRef = useRef<HTMLInputElement>(null);
 
@@ -420,16 +423,33 @@ export default function Caisse() {
         items: cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: i.product.price })),
         total, paymentMethod, amountPaid: effPaid,
       });
-      const d      = new Date();
-      const dateP  = d.toISOString().slice(0, 10).replace(/-/g, '');
-      const idPart = String(result.sale._id).slice(-6).toUpperCase();
-      setReceiptData({
+      const d       = new Date();
+      const dateP   = d.toISOString().slice(0, 10).replace(/-/g, '');
+      const idPart  = String(result.sale._id).slice(-6).toUpperCase();
+      const tvaAmt  = Math.round(total * TVA_RATE / (1 + TVA_RATE));
+      const newData: ReceiptData = {
         receiptNo:    `FSV-${dateP}-${idPart}`,
         date:         d,
+        cashierName:  payload?.name ?? 'Caissier',
+        storePhone:   settings.telephone || undefined,
         items:        cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: i.product.price })),
-        total, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
-      });
+        total,
+        tva:          tvaAmt,
+        paymentLabel: pmLabel,
+        amountPaid:   effPaid,
+        change:       result.change,
+      };
+      setReceiptData(newData);
       setCart([]); setAmountPaid(''); setPaymentMethod('cash');
+
+      // Auto-print si activé dans les paramètres
+      const ps = getPrintSettings();
+      if (ps.auto) {
+        const html = buildReceiptHTML(newData, ps.showTva);
+        doPrint(html, ps.copies);
+        if (paymentMethod === 'cash') openCashDrawer();
+      }
+
       for (const a of result.alerts) {
         addToast(a.stock === 0 ? `Rupture — ${a.productName}` : `Stock bas — ${a.productName} : ${a.stock} restant(s)`, 'warning');
       }
@@ -572,7 +592,7 @@ export default function Caisse() {
               {payload?.name?.split(' ')[0] ?? '—'} {payload?.name?.split(' ').slice(-1)[0]?.[0] ?? ''}.
             </div>
             <div style={{ fontSize: 11, color: 'var(--fs-gold-400)', marginTop: 1 }}>
-              Caissière · CAISSE 01
+              {payload?.role === 'caissier' ? 'Caissier(e)' : payload?.role ?? 'Caissier'} · {payload?.caisse?.nom ?? '—'}
             </div>
           </div>
           <button
@@ -1034,14 +1054,14 @@ export default function Caisse() {
                 />
                 {!notEnough && paid >= total && paid > 0 && (
                   <div style={{
-                    marginTop: 6, padding: '6px 10px',
+                    marginTop: 6, padding: '10px 12px',
                     background: 'var(--fs-success-100)',
-                    border: '1px solid rgba(90,139,83,0.25)',
-                    borderRadius: 'var(--fs-r-sm)',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    border: '2px solid rgba(90,139,83,0.35)',
+                    borderRadius: 'var(--fs-r-md)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
                   }}>
-                    <span style={{ fontSize: 13, color: 'var(--fs-success-700)' }}>Rendu</span>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-success-700)' }}>{fmtN(change)} XAF</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-success-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Monnaie à rendre</span>
+                    <span style={{ fontSize: 28, fontWeight: 900, color: 'var(--fs-success-700)', fontFamily: 'var(--fs-font-mono)', lineHeight: 1.1 }}>{fmtN(change)} <span style={{ fontSize: 14, fontWeight: 600 }}>XAF</span></span>
                   </div>
                 )}
               </div>

@@ -17,7 +17,7 @@ import {
   getTopProducts,
   StatsToday,
   TopProduct,
-  WeekDay,
+  PeriodDay,
 } from '../api/dashboard';
 import { getAllProducts, Product } from '../api/products';
 
@@ -62,7 +62,7 @@ export default function Dashboard() {
 
   // ── Data states ───────────────────────────────────────────────────────────
   const [statsToday,  setStatsToday]  = useState<StatsToday | null>(null);
-  const [weekData,    setWeekData]    = useState<WeekDay[]>([]);
+  const [weekData,    setWeekData]    = useState<PeriodDay[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [products,    setProducts]    = useState<Product[]>([]);
   const [loading,     setLoading]     = useState(true);

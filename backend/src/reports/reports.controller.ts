@@ -11,6 +11,30 @@ import { Roles } from '../auth/roles.decorator';
 export class ReportsController {
   constructor(private reportsService: ReportsService) {}
 
+  // GET /api/reports/analyse?year=2026&month=5
+  @Get('analyse')
+  analyse(
+    @Query('year')  yearQ?:  string,
+    @Query('month') monthQ?: string,
+  ) {
+    const now   = new Date();
+    const year  = yearQ  ? parseInt(yearQ)  : now.getFullYear();
+    const month = monthQ ? parseInt(monthQ) : now.getMonth() + 1;
+    return this.reportsService.statsAnalyseMonth(year, month);
+  }
+
+  // GET /api/reports/compta?year=2026&month=5
+  @Get('compta')
+  compta(
+    @Query('year')  yearQ?:  string,
+    @Query('month') monthQ?: string,
+  ) {
+    const now   = new Date();
+    const year  = yearQ  ? parseInt(yearQ)  : now.getFullYear();
+    const month = monthQ ? parseInt(monthQ) : now.getMonth() + 1;
+    return this.reportsService.statsComptaMonth(year, month);
+  }
+
   // GET /api/reports/daily/pdf?date=2026-04-24
   @Get('daily/pdf')
   async dailyPdf(@Query('date') date: string, @Res() res: Response) {

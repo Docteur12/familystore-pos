@@ -117,10 +117,16 @@ export class SalesService {
 
   // ── GET /api/sales ──────────────────────────────────────────────────────────
 
-  findAll() {
+  findAll(params?: { dateFrom?: string; dateTo?: string }) {
+    const q: Record<string, any> = {};
+    if (params?.dateFrom || params?.dateTo) {
+      q.createdAt = {};
+      if (params.dateFrom) q.createdAt.$gte = new Date(params.dateFrom);
+      if (params.dateTo)   q.createdAt.$lt  = new Date(params.dateTo);
+    }
     return this.saleModel
-      .find()
-      .populate('items.product', 'name barcode unit')
+      .find(q)
+      .populate('items.product', 'name barcode unit costPrice')
       .sort({ createdAt: -1 })
       .lean();
   }
@@ -144,12 +150,24 @@ export class SalesService {
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
-    const sales = await this.saleModel
-      .find({ createdAt: { $gte: start, $lt: end } })
-      .populate('items.product', 'costPrice name')
-      .lean();
+    // Même jour la semaine dernière pour comparaison
+    const prevStart = new Date(start);
+    prevStart.setDate(prevStart.getDate() - 7);
+    const prevEnd = new Date(prevStart);
+    prevEnd.setDate(prevEnd.getDate() + 1);
+
+    const [sales, prevSales] = await Promise.all([
+      this.saleModel
+        .find({ createdAt: { $gte: start, $lt: end } })
+        .populate('items.product', 'costPrice name')
+        .lean(),
+      this.saleModel
+        .find({ createdAt: { $gte: prevStart, $lt: prevEnd } })
+        .lean(),
+    ]);
 
     const totalCA  = sales.reduce((s, v) => s + v.total, 0);
+    const prevCA   = prevSales.reduce((s, v) => s + v.total, 0);
     const nbVentes = sales.length;
 
     let benefice = 0;
@@ -161,12 +179,152 @@ export class SalesService {
     }
 
     return {
-      date:      start.toISOString().split('T')[0],
+      date:    start.toISOString().split('T')[0],
       totalCA,
+      prevCA,
       nbVentes,
       benefice,
-      marge:     totalCA > 0 ? Math.round((benefice / totalCA) * 100) : 0,
+      marge:   totalCA > 0 ? Math.round((benefice / totalCA) * 100) : 0,
     };
+  }
+
+  // ── GET /api/sales/stats/recent — 5 dernières ventes du jour ──────────────
+
+  async recentToday() {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return this.saleModel
+      .find({ createdAt: { $gte: start, $lt: end } })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .select('total paymentMethod amountPaid change createdAt items')
+      .lean();
+  }
+
+  // ── GET /api/sales/stats/period?days=N — données pour graphe ──────────────
+
+  async statsPeriod(days: number) {
+    const now   = new Date();
+    const start = new Date(now);
+    start.setDate(start.getDate() - (days - 1));
+    start.setHours(0, 0, 0, 0);
+
+    const sales = await this.saleModel
+      .find({ createdAt: { $gte: start } })
+      .select('total createdAt')
+      .lean();
+
+    if (days <= 30) {
+      // Regroupement journalier
+      const byDay: Record<string, { totalCA: number; nbVentes: number }> = {};
+      for (const sale of sales) {
+        const key = new Date(sale.createdAt).toISOString().split('T')[0];
+        if (!byDay[key]) byDay[key] = { totalCA: 0, nbVentes: 0 };
+        byDay[key].totalCA  += sale.total;
+        byDay[key].nbVentes += 1;
+      }
+      return Array.from({ length: days }, (_, i) => {
+        const d   = new Date(now);
+        d.setDate(d.getDate() - (days - 1 - i));
+        const key = d.toISOString().split('T')[0];
+        return {
+          date:     key,
+          label:    d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+          totalCA:  byDay[key]?.totalCA  ?? 0,
+          nbVentes: byDay[key]?.nbVentes ?? 0,
+        };
+      });
+    }
+
+    if (days <= 90) {
+      // Regroupement hebdomadaire
+      const mondayOf = (d: Date): string => {
+        const copy = new Date(d);
+        const dow  = copy.getDay();
+        copy.setDate(copy.getDate() - (dow === 0 ? 6 : dow - 1));
+        copy.setHours(0, 0, 0, 0);
+        return copy.toISOString().split('T')[0];
+      };
+      const byWeek: Record<string, { totalCA: number; nbVentes: number }> = {};
+      for (const sale of sales) {
+        const key = mondayOf(new Date(sale.createdAt));
+        if (!byWeek[key]) byWeek[key] = { totalCA: 0, nbVentes: 0 };
+        byWeek[key].totalCA  += sale.total;
+        byWeek[key].nbVentes += 1;
+      }
+      return Object.entries(byWeek)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, d]) => ({
+          date:     key,
+          label:    new Date(key).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+          totalCA:  d.totalCA,
+          nbVentes: d.nbVentes,
+        }));
+    }
+
+    // Regroupement mensuel (365 jours)
+    const byMonth: Record<string, { totalCA: number; nbVentes: number }> = {};
+    for (const sale of sales) {
+      const d   = new Date(sale.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!byMonth[key]) byMonth[key] = { totalCA: 0, nbVentes: 0 };
+      byMonth[key].totalCA  += sale.total;
+      byMonth[key].nbVentes += 1;
+    }
+    return Object.entries(byMonth)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, d]) => {
+        const [y, m] = key.split('-').map(Number);
+        return {
+          date:     key,
+          label:    new Date(y, m - 1, 1).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
+          totalCA:  d.totalCA,
+          nbVentes: d.nbVentes,
+        };
+      });
+  }
+
+  // ── GET /api/sales/stats/payment?scope=week — répartition modes paiement ──
+
+  async paymentBreakdown(scope: 'today' | 'week') {
+    const start = new Date();
+    if (scope === 'today') {
+      start.setHours(0, 0, 0, 0);
+    } else {
+      start.setDate(start.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+    }
+
+    const sales = await this.saleModel
+      .find({ createdAt: { $gte: start } })
+      .select('total paymentMethod')
+      .lean();
+
+    const totalCA = sales.reduce((s, v) => s + v.total, 0);
+    const byPm: Record<string, { total: number; count: number }> = {};
+    for (const sale of sales) {
+      if (!byPm[sale.paymentMethod]) byPm[sale.paymentMethod] = { total: 0, count: 0 };
+      byPm[sale.paymentMethod].total += sale.total;
+      byPm[sale.paymentMethod].count += 1;
+    }
+
+    const PM_LABELS: Record<string, string> = {
+      cash:         'Espèces',       mtn_momo:    'MTN MoMo',
+      orange_money: 'Orange Money',  card:        'Carte bancaire',
+      mobile_money: 'Mobile Money',  credit:      'Crédit',
+    };
+
+    return Object.entries(byPm)
+      .map(([mode, d]) => ({
+        mode,
+        label: PM_LABELS[mode] ?? mode,
+        total: d.total,
+        count: d.count,
+        pct:   totalCA > 0 ? Math.round((d.total / totalCA) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
   }
 
   // ── GET /api/sales/stats/week ─────────────────────────────────────────────

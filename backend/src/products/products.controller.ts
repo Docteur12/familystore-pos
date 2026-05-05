@@ -7,19 +7,25 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { AuthGuard } from '../auth/auth.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
+import { AuthGuard }    from '../auth/auth.guard';
+import { RolesGuard }   from '../auth/roles.guard';
+import { Roles }        from '../auth/roles.decorator';
+import { AuditService } from '../audit/audit.service';
 
 @Controller('products')
-@UseGuards(AuthGuard)   // toutes les routes nécessitent un JWT valide
+@UseGuards(AuthGuard)
 export class ProductsController {
-  constructor(private productsService: ProductsService) {}
+  constructor(
+    private productsService: ProductsService,
+    private auditService: AuditService,
+  ) {}
 
   // GET /api/products?search=xxx — tous les rôles
   @Get()
@@ -43,29 +49,61 @@ export class ProductsController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles('patron', 'gestionnaire')
-  create(@Body() dto: CreateProductDto) {
-    return this.productsService.create(dto);
+  async create(@Body() dto: CreateProductDto, @Req() req: Request) {
+    const actor = (req as any)['user'];
+    const result = await this.productsService.create(dto);
+    this.auditService.log({
+      type: 'creation', module: 'produits',
+      actorName: actor.name, actorRole: actor.role,
+      detail: `Produit créé : ${dto.name}`,
+      meta: { productId: String(result._id), price: dto.price, category: dto.category },
+    });
+    return result;
   }
 
   // PATCH /api/products/:id — patron + gestionnaire
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles('patron', 'gestionnaire')
-  update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
-    return this.productsService.update(id, dto);
+  async update(@Param('id') id: string, @Body() dto: UpdateProductDto, @Req() req: Request) {
+    const actor = (req as any)['user'];
+    const result = await this.productsService.update(id, dto);
+    this.auditService.log({
+      type: 'modification', module: 'produits',
+      actorName: actor.name, actorRole: actor.role,
+      detail: `Produit modifié : ${result.name}`,
+      meta: { productId: id, fields: Object.keys(dto) },
+    });
+    return result;
   }
 
-  // PATCH /api/products/:id/stock/add — tous les rôles (caissier peut réceptionner du stock)
+  // PATCH /api/products/:id/stock/add
   @Patch(':id/stock/add')
-  addStock(@Param('id') id: string, @Body('quantity') quantity: number) {
-    return this.productsService.addStock(id, quantity);
+  async addStock(@Param('id') id: string, @Body('quantity') quantity: number, @Req() req: Request) {
+    const actor = (req as any)['user'];
+    const result = await this.productsService.addStock(id, quantity);
+    this.auditService.log({
+      type: 'modification', module: 'stock',
+      actorName: actor.name, actorRole: actor.role,
+      detail: `Stock ajouté : +${quantity} ${result.name}`,
+      meta: { productId: id, quantity, newStock: result.stock },
+    });
+    return result;
   }
 
   // DELETE /api/products/:id — patron only
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles('patron')
-  remove(@Param('id') id: string) {
-    return this.productsService.remove(id);
+  async remove(@Param('id') id: string, @Req() req: Request) {
+    const actor = (req as any)['user'];
+    const result = await this.productsService.remove(id);
+    this.auditService.log({
+      type: 'suppression', module: 'produits',
+      actorName: actor.name, actorRole: actor.role,
+      detail: `Produit supprimé : ${(result as any).message ?? id}`,
+      meta: { productId: id },
+    });
+    return result;
   }
 }

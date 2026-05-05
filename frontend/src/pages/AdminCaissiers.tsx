@@ -1,35 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import AdminSidebar from '../components/AdminSidebar';
 import { createUser, deleteUser, getUsers, updateUser, UserRecord } from '../api/auth';
+import { getCaisses, CaisseRecord } from '../api/caisses';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = ['#C2566B','#7A9EC2','#7AB87A','#C2A07A','#9A7AC2','#7ABFBF','#C2B07A','#7A9AC2'];
 const avatarColor = (name: string) => AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 const initials    = (name: string) => name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-const fmtN = (n: number) => n.toLocaleString('fr-FR');
-
-const CAISSES = ['Caisse 01', 'Caisse 02', 'Caisse 03', 'Caisse 04'];
-
-function getExtra(id: string) {
-  const h = id.charCodeAt(0);
-  return {
-    date:   ['15 jan. 2025','03 nov. 2023','08 sep. 2024','22 jan. 2026'][h % 4],
-    stars:  3 + (h % 3),
-    caisse: `C0${1 + h % 3}`,
-    ventes: 100 + h % 500,
-    panier: 12000 + (h * 7) % 5000,
-  };
-}
-
-function getWeekSales(id: string) {
-  const h = id.charCodeAt(0);
-  return ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'].map((day, i) => ({
-    day,
-    ventes: 10 + Math.round((h * (i + 3) * 13) % 70),
-  }));
-}
 
 function I({ d, size = 14 }: { d: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>;
@@ -57,11 +35,10 @@ function Field({ label, value, onChange, type = 'text', placeholder = '' }: {
 
 // ── Caissier card ────────────────────────────────────────────────────────────
 
-function CaissierCard({ user, selected, onStats, onEdit, onDelete }: {
-  user: UserRecord; selected: boolean;
+function CaissierCard({ user, caisseName, selected, onStats, onEdit, onDelete }: {
+  user: UserRecord; caisseName: string; selected: boolean;
   onStats: () => void; onEdit: () => void; onDelete: () => void;
 }) {
-  const extra = getExtra(user._id);
   const color = avatarColor(user.name);
   return (
     <div style={{ background: '#fff', border: selected ? '2.5px solid var(--fs-wine-700)' : '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 16px', boxShadow: selected ? '0 0 0 3px rgba(122,29,46,0.08)' : 'var(--fs-shadow-sm)', transition: 'all 0.15s' }}>
@@ -72,7 +49,9 @@ function CaissierCard({ user, selected, onStats, onEdit, onDelete }: {
           </div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{user.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 1 }}>Caissier · {extra.caisse}</div>
+            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 1 }}>
+              Caissier · <span style={{ color: caisseName !== '—' ? 'var(--fs-wine-700)' : 'var(--fs-ink-300)', fontWeight: 600 }}>{caisseName}</span>
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
@@ -86,22 +65,18 @@ function CaissierCard({ user, selected, onStats, onEdit, onDelete }: {
       </div>
 
       <div style={{ cursor: 'pointer' }} onClick={onStats}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10, fontSize: 11, color: 'var(--fs-ink-500)' }}>
-          <span>📅 {extra.date}</span>
-          <span>{[1,2,3,4,5].map(s => <span key={s} style={{ color: s <= extra.stars ? '#D1A660' : 'var(--fs-line-2)', fontSize: 11 }}>★</span>)}</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>
-            <span style={{ fontWeight: 700 }}>{extra.ventes}</span> <span style={{ color: 'var(--fs-ink-400)' }}>ventes / 30j</span>
-          </div>
-          <div style={{ fontSize: 12, fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}>
-            {fmtN(extra.ventes * extra.panier)} XAF
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {user.phone && (
+            <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>📞 {user.phone}</span>
+          )}
+          <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            ✉ {user.email}
+          </span>
         </div>
       </div>
 
       <button onClick={onStats} style={{ marginTop: 12, width: '100%', padding: '7px', border: '1px solid var(--fs-line)', borderRadius: 8, background: 'var(--fs-ivory)', fontSize: 11, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-        <I d={D.bar} size={12}/> Voir les statistiques
+        <I d={D.bar} size={12}/> Voir le profil
       </button>
     </div>
   );
@@ -109,13 +84,11 @@ function CaissierCard({ user, selected, onStats, onEdit, onDelete }: {
 
 // ── Stats panel ──────────────────────────────────────────────────────────────
 
-function StatsPanel({ user, onClose, onEdit, onDeleted }: {
-  user: UserRecord; onClose: () => void; onEdit: () => void; onDeleted: () => void;
+function StatsPanel({ user, caisseName, onClose, onEdit, onDeleted }: {
+  user: UserRecord; caisseName: string; onClose: () => void; onEdit: () => void; onDeleted: () => void;
 }) {
-  const extra = getExtra(user._id);
-  const weekData = getWeekSales(user._id);
   const color = avatarColor(user.name);
-  const [confirm, setConfirm] = useState(false);
+  const [confirm,  setConfirm]  = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   const handleDelete = async () => {
@@ -132,7 +105,7 @@ function StatsPanel({ user, onClose, onEdit, onDeleted }: {
           <div style={{ width: 34, height: 34, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700 }}>{initials(user.name)}</div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{user.name}</div>
-            <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Caissier · {extra.caisse}</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Caissier · <span style={{ color: 'var(--fs-wine-700)', fontWeight: 600 }}>{caisseName}</span></div>
           </div>
         </div>
         <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}>
@@ -141,38 +114,24 @@ function StatsPanel({ user, onClose, onEdit, onDeleted }: {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px' }}>
-        {/* KPI row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+        {/* Infos compte */}
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 10px' }}>Informations</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
           {[
-            { label: 'Ventes / 30j',  value: extra.ventes.toString(),          unit: 'tickets' },
-            { label: 'CA / 30j',      value: fmtN(extra.ventes * extra.panier), unit: 'XAF'    },
-            { label: 'Panier moyen',  value: fmtN(extra.panier),               unit: 'XAF'    },
-            { label: 'Note',          value: `${extra.stars} / 5`,             unit: '★★★★★'.slice(0, extra.stars) },
-          ].map(k => (
-            <div key={k.label} style={{ background: 'var(--fs-ivory)', borderRadius: 8, padding: '10px 12px' }}>
-              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{k.label}</div>
-              <div style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-800)' }}>{k.value}</div>
-              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{k.unit}</div>
+            { label: 'Email',    value: user.email          },
+            { label: 'Téléphone',value: (user as any).phone || '—' },
+            { label: 'Caisse',   value: caisseName          },
+            { label: 'Rôle',     value: 'Caissier'          },
+          ].map(r => (
+            <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 10px', background: 'var(--fs-ivory)', borderRadius: 7 }}>
+              <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', fontWeight: 600 }}>{r.label}</span>
+              <span style={{ fontSize: 11, color: 'var(--fs-ink-800)', fontWeight: 700, maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.value}</span>
             </div>
           ))}
         </div>
 
-        {/* Chart */}
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 10px' }}>Ventes 7 derniers jours</p>
-        <ResponsiveContainer width="100%" height={140}>
-          <BarChart data={weekData} barSize={24}>
-            <XAxis dataKey="day" tick={{ fontSize: 10, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false}/>
-            <YAxis hide/>
-            <Tooltip formatter={(v: number) => [`${v} ventes`, '']} contentStyle={{ fontSize: 11, border: '1px solid var(--fs-line)', borderRadius: 8 }}/>
-            <Bar dataKey="ventes" radius={[4,4,0,0]}>
-              {weekData.map((_, i) => <Cell key={i} fill={i === 5 || i === 6 ? '#D1A660' : 'var(--fs-wine-700)'}/>)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-
-        <div style={{ marginTop: 8, fontSize: 10, color: 'var(--fs-ink-400)' }}>
-          <span style={{ display: 'inline-block', width: 10, height: 10, background: 'var(--fs-wine-700)', borderRadius: 2, marginRight: 4 }}/>Semaine &nbsp;
-          <span style={{ display: 'inline-block', width: 10, height: 10, background: '#D1A660', borderRadius: 2, marginRight: 4, marginLeft: 8 }}/>Week-end
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 12px', fontSize: 11, color: '#1d4ed8' }}>
+          Les statistiques de ventes par caissier seront disponibles dans les rapports.
         </div>
       </div>
 
@@ -203,27 +162,25 @@ function StatsPanel({ user, onClose, onEdit, onDeleted }: {
 
 // ── Edit panel ───────────────────────────────────────────────────────────────
 
-function EditPanel({ user, onSaved, onCancel }: {
-  user: UserRecord; onSaved: () => void; onCancel: () => void;
+function EditPanel({ user, caisses, onSaved, onCancel }: {
+  user: UserRecord; caisses: CaisseRecord[]; onSaved: () => void; onCancel: () => void;
 }) {
   const nameParts = user.name.split(' ');
-  const [prenom, setPrenom] = useState(nameParts[0] ?? '');
-  const [nom, setNom]       = useState(nameParts.slice(1).join(' ') ?? '');
-  const [caisse, setCaisse] = useState(CAISSES[0]);
-  const [pin, setPin]       = useState('');
-  const [showPin, setShowPin] = useState(false);
+  const [prenom,  setPrenom]  = useState(nameParts[0] ?? '');
+  const [nom,     setNom]     = useState(nameParts.slice(1).join(' ') ?? '');
+  const [caisseId, setCaisseId] = useState(user.caisseId ?? '');
   const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState('');
+  const [error,   setError]   = useState('');
 
   const handleSave = async () => {
     const fullName = `${prenom} ${nom}`.trim();
     if (!fullName) { setError('Le nom est obligatoire.'); return; }
     setLoading(true); setError('');
     try {
-      const patch: { name?: string; password?: string } = {};
+      const patch: { name?: string; caisseId?: string | null } = {};
       if (fullName !== user.name) patch.name = fullName;
-      if (pin.length === 4) patch.password = pin;
-      if (Object.keys(patch).length > 0) await updateUser(user._id, patch);
+      patch.caisseId = caisseId || null;
+      await updateUser(user._id, patch);
       onSaved();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Erreur');
@@ -257,23 +214,11 @@ function EditPanel({ user, onSaved, onCancel }: {
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Poste</p>
         <div>
           <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Caisse assignée</label>
-          <select value={caisse} onChange={e => setCaisse(e.target.value)}
+          <select value={caisseId} onChange={e => setCaisseId(e.target.value)}
             style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-            {CAISSES.map(c => <option key={c} value={c}>{c}</option>)}
+            <option value="">— Aucune caisse —</option>
+            {caisses.map(c => <option key={c._id} value={c._id}>{c.nom} ({c.code}) · PIN: {c.pin}</option>)}
           </select>
-        </div>
-
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Réinitialiser le PIN</p>
-        <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Nouveau code PIN (4 chiffres)</label>
-          <div style={{ position: 'relative' }}>
-            <input type={showPin ? 'text' : 'password'} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              maxLength={4} placeholder="Laisser vide pour ne pas changer"
-              style={{ width: '100%', padding: '9px 36px 9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: pin ? 18 : 13, outline: 'none', boxSizing: 'border-box', letterSpacing: pin ? '0.3em' : 0, fontFamily: 'var(--fs-font-mono)' }}/>
-            <button onClick={() => setShowPin(p => !p)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}>
-              <I d={D.eye} size={14}/>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -289,8 +234,8 @@ function EditPanel({ user, onSaved, onCancel }: {
 
 // ── Create panel ─────────────────────────────────────────────────────────────
 
-function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
-  const [form, setForm] = useState({ prenom: '', nom: '', phone: '', email: '', caisse: CAISSES[0], dateEmb: new Date().toISOString().slice(0, 10), pin: '' });
+function CreatePanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]; onCreated: () => void; onCancel: () => void }) {
+  const [form, setForm] = useState({ prenom: '', nom: '', phone: '', email: '', caisseId: '', dateEmb: new Date().toISOString().slice(0, 10), pin: '' });
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -309,6 +254,7 @@ function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel:
         password: form.pin,
         role: 'caissier',
         phone: form.phone || undefined,
+        caisseId: form.caisseId || undefined,
       });
       onCreated();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
@@ -339,9 +285,10 @@ function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel:
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Poste</p>
         <div>
           <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Caisse assignée</label>
-          <select value={form.caisse} onChange={e => set('caisse', e.target.value)}
+          <select value={form.caisseId} onChange={e => set('caisseId', e.target.value)}
             style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-            {CAISSES.map(c => <option key={c} value={c}>{c}</option>)}
+            <option value="">— Aucune caisse —</option>
+            {caisses.map(c => <option key={c._id} value={c._id}>{c.nom} ({c.code}) · PIN: {c.pin}</option>)}
           </select>
         </div>
         <Field label="Date d'embauche" value={form.dateEmb} onChange={v => set('dateEmb', v)} type="date"/>
@@ -383,20 +330,25 @@ function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel:
 type PanelMode = { type: 'create' } | { type: 'stats'; user: UserRecord } | { type: 'edit'; user: UserRecord } | null;
 
 export default function AdminCaissiers() {
-  const [users, setUsers] = useState<UserRecord[]>([]);
-  const [panel, setPanel] = useState<PanelMode>(null);
+  const [users,   setUsers]   = useState<UserRecord[]>([]);
+  const [caisses, setCaisses] = useState<CaisseRecord[]>([]);
+  const [panel,   setPanel]   = useState<PanelMode>(null);
 
-  const load = () => getUsers().then(us => setUsers(us.filter(u => u.role !== 'patron'))).catch(() => {});
+  const load = () => {
+    getUsers().then(us => setUsers(us.filter(u => u.role !== 'patron'))).catch(() => {});
+    getCaisses().then(setCaisses).catch(() => {});
+  };
   useEffect(() => { load(); }, []);
 
-  const mockUsers: UserRecord[] = [
-    { _id: '1', name: 'Aïcha Nguemo',  email: 'aicha@fs.cm', role: 'caissier' },
-    { _id: '2', name: 'Marie Tchapda', email: 'marie@fs.cm', role: 'caissier' },
-    { _id: '4', name: 'Jean Domkam',   email: 'jean@fs.cm',  role: 'caissier' },
-    { _id: '5', name: 'Fatou Kouassi', email: 'fatou@fs.cm', role: 'caissier' },
-  ];
-  const allStaff = users.length > 0 ? users : mockUsers;
-  const staff = allStaff.filter(u => u.role === 'caissier');
+  const staff = users.filter(u => u.role === 'caissier');
+
+  // Map id → nom caisse pour lookup rapide
+  const caisseById = new Map(caisses.map(c => [c._id, c]));
+  const caisseName = (u: UserRecord) => {
+    if (!u.caisseId) return '— Non assigné';
+    const c = caisseById.get(u.caisseId);
+    return c ? `${c.nom} (${c.code})` : '—';
+  };
 
   const selectedId = panel && panel.type !== 'create' ? panel.user._id : null;
 
@@ -422,10 +374,15 @@ export default function AdminCaissiers() {
           {/* Grid */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
-              {staff.map(u => (
+              {staff.length === 0 ? (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, padding: '60px 0' }}>
+                  Aucun caissier — cliquez sur <strong>Ajouter un caissier</strong>.
+                </div>
+              ) : staff.map(u => (
                 <CaissierCard
                   key={u._id}
                   user={u}
+                  caisseName={caisseName(u)}
                   selected={selectedId === u._id}
                   onStats={() => setPanel({ type: 'stats', user: u })}
                   onEdit={() => setPanel({ type: 'edit', user: u })}
@@ -437,11 +394,12 @@ export default function AdminCaissiers() {
 
           {/* Right panel */}
           {panel?.type === 'create' && (
-            <CreatePanel onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>
+            <CreatePanel caisses={caisses} onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>
           )}
           {panel?.type === 'stats' && (
             <StatsPanel
               user={panel.user}
+              caisseName={caisseName(panel.user)}
               onClose={() => setPanel(null)}
               onEdit={() => setPanel({ type: 'edit', user: panel.user })}
               onDeleted={() => { load(); setPanel(null); }}
@@ -450,6 +408,7 @@ export default function AdminCaissiers() {
           {panel?.type === 'edit' && (
             <EditPanel
               user={panel.user}
+              caisses={caisses}
               onSaved={() => { load(); setPanel(null); }}
               onCancel={() => setPanel(null)}
             />

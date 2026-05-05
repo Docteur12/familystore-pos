@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Sale, SaleDocument } from '../schemas/sale.schema';
 import { Expense, ExpenseDocument } from '../schemas/expense.schema';
+import { AuditLog, AuditLogDocument } from '../schemas/audit-log.schema';
 
 // ── Types internes ─────────────────────────────────────────────────────────────
 
@@ -36,8 +37,9 @@ const PM_LABELS: Record<string, string> = {
 @Injectable()
 export class ReportsService {
   constructor(
-    @InjectModel(Sale.name)    private saleModel:    Model<SaleDocument>,
-    @InjectModel(Expense.name) private expenseModel: Model<ExpenseDocument>,
+    @InjectModel(Sale.name)     private saleModel:     Model<SaleDocument>,
+    @InjectModel(Expense.name)  private expenseModel:  Model<ExpenseDocument>,
+    @InjectModel(AuditLog.name) private auditLogModel: Model<AuditLogDocument>,
   ) {}
 
   // ── Helpers données ───────────────────────────────────────────────────────
@@ -93,6 +95,185 @@ export class ReportsService {
       }
     }
     return { totalCA, totalBenefice };
+  }
+
+  // ── Analyse complète d'un mois (JSON) ────────────────────────────────────
+
+  async statsAnalyseMonth(year: number, month: number) {
+    const { sales, expenses } = await this.fetchMonthData(year, month);
+    const start = new Date(year, month - 1, 1);
+    const end   = new Date(year, month, 1);
+
+    // CA mois précédent pour comparaison
+    const prevStart = new Date(year, month - 2, 1);
+    const prevEnd   = new Date(year, month - 1, 1);
+    const prevSales = await this.saleModel
+      .find({ createdAt: { $gte: prevStart, $lt: prevEnd } })
+      .lean();
+    const prevCA = prevSales.reduce((s: number, v: any) => s + v.total, 0);
+
+    // KPI globaux
+    let ca = 0, coutAchats = 0;
+    for (const sale of sales) {
+      ca += sale.total;
+      for (const item of sale.items) {
+        coutAchats += (item.product?.costPrice ?? 0) * item.quantity;
+      }
+    }
+    const depenses    = expenses.reduce((s, e) => s + e.amount, 0);
+    const margesBrute = ca - coutAchats;
+    const beneficeNet = margesBrute - depenses;
+    const panierMoyen = sales.length > 0 ? Math.round(ca / sales.length) : 0;
+
+    // Par jour
+    const byDay: Record<number, { ca: number; nbVentes: number }> = {};
+    for (const sale of sales) {
+      const j = new Date(sale.createdAt).getDate();
+      if (!byDay[j]) byDay[j] = { ca: 0, nbVentes: 0 };
+      byDay[j].ca += sale.total;
+      byDay[j].nbVentes += 1;
+    }
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const parJour = Array.from({ length: daysInMonth }, (_, i) => {
+      const d = byDay[i + 1] ?? { ca: 0, nbVentes: 0 };
+      return { jour: i + 1, ...d };
+    });
+
+    // Par catégorie produit
+    const byCat: Record<string, { ca: number; quantite: number }> = {};
+    for (const sale of sales) {
+      for (const item of sale.items) {
+        const cat = (item.product as any)?.category || 'Autres';
+        if (!byCat[cat]) byCat[cat] = { ca: 0, quantite: 0 };
+        byCat[cat].ca       += item.unitPrice * item.quantity;
+        byCat[cat].quantite += item.quantity;
+      }
+    }
+    const parCategorie = Object.entries(byCat)
+      .map(([categorie, d]) => ({
+        categorie,
+        ca:       Math.round(d.ca),
+        quantite: d.quantite,
+        pct:      ca > 0 ? Math.round((d.ca / ca) * 1000) / 10 : 0,
+      }))
+      .sort((a, b) => b.ca - a.ca);
+
+    // Classement caissiers (depuis audit logs de type 'vente')
+    const auditVentes = await this.auditLogModel
+      .find({ type: 'vente', createdAt: { $gte: start, $lt: end } })
+      .lean();
+    const byCaissier: Record<string, { nbVentes: number; ca: number }> = {};
+    for (const a of auditVentes) {
+      if (!byCaissier[a.actorName]) byCaissier[a.actorName] = { nbVentes: 0, ca: 0 };
+      byCaissier[a.actorName].nbVentes += 1;
+      byCaissier[a.actorName].ca       += (a.meta as any)?.total ?? 0;
+    }
+    const parCaissier = Object.entries(byCaissier)
+      .map(([nom, d]) => ({
+        nom,
+        nbVentes:    d.nbVentes,
+        ca:          d.ca,
+        panierMoyen: d.nbVentes > 0 ? Math.round(d.ca / d.nbVentes) : 0,
+      }))
+      .sort((a, b) => b.ca - a.ca);
+
+    // Top 10 produits
+    const byProd: Record<string, { nom: string; ca: number; quantite: number }> = {};
+    for (const sale of sales) {
+      for (const item of sale.items) {
+        const it  = item as any;
+        const key = String(it.product?._id ?? it.name ?? '?');
+        const nom = it.name ?? it.product?.name ?? '?';
+        if (!byProd[key]) byProd[key] = { nom, ca: 0, quantite: 0 };
+        byProd[key].ca       += item.unitPrice * item.quantity;
+        byProd[key].quantite += item.quantity;
+      }
+    }
+    const topProduits = Object.values(byProd)
+      .sort((a, b) => b.ca - a.ca)
+      .slice(0, 10)
+      .map(p => ({ ...p, ca: Math.round(p.ca) }));
+
+    // Heatmap affluence (jour×heure normalisé 0-1)
+    const heat: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+    for (const sale of sales) {
+      const d   = new Date(sale.createdAt);
+      let   dow = d.getDay() - 1; // 0=Lun … 6=Dim
+      if (dow < 0) dow = 6;
+      heat[dow][d.getHours()] += sale.total;
+    }
+    const maxHeat = Math.max(...heat.flat().filter(v => v > 0), 1);
+    const heatmap = heat.map(row => row.map(v => Math.round((v / maxHeat) * 100) / 100));
+
+    return {
+      year, month,
+      label: new Date(year, month - 1, 1)
+        .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+      ca, coutAchats, margesBrute, beneficeNet, depenses,
+      nbVentes:  sales.length,
+      panierMoyen,
+      prevCA,
+      parJour,
+      parCategorie,
+      parCaissier,
+      topProduits,
+      heatmap,
+    };
+  }
+
+  // ── Données comptables d'un mois (JSON) ──────────────────────────────────
+
+  async statsComptaMonth(year: number, month: number) {
+    const { sales, expenses } = await this.fetchMonthData(year, month);
+
+    let ca         = 0;
+    let coutAchats = 0;
+    for (const sale of sales) {
+      ca += sale.total;
+      for (const item of sale.items) {
+        const cost: number = item.product?.costPrice ?? 0;
+        coutAchats += cost * item.quantity;
+      }
+    }
+
+    const totalDepenses = expenses.reduce((s, e) => s + e.amount, 0);
+
+    const byCat: Record<string, { total: number; count: number }> = {};
+    for (const e of expenses) {
+      if (!byCat[e.category]) byCat[e.category] = { total: 0, count: 0 };
+      byCat[e.category].total += e.amount;
+      byCat[e.category].count += 1;
+    }
+    const depensesParCategorie = Object.entries(byCat)
+      .map(([category, d]) => ({ category, total: d.total, count: d.count }))
+      .sort((a, b) => b.total - a.total);
+
+    const margesBrute = ca - coutAchats;
+    const beneficeNet = margesBrute - totalDepenses;
+
+    // Ventes par mode de paiement
+    const byPm: Record<string, number> = {};
+    for (const sale of sales) {
+      byPm[sale.paymentMethod] = (byPm[sale.paymentMethod] ?? 0) + sale.total;
+    }
+    const ventesParPaiement = Object.entries(byPm)
+      .map(([mode, total]) => ({ mode, total }))
+      .sort((a, b) => b.total - a.total);
+
+    return {
+      year,
+      month,
+      label: new Date(year, month - 1, 1)
+        .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+      nbVentes:             sales.length,
+      ca,
+      coutAchats,
+      depenses:             totalDepenses,
+      depensesParCategorie,
+      ventesParPaiement,
+      margesBrute,
+      beneficeNet,
+    };
   }
 
   // ── PDF journalier ─────────────────────────────────────────────────────────

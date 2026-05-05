@@ -11,12 +11,13 @@ async function get<T>(path: string): Promise<T> {
 export interface StatsToday {
   date:     string;
   totalCA:  number;
+  prevCA:   number;   // même jour semaine dernière
   nbVentes: number;
   benefice: number;
   marge:    number;
 }
 
-export interface WeekDay {
+export interface PeriodDay {
   date:     string;
   label:    string;
   totalCA:  number;
@@ -32,9 +33,34 @@ export interface TopProduct {
   totalRevenue: number;
 }
 
-export const getStatsToday   = () => get<StatsToday>('/api/sales/stats/today');
-export const getStatsWeek    = () => get<WeekDay[]>('/api/sales/stats/week');
-export const getTopProducts  = () => get<TopProduct[]>('/api/sales/stats/top-products');
+export interface PaymentSlice {
+  mode:  string;
+  label: string;
+  total: number;
+  count: number;
+  pct:   number;
+}
+
+export interface RecentSale {
+  _id:           string;
+  total:         number;
+  paymentMethod: string;
+  amountPaid:    number;
+  change:        number;
+  createdAt:     string;
+  items:         Array<{ name: string; quantity: number; unitPrice: number }>;
+}
+
+// ── API functions ─────────────────────────────────────────────────────────────
+
+export const getStatsToday      = () => get<StatsToday>('/api/sales/stats/today');
+export const getStatsPeriod     = (days: number) => get<PeriodDay[]>(`/api/sales/stats/period?days=${days}`);
+export const getTopProducts     = () => get<TopProduct[]>('/api/sales/stats/top-products');
+export const getRecentSales     = () => get<RecentSale[]>('/api/sales/stats/recent');
+export const getPaymentBreakdown= (scope: 'today' | 'week') => get<PaymentSlice[]>(`/api/sales/stats/payment?scope=${scope}`);
+
+// kept for backward compat (some pages may import it)
+export const getStatsWeek = () => getStatsPeriod(7);
 
 export async function downloadFile(url: string, filename: string): Promise<void> {
   const res = await fetch(url, { headers: authHeaders() });
@@ -51,7 +77,15 @@ export async function downloadFile(url: string, filename: string): Promise<void>
 }
 
 // Decode JWT payload (base64) — no verification, frontend only
-export function getTokenPayload(): { sub: string; email: string; name: string; role: string } | null {
+export interface CaissePayload {
+  _id:   string;
+  nom:   string;
+  code:  string;
+  pin:   string;
+  ville: string;
+}
+
+export function getTokenPayload(): { sub: string; email: string; name: string; role: string; caisse?: CaissePayload | null } | null {
   const token = localStorage.getItem('access_token');
   if (!token) return null;
   try {
