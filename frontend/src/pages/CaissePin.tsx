@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const PIN_LENGTH  = 4;
 const APP_VERSION = '2.4.1';
 
 // ── SVG helpers ───────────────────────────────────────────────────────────────
 
-function CrownMark() {
+function CrownMark({ size = 52 }: { size?: number }) {
   return (
-    <svg width="52" height="52" viewBox="0 0 48 48" fill="none">
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <circle cx="24" cy="24" r="22" fill="rgba(255,255,255,0.10)"/>
       <circle cx="24" cy="24" r="22" fill="none" stroke="var(--fs-gold-400)" strokeWidth="1"/>
       <path d="M14 22 L18 14 L22 20 L24 12 L26 20 L30 14 L34 22 L34 27 L14 27 Z"
@@ -36,7 +37,7 @@ function BackspaceIcon() {
 
 // ── Numpad button ─────────────────────────────────────────────────────────────
 
-function PadBtn({ label, onClick }: { label: React.ReactNode; onClick: () => void }) {
+function PadBtn({ label, onClick, size = 58 }: { label: React.ReactNode; onClick: () => void; size?: number }) {
   const [pressed, setPressed] = useState(false);
   return (
     <button
@@ -44,20 +45,16 @@ function PadBtn({ label, onClick }: { label: React.ReactNode; onClick: () => voi
       onMouseUp={() => { setPressed(false); onClick(); }}
       onMouseLeave={() => setPressed(false)}
       onTouchStart={() => setPressed(true)}
-      onTouchEnd={() => { setPressed(false); onClick(); }}
+      onTouchEnd={(e) => { e.preventDefault(); setPressed(false); onClick(); }}
       style={{
-        width: 58,
-        height: 58,
-        borderRadius: '50%',
+        width: size, height: size, borderRadius: '50%',
         border: '1.5px solid var(--fs-line-2)',
         background: pressed ? 'var(--fs-line)' : 'var(--fs-paper)',
-        fontSize: 20,
+        fontSize: size >= 58 ? 20 : 18,
         fontWeight: 500,
         color: 'var(--fs-ink-900)',
         cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
         boxShadow: pressed ? 'none' : 'var(--fs-shadow-sm)',
         transition: 'background 0.08s, box-shadow 0.08s',
         fontFamily: 'var(--fs-font-sans)',
@@ -71,17 +68,15 @@ function PadBtn({ label, onClick }: { label: React.ReactNode; onClick: () => voi
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function CaissePin() {
-  const navigate = useNavigate();
-  const payload  = getTokenPayload();
-
-  // Caisse assignée au caissier — incluse dans le JWT lors du login
-  const caisse = payload?.caisse;
+  const navigate  = useNavigate();
+  const payload   = getTokenPayload();
+  const caisse    = payload?.caisse;
+  const isMobile  = useIsMobile();
 
   const [pin,   setPin]   = useState('');
   const [error, setError] = useState(false);
   const [time,  setTime]  = useState(new Date());
 
-  // Live clock
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
@@ -96,7 +91,6 @@ export default function CaissePin() {
 
   const verify = useCallback((entered: string) => {
     if (!caisse?.pin) {
-      // Aucune caisse assignée — accès direct (cas patron/gestionnaire)
       navigate('/caisse');
       return;
     }
@@ -113,7 +107,6 @@ export default function CaissePin() {
       if (prev.length >= PIN_LENGTH) return prev;
       const next = prev + d;
       if (next.length === PIN_LENGTH) {
-        // defer so the last dot fills before navigation
         setTimeout(() => verify(next), 80);
       }
       return next;
@@ -126,7 +119,6 @@ export default function CaissePin() {
     setError(false);
   }, []);
 
-  // Keyboard support
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key >= '0' && e.key <= '9') handleDigit(e.key);
@@ -142,182 +134,130 @@ export default function CaissePin() {
   const timeLabel = time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const dateStr   = dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1);
 
-  return (
-    <div style={{ display: 'flex', height: '100vh', fontFamily: 'var(--fs-font-sans)' }}>
+  // Shared PIN entry panel
+  const btnSize = isMobile ? 54 : 58;
 
-      {/* ── Left panel ── */}
+  const pinPanel = (
+    <div style={{
+      flex: 1,
+      background: 'var(--fs-ivory)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      gap: isMobile ? 18 : 26,
+      padding: isMobile ? '16px 0' : 0,
+    }}>
+      {/* Avatar */}
       <div style={{
-        width: '38%',
-        background: 'var(--fs-wine-800)',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '48px 40px',
-        flexShrink: 0,
-      }}>
-        <div>
-          <div style={{ marginBottom: 20 }}>
-            <CrownMark />
-          </div>
+        width: isMobile ? 64 : 76, height: isMobile ? 64 : 76, borderRadius: '50%',
+        background: 'var(--fs-wine-700)', border: '3px solid var(--fs-gold-400)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#fff', fontSize: isMobile ? 20 : 24, fontWeight: 700,
+        fontFamily: 'var(--fs-font-display)', letterSpacing: '0.04em', flexShrink: 0,
+      }}>{initials}</div>
 
-          <h1 style={{
-            fontFamily: 'var(--fs-font-display)',
-            fontSize: 38,
-            fontWeight: 600,
-            color: '#fff',
-            letterSpacing: '0.02em',
-            margin: '0 0 6px',
-            lineHeight: 1.1,
-          }}>Family Store</h1>
-
-          <p style={{
-            fontFamily: 'var(--fs-font-display)',
-            fontSize: 13,
-            fontStyle: 'italic',
-            color: 'var(--fs-gold-300)',
-            letterSpacing: '0.06em',
-            margin: 0,
-          }}>by RDCT — Beauté · Saveurs · Bien-être</p>
-
-          <div style={{
-            height: 1,
-            background: 'linear-gradient(90deg, var(--fs-gold-500), transparent)',
-            margin: '28px 0',
-            opacity: 0.4,
-          }}/>
-
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, margin: '0 0 5px' }}>
-            Espace de caisse · {caisse?.ville ?? 'Douala'}
-          </p>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, margin: 0 }}>
-            {dateStr} — {timeLabel}
-          </p>
+      {/* Name */}
+      <div style={{ textAlign: 'center', lineHeight: 1 }}>
+        <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 600, color: 'var(--fs-ink-900)', marginBottom: 6 }}>
+          {payload?.name ?? '—'}
         </div>
+        <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', letterSpacing: '0.02em' }}>
+          Caissière · {caisse?.nom ?? '—'}
+        </div>
+      </div>
 
-        <p style={{
-          color: 'var(--fs-gold-500)',
-          fontSize: 10,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          margin: 0,
-        }}>
-          Version {APP_VERSION} · {caisse?.nom ?? 'CAISSE'}
+      {/* PIN dots */}
+      <div style={{ textAlign: 'center' }}>
+        <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', margin: '0 0 16px' }}>
+          Entrez votre code PIN
         </p>
-      </div>
-
-      {/* ── Right panel ── */}
-      <div style={{
-        flex: 1,
-        background: 'var(--fs-ivory)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 26,
-      }}>
-
-        {/* Avatar */}
-        <div style={{
-          width: 76,
-          height: 76,
-          borderRadius: '50%',
-          background: 'var(--fs-wine-700)',
-          border: '3px solid var(--fs-gold-400)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#fff',
-          fontSize: 24,
-          fontWeight: 700,
-          fontFamily: 'var(--fs-font-display)',
-          letterSpacing: '0.04em',
-          flexShrink: 0,
-        }}>{initials}</div>
-
-        {/* Name */}
-        <div style={{ textAlign: 'center', lineHeight: 1 }}>
-          <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--fs-ink-900)', marginBottom: 6 }}>
-            {payload?.name ?? '—'}
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', letterSpacing: '0.02em' }}>
-            Caissière · {caisse?.nom ?? '—'}
-          </div>
-        </div>
-
-        {/* PIN dots */}
-        <div style={{ textAlign: 'center' }}>
-          <p style={{
-            fontSize: 10,
-            fontWeight: 600,
-            letterSpacing: '0.16em',
-            textTransform: 'uppercase',
-            color: 'var(--fs-ink-400)',
-            margin: '0 0 16px',
-          }}>Entrez votre code PIN</p>
-
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-            {Array.from({ length: PIN_LENGTH }).map((_, i) => (
-              <div key={i} style={{
-                width: 13,
-                height: 13,
-                borderRadius: '50%',
-                background: error
-                  ? 'var(--fs-danger-500)'
-                  : i < pin.length ? 'var(--fs-wine-700)' : 'transparent',
-                border: `2px solid ${
-                  error
-                    ? 'var(--fs-danger-500)'
-                    : i < pin.length ? 'var(--fs-wine-700)' : 'var(--fs-ink-300)'
-                }`,
-                transition: 'background 0.12s, border-color 0.12s',
-              }}/>
-            ))}
-          </div>
-        </div>
-
-        {/* Numpad */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 58px)', gap: 10 }}>
-          {[1,2,3,4,5,6,7,8,9].map(n => (
-            <PadBtn key={n} label={n} onClick={() => handleDigit(String(n))}/>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+          {Array.from({ length: PIN_LENGTH }).map((_, i) => (
+            <div key={i} style={{
+              width: 13, height: 13, borderRadius: '50%',
+              background: error ? 'var(--fs-danger-500)' : i < pin.length ? 'var(--fs-wine-700)' : 'transparent',
+              border: `2px solid ${error ? 'var(--fs-danger-500)' : i < pin.length ? 'var(--fs-wine-700)' : 'var(--fs-ink-300)'}`,
+              transition: 'background 0.12s, border-color 0.12s',
+            }}/>
           ))}
-          {/* Row 4 */}
-          <div/>
-          <PadBtn label="0" onClick={() => handleDigit('0')}/>
-          <button
-            onClick={handleBack}
-            style={{
-              width: 58,
-              height: 58,
-              borderRadius: '50%',
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--fs-ink-400)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <BackspaceIcon/>
-          </button>
         </div>
-
-        {/* Change user */}
-        <button
-          onClick={() => { localStorage.removeItem('access_token'); navigate('/login'); }}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--fs-wine-700)',
-            fontSize: 13,
-            cursor: 'pointer',
-            textDecoration: 'underline',
-            fontFamily: 'var(--fs-font-sans)',
-            marginTop: 4,
-          }}
-        >Changer d'utilisateur</button>
-
       </div>
+
+      {/* Numpad */}
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(3, ${btnSize}px)`, gap: 10 }}>
+        {[1,2,3,4,5,6,7,8,9].map(n => (
+          <PadBtn key={n} label={n} size={btnSize} onClick={() => handleDigit(String(n))}/>
+        ))}
+        <div/>
+        <PadBtn label="0" size={btnSize} onClick={() => handleDigit('0')}/>
+        <button
+          onClick={handleBack}
+          style={{
+            width: btnSize, height: btnSize, borderRadius: '50%',
+            border: 'none', background: 'transparent',
+            color: 'var(--fs-ink-400)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <BackspaceIcon/>
+        </button>
+      </div>
+
+      {/* Change user */}
+      <button
+        onClick={() => { localStorage.removeItem('access_token'); navigate('/login'); }}
+        style={{ background: 'none', border: 'none', color: 'var(--fs-wine-700)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--fs-font-sans)', marginTop: 4 }}
+      >Changer d'utilisateur</button>
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', fontFamily: 'var(--fs-font-sans)', flexDirection: isMobile ? 'column' : 'row' }}>
+
+      {isMobile ? (
+        /* ── Mobile top bar ── */
+        <div style={{
+          background: 'var(--fs-wine-800)',
+          padding: '14px 20px',
+          display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0,
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+        }}>
+          <CrownMark size={36}/>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 20, fontWeight: 600, color: '#fff', lineHeight: 1 }}>Family Store</div>
+            <div style={{ fontSize: 11, color: 'var(--fs-gold-300)', fontStyle: 'italic', marginTop: 2 }}>
+              {caisse?.ville ?? 'Douala'} · {caisse?.nom ?? 'CAISSE'}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 22, fontWeight: 600, color: '#fff', lineHeight: 1, fontFamily: 'var(--fs-font-mono)' }}>{timeLabel}</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', marginTop: 2 }}>{dateStr}</div>
+          </div>
+        </div>
+      ) : (
+        /* ── Desktop left panel ── */
+        <div style={{ width: '38%', background: 'var(--fs-wine-800)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '48px 40px', flexShrink: 0 }}>
+          <div>
+            <div style={{ marginBottom: 20 }}>
+              <CrownMark size={52}/>
+            </div>
+            <h1 style={{ fontFamily: 'var(--fs-font-display)', fontSize: 38, fontWeight: 600, color: '#fff', letterSpacing: '0.02em', margin: '0 0 6px', lineHeight: 1.1 }}>Family Store</h1>
+            <p style={{ fontFamily: 'var(--fs-font-display)', fontSize: 13, fontStyle: 'italic', color: 'var(--fs-gold-300)', letterSpacing: '0.06em', margin: 0 }}>
+              by RDCT — Beauté · Saveurs · Bien-être
+            </p>
+            <div style={{ height: 1, background: 'linear-gradient(90deg, var(--fs-gold-500), transparent)', margin: '28px 0', opacity: 0.4 }}/>
+            <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, margin: '0 0 5px' }}>
+              Espace de caisse · {caisse?.ville ?? 'Douala'}
+            </p>
+            <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, margin: 0 }}>
+              {dateStr} — {timeLabel}
+            </p>
+          </div>
+          <p style={{ color: 'var(--fs-gold-500)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', margin: 0 }}>
+            Version {APP_VERSION} · {caisse?.nom ?? 'CAISSE'}
+          </p>
+        </div>
+      )}
+
+      {pinPanel}
 
       <style>{`@keyframes shake {
         0%,100%{transform:translateX(0)}

@@ -17,6 +17,7 @@ import QRScanner from '../components/QRScanner';
 import Receipt, { ReceiptData } from '../components/Receipt';
 import { buildReceiptHTML, doPrint, getPrintSettings, openCashDrawer } from '../components/ReceiptPrint';
 import { useSettings } from '../contexts/SettingsContext';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -136,6 +137,8 @@ export default function Caisse() {
   const navigate  = undefined; // not needed here
   const { toasts, addToast, removeToast } = useToast();
   const { settings } = useSettings();
+  const isMobile = useIsMobile();
+  const [ticketDrawerOpen, setTicketDrawerOpen] = useState(false);
 
   const scanInputRef = useRef<HTMLInputElement>(null);
 
@@ -478,6 +481,7 @@ export default function Caisse() {
   return (
     <div style={{
       display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
       width: '100vw',
       height: '100vh',
       overflow: 'hidden',
@@ -510,7 +514,7 @@ export default function Caisse() {
         width: 188,
         height: '100vh',
         background: 'var(--fs-wine-900)',
-        display: 'flex',
+        display: isMobile ? 'none' : 'flex',
         flexDirection: 'column',
         flexShrink: 0,
         overflow: 'hidden',
@@ -608,7 +612,38 @@ export default function Caisse() {
       {/* ════════════════════════════════════════════════════════════════
           CENTER — Product grid
       ════════════════════════════════════════════════════════════════ */}
-      <main style={{ flex: 1, height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)', minWidth: 0 }}>
+      <main style={{ flex: 1, height: isMobile ? undefined : '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)', minWidth: 0 }}>
+
+        {/* Mobile categories strip */}
+        {isMobile && (
+          <div style={{
+            display: 'flex', overflowX: 'auto', background: 'var(--fs-wine-900)',
+            padding: '8px 10px', gap: 6, flexShrink: 0,
+            WebkitOverflowScrolling: 'touch' as any,
+            scrollbarWidth: 'none' as any,
+          }}>
+            {categories.map(cat => {
+              const isActive = cat.name === 'Tout' ? !selectedCat : selectedCat === cat.name;
+              return (
+                <button
+                  key={cat.name}
+                  onClick={() => setSelectedCat(cat.name === 'Tout' ? null : cat.name)}
+                  style={{
+                    flexShrink: 0, padding: '6px 14px', borderRadius: 20,
+                    border: isActive ? '1.5px solid var(--fs-gold-400)' : '1.5px solid rgba(255,255,255,0.18)',
+                    background: isActive ? 'var(--fs-wine-700)' : 'transparent',
+                    color: isActive ? '#fff' : 'rgba(245,235,217,0.75)',
+                    fontSize: 12, fontWeight: isActive ? 600 : 400,
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                    fontFamily: 'var(--fs-font-sans)',
+                  }}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Search bar */}
         <div style={{
@@ -660,25 +695,22 @@ export default function Caisse() {
           {/* Scanner ready badge */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            padding: '6px 12px',
+            padding: isMobile ? '6px 8px' : '6px 12px',
             border: '1.5px solid var(--fs-gold-400)',
             borderRadius: 'var(--fs-r-md)',
             background: 'var(--fs-gold-50)',
             color: 'var(--fs-gold-700)',
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: '0.08em',
-            whiteSpace: 'nowrap',
-            cursor: 'pointer',
+            fontSize: 12, fontWeight: 700, letterSpacing: '0.08em',
+            whiteSpace: 'nowrap', cursor: 'pointer',
           }} onClick={() => setShowQR(true)}>
             <Ico d={ICO_SCAN} size={13}/>
-            SCANNER PRÊT
+            {!isMobile && 'SCANNER PRÊT'}
           </div>
 
           {/* Connection indicator */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            padding: '6px 12px',
+            padding: isMobile ? '6px 8px' : '6px 12px',
             border: `1.5px solid ${isOnline ? '#22c55e' : '#f97316'}`,
             borderRadius: 'var(--fs-r-md)',
             background: isOnline ? '#f0fdf4' : '#fff7ed',
@@ -690,7 +722,7 @@ export default function Caisse() {
               background: isOnline ? '#22c55e' : '#f97316',
               boxShadow: isOnline ? '0 0 0 2px #bbf7d0' : '0 0 0 2px #fed7aa',
             }}/>
-            {isOnline ? 'En ligne' : 'Hors ligne'}
+            {!isMobile && (isOnline ? 'En ligne' : 'Hors ligne')}
             {!isOnline && pendingCount > 0 && (
               <span style={{
                 background: '#f97316', color: '#fff',
@@ -699,19 +731,21 @@ export default function Caisse() {
             )}
           </div>
 
-          {/* View toggle */}
-          <button
-            onClick={() => setViewMode(v => v === 'grid' ? 'list' : 'grid')}
-            style={{ background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-sm)', padding: '6px 8px', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}
-          >
-            <Ico d={viewMode === 'grid' ? ICO_LIST : ICO_GRID} size={15}/>
-          </button>
+          {/* View toggle — desktop only */}
+          {!isMobile && (
+            <button
+              onClick={() => setViewMode(v => v === 'grid' ? 'list' : 'grid')}
+              style={{ background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-sm)', padding: '6px 8px', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}
+            >
+              <Ico d={viewMode === 'grid' ? ICO_LIST : ICO_GRID} size={15}/>
+            </button>
+          )}
         </div>
 
-        {/* Filter row */}
+        {/* Filter row — desktop only */}
         <div style={{
           padding: '8px 14px',
-          display: 'flex',
+          display: isMobile ? 'none' : 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexShrink: 0,
@@ -778,7 +812,7 @@ export default function Caisse() {
         <div
           ref={gridContainerRef}
           onClick={() => setShowSortMenu(false)}
-          style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 12, minHeight: 0 }}
+          style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: 12, minHeight: 0, paddingBottom: isMobile && cart.length > 0 ? 78 : 12 }}
         >
           {loadingProds ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--fs-ink-300)', fontSize: 13 }}>
@@ -791,9 +825,9 @@ export default function Caisse() {
           ) : viewMode === 'grid' ? (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gridAutoRows: gridRowHeight + 'px',
-              gap: 12,
+              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
+              gridAutoRows: isMobile ? '150px' : gridRowHeight + 'px',
+              gap: isMobile ? 8 : 12,
             }}>
               {filteredProducts.map(product => (
                 <ProductCard
@@ -820,20 +854,88 @@ export default function Caisse() {
       </main>
 
       {/* ════════════════════════════════════════════════════════════════
-          RIGHT — Ticket
+          RIGHT — Ticket (drawer on mobile)
       ════════════════════════════════════════════════════════════════ */}
-      <aside style={{
-        width: 320,
-        minWidth: 320,
-        height: '100vh',
+
+      {/* Mobile: backdrop + bottom action bar */}
+      {isMobile && (
+        <>
+          {ticketDrawerOpen && (
+            <div
+              onClick={() => setTicketDrawerOpen(false)}
+              style={{ position: 'fixed', inset: 0, zIndex: 298, background: 'rgba(0,0,0,0.5)' }}
+            />
+          )}
+          {cart.length > 0 && (
+            <div style={{
+              position: 'fixed', bottom: 0, left: 0, right: 0,
+              zIndex: ticketDrawerOpen ? 296 : 297,
+              background: 'var(--fs-wine-900)',
+              padding: '10px 14px',
+              display: 'flex', gap: 10, alignItems: 'center',
+              boxShadow: '0 -4px 16px rgba(0,0,0,0.4)',
+              opacity: ticketDrawerOpen ? 0 : 1,
+              pointerEvents: ticketDrawerOpen ? 'none' : 'auto',
+              transition: 'opacity 0.2s',
+            }}>
+              <button
+                onClick={() => setTicketDrawerOpen(true)}
+                style={{
+                  flex: 1, padding: '11px 14px', borderRadius: 10,
+                  border: '1.5px solid rgba(255,255,255,0.2)',
+                  background: 'rgba(255,255,255,0.1)', color: '#fff',
+                  fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  textAlign: 'left', fontFamily: 'var(--fs-font-sans)',
+                }}
+              >
+                Voir ticket ({itemCount}) · {fmtN(total)} XAF
+              </button>
+              <button
+                onClick={handleValidate}
+                disabled={!canValidate}
+                style={{
+                  padding: '11px 20px', borderRadius: 10, border: 'none',
+                  background: canValidate ? '#22c55e' : 'rgba(255,255,255,0.25)',
+                  color: '#fff', fontSize: 14, fontWeight: 800,
+                  cursor: canValidate ? 'pointer' : 'not-allowed',
+                  fontFamily: 'var(--fs-font-sans)', whiteSpace: 'nowrap',
+                }}
+              >
+                ✓ Encaisser
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      <aside style={isMobile ? {
+        position: 'fixed', bottom: 0, left: 0, right: 0,
+        height: '88vh',
+        background: 'var(--fs-paper)',
+        borderRadius: '16px 16px 0 0',
+        transform: ticketDrawerOpen ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        zIndex: 299,
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+        boxShadow: '0 -4px 24px rgba(0,0,0,0.25)',
+      } : {
+        width: 320, minWidth: 320, height: '100vh',
         background: 'var(--fs-paper)',
         borderLeft: '1px solid var(--fs-line)',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        overflow: 'hidden',
-        position: 'relative',
+        display: 'flex', flexDirection: 'column',
+        flexShrink: 0, overflow: 'hidden', position: 'relative',
       }}>
+
+        {/* Drag handle (mobile) */}
+        {isMobile && (
+          <div
+            style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px', cursor: 'pointer', flexShrink: 0 }}
+            onClick={() => setTicketDrawerOpen(false)}
+          >
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--fs-line-2)' }}/>
+          </div>
+        )}
 
         {/* ── Held tickets overlay ── */}
         {showHeld && (

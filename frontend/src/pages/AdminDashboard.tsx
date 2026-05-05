@@ -12,6 +12,7 @@ import {
 } from '../api/dashboard';
 import { getUsers, UserRecord } from '../api/auth';
 import { getCaisses, CaisseRecord } from '../api/caisses';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
 export default function AdminDashboard() {
   const { toasts, addToast, removeToast } = useToast();
+  const isMobile  = useIsMobile();
   const payload  = getTokenPayload();
   const prenom   = payload?.name?.split(' ')[0] ?? '';
   const today    = new Date().toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
@@ -209,7 +211,7 @@ export default function AdminDashboard() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '10px 14px 10px 56px' : '12px 28px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
             <div>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Tableau de bord</p>
@@ -241,10 +243,10 @@ export default function AdminDashboard() {
         </div>
 
         {/* Contenu scrollable */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '18px 28px 28px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '14px 14px 24px' : '18px 28px 28px' }}>
 
           {/* KPI cards */}
-          <div style={{ display: 'flex', gap: 14, marginBottom: 18 }}>
+          <div style={{ display: isMobile ? 'grid' : 'flex', gridTemplateColumns: 'repeat(2, 1fr)', gap: isMobile ? 10 : 14, marginBottom: 18 }}>
             <MetricCard
               title="Chiffre d'affaires"
               value={`${fmtN(ca)} XAF`}
@@ -269,7 +271,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Graphe + top produits */}
-          <div style={{ display: 'flex', gap: 16, marginBottom: 18 }}>
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 16, marginBottom: 18 }}>
 
             {/* Line chart */}
             <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
@@ -288,7 +290,7 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               </div>
-              <div style={{ height: 180 }}>
+              <div style={{ height: isMobile ? 160 : 180 }}>
                 {chartData.length === 0 || chartData.every(d => d.value === 0) ? (
                   <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fs-ink-300)', fontSize: 12 }}>
                     Aucune donnée pour cette période
@@ -311,7 +313,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Top produits */}
-            <div style={{ width: 280, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
+            <div style={{ width: 280, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)', display: isMobile ? 'none' : undefined }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Meilleures ventes</div>
               <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Par volume · 7 derniers jours</div>
               {topProds.length === 0 ? (
@@ -344,10 +346,10 @@ export default function AdminDashboard() {
           </div>
 
           {/* Ligne basse */}
-          <div style={{ display: 'flex', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 16 }}>
 
             {/* Équipe */}
-            <div style={{ width: 260, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 16px', boxShadow: 'var(--fs-shadow-sm)', flexShrink: 0 }}>
+            <div style={{ width: isMobile ? '100%' : 260, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 16px', boxShadow: 'var(--fs-shadow-sm)', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Équipe en service</div>
@@ -435,7 +437,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Donut modes de paiement */}
-            <div style={{ width: 220, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 16px', boxShadow: 'var(--fs-shadow-sm)', flexShrink: 0 }}>
+            <div style={{ width: isMobile ? '100%' : 220, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 16px', boxShadow: 'var(--fs-shadow-sm)', flexShrink: isMobile ? undefined : 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Modes de paiement</div>
               <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 10 }}>Répartition · 7 derniers jours</div>
 

@@ -2,8 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
 import { getAllProducts } from '../api/products';
+import { useIsMobile } from '../hooks/useIsMobile';
 
-// ── SVG icon set (stroke-based, matches design-reference/shared.jsx) ──────────
+// ── SVG icon set ──────────────────────────────────────────────────────────────
 
 function Icon({ name, size = 16, color = 'currentColor' }: { name: string; size?: number; color?: string }) {
   const paths: Record<string, React.ReactNode> = {
@@ -29,7 +30,7 @@ function Icon({ name, size = 16, color = 'currentColor' }: { name: string; size?
   );
 }
 
-// ── Logo — crown mark (from design-reference/shared.jsx) ─────────────────────
+// ── Logo ──────────────────────────────────────────────────────────────────────
 
 function CrownMark({ size = 36 }: { size?: number }) {
   return (
@@ -66,12 +67,13 @@ const CAISSIER_NAV: NavItem[] = [
 ];
 
 const GESTIONNAIRE_NAV: NavItem[] = [
-  { label: 'Stocks',   path: '/stocks',           icon: 'boxes' },
-  { label: 'Produits', path: '/gestion-produits',  icon: 'tag'   },
-  { label: 'Alertes',  path: '/alertes',           icon: 'alert' },
+  { label: 'Stocks',   path: '/stocks',          icon: 'boxes' },
+  { label: 'Produits', path: '/gestion-produits', icon: 'tag'   },
+  { label: 'Alertes',  path: '/alertes',          icon: 'alert' },
 ];
 
 const POLL_INTERVAL = 60_000;
+const SIDEBAR_W     = 220;
 
 function useStockAlertCount(active: boolean) {
   const [alertCount, setAlertCount] = useState(0);
@@ -127,8 +129,9 @@ export default function Sidebar() {
   const navigate  = useNavigate();
   const payload   = getTokenPayload();
   const role      = payload?.role ?? 'caissier';
-
-  const location = useLocation();
+  const location  = useLocation();
+  const isMobile  = useIsMobile();
+  const [isOpen, setIsOpen] = useState(false);
 
   const items = role === 'patron'
     ? PATRON_NAV
@@ -154,161 +157,122 @@ export default function Sidebar() {
     .join('')
     .toUpperCase();
 
+  useEffect(() => { setIsOpen(false); }, [location.pathname]);
+  useEffect(() => { if (!isMobile) setIsOpen(false); }, [isMobile]);
+
+  const sidebarStyle: React.CSSProperties = isMobile ? {
+    position: 'fixed', top: 0, left: isOpen ? 0 : -(SIDEBAR_W + 16),
+    zIndex: 200, height: '100vh', width: SIDEBAR_W,
+    background: 'var(--fs-wine-900)', display: 'flex', flexDirection: 'column',
+    boxShadow: isOpen ? '4px 0 24px rgba(0,0,0,0.4)' : 'none',
+  } : {
+    width: SIDEBAR_W, background: 'var(--fs-wine-900)', height: '100vh',
+    display: 'flex', flexDirection: 'column', flexShrink: 0,
+    boxShadow: '2px 0 12px rgba(0,0,0,0.18)', zIndex: 10,
+  };
+
   return (
-    <aside style={{
-      width: 220,
-      background: 'var(--fs-wine-900)',
-      height: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      flexShrink: 0,
-      boxShadow: '2px 0 12px rgba(0,0,0,0.18)',
-      zIndex: 10,
-    }}>
-
-      {/* ── Logo ── */}
-      <div style={{
-        padding: '20px 18px 16px',
-        borderBottom: '1px solid rgba(255,255,255,0.08)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <CrownMark size={38}/>
-          <div style={{ lineHeight: 1 }}>
-            <div style={{
-              fontFamily: 'var(--fs-font-display)',
-              fontSize: 16,
-              fontWeight: 600,
-              color: '#f5ebd9',
-              letterSpacing: '0.02em',
-            }}>Family Store</div>
-            <div style={{
-              fontSize: 10,
-              color: 'var(--fs-gold-300)',
-              fontStyle: 'italic',
-              letterSpacing: '0.08em',
-              marginTop: 2,
-            }}>{roleLabel}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Nav ── */}
-      <nav style={{ flex: 1, padding: '12px 8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {items.map(item => {
-          const isActive = location.pathname === item.path;
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '9px 12px',
-                marginBottom: 1,
-                borderRadius: 'var(--fs-r-sm)',
-                background: isActive ? 'var(--fs-wine-700)' : 'transparent',
-                color: isActive ? '#fff' : 'rgba(245,235,217,0.75)',
-                fontSize: 13,
-                fontWeight: isActive ? 600 : 500,
-                cursor: 'pointer',
-                textDecoration: 'none',
-                borderLeft: isActive ? '2px solid var(--fs-gold-400)' : '2px solid transparent',
-                transition: 'background 0.12s, color 0.12s',
-              }}
-            >
-              <Icon
-                name={item.icon}
-                size={16}
-                color={isActive ? 'var(--fs-gold-300)' : 'var(--fs-gold-400)'}
-              />
-              <span style={{ flex: 1 }}>{item.label}</span>
-              {item.path === '/alertes' && alertCount > 0 && (
-                <span style={{
-                  background: 'var(--fs-danger-500)',
-                  color: '#fff',
-                  fontSize: 10,
-                  fontWeight: 700,
-                  padding: '1px 6px',
-                  borderRadius: 8,
-                  fontFamily: 'var(--fs-font-mono)',
-                }}>
-                  {alertCount > 9 ? '9+' : alertCount}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* ── Alert banner (patron) ── */}
-      {role === 'patron' && alertCount > 0 && (
-        <div
-          onClick={() => navigate('/stocks')}
+    <>
+      {isMobile && (
+        <button
+          className="fs-hamburger"
+          onClick={() => setIsOpen(o => !o)}
+          aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
           style={{
-            margin: '0 10px 4px',
-            padding: '8px 12px',
-            background: 'rgba(194,62,36,0.18)',
-            border: '1px solid rgba(194,62,36,0.3)',
-            borderRadius: 'var(--fs-r-sm)',
-            cursor: 'pointer',
+            position: 'fixed', top: 12, left: isOpen ? SIDEBAR_W + 8 : 12,
+            zIndex: 201, width: 36, height: 36, borderRadius: 8,
+            background: 'var(--fs-wine-900)', border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}
         >
-          <p style={{ color: '#f9a89a', fontSize: 11, fontWeight: 700 }}>
-            <Icon name="alert" size={12} color="#f9a89a"/> {alertCount} alerte{alertCount > 1 ? 's' : ''} stock
-          </p>
-        </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="var(--fs-gold-400)" strokeWidth="2" strokeLinecap="round">
+            {isOpen
+              ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
+              : <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>
+            }
+          </svg>
+        </button>
       )}
 
-      {/* ── User + logout ── */}
-      <div style={{
-        padding: '12px',
-        borderTop: '1px solid rgba(255,255,255,0.08)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-      }}>
-        <div style={{
-          width: 32,
-          height: 32,
-          borderRadius: '50%',
-          background: 'var(--fs-gold-500)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#fff',
-          fontSize: 12,
-          fontWeight: 700,
-          fontFamily: 'var(--fs-font-display)',
-          flexShrink: 0,
-        }}>{initials}</div>
+      {isMobile && isOpen && (
+        <div
+          onClick={() => setIsOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.45)' }}
+        />
+      )}
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {payload?.name ?? '—'}
-          </div>
-          <div style={{ fontSize: 10, color: 'var(--fs-gold-300)', marginTop: 1, textTransform: 'capitalize' }}>
-            {role}
+      <aside className="fs-sidebar-drawer" style={sidebarStyle}>
+
+        {/* ── Logo ── */}
+        <div style={{ padding: '20px 18px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <CrownMark size={38}/>
+            <div style={{ lineHeight: 1 }}>
+              <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 16, fontWeight: 600, color: '#f5ebd9', letterSpacing: '0.02em' }}>Family Store</div>
+              <div style={{ fontSize: 10, color: 'var(--fs-gold-300)', fontStyle: 'italic', letterSpacing: '0.08em', marginTop: 2 }}>{roleLabel}</div>
+            </div>
           </div>
         </div>
 
-        <button
-          onClick={handleLogout}
-          title="Déconnexion"
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'var(--fs-gold-300)',
-            cursor: 'pointer',
-            padding: 4,
-            display: 'flex',
-            alignItems: 'center',
-            borderRadius: 'var(--fs-r-xs)',
-          }}
-        >
-          <Icon name="logout" size={16}/>
-        </button>
-      </div>
-    </aside>
+        {/* ── Nav ── */}
+        <nav style={{ flex: 1, padding: '12px 8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {items.map(item => {
+            const isActive = location.pathname === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => isMobile && setIsOpen(false)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '9px 12px', marginBottom: 1,
+                  borderRadius: 'var(--fs-r-sm)',
+                  background: isActive ? 'var(--fs-wine-700)' : 'transparent',
+                  color: isActive ? '#fff' : 'rgba(245,235,217,0.75)',
+                  fontSize: 13, fontWeight: isActive ? 600 : 500,
+                  cursor: 'pointer', textDecoration: 'none',
+                  borderLeft: isActive ? '2px solid var(--fs-gold-400)' : '2px solid transparent',
+                  transition: 'background 0.12s, color 0.12s',
+                }}
+              >
+                <Icon name={item.icon} size={16} color={isActive ? 'var(--fs-gold-300)' : 'var(--fs-gold-400)'}/>
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {item.path === '/alertes' && alertCount > 0 && (
+                  <span style={{ background: 'var(--fs-danger-500)', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 8, fontFamily: 'var(--fs-font-mono)' }}>
+                    {alertCount > 9 ? '9+' : alertCount}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* ── Alert banner (patron) ── */}
+        {role === 'patron' && alertCount > 0 && (
+          <div
+            onClick={() => navigate('/stocks')}
+            style={{ margin: '0 10px 4px', padding: '8px 12px', background: 'rgba(194,62,36,0.18)', border: '1px solid rgba(194,62,36,0.3)', borderRadius: 'var(--fs-r-sm)', cursor: 'pointer' }}
+          >
+            <p style={{ color: '#f9a89a', fontSize: 11, fontWeight: 700 }}>
+              <Icon name="alert" size={12} color="#f9a89a"/> {alertCount} alerte{alertCount > 1 ? 's' : ''} stock
+            </p>
+          </div>
+        )}
+
+        {/* ── User + logout ── */}
+        <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--fs-gold-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, fontFamily: 'var(--fs-font-display)', flexShrink: 0 }}>{initials}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-gold-300)', marginTop: 1, textTransform: 'capitalize' }}>{role}</div>
+          </div>
+          <button onClick={handleLogout} title="Déconnexion" style={{ background: 'transparent', border: 'none', color: 'var(--fs-gold-300)', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', borderRadius: 'var(--fs-r-xs)' }}>
+            <Icon name="logout" size={16}/>
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }

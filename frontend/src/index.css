@@ -109,3 +109,53 @@ html, body {
   background: linear-gradient(90deg, transparent, var(--fs-gold-400) 20%, var(--fs-gold-400) 80%, transparent);
   opacity: 0.7;
 }
+
+/* ── Mobile / responsive ─────────────────────────────────────────────────────── */
+
+/* Sidebar drawer transition */
+.fs-sidebar-drawer {
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.25s ease;
+}
+
+/* Hamburger transition */
+.fs-hamburger {
+  transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 767px) {
+  /* Remove tap highlight on buttons/links */
+  * { -webkit-tap-highlight-color: transparent; }
+
+  /* Allow horizontal scroll on data-heavy containers */
+  .fs-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Tables inside: don't collapse below their natural width */
+  .fs-table-scroll table {
+    min-width: 560px;
+  }
+
+  /* Add top space on pages to account for hamburger button */
+  .fs-page-main {
+    padding-top: 52px !important;
+  }
+
+  /* Reduce chart heights on mobile */
+  .fs-chart-mobile {
+    height: 180px !important;
+  }
+
+  /* Stack flex rows vertically on mobile */
+  .fs-mobile-col {
+    flex-direction: column !important;
+  }
+
+  /* Full width on mobile */
+  .fs-mobile-full {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}

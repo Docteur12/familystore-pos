@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { forgotPassword } from '../api/auth';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 function LockIcon() {
   return (
@@ -23,7 +24,8 @@ function MailIcon() {
 }
 
 export default function Login() {
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const isMobile  = useIsMobile();
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [error,    setError]    = useState<string | null>(null);
@@ -88,7 +90,7 @@ export default function Login() {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           {/* Crown SVG */}
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-            <svg width="64" height="64" viewBox="0 0 48 48" fill="none">
+            <svg width={isMobile ? 48 : 64} height={isMobile ? 48 : 64} viewBox="0 0 48 48" fill="none">
               <circle cx="24" cy="24" r="22" fill="var(--fs-wine-700)"/>
               <circle cx="24" cy="24" r="22" fill="none" stroke="var(--fs-gold-400)" strokeWidth="1.2"/>
               <path d="M14 22 L18 14 L22 20 L24 12 L26 20 L30 14 L34 22 L34 27 L14 27 Z"
@@ -103,7 +105,7 @@ export default function Login() {
 
           <h1 style={{
             fontFamily: 'var(--fs-font-display)',
-            fontSize: 32,
+            fontSize: isMobile ? 26 : 32,
             fontWeight: 600,
             color: 'var(--fs-wine-700)',
             letterSpacing: '0.02em',
@@ -129,7 +131,7 @@ export default function Login() {
           border: '1px solid var(--fs-line)',
           borderRadius: 'var(--fs-r-lg)',
           boxShadow: 'var(--fs-shadow-md)',
-          padding: '28px 28px 24px',
+          padding: isMobile ? '20px 16px 18px' : '28px 28px 24px',
         }}>
           {/* Gold hairline */}
           <div style={{
