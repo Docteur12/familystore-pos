@@ -79,37 +79,43 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
   <title>Recu ${data.receiptNo}</title>
   <style>
     @media print {
-      @page { size: 80mm auto; margin: 0; }
-      body { width: 80mm; margin: 0; }
-      * { font-family: monospace; font-size: 12px; }
+      @page { size: 80mm auto; margin: 3mm 0; }
+      body  { width: 80mm; margin: 0; }
+      *     { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
-    * { margin: 0; padding: 0; box-sizing: border-box;
-        font-family: 'Courier New', Courier, monospace; font-size: 12px; }
-    body { width: 80mm; margin: 0 auto; padding: 6px 6px 14px; color: #000; }
-    .center { text-align: center; }
-    .bold   { font-weight: bold; }
-    .solid  { border-top: 1px solid #000; margin: 6px 0; }
-    .dash   { border-top: 1px dashed #555; margin: 5px 0; }
-    .store  { font-size: 16px; font-weight: 900; letter-spacing: 2px; }
-    .meta   { font-size: 11px; margin: 2px 0; }
-    .item   { margin: 4px 0; }
-    .iname  { font-size: 12px; }
-    .irow   { display: flex; justify-content: space-between; font-size: 11px; color: #333; }
-    .row    { display: flex; justify-content: space-between; font-size: 12px; margin: 2px 0; }
-    .total  { font-size: 15px; font-weight: 900; margin: 4px 0; }
+    * {
+      margin: 0; padding: 0; box-sizing: border-box;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      color: #000 !important;
+    }
+    body   { width: 80mm; margin: 0 auto; padding: 10px 12px 18px; background: #fff; }
+    .center{ text-align: center; }
+    .bold  { font-weight: bold; }
+    .solid { border-top: 2px solid #000; margin: 7px 0; }
+    .dash  { border-top: 1px dashed #000; margin: 6px 0; }
+    .store { font-size: 19px; font-weight: 900; letter-spacing: 3px; }
+    .sub   { font-size: 11px; margin: 2px 0; }
+    .meta  { font-size: 12px; margin: 2px 0; }
+    .item  { margin: 5px 0; }
+    .iname { font-size: 13px; font-weight: 600; }
+    .irow  { display: flex; justify-content: space-between; font-size: 12px; padding-left: 4px; }
+    .row   { display: flex; justify-content: space-between; font-size: 13px; margin: 3px 0; }
+    .total { font-size: 16px; font-weight: 900; margin: 5px 0; }
+    .foot  { font-size: 11px; margin: 2px 0; }
   </style>
 </head>
 <body>
   <div class="center">
     <div class="store">FAMILY STORE</div>
-    <div class="meta">by RDCT</div>
-    <div class="meta">Beaut&eacute; &middot; Saveurs &middot; Bien-&ecirc;tre</div>
-    <div class="meta">Douala, Cameroun</div>
-    <div class="meta">Tel: ${data.storePhone || '+237 XXX XXX XXX'}</div>
+    <div class="sub">by RDCT &mdash; Point de Vente</div>
+    <div class="sub">Beaut&eacute; &middot; Saveurs &middot; Bien-&ecirc;tre</div>
+    <div class="sub" style="margin-top:3px;font-weight:bold;">March&eacute; Bonamoussadi &middot; Douala</div>
+    <div class="sub" style="font-weight:bold;">Tel: ${data.storePhone || '682 263 435'}</div>
   </div>
   <div class="solid"></div>
   <p class="meta">Ticket   : #${data.receiptNo}</p>
-  <p class="meta">Date     : ${dateStr} ${timeStr}</p>
+  <p class="meta">Date     : ${dateStr}  ${timeStr}</p>
   <p class="meta">Caissier : ${data.cashierName}</p>
   <div class="dash"></div>
   ${itemRows}
@@ -119,14 +125,17 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
   <div class="row"><span>Remise</span><span>0 XAF</span></div>
   <div class="solid"></div>
   <div class="row total"><span>TOTAL</span><span>${data.total.toLocaleString('fr-FR')} XAF</span></div>
+  <div class="solid"></div>
   <p class="meta">Paiement : ${data.paymentLabel}</p>
   <div class="row"><span>Re&ccedil;u</span><span>${data.amountPaid.toLocaleString('fr-FR')} XAF</span></div>
   ${monnaieRow}
   <div class="dash"></div>
   <div class="center">
-    <p class="meta">Merci de votre visite</p>
-    <p class="meta">Revenez nous voir !</p>
-    <p style="font-size:9px;margin-top:8px;color:#666">Family Store POS &copy; ${new Date().getFullYear()}</p>
+    <p class="foot" style="font-weight:bold;">Merci de votre visite !</p>
+    <p class="foot">Revenez nous voir — Family Store</p>
+    <p class="foot" style="margin-top:5px;">March&eacute; Bonamoussadi &middot; Douala</p>
+    <p class="foot">Tel: 682 263 435</p>
+    <p class="foot" style="margin-top:4px;font-size:9px;">Family Store POS &copy; ${new Date().getFullYear()}</p>
   </div>
 </body>
 </html>`;

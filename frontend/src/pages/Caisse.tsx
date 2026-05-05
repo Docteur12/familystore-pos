@@ -496,7 +496,7 @@ export default function Caisse() {
       {showQR && (
         <QRScanner
           onDetected={code => { setShowQR(false); handleQRDetected(code); }}
-          onClose={() => setShowQR(false)}
+          onClose={() => { setShowQR(false); focusScan(); }}
         />
       )}
 
@@ -692,20 +692,43 @@ export default function Caisse() {
             />
           </div>
 
-          {/* Scanner ready badge */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: isMobile ? '6px 8px' : '6px 12px',
-            border: '1.5px solid var(--fs-gold-400)',
-            borderRadius: 'var(--fs-r-md)',
-            background: 'var(--fs-gold-50)',
-            color: 'var(--fs-gold-700)',
-            fontSize: 12, fontWeight: 700, letterSpacing: '0.08em',
-            whiteSpace: 'nowrap', cursor: 'pointer',
-          }} onClick={() => setShowQR(true)}>
+          {/* Physical scanner — click to re-focus the input */}
+          <button
+            onClick={focusScan}
+            title="Cliquez pour activer la saisie scanner (douchette / F2)"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: isMobile ? '6px 8px' : '6px 12px',
+              border: '1.5px solid var(--fs-gold-400)',
+              borderRadius: 'var(--fs-r-md)',
+              background: 'var(--fs-gold-50)',
+              color: 'var(--fs-gold-700)',
+              fontSize: 12, fontWeight: 700, letterSpacing: '0.08em',
+              whiteSpace: 'nowrap', cursor: 'pointer',
+              fontFamily: 'var(--fs-font-sans)',
+            }}
+          >
             <Ico d={ICO_SCAN} size={13}/>
             {!isMobile && 'SCANNER PRÊT'}
-          </div>
+          </button>
+
+          {/* Camera scanner — separate button */}
+          <button
+            onClick={() => setShowQR(true)}
+            title="Scanner via caméra (QR code)"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '6px 8px',
+              border: '1.5px solid var(--fs-line-2)',
+              borderRadius: 'var(--fs-r-sm)',
+              background: 'var(--fs-paper)',
+              color: 'var(--fs-ink-400)',
+              cursor: 'pointer',
+              fontSize: 14,
+            }}
+          >
+            📷
+          </button>
 
           {/* Connection indicator */}
           <div style={{

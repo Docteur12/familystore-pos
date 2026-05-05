@@ -104,7 +104,10 @@ export default function QRScanner({ onDetected, onClose }: Props) {
             <div className="absolute inset-0 flex items-center justify-center bg-black/80 p-6">
               <div className="text-center">
                 <p className="text-4xl mb-3">📷</p>
-                <p className="text-white text-sm">{error}</p>
+                <p className="text-white text-sm font-medium">{error}</p>
+                <p className="text-gray-400 text-xs mt-3 leading-relaxed">
+                  Si vous utilisez une <strong className="text-gold">douchette USB</strong>, fermez cette fenêtre — le scan fonctionne directement dans le champ de recherche.
+                </p>
               </div>
             </div>
           )}
