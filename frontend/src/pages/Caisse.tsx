@@ -7,7 +7,7 @@ import React, {
   memo, useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
 import { getAllProducts, createSale, getProductByBarcode, Product, SaleError } from '../api/products';
-import { openSession, closeSession } from '../api/sessions';
+import { openSession, closeSession, getActiveSession } from '../api/sessions';
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
 import {
@@ -211,12 +211,23 @@ export default function Caisse() {
     return () => clearInterval(id);
   }, [isOnline]);
 
-  // Création session de travail au montage
+  // Reprise ou création de session de travail au montage
   useEffect(() => {
     if (!navigator.onLine) return;
-    openSession()
-      .then(s => { setSessionId(s._id); setSessionStart(new Date(s.dateDebut)); })
-      .catch(() => { /* silently ignore si hors-ligne */ });
+    (async () => {
+      try {
+        const existing = await getActiveSession();
+        if (existing) {
+          setSessionId(existing._id);
+          setSessionStart(new Date(existing.dateDebut));
+          setSessionSales(existing.liveCount ?? 0);
+        } else {
+          const s = await openSession();
+          setSessionId(s._id);
+          setSessionStart(new Date(s.dateDebut));
+        }
+      } catch { /* silently ignore si hors-ligne ou non authentifié */ }
+    })();
   }, []);
 
   // Online / offline events

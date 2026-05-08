@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards, HttpCode, HttpStatus,
+  Body, Controller, ForbiddenException, Get, NotFoundException, Param, Patch, Post, Query, Req, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { Request }        from 'express';
 import { SessionsService, OpenSessionDto } from './sessions.service';
@@ -26,9 +26,25 @@ export class SessionsController {
     return this.sessionsService.open(dto);
   }
 
-  // PATCH /api/sessions/:id/close — caissier ferme sa session
+  // GET /api/sessions/active — session en cours du caissier connecté
+  @Get('active')
+  async getActive(@Req() req: Request) {
+    const actor = (req as any)['user'];
+    const session = await this.sessionsService.findActive(actor.email);
+    if (!session) throw new NotFoundException('Aucune session active');
+    return session;
+  }
+
+  // PATCH /api/sessions/:id/close — ferme une session (propriétaire ou patron)
   @Patch(':id/close')
-  close(@Param('id') id: string) {
+  async close(@Param('id') id: string, @Req() req: Request) {
+    const actor = (req as any)['user'];
+    if (actor.role !== 'patron') {
+      const session = await this.sessionsService.findById(id);
+      if (!session || (session as any).cashierEmail !== actor.email) {
+        throw new ForbiddenException('Vous ne pouvez fermer que votre propre session');
+      }
+    }
     return this.sessionsService.close(id);
   }
 
@@ -42,11 +58,13 @@ export class SessionsController {
     @Query('cashier')  cashier?:  string,
     @Query('page')     page?:     string,
     @Query('limit')    limit?:    string,
+    @Query('active')   active?:   string,
   ) {
     return this.sessionsService.findAll({
       dateFrom, dateTo, cashier,
-      page:  Number(page)  || 0,
-      limit: Number(limit) || 50,
+      page:       Number(page)  || 0,
+      limit:      Number(limit) || 50,
+      activeOnly: active === 'true',
     });
   }
 }

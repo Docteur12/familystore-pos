@@ -26,6 +26,21 @@ export class SessionsService {
     });
   }
 
+  async findById(id: string): Promise<SessionDocument | null> {
+    return this.sessionModel.findById(id).lean().exec();
+  }
+
+  async findActive(cashierEmail: string): Promise<(SessionDocument & { liveCount: number }) | null> {
+    const session = await this.sessionModel
+      .findOne({ cashierEmail, closed: false })
+      .sort({ dateDebut: -1 })
+      .lean()
+      .exec();
+    if (!session) return null;
+    const liveCount = await this.saleModel.countDocuments({ sessionId: session._id.toString() });
+    return { ...session, liveCount } as any;
+  }
+
   async close(id: string): Promise<SessionDocument | null> {
     // Calculer les stats depuis les ventes liées à cette session
     const sales = await this.saleModel.find({ sessionId: id }).lean();
@@ -40,11 +55,12 @@ export class SessionsService {
   }
 
   async findAll(params?: {
-    dateFrom?: string;
-    dateTo?:   string;
-    cashier?:  string;
-    page?:     number;
-    limit?:    number;
+    dateFrom?:   string;
+    dateTo?:     string;
+    cashier?:    string;
+    page?:       number;
+    limit?:      number;
+    activeOnly?: boolean;
   }): Promise<{ data: SessionDocument[]; total: number }> {
     const filter: Record<string, unknown> = {};
 
@@ -55,6 +71,9 @@ export class SessionsService {
     }
     if (params?.cashier) {
       filter['cashierName'] = { $regex: params.cashier, $options: 'i' };
+    }
+    if (params?.activeOnly) {
+      filter['closed'] = false;
     }
 
     const limit = Math.min(Number(params?.limit) || 50, 100);

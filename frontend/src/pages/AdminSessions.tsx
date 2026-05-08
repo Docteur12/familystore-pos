@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
-import { getSessions, SessionRecord } from '../api/sessions';
+import { forceCloseSession, getSessions, SessionRecord } from '../api/sessions';
 
 const PAGE_SIZE = 50;
 const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
@@ -41,33 +41,54 @@ const TH: React.CSSProperties = {
 export default function AdminSessions() {
   const { toasts, addToast, removeToast } = useToast();
 
-  const [sessions, setSessions] = useState<SessionRecord[]>([]);
-  const [total,    setTotal]    = useState(0);
-  const [page,     setPage]     = useState(0);
-  const [loading,  setLoading]  = useState(true);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo,   setDateTo]   = useState('');
-  const [cashier,  setCashier]  = useState('');
+  const [sessions,    setSessions]    = useState<SessionRecord[]>([]);
+  const [total,       setTotal]       = useState(0);
+  const [activeTotal, setActiveTotal] = useState(0);
+  const [page,        setPage]        = useState(0);
+  const [loading,     setLoading]     = useState(true);
+  const [closing,     setClosing]     = useState<string | null>(null);
+  const [dateFrom,    setDateFrom]    = useState('');
+  const [dateTo,      setDateTo]      = useState('');
+  const [cashier,     setCashier]     = useState('');
+  const [activeOnly,  setActiveOnly]  = useState(false);
 
   const load = useCallback(async (p = 0) => {
     setLoading(true);
     try {
-      const res = await getSessions({
-        dateFrom: dateFrom || undefined,
-        dateTo:   dateTo   || undefined,
-        cashier:  cashier  || undefined,
-        page: p,
-        limit: PAGE_SIZE,
-      });
+      const [res, activeRes] = await Promise.all([
+        getSessions({
+          dateFrom:   dateFrom   || undefined,
+          dateTo:     dateTo     || undefined,
+          cashier:    cashier    || undefined,
+          page:       p,
+          limit:      PAGE_SIZE,
+          activeOnly: activeOnly || undefined,
+        }),
+        getSessions({ activeOnly: true, limit: 1 }),
+      ]);
       setSessions(res.data);
       setTotal(res.total);
+      setActiveTotal(activeRes.total);
       setPage(p);
     } catch {
       addToast('Erreur chargement des sessions', 'error');
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, cashier, addToast]);
+  }, [dateFrom, dateTo, cashier, activeOnly, addToast]);
+
+  const handleForceClose = async (id: string) => {
+    setClosing(id);
+    try {
+      await forceCloseSession(id);
+      addToast('Session fermée', 'success');
+      load(page);
+    } catch {
+      addToast('Erreur lors de la fermeture', 'error');
+    } finally {
+      setClosing(null);
+    }
+  };
 
   useEffect(() => { load(0); }, [load]);
 
@@ -97,11 +118,16 @@ export default function AdminSessions() {
               <span style={{ fontSize: 12, color: 'var(--fs-ink-400)' }}>→</span>
               <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12 }} />
+              <button
+                onClick={() => setActiveOnly(a => !a)}
+                style={{ padding: '7px 12px', border: `1.5px solid ${activeOnly ? '#EA580C' : 'var(--fs-line-2)'}`, borderRadius: 8, background: activeOnly ? '#FFF7ED' : '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: activeOnly ? '#EA580C' : 'var(--fs-ink-500)' }}>
+                ● Actives
+              </button>
               <button onClick={() => load(0)}
                 style={{ padding: '7px 14px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                 Filtrer
               </button>
-              <button onClick={() => { setDateFrom(''); setDateTo(''); setCashier(''); }}
+              <button onClick={() => { setDateFrom(''); setDateTo(''); setCashier(''); setActiveOnly(false); }}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
                 Réinitialiser
               </button>
@@ -114,6 +140,11 @@ export default function AdminSessions() {
           <div>
             <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Sessions </span>
             <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{total}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: activeTotal > 0 ? '#EA580C' : 'var(--fs-ink-300)', display: 'inline-block' }}/>
+            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Actives </span>
+            <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: activeTotal > 0 ? '#EA580C' : 'var(--fs-ink-900)' }}>{activeTotal}</span>
           </div>
           <div>
             <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Ventes </span>
@@ -137,7 +168,7 @@ export default function AdminSessions() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
-                    {['Caissière', 'Caisse', 'Date', 'Début', 'Fin', 'Durée', 'Ventes', 'CA', 'Statut'].map(h => (
+                    {['Caissière', 'Caisse', 'Date', 'Début', 'Fin', 'Durée', 'Ventes', 'CA', 'Statut', ''].map(h => (
                       <th key={h} style={TH}>{h}</th>
                     ))}
                   </tr>
@@ -145,7 +176,7 @@ export default function AdminSessions() {
                 <tbody>
                   {sessions.length === 0 ? (
                     <tr>
-                      <td colSpan={9} style={{ padding: 48, textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13 }}>
+                      <td colSpan={10} style={{ padding: 48, textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13 }}>
                         Aucune session enregistrée.
                       </td>
                     </tr>
@@ -179,7 +210,7 @@ export default function AdminSessions() {
                         {duration(s.dateDebut, s.dateFin)}
                       </td>
                       <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)', textAlign: 'right' }}>
-                        {s.nbVentes}
+                        {s.closed ? s.nbVentes : (s.liveCount ?? '—')}
                       </td>
                       <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)', whiteSpace: 'nowrap', textAlign: 'right' }}>
                         {fmtN(s.totalEncaisse)} XAF
@@ -193,6 +224,17 @@ export default function AdminSessions() {
                         }}>
                           {s.closed ? '✓ Fermée' : '● Active'}
                         </span>
+                      </td>
+                      <td style={{ padding: '10px 12px' }}>
+                        {!s.closed && (
+                          <button
+                            onClick={() => handleForceClose(s._id)}
+                            disabled={closing === s._id}
+                            title="Forcer la fermeture"
+                            style={{ padding: '4px 10px', border: '1px solid #EA580C', borderRadius: 6, background: closing === s._id ? '#FFF7ED' : '#fff', color: '#EA580C', fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: closing === s._id ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                            {closing === s._id ? '…' : 'Fermer'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
