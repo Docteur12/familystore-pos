@@ -32,6 +32,7 @@ import AdminRoles        from './pages/AdminRoles';
 import AdminAudit        from './pages/AdminAudit';
 import AdminExports      from './pages/AdminExports';
 import AdminFactures     from './pages/AdminFactures';
+import AdminSessions     from './pages/AdminSessions';
 import AdminMagaziniers  from './pages/AdminMagaziniers';
 import AdminCaisses      from './pages/AdminCaisses';
 import Magazinier        from './pages/Magazinier';
@@ -94,6 +95,7 @@ export default function App() {
         <Route path="/admin/audit"         element={<RequireAuthBare><AdminAudit /></RequireAuthBare>} />
         <Route path="/admin/exports"       element={<RequireAuthBare><AdminExports /></RequireAuthBare>} />
         <Route path="/admin/factures"      element={<RequireAuthBare><AdminFactures /></RequireAuthBare>} />
+        <Route path="/admin/sessions"      element={<RequireAuthBare><AdminSessions /></RequireAuthBare>} />
         <Route path="/admin/magaziniers"   element={<RequireAuthBare><AdminMagaziniers /></RequireAuthBare>} />
         <Route path="/admin/caisses"       element={<RequireAuthBare><AdminCaisses /></RequireAuthBare>} />
         <Route path="/magazinier"          element={<RequireAuthBare><Magazinier /></RequireAuthBare>} />

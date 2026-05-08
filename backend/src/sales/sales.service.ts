@@ -28,7 +28,7 @@ export class SalesService {
 
   // ── POST /api/sales ─────────────────────────────────────────────────────────
 
-  async create(dto: CreateSaleDto) {
+  async create(dto: CreateSaleDto, actor?: { name?: string; email?: string; caisse?: { nom?: string } }) {
 
     // ── 1. Vérification stock AVANT toute écriture ────────────────────────────
     const productIds = dto.items.map(i => new Types.ObjectId(i.product));
@@ -66,6 +66,10 @@ export class SalesService {
       paymentMethod: dto.paymentMethod,
       amountPaid:    dto.amountPaid,
       change,
+      cashierName:   actor?.name        ?? '',
+      cashierEmail:  actor?.email       ?? '',
+      caisseName:    actor?.caisse?.nom ?? '',
+      sessionId:     dto.sessionId      ?? '',
     });
 
     // ── 4. Décrémentation stock + création mouvements (parallèle) ─────────────

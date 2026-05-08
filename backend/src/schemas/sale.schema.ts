@@ -52,6 +52,19 @@ export class Sale {
   @Prop({ required: true, default: 0, min: 0 })
   change: number;
 
+  // ── Traçabilité caissière ──────────────────────────────────────────────────
+  @Prop({ default: '' })
+  cashierName: string;
+
+  @Prop({ default: '' })
+  cashierEmail: string;
+
+  @Prop({ default: '' })
+  caisseName: string;
+
+  @Prop({ default: '' })
+  sessionId: string;
+
   @Prop({ default: Date.now })
   createdAt: Date;
 }

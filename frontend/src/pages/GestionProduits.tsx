@@ -151,8 +151,12 @@ function AddModal({ onSave, onClose }: AddModalProps) {
                 type="text"
                 value={form.name}
                 onChange={e => set('name', e.target.value)}
+                onBlur={e => {
+                  const v = e.target.value.trim();
+                  if (v) set('name', v.charAt(0).toUpperCase() + v.slice(1).toLowerCase());
+                }}
                 required
-                placeholder="ex: Huile Diamaor 1L"
+                placeholder="ex: Huile diamaor 1l"
                 className="input-field w-full"
               />
             </div>

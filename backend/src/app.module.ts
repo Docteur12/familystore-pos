@@ -11,7 +11,8 @@ import { SettingsModule } from './settings/settings.module';
 import { MagazinierModule } from './magazinier/magazinier.module';
 import { CaissesModule } from './caisses/caisses.module';
 import { AuditModule }    from './audit/audit.module';
-import { FacturesModule } from './factures/factures.module';
+import { FacturesModule }  from './factures/factures.module';
+import { SessionsModule }  from './sessions/sessions.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { FacturesModule } from './factures/factures.module';
     MagazinierModule,
     CaissesModule,
     FacturesModule,
+    SessionsModule,
   ],
   controllers: [AppController],
   providers: [],

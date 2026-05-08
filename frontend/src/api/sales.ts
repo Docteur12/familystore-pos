@@ -15,6 +15,10 @@ export interface Sale {
   amountPaid:    number;
   change:        number;
   createdAt:     string;
+  cashierName?:  string;
+  cashierEmail?: string;
+  caisseName?:   string;
+  sessionId?:    string;
 }
 
 export const PM_LABELS: Record<string, string> = {

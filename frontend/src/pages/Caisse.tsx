@@ -7,6 +7,7 @@ import React, {
   memo, useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
 import { getAllProducts, createSale, getProductByBarcode, Product, SaleError } from '../api/products';
+import { openSession, closeSession } from '../api/sessions';
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
 import {
@@ -170,6 +171,9 @@ export default function Caisse() {
   const [isOnline,       setIsOnline]       = useState(() => navigator.onLine);
   const [pendingCount,   setPendingCount]   = useState(0);
   const [showLogoutModal,setShowLogoutModal]= useState(false);
+  const [sessionId,      setSessionId]      = useState<string | null>(null);
+  const [sessionStart,   setSessionStart]   = useState<Date | null>(null);
+  const [sessionSales,   setSessionSales]   = useState(0);
 
   // Dynamic row height — computed after filteredProducts (see below)
 
@@ -205,6 +209,14 @@ export default function Caisse() {
     }, 5 * 60 * 1000);
     return () => clearInterval(id);
   }, [isOnline]);
+
+  // Création session de travail au montage
+  useEffect(() => {
+    if (!navigator.onLine) return;
+    openSession()
+      .then(s => { setSessionId(s._id); setSessionStart(new Date(s.dateDebut)); })
+      .catch(() => { /* silently ignore si hors-ligne */ });
+  }, []);
 
   // Online / offline events
   useEffect(() => {
@@ -414,6 +426,7 @@ export default function Caisse() {
         const cached = await getCachedProducts();
         setAllProducts(cached);
         setPendingCount(prev => prev + 1);
+        setSessionSales(n => n + 1);
         addToast('Mode hors ligne — vente sauvegardée, à synchroniser', 'warning');
 
         // Générer et afficher le reçu hors ligne (impression possible)
@@ -462,7 +475,7 @@ export default function Caisse() {
       }
 
       try {
-        const result = await createSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid });
+        const result = await createSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid, sessionId: sessionId ?? undefined });
 
         // ── Succès ───────────────────────────────────────────────────────────
         succeeded = true;
@@ -481,6 +494,7 @@ export default function Caisse() {
         setReceiptData(newData);
         setCart([]); setAmountPaid(''); setPaymentMethod('cash');
 
+        setSessionSales(n => n + 1);
         if (attempt > 0) addToast('Vente enregistrée ✅', 'success');
 
         const ps = getPrintSettings();
@@ -603,13 +617,13 @@ export default function Caisse() {
             </div>
             <div style={{ padding: '18px 22px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button
-                onClick={() => { handleHold(); setShowLogoutModal(false); localStorage.removeItem('access_token'); window.location.href = '/login'; }}
+                onClick={() => { handleHold(); setShowLogoutModal(false); if (sessionId) closeSession(sessionId); localStorage.removeItem('access_token'); window.location.href = '/login'; }}
                 style={{ padding: '11px 0', borderRadius: 10, border: '2px solid var(--fs-wine-700)', background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
               >
                 Mettre en attente &amp; se déconnecter
               </button>
               <button
-                onClick={() => { setCart([]); setAmountPaid(''); setShowLogoutModal(false); localStorage.removeItem('access_token'); window.location.href = '/login'; }}
+                onClick={() => { setCart([]); setAmountPaid(''); setShowLogoutModal(false); if (sessionId) closeSession(sessionId); localStorage.removeItem('access_token'); window.location.href = '/login'; }}
                 style={{ padding: '11px 0', borderRadius: 10, border: '2px solid #ef4444', background: '#fef2f2', color: '#dc2626', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
               >
                 Annuler le ticket &amp; se déconnecter
@@ -651,13 +665,27 @@ export default function Caisse() {
         flexShrink: 0,
         overflow: 'hidden',
       }}>
-        <div style={{ padding: '16px 14px 10px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        {/* Identity panel */}
+        <div style={{ padding: '12px 12px 10px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: 9 }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--fs-gold-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
+            {initials}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.caisse?.nom ?? '—'}</div>
+            <div style={{ fontSize: 10, color: 'rgba(245,235,217,0.45)', marginTop: 1 }}>
+              {sessionStart ? sessionStart.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'} · {sessionSales} vente{sessionSales !== 1 ? 's' : ''}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '10px 14px 6px', flexShrink: 0 }}>
           <p style={{
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: 700,
             letterSpacing: '0.14em',
             textTransform: 'uppercase',
-            color: 'var(--fs-gold-500)',
+            color: 'rgba(245,235,217,0.35)',
             margin: 0,
           }}>Catégories</p>
         </div>
@@ -709,37 +737,21 @@ export default function Caisse() {
           })}
         </nav>
 
-        {/* User at bottom */}
+        {/* Logout */}
         <div style={{
-          padding: '10px 12px',
+          padding: '8px 12px',
           borderTop: '1px solid rgba(255,255,255,0.07)',
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
+          justifyContent: 'flex-end',
         }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: '50%',
-            background: 'var(--fs-gold-500)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0,
-          }}>{initials}</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {payload?.name?.split(' ')[0] ?? '—'} {payload?.name?.split(' ').slice(-1)[0]?.[0] ?? ''}.
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--fs-gold-400)', marginTop: 1 }}>
-              {payload?.role === 'caissier'     ? 'Caissier(e)'
-                : payload?.role === 'gestionnaire' ? 'Chef de stock'
-                : payload?.role === 'magazinier'   ? 'Manutentionnaire'
-                : payload?.role ?? 'Caissier'} · {payload?.caisse?.nom ?? '—'}
-            </div>
-          </div>
           <button
-            onClick={() => { if (cart.length > 0) { setShowLogoutModal(true); } else { localStorage.removeItem('access_token'); window.location.href = '/login'; } }}
-            style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', padding: 2, display: 'flex' }}
+            onClick={() => { if (cart.length > 0) { setShowLogoutModal(true); } else { if (sessionId) closeSession(sessionId); localStorage.removeItem('access_token'); window.location.href = '/login'; } }}
+            style={{ background: 'none', border: '1px solid rgba(245,235,217,0.15)', borderRadius: 7, color: 'rgba(245,235,217,0.5)', cursor: 'pointer', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}
             title="Déconnexion"
           >
-            <Ico d={ICO_LOGOUT} size={14}/>
+            <Ico d={ICO_LOGOUT} size={13}/>
+            Déconnexion
           </button>
         </div>
       </aside>
@@ -1424,7 +1436,7 @@ const ProductCard = memo(function ProductCard({
 
   return (
     <div
-      onClick={noStock ? undefined : onClick}
+      onClick={noStock ? undefined : (e) => { (e.currentTarget as HTMLElement).blur(); onClick(); }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -1441,6 +1453,8 @@ const ProductCard = memo(function ProductCard({
         transform: hovered && !noStock ? 'translateY(-2px)' : 'none',
         opacity: noStock ? 0.5 : 1,
         boxShadow: hovered && !noStock ? 'var(--fs-shadow-lg)' : 'var(--fs-shadow-sm)',
+        userSelect: 'none',
+        outline: 'none',
       }}
     >
       {/* Stock badge */}

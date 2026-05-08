@@ -4,6 +4,7 @@ import {
   IsIn,
   IsMongoId,
   IsNumber,
+  IsOptional,
   IsString,
   Min,
   MinLength,
@@ -47,4 +48,9 @@ export class CreateSaleDto {
   @IsNumber()
   @Min(0)
   amountPaid: number;
+
+  /** ID de la session de travail caissière (optionnel) */
+  @IsOptional()
+  @IsString()
+  sessionId?: string;
 }

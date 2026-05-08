@@ -35,6 +35,7 @@ export interface SalePayload {
   total:         number;
   paymentMethod: string;
   amountPaid:    number;
+  sessionId?:    string;
 }
 
 export interface StockAlert {

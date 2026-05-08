@@ -142,7 +142,7 @@ function TicketDetail({ sale }: { sale: Sale }) {
 
   return (
     <tr>
-      <td colSpan={7} style={{ background: 'var(--fs-ivory)', padding: '0 0 2px' }}>
+      <td colSpan={8} style={{ background: 'var(--fs-ivory)', padding: '0 0 2px' }}>
         <div style={{ margin: '0 48px 10px', border: '1px solid var(--fs-line)', borderRadius: 8, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -195,9 +195,10 @@ export default function AdminJournal() {
   const [search,     setSearch]     = useState('');
   const [expanded,   setExpanded]   = useState<Set<string>>(new Set());
   const [lastRefresh,setLastRefresh]= useState<Date>(new Date());
-  const [page,       setPage]       = useState(0);
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo,   setCustomTo]   = useState('');
+  const [page,         setPage]         = useState(0);
+  const [customFrom,   setCustomFrom]   = useState('');
+  const [customTo,     setCustomTo]     = useState('');
+  const [cashierFilter,setCashierFilter]= useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async (silent = false) => {
@@ -222,16 +223,30 @@ export default function AdminJournal() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [load]);
 
-  // ── Filtrage local (recherche) ────────────────────────────────────────────
+  // ── Filtrage local (recherche + caissière) ───────────────────────────────
 
   const q = search.toLowerCase();
+  const cf = cashierFilter.toLowerCase();
   const filtered = sales.filter(s => {
+    if (cf && !(s.cashierName ?? '').toLowerCase().includes(cf)) return false;
     if (!q) return true;
-    const ticketId  = s._id.slice(-6).toLowerCase();
-    const pm        = (PM_LABELS[s.paymentMethod] ?? s.paymentMethod).toLowerCase();
-    const articles  = s.items.map(it => it.name.toLowerCase()).join(' ');
-    return ticketId.includes(q) || pm.includes(q) || articles.includes(q);
+    const ticketId = s._id.slice(-6).toLowerCase();
+    const pm       = (PM_LABELS[s.paymentMethod] ?? s.paymentMethod).toLowerCase();
+    const articles = s.items.map(it => it.name.toLowerCase()).join(' ');
+    const cashier  = (s.cashierName ?? '').toLowerCase();
+    return ticketId.includes(q) || pm.includes(q) || articles.includes(q) || cashier.includes(q);
   });
+
+  // ── Stats par caissière ──────────────────────────────────────────────────
+
+  const byCashier: Record<string, { nbVentes: number; ca: number }> = {};
+  for (const s of filtered) {
+    const name = s.cashierName || 'Inconnu';
+    if (!byCashier[name]) byCashier[name] = { nbVentes: 0, ca: 0 };
+    byCashier[name].nbVentes++;
+    byCashier[name].ca += s.total;
+  }
+  const cashierList = Object.entries(byCashier).sort((a, b) => b[1].ca - a[1].ca);
 
   // ── Stats (sur tous les filtrés, pas juste la page) ──────────────────────
 
@@ -305,6 +320,14 @@ export default function AdminJournal() {
                 </div>
               )}
 
+              {/* Filtre caissière */}
+              <div style={{ position: 'relative' }}>
+                <input value={cashierFilter} onChange={e => { setCashierFilter(e.target.value); setPage(0); }}
+                  placeholder="Filtrer par caissière…"
+                  style={{ padding: '7px 12px 7px 28px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', width: 170, fontFamily: 'var(--fs-font-sans)' }} />
+                <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-400)', fontSize: 13 }}>👤</span>
+              </div>
+
               {/* Recherche */}
               <div style={{ position: 'relative' }}>
                 <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
@@ -363,6 +386,25 @@ export default function AdminJournal() {
               );
             })}
           </div>
+
+          {/* Stats par caissière */}
+          {cashierList.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
+              {cashierList.map(([name, st]) => (
+                <button key={name}
+                  onClick={() => { setCashierFilter(cashierFilter === name ? '' : name); setPage(0); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    background: cashierFilter === name ? 'var(--fs-wine-700)' : '#fff',
+                    color:      cashierFilter === name ? '#fff'               : 'var(--fs-ink-700)',
+                    border: '1.5px solid var(--fs-line-2)', borderRadius: 12,
+                    padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  }}>
+                  👤 {name} · {st.nbVentes}v · {fmtN(st.ca)} XAF
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Table */}
@@ -375,15 +417,15 @@ export default function AdminJournal() {
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
                     <th style={TH}/>
-                    {['Ticket #', 'Date · Heure', 'Articles', 'Mode paiement', 'Montant payé', 'Total'].map((h, i) => (
-                      <th key={h} style={{ ...TH, textAlign: i >= 4 ? 'right' : 'left' }}>{h}</th>
+                    {['Ticket #', 'Date · Heure', 'Caissière', 'Articles', 'Mode paiement', 'Montant payé', 'Total'].map((h, i) => (
+                      <th key={h} style={{ ...TH, textAlign: i >= 5 ? 'right' : 'left' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ padding: '48px', textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13 }}>
+                      <td colSpan={8} style={{ padding: '48px', textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13 }}>
                         {sales.length === 0
                           ? 'Aucune vente enregistrée sur cette période.'
                           : 'Aucune vente correspond à la recherche.'}
@@ -416,6 +458,21 @@ export default function AdminJournal() {
                           <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-800)' }}>{date}</div>
                             <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 1 }}>{heure}</div>
+                          </td>
+                          {/* Caissière */}
+                          <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                            {s.cashierName ? (
+                              <button
+                                onClick={e => { e.stopPropagation(); setCashierFilter(cashierFilter === s.cashierName ? '' : (s.cashierName ?? '')); setPage(0); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 5, background: cashierFilter === s.cashierName ? 'var(--fs-wine-50)' : 'transparent', border: 'none', borderRadius: 6, padding: '2px 6px', cursor: 'pointer' }}>
+                                <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--fs-gold-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                                  {(s.cashierName ?? '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()}
+                                </span>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-700)' }}>{s.cashierName}</span>
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: 11, color: 'var(--fs-ink-300)' }}>—</span>
+                            )}
                           </td>
                           {/* Articles */}
                           <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--fs-ink-600)', maxWidth: 260 }}>

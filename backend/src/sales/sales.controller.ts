@@ -31,7 +31,7 @@ export class SalesController {
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateSaleDto, @Req() req: Request) {
     const actor  = (req as any)['user'];
-    const result = await this.salesService.create(dto);
+    const result = await this.salesService.create(dto, actor);
     const nbItems = dto.items.reduce((s, i) => s + i.quantity, 0);
     this.auditService.log({
       type: 'vente', module: 'ventes',
