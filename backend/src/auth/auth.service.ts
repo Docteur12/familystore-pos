@@ -94,7 +94,8 @@ export class AuthService {
     if (data.email?.trim())       update.email    = data.email.toLowerCase().trim();
     if (data.phone !== undefined) update.phone    = data.phone.trim();
     if (data.password?.trim())    update.password = await bcrypt.hash(data.password.trim(), 10);
-    if ('caisseId' in data)       update.caisseId = (data as any).caisseId ?? null;
+    if ('caisseId' in data)          update.caisseId          = (data as any).caisseId ?? null;
+    if ('assignedLocation' in data)  update.assignedLocation  = (data as any).assignedLocation ?? '';
 
     if (Object.keys(update).length === 0) return this.userModel.findById(id).select('-password');
     const user = await this.userModel

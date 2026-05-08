@@ -23,6 +23,10 @@ export class User {
   // Caisse assignée (uniquement pour les caissiers)
   @Prop({ type: Types.ObjectId, ref: 'Caisse', default: null })
   caisseId: Types.ObjectId | null;
+
+  // Dépôt/magasin assigné (gestionnaire et magazinier)
+  @Prop({ default: '' })
+  assignedLocation: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

@@ -16,12 +16,31 @@ export interface AnalyseMonth {
   depenses:     number;
   nbVentes:     number;
   panierMoyen:  number;
+  minTicket:    number;
+  maxTicket:    number;
   prevCA:       number;
   parJour:      JourData[];
   parCategorie: CategorieData[];
   parCaissier:  CaissierData[];
   topProduits:  ProduitData[];
-  heatmap:      number[][];   // [7 jours][24 heures] — valeurs normalisées 0-1
+  heatmap:      number[][];
+}
+
+export interface ProductStat {
+  name:           string;
+  qtySold:        number;
+  caGenere:       number;
+  nbTransactions: number;
+  prixMoyenVente: number;
+}
+
+export async function getByProduct(params?: { dateFrom?: string; dateTo?: string }): Promise<ProductStat[]> {
+  const qs = new URLSearchParams();
+  if (params?.dateFrom) qs.set('dateFrom', params.dateFrom);
+  if (params?.dateTo)   qs.set('dateTo',   params.dateTo);
+  const res = await fetch(`/api/sales/stats/by-product?${qs}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement journal produits');
+  return res.json();
 }
 
 export async function getAnalyseMonth(year: number, month: number): Promise<AnalyseMonth> {

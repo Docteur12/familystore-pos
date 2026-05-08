@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import { createUser, deleteUser, getUsers, updateUser, UserRecord } from '../api/auth';
+import { getCaisses, CaisseRecord } from '../api/caisses';
 
 const AVATAR_COLORS = ['#7A9EC2','#7AB87A','#9A7AC2','#7ABFBF','#C2B07A'];
 const avatarColor = (name: string) => AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 const initials    = (name: string) => name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
 const MODULES = ['Stock', 'Réceptions', 'Inventaire', 'Fournisseurs', 'Étiquettes', 'Dépôts'];
-const DEPOTS  = ['Dépôt principal', 'Entrepôt secondaire', 'Dépôt Nord', 'Dépôt Est'];
 
 function I({ d, size = 14 }: { d: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>;
@@ -29,9 +29,8 @@ function Field({ label, value, onChange, type = 'text', placeholder = '' }: {
 function getExtra(id: string) {
   const h = id.charCodeAt(0);
   return {
-    date:   ['03 nov. 2023','15 jan. 2024','08 sep. 2024','22 nov. 2025'][h % 4],
-    stars:  3 + (h % 3),
-    depot:  DEPOTS[h % DEPOTS.length],
+    date:    ['03 nov. 2023','15 jan. 2024','08 sep. 2024','22 nov. 2025'][h % 4],
+    stars:   3 + (h % 3),
     modules: MODULES.slice(0, 3 + (h % 3)),
   };
 }
@@ -66,7 +65,7 @@ function GestCard({ user, selected, onClick, onEdit, onDelete }: { user: UserRec
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10, fontSize: 11, color: 'var(--fs-ink-500)' }}>
         <span>📅 {extra.date}</span>
         <Stars n={extra.stars}/>
-        <span>🏭 {extra.depot}</span>
+        {user.assignedLocation && <span>🏭 {user.assignedLocation}</span>}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
         {extra.modules.map(m => (
@@ -79,11 +78,11 @@ function GestCard({ user, selected, onClick, onEdit, onDelete }: { user: UserRec
 
 // ── Edit gestionnaire panel ───────────────────────────────────────────────────
 
-function EditGestPanel({ user, onSaved, onCancel }: { user: UserRecord; onSaved: () => void; onCancel: () => void }) {
+function EditGestPanel({ user, caisses, onSaved, onCancel }: { user: UserRecord; caisses: CaisseRecord[]; onSaved: () => void; onCancel: () => void }) {
   const parts = user.name.split(' ');
   const [prenom, setPrenom] = useState(parts[0] ?? '');
   const [nom, setNom]       = useState(parts.slice(1).join(' ') ?? '');
-  const [depot, setDepot]   = useState(DEPOTS[0]);
+  const [depot, setDepot]   = useState(user.assignedLocation || '');
   const [pwd, setPwd]       = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -94,10 +93,10 @@ function EditGestPanel({ user, onSaved, onCancel }: { user: UserRecord; onSaved:
     if (!fullName) { setError('Nom obligatoire.'); return; }
     setLoading(true); setError('');
     try {
-      const patch: { name?: string; password?: string } = {};
+      const patch: { name?: string; password?: string; assignedLocation?: string } = { assignedLocation: depot };
       if (fullName !== user.name) patch.name = fullName;
       if (pwd.length >= 6) patch.password = pwd;
-      if (Object.keys(patch).length > 0) await updateUser(user._id, patch);
+      await updateUser(user._id, patch);
       onSaved();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
     finally { setLoading(false); }
@@ -126,10 +125,11 @@ function EditGestPanel({ user, onSaved, onCancel }: { user: UserRecord; onSaved:
         ))}
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Affectation</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Dépôt assigné</label>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Point de vente assigné</label>
           <select value={depot} onChange={e => setDepot(e.target.value)}
             style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-            {DEPOTS.map(d => <option key={d} value={d}>{d}</option>)}
+            <option value="">— Sélectionner —</option>
+            {caisses.map(c => <option key={c._id} value={c.nom}>{c.nom}{c.ville ? ` (${c.ville})` : ''}</option>)}
           </select>
         </div>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Réinitialiser le mot de passe</p>
@@ -178,8 +178,8 @@ function DeleteGestPanel({ user, onDeleted, onCancel }: { user: UserRecord; onDe
   );
 }
 
-function FormPanel({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
-  const [form, setForm] = useState({ prenom: '', nom: '', email: '', phone: '', depot: DEPOTS[0], dateEmb: new Date().toISOString().slice(0, 10), password: '' });
+function FormPanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]; onCreated: () => void; onCancel: () => void }) {
+  const [form, setForm] = useState({ prenom: '', nom: '', email: '', phone: '', assignedLocation: '', dateEmb: new Date().toISOString().slice(0, 10), password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
@@ -188,7 +188,8 @@ function FormPanel({ onCreated, onCancel }: { onCreated: () => void; onCancel: (
     if (!form.prenom || !form.nom || !form.password) { setError('Prénom, nom et mot de passe obligatoires.'); return; }
     setLoading(true); setError('');
     try {
-      await createUser({ name: `${form.prenom} ${form.nom}`, email: form.email || `${form.prenom.toLowerCase()}.${form.nom[0].toLowerCase()}@familystore.cm`, password: form.password, role: 'gestionnaire', phone: form.phone || undefined });
+      const created = await createUser({ name: `${form.prenom} ${form.nom}`, email: form.email || `${form.prenom.toLowerCase()}.${form.nom[0].toLowerCase()}@familystore.cm`, password: form.password, role: 'gestionnaire', phone: form.phone || undefined });
+      if (form.assignedLocation) await updateUser(created._id, { assignedLocation: form.assignedLocation });
       onCreated();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
     finally { setLoading(false); }
@@ -209,10 +210,11 @@ function FormPanel({ onCreated, onCancel }: { onCreated: () => void; onCancel: (
         <Field label="Email" value={form.email} onChange={v => set('email', v)} placeholder="samuel.o@familystore.cm"/>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Affectation</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Dépôt assigné</label>
-          <select value={form.depot} onChange={e => set('depot', e.target.value)}
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Point de vente assigné</label>
+          <select value={form.assignedLocation} onChange={e => set('assignedLocation', e.target.value)}
             style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-            {DEPOTS.map(d => <option key={d} value={d}>{d}</option>)}
+            <option value="">— Sélectionner —</option>
+            {caisses.map(c => <option key={c._id} value={c.nom}>{c.nom}{c.ville ? ` (${c.ville})` : ''}</option>)}
           </select>
         </div>
         <Field label="Date d'embauche" value={form.dateEmb} onChange={v => set('dateEmb', v)} type="date"/>
@@ -232,11 +234,15 @@ function FormPanel({ onCreated, onCancel }: { onCreated: () => void; onCancel: (
 type GestPanel = { type: 'create' } | { type: 'edit'; user: UserRecord } | { type: 'delete'; user: UserRecord } | null;
 
 export default function AdminGestionnaires() {
-  const [users, setUsers] = useState<UserRecord[]>([]);
-  const [panel, setPanel] = useState<GestPanel>(null);
+  const [users, setUsers]     = useState<UserRecord[]>([]);
+  const [caisses, setCaisses] = useState<CaisseRecord[]>([]);
+  const [panel, setPanel]     = useState<GestPanel>(null);
 
   const load = () => getUsers().then(us => setUsers(us.filter(u => u.role === 'gestionnaire'))).catch(() => {});
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    getCaisses().then(setCaisses).catch(() => {});
+  }, []);
 
   const mockStaff: UserRecord[] = [
     { _id: '3', name: 'Samuel Onana',   email: 'samuel@fs.cm', role: 'gestionnaire' },
@@ -272,8 +278,8 @@ export default function AdminGestionnaires() {
               ))}
             </div>
           </div>
-          {panel?.type === 'create' && <FormPanel onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
-          {panel?.type === 'edit' && <EditGestPanel user={panel.user} onSaved={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
+          {panel?.type === 'create' && <FormPanel caisses={caisses} onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
+          {panel?.type === 'edit' && <EditGestPanel user={panel.user} caisses={caisses} onSaved={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
           {panel?.type === 'delete' && <DeleteGestPanel user={panel.user} onDeleted={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
         </div>
       </main>

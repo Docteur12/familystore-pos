@@ -182,6 +182,11 @@ export class SalesService {
       }
     }
 
+    const totals    = sales.map(s => s.total);
+    const minTicket = totals.length > 0 ? Math.min(...totals) : 0;
+    const maxTicket = totals.length > 0 ? Math.max(...totals) : 0;
+    const avgTicket = nbVentes > 0 ? Math.round(totalCA / nbVentes) : 0;
+
     return {
       date:    start.toISOString().split('T')[0],
       totalCA,
@@ -189,6 +194,7 @@ export class SalesService {
       nbVentes,
       benefice,
       marge:   totalCA > 0 ? Math.round((benefice / totalCA) * 100) : 0,
+      minTicket, maxTicket, avgTicket,
     };
   }
 
@@ -220,24 +226,34 @@ export class SalesService {
       .select('total createdAt')
       .lean();
 
+    type PeriodBucket = { totalCA: number; nbVentes: number; totals: number[] };
+    const ticketStats = (b: PeriodBucket) => ({
+      minTicket: b.totals.length > 0 ? Math.min(...b.totals) : 0,
+      maxTicket: b.totals.length > 0 ? Math.max(...b.totals) : 0,
+      avgTicket: b.totals.length > 0 ? Math.round(b.totalCA / b.totals.length) : 0,
+    });
+
     if (days <= 30) {
       // Regroupement journalier
-      const byDay: Record<string, { totalCA: number; nbVentes: number }> = {};
+      const byDay: Record<string, PeriodBucket> = {};
       for (const sale of sales) {
         const key = new Date(sale.createdAt).toISOString().split('T')[0];
-        if (!byDay[key]) byDay[key] = { totalCA: 0, nbVentes: 0 };
+        if (!byDay[key]) byDay[key] = { totalCA: 0, nbVentes: 0, totals: [] };
         byDay[key].totalCA  += sale.total;
         byDay[key].nbVentes += 1;
+        byDay[key].totals.push(sale.total);
       }
       return Array.from({ length: days }, (_, i) => {
         const d   = new Date(now);
         d.setDate(d.getDate() - (days - 1 - i));
         const key = d.toISOString().split('T')[0];
+        const b   = byDay[key] ?? { totalCA: 0, nbVentes: 0, totals: [] };
         return {
-          date:     key,
-          label:    d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
-          totalCA:  byDay[key]?.totalCA  ?? 0,
-          nbVentes: byDay[key]?.nbVentes ?? 0,
+          date: key,
+          label: d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+          totalCA: b.totalCA,
+          nbVentes: b.nbVentes,
+          ...ticketStats(b),
         };
       });
     }
@@ -251,43 +267,129 @@ export class SalesService {
         copy.setHours(0, 0, 0, 0);
         return copy.toISOString().split('T')[0];
       };
-      const byWeek: Record<string, { totalCA: number; nbVentes: number }> = {};
+      const byWeek: Record<string, PeriodBucket> = {};
       for (const sale of sales) {
         const key = mondayOf(new Date(sale.createdAt));
-        if (!byWeek[key]) byWeek[key] = { totalCA: 0, nbVentes: 0 };
+        if (!byWeek[key]) byWeek[key] = { totalCA: 0, nbVentes: 0, totals: [] };
         byWeek[key].totalCA  += sale.total;
         byWeek[key].nbVentes += 1;
+        byWeek[key].totals.push(sale.total);
       }
       return Object.entries(byWeek)
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, d]) => ({
-          date:     key,
-          label:    new Date(key).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
-          totalCA:  d.totalCA,
-          nbVentes: d.nbVentes,
+        .map(([key, b]) => ({
+          date: key,
+          label: new Date(key).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+          totalCA: b.totalCA,
+          nbVentes: b.nbVentes,
+          ...ticketStats(b),
         }));
     }
 
     // Regroupement mensuel (365 jours)
-    const byMonth: Record<string, { totalCA: number; nbVentes: number }> = {};
+    const byMonth: Record<string, PeriodBucket> = {};
     for (const sale of sales) {
       const d   = new Date(sale.createdAt);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      if (!byMonth[key]) byMonth[key] = { totalCA: 0, nbVentes: 0 };
+      if (!byMonth[key]) byMonth[key] = { totalCA: 0, nbVentes: 0, totals: [] };
       byMonth[key].totalCA  += sale.total;
       byMonth[key].nbVentes += 1;
+      byMonth[key].totals.push(sale.total);
     }
     return Object.entries(byMonth)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, d]) => {
+      .map(([key, b]) => {
         const [y, m] = key.split('-').map(Number);
         return {
-          date:     key,
-          label:    new Date(y, m - 1, 1).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
-          totalCA:  d.totalCA,
-          nbVentes: d.nbVentes,
+          date: key,
+          label: new Date(y, m - 1, 1).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
+          totalCA: b.totalCA,
+          nbVentes: b.nbVentes,
+          ...ticketStats(b),
         };
       });
+  }
+
+  // ── GET /api/sales/stats/by-product — journal par produit ──────────────────
+
+  async byProduct(params?: { dateFrom?: string; dateTo?: string }) {
+    const q: Record<string, any> = {};
+    if (params?.dateFrom || params?.dateTo) {
+      q.createdAt = {};
+      if (params?.dateFrom) q.createdAt.$gte = new Date(params.dateFrom);
+      if (params?.dateTo) {
+        const dt = new Date(params.dateTo);
+        dt.setDate(dt.getDate() + 1);
+        q.createdAt.$lt = dt;
+      }
+    }
+    const sales = await this.saleModel.find(q).select('items').lean();
+
+    const map: Record<string, { name: string; qty: number; ca: number; nbTx: number }> = {};
+    for (const sale of sales) {
+      for (const item of sale.items as any[]) {
+        const key  = item.product ? String(item.product) : `n:${item.name}`;
+        const name = item.name || '?';
+        if (!map[key]) map[key] = { name, qty: 0, ca: 0, nbTx: 0 };
+        map[key].qty   += item.quantity;
+        map[key].ca    += item.unitPrice * item.quantity;
+        map[key].nbTx  += 1;
+      }
+    }
+
+    return Object.values(map)
+      .map(d => ({
+        name:           d.name,
+        qtySold:        d.qty,
+        caGenere:       Math.round(d.ca),
+        nbTransactions: d.nbTx,
+        prixMoyenVente: d.qty > 0 ? Math.round(d.ca / d.qty) : 0,
+      }))
+      .sort((a, b) => b.caGenere - a.caGenere);
+  }
+
+  // ── GET /api/sales/stats/comparisons — comparaisons semaine/mois/année ─────
+
+  async comparisons() {
+    const now = new Date();
+
+    const helper = async (start: Date, end: Date) => {
+      const sales = await this.saleModel
+        .find({ createdAt: { $gte: start, $lt: end } })
+        .select('total')
+        .lean();
+      const totals = sales.map(s => s.total);
+      const ca     = totals.reduce((s, v) => s + v, 0);
+      const nb     = totals.length;
+      return { ca, nb, min: nb > 0 ? Math.min(...totals) : 0, max: nb > 0 ? Math.max(...totals) : 0, avg: nb > 0 ? Math.round(ca / nb) : 0 };
+    };
+
+    const dow = now.getDay() || 7;
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - (dow - 1));
+    weekStart.setHours(0, 0, 0, 0);
+    const prevWeekStart = new Date(weekStart);
+    prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+    const prevWeekEnd = new Date(weekStart);
+
+    const monthStart     = new Date(now.getFullYear(), now.getMonth(), 1);
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const yearStart     = new Date(now.getFullYear(), 0, 1);
+    const prevYearStart = new Date(now.getFullYear() - 1, 0, 1);
+    const prevYearEnd   = new Date(now.getFullYear(), 0, 1);
+
+    const [week, prevWeek, month, prevMonth, year, prevYear] = await Promise.all([
+      helper(weekStart,     new Date()),
+      helper(prevWeekStart, prevWeekEnd),
+      helper(monthStart,    new Date()),
+      helper(prevMonthStart, prevMonthEnd),
+      helper(yearStart,     new Date()),
+      helper(prevYearStart, prevYearEnd),
+    ]);
+
+    return { week, prevWeek, month, prevMonth, year, prevYear };
   }
 
   // ── GET /api/sales/stats/payment?scope=week — répartition modes paiement ──

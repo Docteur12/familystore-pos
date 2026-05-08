@@ -9,19 +9,37 @@ async function get<T>(path: string): Promise<T> {
 }
 
 export interface StatsToday {
-  date:     string;
-  totalCA:  number;
-  prevCA:   number;   // même jour semaine dernière
-  nbVentes: number;
-  benefice: number;
-  marge:    number;
+  date:      string;
+  totalCA:   number;
+  prevCA:    number;
+  nbVentes:  number;
+  benefice:  number;
+  marge:     number;
+  minTicket: number;
+  maxTicket: number;
+  avgTicket: number;
 }
 
 export interface PeriodDay {
-  date:     string;
-  label:    string;
-  totalCA:  number;
-  nbVentes: number;
+  date:      string;
+  label:     string;
+  totalCA:   number;
+  nbVentes:  number;
+  minTicket: number;
+  maxTicket: number;
+  avgTicket: number;
+}
+
+export interface ComparisonPeriod {
+  ca: number; nb: number; min: number; max: number; avg: number;
+}
+export interface Comparisons {
+  week:     ComparisonPeriod;
+  prevWeek: ComparisonPeriod;
+  month:    ComparisonPeriod;
+  prevMonth: ComparisonPeriod;
+  year:     ComparisonPeriod;
+  prevYear: ComparisonPeriod;
 }
 
 export interface TopProduct {
@@ -53,11 +71,12 @@ export interface RecentSale {
 
 // ── API functions ─────────────────────────────────────────────────────────────
 
-export const getStatsToday      = () => get<StatsToday>('/api/sales/stats/today');
-export const getStatsPeriod     = (days: number) => get<PeriodDay[]>(`/api/sales/stats/period?days=${days}`);
-export const getTopProducts     = () => get<TopProduct[]>('/api/sales/stats/top-products');
-export const getRecentSales     = () => get<RecentSale[]>('/api/sales/stats/recent');
-export const getPaymentBreakdown= (scope: 'today' | 'week') => get<PaymentSlice[]>(`/api/sales/stats/payment?scope=${scope}`);
+export const getStatsToday       = () => get<StatsToday>('/api/sales/stats/today');
+export const getStatsPeriod      = (days: number) => get<PeriodDay[]>(`/api/sales/stats/period?days=${days}`);
+export const getTopProducts      = () => get<TopProduct[]>('/api/sales/stats/top-products');
+export const getRecentSales      = () => get<RecentSale[]>('/api/sales/stats/recent');
+export const getPaymentBreakdown = (scope: 'today' | 'week') => get<PaymentSlice[]>(`/api/sales/stats/payment?scope=${scope}`);
+export const getComparisons      = () => get<Comparisons>('/api/sales/stats/comparisons');
 
 // kept for backward compat (some pages may import it)
 export const getStatsWeek = () => getStatsPeriod(7);

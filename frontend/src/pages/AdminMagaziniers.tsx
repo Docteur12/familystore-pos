@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import { createUser, deleteUser, getUsers, updateUser, UserRecord } from '../api/auth';
+import { getCaisses, CaisseRecord } from '../api/caisses';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -73,18 +74,22 @@ function MagazinierCard({ user, selected, onEdit, onDelete }: {
           <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a' }}>Actif</span>
         </div>
       </div>
+      {user.assignedLocation && (
+        <div style={{ marginTop: 8, fontSize: 11, color: 'var(--fs-ink-500)' }}>🏭 {user.assignedLocation}</div>
+      )}
     </div>
   );
 }
 
 // ── Edit panel ────────────────────────────────────────────────────────────────
 
-function EditPanel({ user, onSaved, onCancel, onDeleted }: {
-  user: UserRecord; onSaved: () => void; onCancel: () => void; onDeleted: () => void;
+function EditPanel({ user, caisses, onSaved, onCancel, onDeleted }: {
+  user: UserRecord; caisses: CaisseRecord[]; onSaved: () => void; onCancel: () => void; onDeleted: () => void;
 }) {
   const nameParts = user.name.split(' ');
   const [prenom, setPrenom]   = useState(nameParts[0] ?? '');
   const [nom, setNom]         = useState(nameParts.slice(1).join(' ') ?? '');
+  const [location, setLocation] = useState(user.assignedLocation || '');
   const [pwd, setPwd]         = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -97,10 +102,10 @@ function EditPanel({ user, onSaved, onCancel, onDeleted }: {
     if (!fullName) { setError('Le nom est obligatoire.'); return; }
     setLoading(true); setError('');
     try {
-      const patch: { name?: string; password?: string } = {};
+      const patch: { name?: string; password?: string; assignedLocation?: string } = { assignedLocation: location };
       if (fullName !== user.name) patch.name = fullName;
       if (pwd.length >= 4) patch.password = pwd;
-      if (Object.keys(patch).length > 0) await updateUser(user._id, patch);
+      await updateUser(user._id, patch);
       onSaved();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Erreur');
@@ -128,6 +133,15 @@ function EditPanel({ user, onSaved, onCancel, onDeleted }: {
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Identité</p>
         <Field label="Prénom" value={prenom} onChange={setPrenom}/>
         <Field label="Nom" value={nom} onChange={setNom}/>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Affectation</p>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Magasin / Entrepôt assigné</label>
+          <select value={location} onChange={e => setLocation(e.target.value)}
+            style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
+            <option value="">— Sélectionner —</option>
+            {caisses.map(c => <option key={c._id} value={c.nom}>{c.nom}{c.ville ? ` (${c.ville})` : ''}</option>)}
+          </select>
+        </div>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Nouveau mot de passe</p>
         <div>
           <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Mot de passe (laisser vide pour ne pas changer)</label>
@@ -168,8 +182,8 @@ function EditPanel({ user, onSaved, onCancel, onDeleted }: {
 
 // ── Create panel ──────────────────────────────────────────────────────────────
 
-function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
-  const [form, setForm] = useState({ prenom: '', nom: '', phone: '', email: '', password: '' });
+function CreatePanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]; onCreated: () => void; onCancel: () => void }) {
+  const [form, setForm] = useState({ prenom: '', nom: '', phone: '', email: '', assignedLocation: '', password: '' });
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -184,13 +198,14 @@ function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel:
     if (form.password.length < 4) { setError('Mot de passe : 4 caractères minimum.'); return; }
     setLoading(true); setError('');
     try {
-      await createUser({
+      const created = await createUser({
         name:     `${form.prenom} ${form.nom}`,
         email:    form.email || identifiant,
         password: form.password,
         role:     'magazinier',
         phone:    form.phone || undefined,
       });
+      if (form.assignedLocation) await updateUser(created._id, { assignedLocation: form.assignedLocation });
       onCreated();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
     finally { setLoading(false); }
@@ -214,6 +229,16 @@ function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel:
         <Field label="Nom *"    value={form.nom}    onChange={v => set('nom', v)}    placeholder="Kamdem"/>
         <Field label="Téléphone" value={form.phone}  onChange={v => set('phone', v)}  placeholder="+237 6 91 23 45 67"/>
         <Field label="Email"     value={form.email}  onChange={v => set('email', v)}  type="email" placeholder={identifiant || 'jean.k@familystore.cm'}/>
+
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Affectation</p>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Magasin / Entrepôt assigné</label>
+          <select value={form.assignedLocation} onChange={e => set('assignedLocation', e.target.value)}
+            style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
+            <option value="">— Sélectionner —</option>
+            {caisses.map(c => <option key={c._id} value={c.nom}>{c.nom}{c.ville ? ` (${c.ville})` : ''}</option>)}
+          </select>
+        </div>
 
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Accès</p>
         <div>
@@ -249,11 +274,15 @@ function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel:
 type PanelMode = { type: 'create' } | { type: 'edit'; user: UserRecord } | null;
 
 export default function AdminMagaziniers() {
-  const [users, setUsers] = useState<UserRecord[]>([]);
-  const [panel, setPanel] = useState<PanelMode>(null);
+  const [users, setUsers]     = useState<UserRecord[]>([]);
+  const [caisses, setCaisses] = useState<CaisseRecord[]>([]);
+  const [panel, setPanel]     = useState<PanelMode>(null);
 
   const load = () => getUsers().then(us => setUsers(us.filter(u => u.role === 'magazinier'))).catch(() => {});
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    getCaisses().then(setCaisses).catch(() => {});
+  }, []);
 
   const selectedId = panel?.type === 'edit' ? panel.user._id : null;
 
@@ -303,11 +332,12 @@ export default function AdminMagaziniers() {
 
           {/* Right panel */}
           {panel?.type === 'create' && (
-            <CreatePanel onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>
+            <CreatePanel caisses={caisses} onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>
           )}
           {panel?.type === 'edit' && (
             <EditPanel
               user={panel.user}
+              caisses={caisses}
               onSaved={() => { load(); setPanel(null); }}
               onCancel={() => setPanel(null)}
               onDeleted={() => { load(); setPanel(null); }}

@@ -170,6 +170,7 @@ export default function Caisse() {
   );
   const [isOnline,       setIsOnline]       = useState(() => navigator.onLine);
   const [pendingCount,   setPendingCount]   = useState(0);
+  const [offrePct,       setOffrePct]       = useState(0);
   const [showLogoutModal,setShowLogoutModal]= useState(false);
   const [sessionId,      setSessionId]      = useState<string | null>(null);
   const [sessionStart,   setSessionStart]   = useState<Date | null>(null);
@@ -300,7 +301,7 @@ export default function Caisse() {
     setCart(prev => prev.filter(i => i.product._id !== id)), []);
 
   const clearCart = useCallback(() => {
-    setCart([]); setAmountPaid(''); focusScan();
+    setCart([]); setAmountPaid(''); setOffrePct(0); focusScan();
   }, [focusScan]);
 
   // ── Scan ──────────────────────────────────────────────────────────────────
@@ -356,7 +357,9 @@ export default function Caisse() {
   }, [filteredProducts.length]);
 
   // ── Totals ────────────────────────────────────────────────────────────────
-  const total      = useMemo(() => cart.reduce((s, i) => s + i.product.price * i.quantity, 0), [cart]);
+  const subtotal   = useMemo(() => cart.reduce((s, i) => s + i.product.price * i.quantity, 0), [cart]);
+  const offreAmt   = offrePct > 0 ? Math.round(subtotal * offrePct / 100) : 0;
+  const total      = subtotal - offreAmt;
   const itemCount  = useMemo(() => cart.reduce((s, i) => s + i.quantity, 0), [cart]);
   const tva        = Math.round(total * TVA_RATE / (1 + TVA_RATE));
   const paid       = parseFloat(amountPaid) || 0;
@@ -492,7 +495,7 @@ export default function Caisse() {
           total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
         };
         setReceiptData(newData);
-        setCart([]); setAmountPaid(''); setPaymentMethod('cash');
+        setCart([]); setAmountPaid(''); setPaymentMethod('cash'); setOffrePct(0);
 
         setSessionSales(n => n + 1);
         if (attempt > 0) addToast('Vente enregistrée ✅', 'success');
@@ -1269,16 +1272,36 @@ export default function Caisse() {
         {cart.length > 0 && (
           <div style={{ flexShrink: 0, borderTop: '1px solid var(--fs-line)' }}>
             <div style={{ padding: '10px 14px 0' }}>
-              <Row label={`Sous-total (${itemCount} art.)`} value={fmtN(total)} />
+              <Row label={`Sous-total (${itemCount} art.)`} value={fmtN(subtotal)} />
               <Row label={`TVA incluse (${(TVA_RATE * 100).toFixed(2).replace('.', ',')}%)`} value={fmtN(tva)} />
-              <Row label="Remise" value="− 0" />
+              {/* Offre globale sur facture */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ fontSize: 13, color: 'var(--fs-ink-400)' }}>Offre sur facture</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <input
+                    type="number" min={0} max={100} step={1}
+                    value={offrePct || ''}
+                    onChange={e => setOffrePct(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                    placeholder="0"
+                    style={{ width: 48, padding: '2px 6px', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, fontSize: 13, fontWeight: 600, textAlign: 'center', outline: 'none', fontFamily: 'var(--fs-font-mono)', background: offrePct > 0 ? 'var(--fs-success-100)' : '#fff', color: offrePct > 0 ? 'var(--fs-success-700)' : 'var(--fs-ink-900)' }}
+                  />
+                  <span style={{ fontSize: 13, color: 'var(--fs-ink-400)' }}>%</span>
+                  {offrePct > 0 && (
+                    <span style={{ fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-success-700)', fontWeight: 600 }}>
+                      −{fmtN(offreAmt)}
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Gold rule */}
             <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, var(--fs-gold-400) 30%, var(--fs-gold-400) 70%, transparent)', margin: '8px 14px', opacity: 0.6 }}/>
 
             <div style={{ padding: '0 14px 10px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-500)' }}>TOTAL</span>
+              <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-500)' }}>
+                {offrePct > 0 ? `TOTAL (−${offrePct}%)` : 'TOTAL'}
+              </span>
               <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--fs-wine-700)', fontFamily: 'var(--fs-font-display)', letterSpacing: '0.01em' }}>
                 {fmtN(total)} <span style={{ fontSize: 14, fontWeight: 600 }}>XAF</span>
               </span>

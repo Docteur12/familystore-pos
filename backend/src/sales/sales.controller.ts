@@ -83,6 +83,20 @@ export class SalesController {
     return this.salesService.paymentBreakdown(scope === 'today' ? 'today' : 'week');
   }
 
+  @Get('stats/by-product')
+  @UseGuards(RolesGuard)
+  @Roles('patron')
+  byProduct(@Query('dateFrom') dateFrom?: string, @Query('dateTo') dateTo?: string) {
+    return this.salesService.byProduct({ dateFrom, dateTo });
+  }
+
+  @Get('stats/comparisons')
+  @UseGuards(RolesGuard)
+  @Roles('patron')
+  comparisons() {
+    return this.salesService.comparisons();
+  }
+
   // GET /api/sales — historique complet (patron)
   @Get()
   @UseGuards(RolesGuard)

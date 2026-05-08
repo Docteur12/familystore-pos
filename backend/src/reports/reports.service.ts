@@ -125,6 +125,10 @@ export class ReportsService {
     const beneficeNet = margesBrute - depenses;
     const panierMoyen = sales.length > 0 ? Math.round(ca / sales.length) : 0;
 
+    const saleTotals = sales.map(s => s.total);
+    const minTicket  = saleTotals.length > 0 ? Math.min(...saleTotals) : 0;
+    const maxTicket  = saleTotals.length > 0 ? Math.max(...saleTotals) : 0;
+
     // Par jour
     const byDay: Record<number, { ca: number; nbVentes: number }> = {};
     for (const sale of sales) {
@@ -210,8 +214,8 @@ export class ReportsService {
       label: new Date(year, month - 1, 1)
         .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
       ca, coutAchats, margesBrute, beneficeNet, depenses,
-      nbVentes:  sales.length,
-      panierMoyen,
+      nbVentes: sales.length,
+      panierMoyen, minTicket, maxTicket,
       prevCA,
       parJour,
       parCategorie,

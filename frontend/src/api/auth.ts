@@ -1,12 +1,13 @@
 import { authHeaders } from './http';
 
 export interface UserRecord {
-  _id:      string;
-  name:     string;
-  email:    string;
-  role:     'patron' | 'caissier' | 'gestionnaire' | 'magazinier';
-  phone?:   string;
-  caisseId?: string | null;
+  _id:              string;
+  name:             string;
+  email:            string;
+  role:             'patron' | 'caissier' | 'gestionnaire' | 'magazinier';
+  phone?:           string;
+  caisseId?:        string | null;
+  assignedLocation?: string;
 }
 
 export interface UserActivity extends UserRecord {
@@ -43,7 +44,7 @@ export async function createUser(data: {
 
 export async function updateUser(
   id: string,
-  data: { name?: string; email?: string; phone?: string; password?: string; oldPassword?: string; caisseId?: string | null },
+  data: { name?: string; email?: string; phone?: string; password?: string; oldPassword?: string; caisseId?: string | null; assignedLocation?: string },
 ): Promise<UserRecord> {
   const res = await fetch(`/api/auth/users/${id}`, {
     method: 'PATCH',

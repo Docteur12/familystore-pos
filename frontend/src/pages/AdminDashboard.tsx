@@ -1,17 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, ReferenceLine,
 } from 'recharts';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import {
-  getStatsToday, getStatsPeriod, getTopProducts, getRecentSales,
+  getStatsToday, getStatsPeriod, getTopProducts,
   getPaymentBreakdown, getTokenPayload,
-  StatsToday, PeriodDay, TopProduct, PaymentSlice, RecentSale,
+  StatsToday, PeriodDay, TopProduct, PaymentSlice,
 } from '../api/dashboard';
-import { getUsers, UserRecord } from '../api/auth';
-import { getCaisses, CaisseRecord } from '../api/caisses';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -25,14 +23,6 @@ function evoPct(current: number, prev: number): string | null {
   if (prev === 0) return null;
   const p = ((current - prev) / prev) * 100;
   return (p >= 0 ? '+' : '') + p.toFixed(1) + '%';
-}
-
-function relTime(iso: string): string {
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60)    return 'À l\'instant';
-  if (diff < 3600)  return `${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} h`;
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 }
 
 function I({ d, size = 14 }: { d: string; size?: number }) {
@@ -55,8 +45,6 @@ const D = {
   card:     'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
   receipt:  'M6 3h12v18l-3-2-3 2-3-2-3 2V3zM9 8h6M9 12h6M9 16h4',
 };
-
-const AVATAR_COLORS = ['#C2566B','#7A9EC2','#7AB87A','#C2A07A','#9A7AC2','#7ABFBF'];
 
 const PM_COLORS: Record<string, string> = {
   cash:         '#7A1D2E',
@@ -105,12 +93,20 @@ function MetricCard({ title, value, sub, sup, accent }: {
 
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: any[]; label?: string }) {
   if (!active || !payload?.length) return null;
+  const ca  = payload.find((p: any) => p.dataKey === 'value');
+  const avg = payload.find((p: any) => p.dataKey === 'avgTicket');
+  const min = payload.find((p: any) => p.dataKey === 'minTicket');
+  const max = payload.find((p: any) => p.dataKey === 'maxTicket');
+  const nb  = ca?.payload?.nbVentes ?? 0;
   return (
     <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 8, padding: '8px 12px', boxShadow: 'var(--fs-shadow-md)', fontSize: 12 }}>
-      <div style={{ fontWeight: 700, color: 'var(--fs-ink-500)', marginBottom: 2 }}>{label}</div>
-      <div style={{ fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>{fmtN(payload[0].value)} XAF</div>
-      {payload[0].payload?.nbVentes > 0 && (
-        <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 2 }}>{payload[0].payload.nbVentes} vente{payload[0].payload.nbVentes > 1 ? 's' : ''}</div>
+      <div style={{ fontWeight: 700, color: 'var(--fs-ink-500)', marginBottom: 4 }}>{label}</div>
+      {ca  && <div style={{ fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>CA : {fmtN(ca.value)} XAF</div>}
+      {nb > 0 && (
+        <>
+          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 2 }}>{nb} vente{nb > 1 ? 's' : ''}</div>
+          {avg && <div style={{ fontSize: 11, color: 'var(--fs-ink-500)', marginTop: 2 }}>Moy : {fmtN(avg.value)} · Min : {fmtN(min?.value ?? 0)} · Max : {fmtN(max?.value ?? 0)}</div>}
+        </>
       )}
     </div>
   );
@@ -129,32 +125,21 @@ export default function AdminDashboard() {
   const [period,   setPeriod]   = useState<PeriodDay[]>([]);
   const [topProds, setTopProds] = useState<TopProduct[]>([]);
   const [payment,  setPayment]  = useState<PaymentSlice[]>([]);
-  const [recent,   setRecent]   = useState<RecentSale[]>([]);
-  const [users,    setUsers]    = useState<UserRecord[]>([]);
-  const [caisses,  setCaisses]  = useState<CaisseRecord[]>([]);
   const [chartTab, setChartTab] = useState<ChartTab>('7j');
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Chargement initial (données stables)
-  useEffect(() => {
-    getUsers().then(setUsers).catch(() => {});
-    getCaisses().then(setCaisses).catch(() => {});
-  }, []);
-
-  // Rechargement des données live (stats + graphe + paiements + récent)
+  // Rechargement des données live
   const loadLive = useCallback(async (silent = false) => {
     try {
-      const [s, prods, pay, rec] = await Promise.all([
+      const [s, prods, pay] = await Promise.all([
         getStatsToday(),
         getTopProducts(),
         getPaymentBreakdown('week'),
-        getRecentSales(),
       ]);
       setStats(s);
       setTopProds(prods);
       setPayment(pay);
-      setRecent(rec);
       setLastRefresh(new Date());
     } catch {
       if (!silent) addToast('Erreur chargement des statistiques', 'error');
@@ -176,32 +161,22 @@ export default function AdminDashboard() {
 
   // ── Valeurs dérivées ────────────────────────────────────────────────────────
 
-  const ca       = stats?.totalCA  ?? 0;
-  const prevCA   = stats?.prevCA   ?? 0;
-  const tickets  = stats?.nbVentes ?? 0;
-  const benefice = stats?.benefice ?? 0;
-  const marge    = stats?.marge    ?? 0;
-  const panier   = tickets > 0 ? Math.round(ca / tickets) : 0;
-  const evoCA    = evoPct(ca, prevCA);
+  const ca        = stats?.totalCA   ?? 0;
+  const prevCA    = stats?.prevCA    ?? 0;
+  const tickets   = stats?.nbVentes  ?? 0;
+  const benefice  = stats?.benefice  ?? 0;
+  const marge     = stats?.marge     ?? 0;
+  const minTicket = stats?.minTicket ?? 0;
+  const maxTicket = stats?.maxTicket ?? 0;
+  const avgTicket = stats?.avgTicket ?? 0;
+  const evoCA     = evoPct(ca, prevCA);
 
-  const chartData  = period.map(d => ({ label: d.label, value: d.totalCA, nbVentes: d.nbVentes }));
-  const maxQty     = Math.max(...topProds.map(p => p.totalQty), 1);
-  const totalPmCA  = payment.reduce((s, p) => s + p.total, 0);
-
-  const caisseById = new Map(caisses.map(c => [c._id, c]));
-  const team = users
-    .filter(u => u.role !== 'patron')
-    .slice(0, 5)
-    .map((u, i) => {
-      const caisse = u.caisseId ? caisseById.get(u.caisseId) : null;
-      return {
-        name:     u.name,
-        initials: u.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase(),
-        color:    AVATAR_COLORS[i % AVATAR_COLORS.length],
-        role:     u.role === 'caissier' ? 'Caissier(e)' : u.role === 'gestionnaire' ? 'Gestionnaire' : 'Magazinier',
-        caisse:   caisse ? `${caisse.nom} (${caisse.code})` : u.role === 'caissier' ? '— Non assigné' : '—',
-      };
-    });
+  const chartData = period.map(d => ({
+    label: d.label, value: d.totalCA, nbVentes: d.nbVentes,
+    minTicket: d.minTicket, maxTicket: d.maxTicket, avgTicket: d.avgTicket,
+  }));
+  const maxQty   = Math.max(...topProds.map(p => p.totalQty), 1);
+  const totalPmCA = payment.reduce((s, p) => s + p.total, 0);
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
@@ -253,11 +228,27 @@ export default function AdminDashboard() {
               sup={evoCA ? `${evoCA} vs même jour semaine dernière` : null}
               accent
             />
-            <MetricCard
-              title="Tickets encaissés"
-              value={String(tickets)}
-              sub={tickets > 0 ? `Panier moyen : ${fmtN(panier)} XAF` : 'Aucune vente aujourd\'hui'}
-            />
+            {/* Tickets + MIN/MAX/MOYENNE */}
+            <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 18px', boxShadow: 'var(--fs-shadow-sm)', minWidth: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 8 }}>
+                Tickets — {tickets} encaissé{tickets !== 1 ? 's' : ''}
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[
+                  { label: 'MIN', value: minTicket, color: '#7AB87A' },
+                  { label: 'MOY', value: avgTicket, color: 'var(--fs-wine-700)' },
+                  { label: 'MAX', value: maxTicket, color: '#D1A660' },
+                ].map(s => (
+                  <div key={s.label} style={{ flex: 1, background: 'var(--fs-ivory)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--fs-ink-400)', marginBottom: 4 }}>{s.label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: tickets > 0 ? s.color : 'var(--fs-ink-200)', lineHeight: 1 }}>
+                      {tickets > 0 ? fmtK(s.value) : '—'}
+                    </div>
+                    <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', marginTop: 2 }}>XAF</div>
+                  </div>
+                ))}
+              </div>
+            </div>
             <MetricCard
               title="Bénéfice brut"
               value={`${fmtN(benefice)} XAF`}
@@ -305,7 +296,13 @@ export default function AdminDashboard() {
                       <Tooltip content={<ChartTooltip/>}/>
                       <Line type="monotone" dataKey="value" stroke="#7A1D2E" strokeWidth={2.5}
                         dot={{ fill: '#7A1D2E', r: 3, strokeWidth: 0 }}
-                        activeDot={{ fill: '#D1A660', r: 5, strokeWidth: 0 }}/>
+                        activeDot={{ fill: '#D1A660', r: 5, strokeWidth: 0 }} name="CA"/>
+                      <Line type="monotone" dataKey="avgTicket" stroke="#7A9EC2" strokeWidth={1.5}
+                        strokeDasharray="4 3" dot={false} name="Moyenne"/>
+                      <Line type="monotone" dataKey="minTicket" stroke="#7AB87A" strokeWidth={1}
+                        strokeDasharray="2 4" dot={false} name="MIN"/>
+                      <Line type="monotone" dataKey="maxTicket" stroke="#D1A660" strokeWidth={1}
+                        strokeDasharray="2 4" dot={false} name="MAX"/>
                     </LineChart>
                   </ResponsiveContainer>
                 )}
@@ -348,93 +345,7 @@ export default function AdminDashboard() {
           {/* Ligne basse */}
           <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 16 }}>
 
-            {/* Équipe */}
-            <div style={{ width: isMobile ? '100%' : 260, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 16px', boxShadow: 'var(--fs-shadow-sm)', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Équipe en service</div>
-                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{team.length} collaborateur{team.length !== 1 ? 's' : ''}</div>
-                </div>
-                <a href="/admin/equipe" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', border: '1px solid var(--fs-line-2)', borderRadius: 6, background: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-600)', textDecoration: 'none' }}>
-                  <I d={D.plus} size={11}/> Gérer
-                </a>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {team.map(m => (
-                  <div key={m.name} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: m.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                      {m.initials}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
-                      <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.role} · {m.caisse}</div>
-                    </div>
-                  </div>
-                ))}
-                {team.length === 0 && (
-                  <div style={{ fontSize: 12, color: 'var(--fs-ink-300)', textAlign: 'center', padding: '16px 0' }}>Aucun collaborateur</div>
-                )}
-              </div>
-            </div>
-
-            {/* Dernières transactions */}
-            <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 16px', boxShadow: 'var(--fs-shadow-sm)', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexShrink: 0 }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Dernières transactions</div>
-                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>
-                    {tickets > 0 ? `${tickets} ticket${tickets > 1 ? 's' : ''} aujourd'hui · ${fmtN(ca)} XAF` : 'Aucune vente enregistrée aujourd\'hui'}
-                  </div>
-                </div>
-                <a href="/admin/journal" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: 'var(--fs-wine-700)', textDecoration: 'none' }}>
-                  Journal complet <I d={D.link} size={11}/>
-                </a>
-              </div>
-
-              {recent.length === 0 ? (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 120 }}>
-                  <div style={{ textAlign: 'center', color: 'var(--fs-ink-300)' }}>
-                    <I d={D.receipt} size={32}/>
-                    <div style={{ fontSize: 12, marginTop: 8 }}>Aucune transaction pour le moment</div>
-                    <div style={{ fontSize: 11, marginTop: 4 }}>Les ventes apparaîtront ici en temps réel</div>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {recent.map((s, i) => {
-                    const pmColor = PM_COLORS[s.paymentMethod] ?? '#999';
-                    const pmIcon  = PM_ICONS[s.paymentMethod]  ?? D.cash;
-                    const nbArt   = s.items.reduce((n, it) => n + it.quantity, 0);
-                    return (
-                      <div key={s._id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 10px', background: i % 2 === 0 ? 'var(--fs-ivory)' : '#fff', borderRadius: 8 }}>
-                        {/* Ticket # */}
-                        <div style={{ fontSize: 11, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)', flexShrink: 0, width: 60 }}>
-                          #{s._id.slice(-6).toUpperCase()}
-                        </div>
-                        {/* Heure */}
-                        <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', flexShrink: 0, width: 38 }}>
-                          {relTime(s.createdAt)}
-                        </div>
-                        {/* Articles */}
-                        <div style={{ flex: 1, fontSize: 11, color: 'var(--fs-ink-600)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {s.items.length === 1
-                            ? `${s.items[0].quantity}× ${s.items[0].name}`
-                            : `${nbArt} article${nbArt > 1 ? 's' : ''} (${s.items.length} réf.)`}
-                        </div>
-                        {/* Mode paiement */}
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: pmColor, fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
-                          <I d={pmIcon} size={11}/>
-                        </span>
-                        {/* Montant */}
-                        <div style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)', flexShrink: 0, textAlign: 'right', minWidth: 90 }}>
-                          {fmtN(s.total)} XAF
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            {/* Top produits (mobile: caché, déjà présent dans la section du haut sur desktop) */}
 
             {/* Donut modes de paiement */}
             <div style={{ width: isMobile ? '100%' : 220, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 16px', boxShadow: 'var(--fs-shadow-sm)', flexShrink: isMobile ? undefined : 0 }}>

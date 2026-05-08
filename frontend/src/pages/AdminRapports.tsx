@@ -6,9 +6,10 @@ import {
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import {
-  getAnalyseMonth, downloadReport,
-  AnalyseMonth, CaissierData,
+  getAnalyseMonth, downloadReport, getByProduct,
+  AnalyseMonth, CaissierData, ProductStat,
 } from '../api/rapports';
+import { getStatsPeriod, getComparisons, PeriodDay, Comparisons } from '../api/dashboard';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -159,10 +160,16 @@ function EmptyState({ label }: { label: string }) {
 export default function AdminRapports() {
   const { toasts, addToast, removeToast } = useToast();
 
-  const [monthIdx,  setMonthIdx]  = useState(0);
-  const [data,      setData]      = useState<AnalyseMonth | null>(null);
-  const [loading,   setLoading]   = useState(true);
-  const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null);
+  const [monthIdx,   setMonthIdx]   = useState(0);
+  const [data,       setData]       = useState<AnalyseMonth | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [exporting,  setExporting]  = useState<'pdf' | 'excel' | null>(null);
+  const [monthlyStats, setMonthlyStats] = useState<PeriodDay[]>([]);
+  const [comparisons,  setComparisons]  = useState<Comparisons | null>(null);
+  const [byProduct,    setByProduct]    = useState<ProductStat[]>([]);
+  const [prodDateFrom, setProdDateFrom] = useState('');
+  const [prodDateTo,   setProdDateTo]   = useState('');
+  const [prodLoading,  setProdLoading]  = useState(false);
 
   const { year, month, label } = MONTHS[monthIdx];
 
@@ -179,6 +186,20 @@ export default function AdminRapports() {
   }, [year, month, addToast]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Chargement unique des stats globales (comparaisons + 12 mois)
+  useEffect(() => {
+    getStatsPeriod(365).then(setMonthlyStats).catch(() => {});
+    getComparisons().then(setComparisons).catch(() => {});
+    getByProduct().then(setByProduct).catch(() => {});
+  }, []);
+
+  const loadByProduct = async () => {
+    setProdLoading(true);
+    try { setByProduct(await getByProduct({ dateFrom: prodDateFrom || undefined, dateTo: prodDateTo || undefined })); }
+    catch { addToast('Erreur chargement journal produits', 'error'); }
+    finally { setProdLoading(false); }
+  };
 
   async function handleExport(type: 'pdf' | 'excel') {
     setExporting(type);
@@ -452,8 +473,133 @@ export default function AdminRapports() {
                   </div>
                 </div>
               )}
+
+              {/* Statistiques tickets par mois */}
+              {monthlyStats.length > 0 && (
+                <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Statistiques tickets · 12 derniers mois</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>MIN / MAX / MOYENNE par ticket, par période</div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: 'var(--fs-ivory)' }}>
+                          {['Période', 'Nb tickets', 'CA total', 'MIN', 'MAX', 'Moyenne'].map(h => (
+                            <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Période' ? 'left' : 'right', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...monthlyStats].reverse().map((row, i) => (
+                          <tr key={row.date} style={{ borderBottom: '1px solid var(--fs-line)', background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
+                            <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--fs-ink-800)' }}>{row.label}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{row.nbVentes}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}>{fmtN(row.totalCA)}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: '#7AB87A' }}>{row.nbVentes > 0 ? fmtN(row.minTicket) : '—'}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: '#D1A660' }}>{row.nbVentes > 0 ? fmtN(row.maxTicket) : '—'}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-800)' }}>{row.nbVentes > 0 ? fmtN(row.avgTicket) : '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </>
           )}
+
+          {/* ── Comparaisons (hors filtre mois) ── */}
+          {comparisons && (
+            <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Comparaisons de périodes</div>
+              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 16 }}>Semaine · Mois · Année — vs période précédente</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {([
+                  { label: 'Semaine en cours', curr: comparisons.week,  prev: comparisons.prevWeek,  icon: '📅' },
+                  { label: 'Mois en cours',    curr: comparisons.month, prev: comparisons.prevMonth, icon: '🗓️' },
+                  { label: 'Année en cours',   curr: comparisons.year,  prev: comparisons.prevYear,  icon: '📆' },
+                ] as const).map(({ label, curr, prev, icon }) => {
+                  const metrics = [
+                    { name: 'CA', curr: curr.ca, prev: prev.ca, fmt: (v: number) => `${fmtN(v)} XAF` },
+                    { name: 'Tickets', curr: curr.nb, prev: prev.nb, fmt: (v: number) => String(v) },
+                    { name: 'MIN',  curr: curr.min, prev: prev.min, fmt: (v: number) => `${fmtN(v)} XAF` },
+                    { name: 'MAX',  curr: curr.max, prev: prev.max, fmt: (v: number) => `${fmtN(v)} XAF` },
+                    { name: 'Moy.', curr: curr.avg, prev: prev.avg, fmt: (v: number) => `${fmtN(v)} XAF` },
+                  ];
+                  return (
+                    <div key={label} style={{ border: '1px solid var(--fs-line)', borderRadius: 10, overflow: 'hidden' }}>
+                      <div style={{ background: 'var(--fs-ivory)', padding: '8px 14px', fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-800)' }}>{icon} {label}</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
+                        {metrics.map((m, mi) => {
+                          const pct = prev.ca > 0 || m.name !== 'CA' ? (m.prev > 0 ? ((m.curr - m.prev) / m.prev * 100) : null) : null;
+                          const up  = pct !== null && pct >= 0;
+                          return (
+                            <div key={m.name} style={{ flex: '1 1 90px', padding: '10px 14px', borderLeft: mi > 0 ? '1px solid var(--fs-line)' : 'none', borderTop: '1px solid var(--fs-line)' }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--fs-ink-400)', marginBottom: 4 }}>{m.name}</div>
+                              <div style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{m.fmt(m.curr)}</div>
+                              {pct !== null ? (
+                                <div style={{ fontSize: 11, fontWeight: 700, color: up ? '#16A34A' : '#DC2626', marginTop: 2 }}>
+                                  {up ? '↑' : '↓'} {Math.abs(pct).toFixed(1)}%
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: 10, color: 'var(--fs-ink-300)', marginTop: 2 }}>Pas de référence</div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Journal par produit ── */}
+          <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Journal des ventes par produit</div>
+                <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{byProduct.length} produit{byProduct.length !== 1 ? 's' : ''} · toutes périodes si aucun filtre</div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <input type="date" value={prodDateFrom} onChange={e => setProdDateFrom(e.target.value)}
+                  style={{ padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12 }} />
+                <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>→</span>
+                <input type="date" value={prodDateTo} onChange={e => setProdDateTo(e.target.value)}
+                  style={{ padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12 }} />
+                <button onClick={loadByProduct} disabled={prodLoading}
+                  style={{ padding: '6px 14px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: prodLoading ? 0.6 : 1 }}>
+                  {prodLoading ? '…' : 'Filtrer'}
+                </button>
+              </div>
+            </div>
+            {byProduct.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-400)', fontSize: 12 }}>Aucune donnée disponible</div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--fs-ivory)' }}>
+                      {['Produit', 'Qté vendue', 'CA généré', 'Nb transactions', 'Prix moy. vente'].map(h => (
+                        <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Produit' ? 'left' : 'right', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {byProduct.map((p, i) => (
+                      <tr key={p.name} style={{ borderBottom: '1px solid var(--fs-line)', background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
+                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--fs-ink-800)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{p.qtySold}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}>{fmtN(p.caGenere)} XAF</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-600)' }}>{p.nbTransactions}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-800)' }}>{fmtN(p.prixMoyenVente)} XAF</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
