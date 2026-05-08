@@ -54,11 +54,17 @@ const PM_COLORS: Record<string, { bg: string; color: string }> = {
   credit:        { bg: '#FAE5DF', color: '#8B2C1A' },
 };
 
+const PAGE_SIZE = 50;
+
 // ── Périodes ──────────────────────────────────────────────────────────────────
 
-type Period = 'today' | 'week' | 'month' | 'all';
+type Period = 'today' | 'week' | 'month' | 'custom' | 'all';
 
-function periodRange(p: Period): { dateFrom?: string; dateTo?: string } {
+function periodRange(
+  p: Period,
+  customFrom?: string,
+  customTo?: string,
+): { dateFrom?: string; dateTo?: string } {
   const now   = new Date();
   const start = new Date(now);
 
@@ -70,7 +76,7 @@ function periodRange(p: Period): { dateFrom?: string; dateTo?: string } {
   }
   if (p === 'week') {
     const day = start.getDay();
-    const diff = day === 0 ? -6 : 1 - day; // lundi
+    const diff = day === 0 ? -6 : 1 - day;
     start.setDate(start.getDate() + diff);
     start.setHours(0, 0, 0, 0);
     return { dateFrom: start.toISOString() };
@@ -80,14 +86,23 @@ function periodRange(p: Period): { dateFrom?: string; dateTo?: string } {
     start.setHours(0, 0, 0, 0);
     return { dateFrom: start.toISOString() };
   }
+  if (p === 'custom') {
+    const from = customFrom ? new Date(customFrom + 'T00:00:00') : undefined;
+    const to   = customTo   ? new Date(customTo   + 'T23:59:59') : undefined;
+    return {
+      dateFrom: from?.toISOString(),
+      dateTo:   to?.toISOString(),
+    };
+  }
   return {}; // all
 }
 
 const PERIODS: Array<{ key: Period; label: string }> = [
-  { key: 'today', label: "Aujourd'hui" },
-  { key: 'week',  label: 'Cette semaine' },
-  { key: 'month', label: 'Ce mois' },
-  { key: 'all',   label: 'Tout' },
+  { key: 'today',  label: "Aujourd'hui" },
+  { key: 'week',   label: 'Cette semaine' },
+  { key: 'month',  label: 'Ce mois' },
+  { key: 'custom', label: 'Plage dates' },
+  { key: 'all',    label: 'Tout' },
 ];
 
 // ── Export CSV ────────────────────────────────────────────────────────────────
@@ -180,23 +195,28 @@ export default function AdminJournal() {
   const [search,     setSearch]     = useState('');
   const [expanded,   setExpanded]   = useState<Set<string>>(new Set());
   const [lastRefresh,setLastRefresh]= useState<Date>(new Date());
+  const [page,       setPage]       = useState(0);
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo,   setCustomTo]   = useState('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const range = periodRange(period);
+      const range = periodRange(period, customFrom, customTo);
       const data  = await getSales(range);
       setSales(data);
       setLastRefresh(new Date());
+      if (!silent) setPage(0); // reset page on manual reload
     } catch {
       if (!silent) addToast('Erreur chargement des ventes', 'error');
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [period, addToast]);
+  }, [period, customFrom, customTo, addToast]);
 
   useEffect(() => {
+    setPage(0);
     load();
     timerRef.current = setInterval(() => load(true), 30_000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
@@ -213,7 +233,7 @@ export default function AdminJournal() {
     return ticketId.includes(q) || pm.includes(q) || articles.includes(q);
   });
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
+  // ── Stats (sur tous les filtrés, pas juste la page) ──────────────────────
 
   const totalCA  = filtered.reduce((s, x) => s + x.total, 0);
   const nbArt    = filtered.reduce((s, x) => s + x.items.reduce((n, it) => n + it.quantity, 0), 0);
@@ -222,6 +242,12 @@ export default function AdminJournal() {
   for (const s of filtered) {
     byPm[s.paymentMethod] = (byPm[s.paymentMethod] ?? 0) + s.total;
   }
+
+  // ── Pagination ────────────────────────────────────────────────────────────
+
+  const pages    = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pages - 1);
+  const paginated = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
   // ── Toggle ligne détail ────────────────────────────────────────────────────
 
@@ -256,9 +282,9 @@ export default function AdminJournal() {
               </div>
 
               {/* Filtres période */}
-              <div style={{ display: 'flex', gap: 4 }}>
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {PERIODS.map(p => (
-                  <button key={p.key} onClick={() => setPeriod(p.key)} style={{
+                  <button key={p.key} onClick={() => { setPeriod(p.key); setPage(0); }} style={{
                     padding: '7px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: 'none',
                     background: period === p.key ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
                     color:      period === p.key ? '#fff'               : 'var(--fs-ink-500)',
@@ -268,9 +294,20 @@ export default function AdminJournal() {
                 ))}
               </div>
 
+              {/* Plage de dates personnalisée */}
+              {period === 'custom' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                    style={{ padding: '6px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 11 }} />
+                  <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>→</span>
+                  <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                    style={{ padding: '6px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 11 }} />
+                </div>
+              )}
+
               {/* Recherche */}
               <div style={{ position: 'relative' }}>
-                <input value={search} onChange={e => setSearch(e.target.value)}
+                <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
                   placeholder="Ticket, article, paiement…"
                   style={{ padding: '7px 12px 7px 32px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', width: 210, fontFamily: 'var(--fs-font-sans)' }} />
                 <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-400)' }}>
@@ -300,6 +337,11 @@ export default function AdminJournal() {
           <div>
             <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Tickets </span>
             <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{filtered.length}</span>
+            {pages > 1 && (
+              <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 500, marginLeft: 6 }}>
+                (page {safePage + 1}/{pages})
+              </span>
+            )}
           </div>
           <div>
             <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Articles </span>
@@ -347,7 +389,7 @@ export default function AdminJournal() {
                           : 'Aucune vente correspond à la recherche.'}
                       </td>
                     </tr>
-                  ) : filtered.map((s, i) => {
+                  ) : paginated.map((s, i) => {
                     const { date, heure } = fmtDatetime(s.createdAt);
                     const isExp  = expanded.has(s._id);
                     const nbArtS = s.items.reduce((n, it) => n + it.quantity, 0);
@@ -401,6 +443,28 @@ export default function AdminJournal() {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {pages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, padding: '0 2px' }}>
+              <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={safePage === 0}
+                style={{ padding: '8px 16px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, cursor: safePage === 0 ? 'not-allowed' : 'pointer', opacity: safePage === 0 ? 0.4 : 1, color: 'var(--fs-ink-600)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <I d="M15 18l-6-6 6-6" size={12} /> Précédent
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 12, color: 'var(--fs-ink-500)' }}>
+                  Page <strong>{safePage + 1}</strong> sur <strong>{pages}</strong>
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>
+                  ({filtered.length} ticket{filtered.length > 1 ? 's' : ''} · {fmtN(totalCA)} XAF)
+                </span>
+              </div>
+              <button onClick={() => setPage(p => Math.min(pages - 1, p + 1))} disabled={safePage >= pages - 1}
+                style={{ padding: '8px 16px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, cursor: safePage >= pages - 1 ? 'not-allowed' : 'pointer', opacity: safePage >= pages - 1 ? 0.4 : 1, color: 'var(--fs-ink-600)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                Suivant <I d="M9 18l6-6-6-6" size={12} />
+              </button>
             </div>
           )}
         </div>

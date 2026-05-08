@@ -6,12 +6,12 @@
 import React, {
   memo, useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
-import { getAllProducts, createSale, getProductByBarcode, Product } from '../api/products';
+import { getAllProducts, createSale, getProductByBarcode, Product, SaleError } from '../api/products';
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
 import {
   cacheProducts, getCachedProducts, savePendingSale, getPendingSales,
-  syncPendingSales, decrementCachedStock,
+  syncPendingSales, decrementCachedStock, silentRefreshProductCache,
 } from '../services/offlineSync';
 import QRScanner from '../components/QRScanner';
 import Receipt, { ReceiptData } from '../components/Receipt';
@@ -156,6 +156,7 @@ export default function Caisse() {
   const [scanning,       setScanning]       = useState(false);
   const [scanError,      setScanError]      = useState<string | null>(null);
   const [validating,     setValidating]     = useState(false);
+  const [retryLabel,     setRetryLabel]     = useState('');
   const [heldTickets,    setHeldTickets]    = useState<HeldTicket[]>([]);
   const [showHeld,       setShowHeld]       = useState(false);
   const [paymentMethod,  setPaymentMethod]  = useState<PaymentMethod>('cash');
@@ -168,6 +169,7 @@ export default function Caisse() {
   );
   const [isOnline,       setIsOnline]       = useState(() => navigator.onLine);
   const [pendingCount,   setPendingCount]   = useState(0);
+  const [showLogoutModal,setShowLogoutModal]= useState(false);
 
   // Dynamic row height — computed after filteredProducts (see below)
 
@@ -193,13 +195,14 @@ export default function Caisse() {
     })();
   }, []);
 
-  // Refresh cache every 30 minutes when online
+  // Silent cache refresh every 5 minutes when online
   useEffect(() => {
     if (!isOnline) return;
     const id = setInterval(async () => {
-      const prods = await getAllProducts().catch(() => null);
-      if (prods) { setAllProducts(prods); await cacheProducts(prods); }
-    }, 30 * 60 * 1000);
+      await silentRefreshProductCache();
+      const fresh = await getCachedProducts();
+      if (fresh.length > 0) setAllProducts(fresh);
+    }, 5 * 60 * 1000);
     return () => clearInterval(id);
   }, [isOnline]);
 
@@ -446,46 +449,116 @@ export default function Caisse() {
       return;
     }
 
-    try {
-      const result = await createSale({
-        items: cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: i.product.price })),
-        total, paymentMethod, amountPaid: effPaid,
-      });
-      const d       = new Date();
-      const dateP   = d.toISOString().slice(0, 10).replace(/-/g, '');
-      const idPart  = String(result.sale._id).slice(-6).toUpperCase();
-      const tvaAmt  = Math.round(total * TVA_RATE / (1 + TVA_RATE));
-      const newData: ReceiptData = {
-        receiptNo:    `FSV-${dateP}-${idPart}`,
-        date:         d,
-        cashierName:  payload?.name ?? 'Caissier',
-        storePhone:   settings.telephone || undefined,
-        items:        cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: i.product.price })),
-        total,
-        tva:          tvaAmt,
-        paymentLabel: pmLabel,
-        amountPaid:   effPaid,
-        change:       result.change,
-      };
-      setReceiptData(newData);
-      setCart([]); setAmountPaid(''); setPaymentMethod('cash');
+    // ── Retry loop (3 tentatives, 2s entre chaque) ──────────────────────────
+    const MAX_RETRIES = 3;
+    const saleItems   = cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: i.product.price }));
 
-      // Auto-print si activé dans les paramètres
-      const ps = getPrintSettings();
-      if (ps.auto) {
-        const html = buildReceiptHTML(newData, ps.showTva);
-        doPrint(html, ps.copies);
-        if (paymentMethod === 'cash') openCashDrawer();
+    let succeeded      = false;
+    let nonRetryable   = false;
+
+    for (let attempt = 0; attempt < MAX_RETRIES && !nonRetryable && !succeeded; attempt++) {
+      if (attempt > 0) {
+        await new Promise<void>(r => setTimeout(r, 2000));
       }
 
-      for (const a of result.alerts) {
-        addToast(a.stock === 0 ? `Rupture — ${a.productName}` : `Stock bas — ${a.productName} : ${a.stock} restant(s)`, 'warning');
+      try {
+        const result = await createSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid });
+
+        // ── Succès ───────────────────────────────────────────────────────────
+        succeeded = true;
+        const d      = new Date();
+        const dateP  = d.toISOString().slice(0, 10).replace(/-/g, '');
+        const idPart = String(result.sale._id).slice(-6).toUpperCase();
+        const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
+        const newData: ReceiptData = {
+          receiptNo:    `FSV-${dateP}-${idPart}`,
+          date:         d,
+          cashierName:  payload?.name ?? 'Caissier',
+          storePhone:   settings.telephone || undefined,
+          items:        cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: i.product.price })),
+          total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
+        };
+        setReceiptData(newData);
+        setCart([]); setAmountPaid(''); setPaymentMethod('cash');
+
+        if (attempt > 0) addToast('Vente enregistrée ✅', 'success');
+
+        const ps = getPrintSettings();
+        if (ps.auto) {
+          doPrint(buildReceiptHTML(newData, ps.showTva), ps.copies);
+          if (paymentMethod === 'cash') openCashDrawer();
+        }
+        for (const a of result.alerts) {
+          addToast(a.stock === 0 ? `Rupture — ${a.productName}` : `Stock bas — ${a.productName} : ${a.stock} restant(s)`, 'warning');
+        }
+
+      } catch (err: unknown) {
+        const kind = err instanceof SaleError ? err.kind : 'unknown';
+        const msg  = err instanceof Error ? err.message : "Erreur d'enregistrement";
+
+        if (kind === 'auth') {
+          nonRetryable = true;
+          try {
+            await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid });
+            addToast('Session expirée — ticket sauvegardé localement', 'warning');
+          } catch { /* ignore */ }
+          setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 1800);
+
+        } else if (kind === 'stock') {
+          nonRetryable = true;
+          addToast(msg, 'error');
+
+        } else if (attempt < MAX_RETRIES - 1) {
+          // Erreur récupérable → on informe et on réessaie
+          if (kind === 'timeout') {
+            setRetryLabel(`Connexion lente, tentative ${attempt + 2}/${MAX_RETRIES}…`);
+            addToast('Connexion lente — nouvelle tentative…', 'warning');
+          } else if (kind === 'server_sleep') {
+            setRetryLabel(`Serveur en démarrage, tentative ${attempt + 2}/${MAX_RETRIES}…`);
+            addToast('Serveur en démarrage (30s) — nouvelle tentative…', 'warning');
+          } else {
+            setRetryLabel(`Tentative ${attempt + 2}/${MAX_RETRIES}…`);
+            addToast(`Erreur réseau — tentative ${attempt + 2}/${MAX_RETRIES}…`, 'warning');
+          }
+
+        } else {
+          // Toutes les tentatives épuisées → fallback offline
+          setRetryLabel('Sauvegarde locale…');
+          try {
+            await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid });
+            for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
+            const cached = await getCachedProducts();
+            setAllProducts(cached);
+            setPendingCount(prev => prev + 1);
+
+            const d      = new Date();
+            const dateP  = d.toISOString().slice(0, 10).replace(/-/g, '');
+            const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
+            const offlineData: ReceiptData = {
+              receiptNo:    `OFF-${dateP}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+              date:         d,
+              cashierName:  payload?.name ?? 'Caissier',
+              storePhone:   settings.telephone || undefined,
+              items:        cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: i.product.price })),
+              total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid,
+              change: Math.max(0, effPaid - total),
+            };
+            setReceiptData(offlineData);
+            setCart([]); setAmountPaid(''); setPaymentMethod('cash');
+            addToast('Vente sauvegardée localement — synchronisation dès que possible', 'warning');
+
+            const ps = getPrintSettings();
+            if (ps.auto) doPrint(buildReceiptHTML(offlineData, ps.showTva), ps.copies);
+          } catch {
+            addToast("Échec définitif — impossible d'enregistrer la vente", 'error');
+          }
+        }
       }
-    } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : "Erreur d'enregistrement", 'error');
-    } finally {
-      setValidating(false); focusScan();
     }
+
+    setRetryLabel('');
+    setValidating(false);
+    focusScan();
   }, [canValidate, cart, paymentMethod, paid, total, addToast, focusScan]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
@@ -517,6 +590,40 @@ export default function Caisse() {
     }}>
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* ── Logout confirmation modal ── */}
+      {showLogoutModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 360, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
+            <div style={{ background: 'var(--fs-wine-900)', padding: '16px 22px' }}>
+              <p style={{ color: 'var(--fs-gold-400)', fontWeight: 800, fontSize: 15, margin: 0 }}>Ticket en cours</p>
+              <p style={{ color: 'rgba(245,235,217,0.7)', fontSize: 12, margin: '4px 0 0' }}>
+                Vous avez {cart.length} article{cart.length > 1 ? 's' : ''} dans le ticket ({cart.reduce((s,i)=>s+i.quantity,0)} qté — {cart.reduce((s,i)=>s+i.product.price*i.quantity,0).toLocaleString('fr-FR')} XAF).
+              </p>
+            </div>
+            <div style={{ padding: '18px 22px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                onClick={() => { handleHold(); setShowLogoutModal(false); localStorage.removeItem('access_token'); window.location.href = '/login'; }}
+                style={{ padding: '11px 0', borderRadius: 10, border: '2px solid var(--fs-wine-700)', background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Mettre en attente &amp; se déconnecter
+              </button>
+              <button
+                onClick={() => { setCart([]); setAmountPaid(''); setShowLogoutModal(false); localStorage.removeItem('access_token'); window.location.href = '/login'; }}
+                style={{ padding: '11px 0', borderRadius: 10, border: '2px solid #ef4444', background: '#fef2f2', color: '#dc2626', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Annuler le ticket &amp; se déconnecter
+              </button>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                style={{ padding: '10px 0', borderRadius: 10, border: '1.5px solid var(--fs-line-2)', background: 'var(--fs-ivory)', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Rester connecté
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showQR && (
         <QRScanner
@@ -621,11 +728,14 @@ export default function Caisse() {
               {payload?.name?.split(' ')[0] ?? '—'} {payload?.name?.split(' ').slice(-1)[0]?.[0] ?? ''}.
             </div>
             <div style={{ fontSize: 11, color: 'var(--fs-gold-400)', marginTop: 1 }}>
-              {payload?.role === 'caissier' ? 'Caissier(e)' : payload?.role ?? 'Caissier'} · {payload?.caisse?.nom ?? '—'}
+              {payload?.role === 'caissier'     ? 'Caissier(e)'
+                : payload?.role === 'gestionnaire' ? 'Chef de stock'
+                : payload?.role === 'magazinier'   ? 'Manutentionnaire'
+                : payload?.role ?? 'Caissier'} · {payload?.caisse?.nom ?? '—'}
             </div>
           </div>
           <button
-            onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
+            onClick={() => { if (cart.length > 0) { setShowLogoutModal(true); } else { localStorage.removeItem('access_token'); window.location.href = '/login'; } }}
             style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', padding: 2, display: 'flex' }}
             title="Déconnexion"
           >
@@ -947,9 +1057,15 @@ export default function Caisse() {
                   color: '#fff', fontSize: 14, fontWeight: 800,
                   cursor: canValidate ? 'pointer' : 'not-allowed',
                   fontFamily: 'var(--fs-font-sans)', whiteSpace: 'nowrap',
+                  display: 'flex', alignItems: 'center', gap: 6, minWidth: 130,
                 }}
               >
-                ✓ Encaisser
+                {validating ? (
+                  <>
+                    <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
+                    {retryLabel || 'Enregistrement…'}
+                  </>
+                ) : '✓ Encaisser'}
               </button>
             </div>
           )}
@@ -1245,8 +1361,8 @@ export default function Caisse() {
               >
                 {validating ? (
                   <>
-                    <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite' }}/>
-                    Enregistrement…
+                    <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite', flexShrink: 0 }}/>
+                    {retryLabel || 'Enregistrement…'}
                   </>
                 ) : (
                   <>✓ Encaisser {fmtN(total)} XAF</>

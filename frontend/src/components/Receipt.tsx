@@ -1,7 +1,8 @@
 import React from 'react';
 import {
-  ReceiptData, buildReceiptHTML, doPrint, getPrintSettings, openCashDrawer,
+  ReceiptData, buildReceiptHTML, buildReceiptPDF, doPrint, getPrintSettings, openCashDrawer,
 } from './ReceiptPrint';
+import { saveFacture } from '../api/factures';
 
 export type { ReceiptData } from './ReceiptPrint';
 
@@ -16,6 +17,20 @@ export default function Receipt({ data, onNewSale }: Props) {
   const handlePrint = () => {
     const html = buildReceiptHTML(data, ps.showTva);
     doPrint(html, ps.copies);
+    // Archive PDF en arrière-plan (silencieux)
+    try {
+      const pdfBase64 = buildReceiptPDF(data, ps.showTva);
+      saveFacture({
+        numero:        data.receiptNo,
+        caissier:      data.cashierName,
+        montant:       data.total,
+        tva:           data.tva,
+        paymentMethod: data.paymentLabel,
+        items:         data.items.map(i => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })),
+        pdfBase64,
+        date:          data.date.toISOString(),
+      });
+    } catch { /* silently ignore */ }
   };
 
   const tvaDisplay = Math.round(data.total * 0.1925 / (1 + 0.1925));

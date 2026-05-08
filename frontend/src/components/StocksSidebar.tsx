@@ -179,7 +179,12 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
-            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>{payload?.role ?? 'Gestionnaire'}</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>
+              {payload?.role === 'gestionnaire' ? 'Chef de stock'
+                : payload?.role === 'magazinier' ? 'Manutentionnaire'
+                : payload?.role === 'patron' ? 'Administrateur'
+                : 'Chef de stock'}
+            </div>
           </div>
           <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
             style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', display: 'flex', padding: 2 }}>

@@ -19,7 +19,7 @@ function UserModal({ mode, role, user, onSave, onClose }: ModalProps) {
   const [error,    setError]    = useState<string | null>(null);
   const [loading,  setLoading]  = useState(false);
 
-  const roleLabel = role === 'gestionnaire' ? 'Gestionnaire' : 'Caissier(e)';
+  const roleLabel = role === 'gestionnaire' ? 'Chef de stock' : 'Caissier(e)';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

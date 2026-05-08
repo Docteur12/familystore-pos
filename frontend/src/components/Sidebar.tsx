@@ -147,7 +147,8 @@ export default function Sidebar() {
   };
 
   const roleLabel = role === 'patron' ? 'Administration'
-    : role === 'gestionnaire' ? 'Gestion stock'
+    : role === 'gestionnaire' ? 'Chef de stock'
+    : role === 'magazinier'   ? 'Manutentionnaire'
     : 'Point de vente';
 
   const initials = (payload?.name ?? '?')

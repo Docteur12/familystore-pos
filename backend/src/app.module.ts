@@ -10,7 +10,8 @@ import { StockModule } from './stock/stock.module';
 import { SettingsModule } from './settings/settings.module';
 import { MagazinierModule } from './magazinier/magazinier.module';
 import { CaissesModule } from './caisses/caisses.module';
-import { AuditModule }  from './audit/audit.module';
+import { AuditModule }    from './audit/audit.module';
+import { FacturesModule } from './factures/factures.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AuditModule }  from './audit/audit.module';
     SettingsModule,
     MagazinierModule,
     CaissesModule,
+    FacturesModule,
   ],
   controllers: [AppController],
   providers: [],

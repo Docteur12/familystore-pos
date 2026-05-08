@@ -55,6 +55,19 @@ export async function getPendingSales(): Promise<PendingSale[]> {
   return (await get<PendingSale[]>(KEY_PENDING)) ?? [];
 }
 
+// ── Silent background cache refresh ──────────────────────────────────────────
+
+export async function silentRefreshProductCache(): Promise<void> {
+  if (!navigator.onLine) return;
+  try {
+    const res = await fetch('/api/products', { headers: authHeaders() });
+    if (!res.ok) return;
+    const data: Product[] = await res.json();
+    await cacheProducts(data);
+    await set(KEY_LAST_SYNC, Date.now());
+  } catch { /* silently ignore */ }
+}
+
 // ── Sync ──────────────────────────────────────────────────────────────────────
 
 export async function getLastSyncTime(): Promise<Date | null> {

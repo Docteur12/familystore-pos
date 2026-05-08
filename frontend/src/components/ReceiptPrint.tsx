@@ -1,4 +1,5 @@
 // Utilitaires impression reçu thermique 80mm + gestion paramètres d'impression
+import { jsPDF } from 'jspdf';
 
 export interface ReceiptItem {
   name:      string;
@@ -153,6 +154,86 @@ export function doPrint(html: string, copies = 1) {
       }, 400);
     }, i * 1000);
   }
+}
+
+// Génération PDF reçu (base64) pour archivage ─────────────────────────────────
+
+export function buildReceiptPDF(data: ReceiptData, showTva = true): string {
+  const doc  = new jsPDF({ unit: 'mm', format: [80, 220], orientation: 'portrait' });
+  const W    = 76; // largeur utile
+  let   y    = 6;
+
+  const line  = (text: string, size = 9, bold = false, align: 'left' | 'center' | 'right' = 'left') => {
+    doc.setFontSize(size);
+    doc.setFont('courier', bold ? 'bold' : 'normal');
+    const x = align === 'center' ? W / 2 + 2 : align === 'right' ? W + 2 : 2;
+    doc.text(text, x, y, { align });
+    y += size * 0.42;
+  };
+  const row = (left: string, right: string, size = 9, bold = false) => {
+    doc.setFontSize(size);
+    doc.setFont('courier', bold ? 'bold' : 'normal');
+    doc.text(left,  2,      y);
+    doc.text(right, W + 2,  y, { align: 'right' });
+    y += size * 0.42;
+  };
+  const dash  = () => { doc.setLineWidth(0.2); (doc as any).setLineDash([1, 1]); doc.line(2, y, W + 2, y); y += 2; };
+  const solid = () => { doc.setLineWidth(0.4); (doc as any).setLineDash([]);    doc.line(2, y, W + 2, y); y += 2.5; };
+
+  const dateStr = data.date.toLocaleDateString('fr-FR');
+  const timeStr = data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const fmt = (n: number) => n.toLocaleString('fr-FR');
+
+  // En-tête
+  line('FAMILY STORE', 14, true, 'center'); y += 1;
+  line('by RDCT — Point de Vente', 8, false, 'center');
+  line('Beaute · Saveurs · Bien-etre', 7, false, 'center');
+  line('Marche Bonamoussadi · Douala', 8, true, 'center');
+  line(`Tel: ${data.storePhone || '682 263 435'}`, 8, true, 'center');
+  y += 1;
+  solid();
+
+  // Méta
+  line(`Ticket   : #${data.receiptNo}`, 8);
+  line(`Date     : ${dateStr}  ${timeStr}`, 8);
+  line(`Caissier : ${data.cashierName}`, 8);
+  y += 1;
+  dash();
+
+  // Articles
+  for (const item of data.items) {
+    line(item.name, 9, true);
+    row(
+      `  ${item.quantity} x ${fmt(item.unitPrice)}`,
+      `${fmt(item.quantity * item.unitPrice)} XAF`,
+      8,
+    );
+    y += 0.5;
+  }
+  dash();
+
+  // Totaux
+  row('Sous-total', `${fmt(data.total)} XAF`, 8);
+  if (showTva) row('TVA incluse (19.25%)', `${fmt(data.tva)} XAF`, 8);
+  row('Remise', '0 XAF', 8);
+  solid();
+  row('TOTAL', `${fmt(data.total)} XAF`, 12, true);
+  solid();
+
+  // Paiement
+  line(`Paiement : ${data.paymentLabel}`, 8);
+  row('Recu', `${fmt(data.amountPaid)} XAF`, 8);
+  if (data.change > 0) row('Monnaie', `${fmt(data.change)} XAF`, 9, true);
+  dash();
+
+  // Pied
+  y += 1;
+  line('Merci de votre visite !', 9, true, 'center');
+  line('Revenez nous voir — Family Store', 8, false, 'center');
+  line('Marche Bonamoussadi · Douala', 7, false, 'center');
+  line('Tel: 682 263 435', 7, false, 'center');
+
+  return doc.output('datauristring').split(',')[1] ?? '';
 }
 
 // Ouverture tiroir-caisse via ESC/POS (navigator.serial — nécessite HTTPS + autorisation)

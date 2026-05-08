@@ -23,6 +23,7 @@ const D = {
   rapports:     'M18 20V10M12 20V4M6 20v-6',
   journal:      'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8',
   compta:       'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+  factures:     'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M12 12h.01M8 12h.01M16 12h.01',
   equipe:       'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   caissiers:    'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   gestionnaires:'M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM1 10h22',
@@ -44,6 +45,7 @@ const SECTIONS = [
       { id: 'rapports',     label: 'Rapports & analyses', icon: D.rapports,     path: '/admin/rapports'      },
       { id: 'journal',      label: 'Journal des ventes',  icon: D.journal,      path: '/admin/journal'        },
       { id: 'compta',       label: 'Comptabilité',        icon: D.compta,       path: '/admin/comptabilite'  },
+      { id: 'factures',     label: 'Historique factures', icon: D.factures,     path: '/admin/factures'       },
     ],
   },
   {
@@ -282,7 +284,13 @@ export default function AdminSidebar() {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
-            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)', textTransform: 'capitalize' }}>{payload?.role ?? 'Administrateur'}</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>
+              {payload?.role === 'patron' ? 'Administrateur'
+                : payload?.role === 'gestionnaire' ? 'Chef de stock'
+                : payload?.role === 'magazinier'   ? 'Manutentionnaire'
+                : payload?.role === 'caissier'     ? 'Caissier(e)'
+                : 'Administrateur'}
+            </div>
           </div>
           <button onClick={() => setShowSettings(true)} title="Paramètres du compte"
             style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.4)', cursor: 'pointer', display: 'flex', padding: 2, flexShrink: 0 }}>

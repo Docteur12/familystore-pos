@@ -51,14 +51,47 @@ export interface SaleResponse {
   alerts: StockAlert[];
 }
 
+// Classification des types d'erreurs réseau/serveur
+export type SaleErrorKind = 'auth' | 'stock' | 'timeout' | 'server_sleep' | 'network' | 'unknown';
+
+export class SaleError extends Error {
+  constructor(message: string, public readonly kind: SaleErrorKind) {
+    super(message);
+    this.name = 'SaleError';
+  }
+}
+
 export async function createSale(payload: SalePayload): Promise<SaleResponse> {
-  const res = await fetch('/api/sales', {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(payload),
-  });
-  if (res.status === 401) throw new Error('Non authentifié — veuillez vous connecter');
-  if (!res.ok) throw new Error('Erreur lors de l\'enregistrement de la vente');
+  const controller = new AbortController();
+  const timerId = setTimeout(() => controller.abort(), 30_000);
+
+  let res: Response;
+  try {
+    res = await fetch('/api/sales', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timerId);
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new SaleError('Connexion lente — délai dépassé', 'timeout');
+    }
+    throw new SaleError('Erreur réseau — vérifiez votre connexion', 'network');
+  }
+  clearTimeout(timerId);
+
+  if (res.status === 401) throw new SaleError('Non authentifié — veuillez vous connecter', 'auth');
+  if (res.status === 400 || res.status === 422) {
+    const body = await res.json().catch(() => ({}));
+    const msg  = (body?.message as string) ?? 'Stock insuffisant pour ce produit';
+    throw new SaleError(msg.includes('stock') || msg.includes('Stock') ? msg : 'Stock insuffisant pour ce produit', 'stock');
+  }
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    throw new SaleError('Serveur en démarrage — patienter 30s puis réessayer', 'server_sleep');
+  }
+  if (!res.ok) throw new SaleError('Erreur serveur lors de l\'enregistrement', 'unknown');
   return res.json();
 }
 
