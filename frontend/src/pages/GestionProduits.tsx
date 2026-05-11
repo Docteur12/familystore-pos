@@ -7,7 +7,7 @@
  *  - Scan code-barres caméra OU saisie manuelle pour pré-remplir le barcode
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createProduct, getAllProducts, Product, ProductPayload,
 } from '../api/products';
@@ -42,16 +42,29 @@ const EMPTY_FORM: FormState = {
 };
 
 interface AddModalProps {
+  baseCategories: string[];
   onSave:  (payload: ProductPayload) => Promise<void>;
   onClose: () => void;
 }
 
-function AddModal({ onSave, onClose }: AddModalProps) {
-  const [form,    setForm]    = useState<FormState>(EMPTY_FORM);
-  const [showQR,  setShowQR]  = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+function AddModal({ baseCategories, onSave, onClose }: AddModalProps) {
+  const [form,            setForm]            = useState<FormState>(EMPTY_FORM);
+  const [showQR,          setShowQR]          = useState(false);
+  const [error,           setError]           = useState<string | null>(null);
+  const [loading,         setLoading]         = useState(false);
+  const [extraCategories, setExtraCategories] = useState<string[]>([]);
+  const [newCatInput,     setNewCatInput]     = useState('');
   const nameRef = useRef<HTMLInputElement>(null);
+
+  const allCategories = [...baseCategories, ...extraCategories.filter(c => !baseCategories.includes(c))];
+
+  const confirmNewCat = () => {
+    const v = newCatInput.trim();
+    if (!v) return;
+    if (!allCategories.includes(v)) setExtraCategories(p => [...p, v]);
+    set('category', v);
+    setNewCatInput('');
+  };
 
   const set = (field: keyof FormState, value: string) =>
     setForm(f => ({ ...f, [field]: value }));
@@ -65,17 +78,26 @@ function AddModal({ onSave, onClose }: AddModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Catégorie personnalisée non confirmée → l'utiliser telle quelle
+    let finalCategory = form.category;
+    if (form.category === '__new__') {
+      if (!newCatInput.trim()) { setError('Saisissez et confirmez un nom de catégorie'); return; }
+      finalCategory = newCatInput.trim();
+      if (!allCategories.includes(finalCategory)) setExtraCategories(p => [...p, finalCategory]);
+    }
+
     const price     = parseFloat(form.price);
     const costPrice = parseFloat(form.costPrice);
-    if (isNaN(price) || price < 0)     { setError('Prix de vente invalide');  return; }
-    if (isNaN(costPrice) || costPrice < 0) { setError('Prix d\'achat invalide'); return; }
+    if (isNaN(price) || price < 0)        { setError('Prix de vente invalide');  return; }
+    if (isNaN(costPrice) || costPrice < 0) { setError("Prix d'achat invalide");  return; }
 
     setLoading(true);
     try {
       await onSave({
         name:           form.name.trim(),
         barcode:        form.barcode.trim() || undefined,
-        category:       form.category,
+        category:       finalCategory,
         unit:           form.unit,
         price,
         costPrice,
@@ -166,12 +188,37 @@ function AddModal({ onSave, onClose }: AddModalProps) {
               <div>
                 <label className="label-field">Catégorie</label>
                 <select
-                  value={form.category}
-                  onChange={e => set('category', e.target.value)}
+                  value={allCategories.includes(form.category) ? form.category : '__new__'}
+                  onChange={e => {
+                    set('category', e.target.value);
+                    if (e.target.value !== '__new__') setNewCatInput('');
+                  }}
                   className="input-field w-full"
                 >
-                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                  {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                  <option value="__new__">＋ Nouvelle…</option>
                 </select>
+                {form.category === '__new__' && (
+                  <div className="flex gap-1.5 mt-1.5">
+                    <input
+                      type="text"
+                      value={newCatInput}
+                      onChange={e => setNewCatInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmNewCat(); } }}
+                      placeholder="Nom de la catégorie…"
+                      autoFocus
+                      className="input-field flex-1 text-xs py-1.5"
+                    />
+                    <button
+                      type="button"
+                      onClick={confirmNewCat}
+                      disabled={!newCatInput.trim()}
+                      className="px-2.5 py-1.5 rounded-lg bg-bordeaux text-cream text-xs font-bold disabled:opacity-40 shrink-0"
+                    >
+                      OK
+                    </button>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="label-field">Unité</label>
@@ -303,6 +350,13 @@ export default function GestionProduits() {
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
+  // Catégories dérivées des produits réels + liste de base (ordre alphabétique)
+  const derivedCategories = useMemo(() => {
+    const set = new Set(CATEGORIES);
+    products.forEach(p => { if (p.category?.trim()) set.add(p.category.trim()); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [products]);
+
   // Filtre recherche
   const displayed = products.filter(p => {
     const q = search.toLowerCase();
@@ -325,7 +379,7 @@ export default function GestionProduits() {
 
       {/* Modal ajout */}
       {showModal && (
-        <AddModal onSave={handleSave} onClose={() => setShowModal(false)} />
+        <AddModal baseCategories={derivedCategories} onSave={handleSave} onClose={() => setShowModal(false)} />
       )}
 
       {/* Header */}
