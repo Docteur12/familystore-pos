@@ -479,7 +479,7 @@ export default function AdminCaisses() {
                 Système — Infrastructure
               </p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>
-                Caisses · {caisses.length} terminal{caisses.length !== 1 ? 'aux' : ''}
+                Caisses · {caisses.length} {caisses.length !== 1 ? 'terminaux' : 'terminal'}
               </h1>
             </div>
             <button

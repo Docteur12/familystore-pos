@@ -32,16 +32,16 @@ export class FacturesService {
   } = {}): Promise<{ data: FactureDocument[]; total: number }> {
     const filter: Record<string, unknown> = {};
     if (query.dateFrom || query.dateTo) {
-      filter['date'] = {};
-      if (query.dateFrom) (filter['date'] as any)['$gte'] = new Date(query.dateFrom);
-      if (query.dateTo)   (filter['date'] as any)['$lte'] = new Date(query.dateTo);
+      filter['createdAt'] = {};
+      if (query.dateFrom) (filter['createdAt'] as any)['$gte'] = new Date(query.dateFrom + 'T00:00:00');
+      if (query.dateTo)   (filter['createdAt'] as any)['$lte'] = new Date(query.dateTo   + 'T23:59:59');
     }
 
     const limit = Math.min(Number(query.limit) || 50, 100);
     const skip  = (Number(query.page) || 0) * limit;
 
     const [data, total] = await Promise.all([
-      this.factureModel.find(filter).sort({ date: -1 }).skip(skip).limit(limit).exec(),
+      this.factureModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
       this.factureModel.countDocuments(filter).exec(),
     ]);
     return { data, total };

@@ -189,16 +189,16 @@ function TicketDetail({ sale }: { sale: Sale }) {
 export default function AdminJournal() {
   const { toasts, addToast, removeToast } = useToast();
 
-  const [sales,      setSales]      = useState<Sale[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [period,     setPeriod]     = useState<Period>('today');
-  const [search,     setSearch]     = useState('');
-  const [expanded,   setExpanded]   = useState<Set<string>>(new Set());
-  const [lastRefresh,setLastRefresh]= useState<Date>(new Date());
+  const [sales,        setSales]        = useState<Sale[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [period,       setPeriod]       = useState<Period>('today');
+  const [expanded,     setExpanded]     = useState<Set<string>>(new Set());
+  const [lastRefresh,  setLastRefresh]  = useState<Date>(new Date());
   const [page,         setPage]         = useState(0);
   const [customFrom,   setCustomFrom]   = useState('');
   const [customTo,     setCustomTo]     = useState('');
   const [cashierFilter,setCashierFilter]= useState('');
+  const [sortKey,      setSortKey]      = useState<'date' | 'total_asc' | 'total_desc' | 'cashier'>('date');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async (silent = false) => {
@@ -225,17 +225,24 @@ export default function AdminJournal() {
 
   // ── Filtrage local (recherche + caissière) ───────────────────────────────
 
-  const q = search.toLowerCase();
-  const cf = cashierFilter.toLowerCase();
-  const filtered = sales.filter(s => {
-    if (cf && !(s.cashierName ?? '').toLowerCase().includes(cf)) return false;
-    if (!q) return true;
-    const ticketId = s._id.slice(-6).toLowerCase();
-    const pm       = (PM_LABELS[s.paymentMethod] ?? s.paymentMethod).toLowerCase();
-    const articles = s.items.map(it => it.name.toLowerCase()).join(' ');
-    const cashier  = (s.cashierName ?? '').toLowerCase();
-    return ticketId.includes(q) || pm.includes(q) || articles.includes(q) || cashier.includes(q);
+  const cf = cashierFilter;
+  const filtered = sales.filter(s =>
+    !cf || (s.cashierName ?? '') === cf,
+  );
+
+  // Tri
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    if (sortKey === 'total_asc')  return a.total - b.total;
+    if (sortKey === 'total_desc') return b.total - a.total;
+    if (sortKey === 'cashier')    return (a.cashierName ?? '').localeCompare(b.cashierName ?? '', 'fr');
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(); // date desc
   });
+
+  // ── Liste caissières (depuis TOUTES les ventes, pas les filtrées) ──────────
+
+  const allCashiers = Array.from(
+    new Set(sales.map(s => s.cashierName).filter(Boolean))
+  ).sort((a, b) => (a ?? '').localeCompare(b ?? '', 'fr')) as string[];
 
   // ── Stats par caissière ──────────────────────────────────────────────────
 
@@ -260,9 +267,9 @@ export default function AdminJournal() {
 
   // ── Pagination ────────────────────────────────────────────────────────────
 
-  const pages    = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pages    = Math.max(1, Math.ceil(sortedFiltered.length / PAGE_SIZE));
   const safePage = Math.min(page, pages - 1);
-  const paginated = filtered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const paginated = sortedFiltered.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
 
   // ── Toggle ligne détail ────────────────────────────────────────────────────
 
@@ -320,25 +327,21 @@ export default function AdminJournal() {
                 </div>
               )}
 
-              {/* Filtre caissière */}
-              <div style={{ position: 'relative' }}>
-                <input value={cashierFilter} onChange={e => { setCashierFilter(e.target.value); setPage(0); }}
-                  placeholder="Filtrer par caissière…"
-                  style={{ padding: '7px 12px 7px 28px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', width: 170, fontFamily: 'var(--fs-font-sans)' }} />
-                <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-400)', fontSize: 13 }}>👤</span>
-              </div>
+              {/* Filtre caissière — dropdown */}
+              <select value={cashierFilter} onChange={e => { setCashierFilter(e.target.value); setPage(0); }}
+                style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff', color: cashierFilter ? 'var(--fs-wine-700)' : 'var(--fs-ink-500)', minWidth: 170 }}>
+                <option value="">👤 Toutes les caissières</option>
+                {allCashiers.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
 
-              {/* Recherche */}
-              <div style={{ position: 'relative' }}>
-                <input value={search} onChange={e => { setSearch(e.target.value); setPage(0); }}
-                  placeholder="Ticket, article, paiement…"
-                  style={{ padding: '7px 12px 7px 32px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', width: 210, fontFamily: 'var(--fs-font-sans)' }} />
-                <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-400)' }}>
-                  <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                    <circle cx={11} cy={11} r={8} /><path d="M21 21l-4.35-4.35" />
-                  </svg>
-                </span>
-              </div>
+              {/* Tri */}
+              <select value={sortKey} onChange={e => setSortKey(e.target.value as typeof sortKey)}
+                style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff', color: 'var(--fs-ink-500)' }}>
+                <option value="date">Date ↓</option>
+                <option value="total_desc">Montant ↓</option>
+                <option value="total_asc">Montant ↑</option>
+                <option value="cashier">Caissière A→Z</option>
+              </select>
 
               {/* Export CSV */}
               <button onClick={() => exportCSV(filtered)} disabled={filtered.length === 0}

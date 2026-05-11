@@ -71,14 +71,24 @@ export interface RecentSale {
 
 // ── API functions ─────────────────────────────────────────────────────────────
 
+type DateRange = { days?: number; dateFrom?: string; dateTo?: string };
+
+function rangeQS(r: DateRange): string {
+  if (r.dateFrom) {
+    const qs = `dateFrom=${r.dateFrom}`;
+    return r.dateTo ? `${qs}&dateTo=${r.dateTo}` : qs;
+  }
+  return `days=${r.days ?? 7}`;
+}
+
 export const getStatsToday       = () => get<StatsToday>('/api/sales/stats/today');
-export const getStatsPeriod      = (days: number) => get<PeriodDay[]>(`/api/sales/stats/period?days=${days}`);
-export const getTopProducts      = () => get<TopProduct[]>('/api/sales/stats/top-products');
+export const getStatsPeriod      = (days: number, range?: DateRange) => get<PeriodDay[]>(`/api/sales/stats/period?${rangeQS(range ?? { days })}`);
+export const getTopProducts      = (range?: DateRange) => get<TopProduct[]>(`/api/sales/stats/top-products?${rangeQS(range ?? { days: 7 })}`);
 export const getRecentSales      = () => get<RecentSale[]>('/api/sales/stats/recent');
-export const getPaymentBreakdown = (scope: 'today' | 'week') => get<PaymentSlice[]>(`/api/sales/stats/payment?scope=${scope}`);
+export const getPaymentBreakdown = (range?: DateRange) => get<PaymentSlice[]>(`/api/sales/stats/payment?${rangeQS(range ?? { days: 7 })}`);
 export const getComparisons      = () => get<Comparisons>('/api/sales/stats/comparisons');
 
-// kept for backward compat (some pages may import it)
+// kept for backward compat
 export const getStatsWeek = () => getStatsPeriod(7);
 
 export async function downloadFile(url: string, filename: string): Promise<void> {

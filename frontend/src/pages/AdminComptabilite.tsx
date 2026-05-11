@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import { getComptaMonth, ComptaMonth } from '../api/comptabilite';
@@ -113,12 +113,20 @@ function downloadFile(url: string, filename: string) {
 
 // ── Page principale ───────────────────────────────────────────────────────────
 
+type QtrTab = 'T1' | 'T2' | 'T3' | 'T4' | 'An';
+const QTR_MONTHS: Record<QtrTab, number[]> = {
+  T1: [1,2,3], T2: [4,5,6], T3: [7,8,9], T4: [10,11,12],
+  An: [1,2,3,4,5,6,7,8,9,10,11,12],
+};
+
 export default function AdminComptabilite() {
   const { toasts, addToast, removeToast } = useToast();
 
-  const [monthIdx, setMonthIdx] = useState(0);
-  const [data,     setData]     = useState<ComptaMonth | null>(null);
-  const [loading,  setLoading]  = useState(true);
+  const [monthIdx,  setMonthIdx]  = useState(0);
+  const [qtrTab,    setQtrTab]    = useState<QtrTab | null>(null);
+  const [data,      setData]      = useState<ComptaMonth | null>(null);
+  const [qtrData,   setQtrData]   = useState<ComptaMonth | null>(null);
+  const [loading,   setLoading]   = useState(true);
   const [exporting, setExporting] = useState<'pdf' | 'excel' | null>(null);
 
   const { year, month } = MONTHS[monthIdx];
@@ -136,11 +144,47 @@ export default function AdminComptabilite() {
     }
   }, [year, month, addToast]);
 
-  useEffect(() => { load(); }, [load]);
+  // Chargement des données trimestrielles
+  const loadQtr = useCallback(async (tab: QtrTab) => {
+    setLoading(true);
+    setQtrData(null);
+    const curYear = new Date().getFullYear();
+    try {
+      const months = await Promise.all(QTR_MONTHS[tab].map(m => getComptaMonth(curYear, m).catch(() => null)));
+      const valid = months.filter(Boolean) as ComptaMonth[];
+      if (valid.length === 0) { setQtrData(null); return; }
+      const nbVentes = valid.reduce((s, d) => s + d.nbVentes, 0);
+      const ca       = valid.reduce((s, d) => s + d.ca, 0);
+      const agg: ComptaMonth = {
+        year: curYear, month: 0,
+        label:       tab === 'An' ? `Annuel ${curYear}` : `${tab} ${curYear}`,
+        ca,
+        coutAchats:  valid.reduce((s, d) => s + d.coutAchats, 0),
+        margesBrute: valid.reduce((s, d) => s + d.margesBrute, 0),
+        beneficeNet: valid.reduce((s, d) => s + d.beneficeNet, 0),
+        depenses:    valid.reduce((s, d) => s + d.depenses, 0),
+        nbVentes,
+        depensesParCategorie: [],
+        ventesParPaiement:    [],
+      };
+      setQtrData(agg);
+    } catch {
+      addToast('Erreur chargement trimestriel', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => {
+    if (qtrTab) loadQtr(qtrTab);
+    else load();
+  }, [load, loadQtr, qtrTab]);
+
+  const displayData = qtrTab ? qtrData : data;
 
   // ── Valeurs dérivées ────────────────────────────────────────────────────────
 
-  const d = data;
+  const d = displayData;
   const tvaCollectee  = d ? Math.round(d.ca         * TVA_RATE / (1 + TVA_RATE)) : 0;
   const tvaDeductible = d ? Math.round(d.coutAchats * TVA_RATE / (1 + TVA_RATE)) : 0;
   const tvaDue        = tvaCollectee - tvaDeductible;
@@ -172,7 +216,9 @@ export default function AdminComptabilite() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  const selLabel = MONTHS[monthIdx].label;
+  const selLabel = qtrTab
+    ? (qtrTab === 'An' ? `Annuel ${new Date().getFullYear()}` : `${qtrTab} ${new Date().getFullYear()}`)
+    : MONTHS[monthIdx].label;
   const capLabel = selLabel.charAt(0).toUpperCase() + selLabel.slice(1);
 
   return (
@@ -193,12 +239,20 @@ export default function AdminComptabilite() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {/* Sélecteur mois */}
-              <div style={{ display: 'flex', gap: 4 }}>
+              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                {(['T1','T2','T3','T4','An'] as QtrTab[]).map(t => (
+                  <button key={t} onClick={() => { setQtrTab(t); }} style={{
+                    padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
+                    background: qtrTab === t ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
+                    color:      qtrTab === t ? '#fff' : 'var(--fs-ink-500)',
+                  }}>{t}</button>
+                ))}
+                <div style={{ width: 1, background: 'var(--fs-line)', margin: '0 4px' }}/>
                 {MONTHS.map((m, i) => (
-                  <button key={`${m.year}-${m.month}`} onClick={() => setMonthIdx(i)} style={{
-                    padding: '7px 13px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: 'none',
-                    background: monthIdx === i ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
-                    color:      monthIdx === i ? '#fff'               : 'var(--fs-ink-500)',
+                  <button key={`${m.year}-${m.month}`} onClick={() => { setQtrTab(null); setMonthIdx(i); }} style={{
+                    padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: 'none',
+                    background: !qtrTab && monthIdx === i ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
+                    color:      !qtrTab && monthIdx === i ? '#fff'               : 'var(--fs-ink-500)',
                     textTransform: 'capitalize',
                   }}>
                     {m.label.split(' ')[0]}

@@ -10,6 +10,7 @@ import {
   AnalyseMonth, CaissierData, ProductStat,
 } from '../api/rapports';
 import { getStatsPeriod, getComparisons, PeriodDay, Comparisons } from '../api/dashboard';
+import { getUsers, UserRecord } from '../api/auth';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -66,32 +67,38 @@ function pctVs(a: number, b: number) {
 
 // ── Heatmap ───────────────────────────────────────────────────────────────────
 
-const DAYS_FR  = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-const HOURS    = Array.from({ length: 24 }, (_, i) => i);
+const DAYS_FR = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+// Créneaux 7h→21h par intervalles de 2h : [7,9,11,13,15,17,19] (7 slots)
+const SLOT_STARTS = [7, 9, 11, 13, 15, 17, 19];
 
 function Heatmap({ data }: { data: number[][] }) {
-  const hasData = data.some(row => row.some(v => v > 0));
+  // Agréger chaque slot = moyenne des 2 heures
+  const slotData: number[][] = DAYS_FR.map((_, di) =>
+    SLOT_STARTS.map(h => {
+      const a = data[di]?.[h]   ?? 0;
+      const b = data[di]?.[h+1] ?? 0;
+      return (a + b) / 2;
+    }),
+  );
+  const hasData = slotData.some(row => row.some(v => v > 0));
   return (
     <div>
-      <div style={{ display: 'flex', gap: 2, marginBottom: 4, paddingLeft: 32 }}>
-        {[0,4,8,12,16,20].map(h => (
-          <div key={h} style={{ flex: '0 0 auto', width: hasData ? 16 : 14, fontSize: 9, color: 'var(--fs-ink-400)', textAlign: 'center', marginRight: 2 }}>{h}h</div>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 4, paddingLeft: 32 }}>
+        {SLOT_STARTS.map(h => (
+          <div key={h} style={{ flex: '0 0 24px', fontSize: 9, color: 'var(--fs-ink-400)', textAlign: 'center' }}>{h}h</div>
         ))}
       </div>
       {DAYS_FR.map((day, di) => (
-        <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 2, marginBottom: 2 }}>
+        <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3 }}>
           <div style={{ width: 28, fontSize: 10, color: 'var(--fs-ink-400)', flexShrink: 0 }}>{day}</div>
-          {HOURS.map(h => {
-            const v = data[di]?.[h] ?? 0;
-            return (
-              <div key={h} style={{
-                width: 13, height: 13, borderRadius: 2, flexShrink: 0,
-                background: v === 0
-                  ? 'var(--fs-line)'
-                  : `rgba(122,29,46,${Math.max(v, 0.1).toFixed(2)})`,
-              }} title={`${day} ${h}h : ${Math.round(v * 100)}%`}/>
-            );
-          })}
+          {slotData[di].map((v, si) => (
+            <div key={si} style={{
+              flex: '0 0 24px', height: 18, borderRadius: 3, flexShrink: 0,
+              background: v === 0
+                ? 'var(--fs-line)'
+                : `rgba(122,29,46,${Math.max(v, 0.1).toFixed(2)})`,
+            }} title={`${day} ${SLOT_STARTS[si]}h-${SLOT_STARTS[si]+2}h : ${Math.round(v * 100)}%`}/>
+          ))}
         </div>
       ))}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8, paddingLeft: 30 }}>
@@ -164,9 +171,10 @@ export default function AdminRapports() {
   const [data,       setData]       = useState<AnalyseMonth | null>(null);
   const [loading,    setLoading]    = useState(true);
   const [exporting,  setExporting]  = useState<'pdf' | 'excel' | null>(null);
-  const [monthlyStats, setMonthlyStats] = useState<PeriodDay[]>([]);
-  const [comparisons,  setComparisons]  = useState<Comparisons | null>(null);
-  const [byProduct,    setByProduct]    = useState<ProductStat[]>([]);
+  const [monthlyStats,    setMonthlyStats]    = useState<PeriodDay[]>([]);
+  const [comparisons,     setComparisons]     = useState<Comparisons | null>(null);
+  const [byProduct,       setByProduct]       = useState<ProductStat[]>([]);
+  const [caissierNames,   setCaissierNames]   = useState<Set<string>>(new Set());
   const [prodDateFrom, setProdDateFrom] = useState('');
   const [prodDateTo,   setProdDateTo]   = useState('');
   const [prodLoading,  setProdLoading]  = useState(false);
@@ -187,11 +195,14 @@ export default function AdminRapports() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Chargement unique des stats globales (comparaisons + 12 mois)
+  // Chargement unique des stats globales (comparaisons + 12 mois + caissiers)
   useEffect(() => {
     getStatsPeriod(365).then(setMonthlyStats).catch(() => {});
     getComparisons().then(setComparisons).catch(() => {});
     getByProduct().then(setByProduct).catch(() => {});
+    getUsers().then(us => {
+      setCaissierNames(new Set(us.filter(u => u.role === 'caissier').map(u => u.name)));
+    }).catch(() => {});
   }, []);
 
   const loadByProduct = async () => {
@@ -248,10 +259,10 @@ export default function AdminRapports() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {/* Sélecteur mois */}
-              <div style={{ display: 'flex', gap: 4 }}>
+              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                 {MONTHS.map((m, i) => (
                   <button key={`${m.year}-${m.month}`} onClick={() => setMonthIdx(i)} style={{
-                    padding: '7px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: 'none',
+                    padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: 'none',
                     background: monthIdx === i ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
                     color:      monthIdx === i ? '#fff'               : 'var(--fs-ink-500)',
                     textTransform: 'capitalize',
@@ -413,13 +424,19 @@ export default function AdminRapports() {
                 <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 18px', boxShadow: 'var(--fs-shadow-sm)' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Classement caissiers</div>
                   <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Performances individuelles · CA généré</div>
-                  {d.parCaissier.length === 0 ? (
+                  {(caissierNames.size > 0
+                      ? d.parCaissier.filter((c: CaissierData) => caissierNames.has(c.nom))
+                      : d.parCaissier
+                    ).length === 0 ? (
                     <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', textAlign: 'center', padding: '24px 0' }}>
                       Aucune donnée caissier disponible
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                      {d.parCaissier.map((c: CaissierData, i: number) => (
+                      {(caissierNames.size > 0
+                        ? d.parCaissier.filter((c: CaissierData) => caissierNames.has(c.nom))
+                        : d.parCaissier
+                      ).map((c: CaissierData, i: number) => (
                         <div key={c.nom} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                           <span style={{ fontSize: 18, flexShrink: 0, width: 24, textAlign: 'center' }}>{MEDALS[i] ?? `${i + 1}.`}</span>
                           <div style={{ width: 34, height: 34, borderRadius: '50%', background: CAISSIER_COLORS[i % CAISSIER_COLORS.length], display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
@@ -474,12 +491,43 @@ export default function AdminRapports() {
                 </div>
               )}
 
-              {/* Statistiques tickets par mois */}
-              {monthlyStats.length > 0 && (
-                <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Statistiques tickets · 12 derniers mois</div>
-                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>MIN / MAX / MOYENNE par ticket, par période</div>
-                  <div style={{ overflowX: 'auto' }}>
+              {/* Statistiques tickets — trimestriel / mensuel */}
+              {monthlyStats.length > 0 && (() => {
+                const curYear = new Date().getFullYear();
+                // Construire les 4 trimestres + annuel depuis monthlyStats
+                const qtrOf = (m: PeriodDay) => {
+                  const mo = new Date(m.date + 'T12:00:00').getMonth() + 1;
+                  return mo <= 3 ? 1 : mo <= 6 ? 2 : mo <= 9 ? 3 : 4;
+                };
+                const sameYear = monthlyStats.filter(m => new Date(m.date + 'T12:00:00').getFullYear() === curYear);
+                const qtrs = [1, 2, 3, 4].map(q => {
+                  const rows = sameYear.filter(m => qtrOf(m) === q);
+                  const nb = rows.reduce((s, r) => s + r.nbVentes, 0);
+                  const ca = rows.reduce((s, r) => s + r.totalCA, 0);
+                  const mins = rows.filter(r => r.minTicket > 0).map(r => r.minTicket);
+                  return {
+                    label: `T${q} ${curYear}`, nb, ca,
+                    min: mins.length > 0 ? Math.min(...mins) : 0,
+                    max: rows.length > 0 ? Math.max(...rows.map(r => r.maxTicket)) : 0,
+                    avg: nb > 0 ? Math.round(ca / nb) : 0,
+                  };
+                });
+                const annual = {
+                  label: `Annuel ${curYear}`,
+                  nb: qtrs.reduce((s, q) => s + q.nb, 0),
+                  ca: qtrs.reduce((s, q) => s + q.ca, 0),
+                  min: Math.min(...qtrs.filter(q => q.min > 0).map(q => q.min).concat([0])),
+                  max: Math.max(...qtrs.map(q => q.max), 0),
+                  avg: 0,
+                };
+                annual.avg = annual.nb > 0 ? Math.round(annual.ca / annual.nb) : 0;
+
+                const statsRows = [...qtrs, annual];
+                const TDR: React.CSSProperties = { padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', borderBottom: '1px solid var(--fs-line)' };
+                return (
+                  <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Statistiques tickets — {curYear}</div>
+                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>T1 · T2 · T3 · T4 · Annuel — MIN / MAX / MOYENNE par ticket</div>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead>
                         <tr style={{ background: 'var(--fs-ivory)' }}>
@@ -489,21 +537,21 @@ export default function AdminRapports() {
                         </tr>
                       </thead>
                       <tbody>
-                        {[...monthlyStats].reverse().map((row, i) => (
-                          <tr key={row.date} style={{ borderBottom: '1px solid var(--fs-line)', background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
-                            <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--fs-ink-800)' }}>{row.label}</td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{row.nbVentes}</td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}>{fmtN(row.totalCA)}</td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: '#7AB87A' }}>{row.nbVentes > 0 ? fmtN(row.minTicket) : '—'}</td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: '#D1A660' }}>{row.nbVentes > 0 ? fmtN(row.maxTicket) : '—'}</td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-800)' }}>{row.nbVentes > 0 ? fmtN(row.avgTicket) : '—'}</td>
+                        {statsRows.map((row, i) => (
+                          <tr key={row.label} style={{ background: i === statsRows.length - 1 ? 'var(--fs-wine-50)' : i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
+                            <td style={{ padding: '8px 12px', fontWeight: i === statsRows.length - 1 ? 800 : 600, color: 'var(--fs-ink-800)', borderBottom: '1px solid var(--fs-line)' }}>{row.label}</td>
+                            <td style={{ ...TDR, color: 'var(--fs-ink-700)' }}>{row.nb || '—'}</td>
+                            <td style={{ ...TDR, fontWeight: 700, color: 'var(--fs-wine-700)' }}>{row.ca > 0 ? fmtN(row.ca) : '—'}</td>
+                            <td style={{ ...TDR, color: '#7AB87A' }}>{row.nb > 0 ? fmtN(row.min) : '—'}</td>
+                            <td style={{ ...TDR, color: '#D1A660' }}>{row.nb > 0 ? fmtN(row.max) : '—'}</td>
+                            <td style={{ ...TDR, color: 'var(--fs-ink-800)' }}>{row.nb > 0 ? fmtN(row.avg) : '—'}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </>
           )}
 

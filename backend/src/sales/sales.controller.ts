@@ -62,7 +62,16 @@ export class SalesController {
   @Get('stats/top-products')
   @UseGuards(RolesGuard)
   @Roles('patron')
-  topProducts() { return this.salesService.topProducts(); }
+  topProducts(
+    @Query('days')     days?:     string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo')   dateTo?:   string,
+  ) {
+    return this.salesService.topProducts({
+      days: days ? parseInt(days) : undefined,
+      dateFrom, dateTo,
+    });
+  }
 
   @Get('stats/recent')
   @UseGuards(RolesGuard)
@@ -72,15 +81,26 @@ export class SalesController {
   @Get('stats/period')
   @UseGuards(RolesGuard)
   @Roles('patron')
-  statsPeriod(@Query('days') days?: string) {
-    return this.salesService.statsPeriod(days ? parseInt(days) : 7);
+  statsPeriod(
+    @Query('days')     days?:     string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo')   dateTo?:   string,
+  ) {
+    return this.salesService.statsPeriod(days ? parseInt(days) : 7, dateFrom, dateTo);
   }
 
   @Get('stats/payment')
   @UseGuards(RolesGuard)
   @Roles('patron')
-  paymentBreakdown(@Query('scope') scope?: string) {
-    return this.salesService.paymentBreakdown(scope === 'today' ? 'today' : 'week');
+  paymentBreakdown(
+    @Query('days')     days?:     string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo')   dateTo?:   string,
+  ) {
+    return this.salesService.paymentBreakdown({
+      days: days ? parseInt(days) : undefined,
+      dateFrom, dateTo,
+    });
   }
 
   @Get('stats/by-product')

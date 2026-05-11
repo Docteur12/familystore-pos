@@ -215,14 +215,22 @@ export class SalesService {
 
   // ── GET /api/sales/stats/period?days=N — données pour graphe ──────────────
 
-  async statsPeriod(days: number) {
-    const now   = new Date();
-    const start = new Date(now);
-    start.setDate(start.getDate() - (days - 1));
-    start.setHours(0, 0, 0, 0);
+  async statsPeriod(days: number, dateFrom?: string, dateTo?: string) {
+    const now = new Date();
+    let start: Date, end: Date;
+    if (dateFrom) {
+      start = new Date(dateFrom + 'T00:00:00');
+      end   = dateTo ? new Date(dateTo + 'T23:59:59') : new Date();
+      days  = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86_400_000));
+    } else {
+      end   = now;
+      start = new Date(now);
+      start.setDate(start.getDate() - (days - 1));
+      start.setHours(0, 0, 0, 0);
+    }
 
     const sales = await this.saleModel
-      .find({ createdAt: { $gte: start } })
+      .find({ createdAt: { $gte: start, $lte: end } })
       .select('total createdAt')
       .lean();
 
@@ -394,17 +402,19 @@ export class SalesService {
 
   // ── GET /api/sales/stats/payment?scope=week — répartition modes paiement ──
 
-  async paymentBreakdown(scope: 'today' | 'week') {
-    const start = new Date();
-    if (scope === 'today') {
-      start.setHours(0, 0, 0, 0);
+  async paymentBreakdown(params?: { days?: number; dateFrom?: string; dateTo?: string }) {
+    const end = params?.dateTo ? new Date(params.dateTo + 'T23:59:59') : new Date();
+    let start: Date;
+    if (params?.dateFrom) {
+      start = new Date(params.dateFrom + 'T00:00:00');
     } else {
-      start.setDate(start.getDate() - 6);
+      start = new Date(end);
+      start.setDate(start.getDate() - ((params?.days ?? 7) - 1));
       start.setHours(0, 0, 0, 0);
     }
 
     const sales = await this.saleModel
-      .find({ createdAt: { $gte: start } })
+      .find({ createdAt: { $gte: start, $lte: end } })
       .select('total paymentMethod')
       .lean();
 
@@ -465,13 +475,19 @@ export class SalesService {
 
   // ── GET /api/sales/stats/top-products ─────────────────────────────────────
 
-  topProducts() {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() - 6);
+  topProducts(params?: { days?: number; dateFrom?: string; dateTo?: string }) {
+    const end = params?.dateTo ? new Date(params.dateTo + 'T23:59:59') : new Date();
+    let start: Date;
+    if (params?.dateFrom) {
+      start = new Date(params.dateFrom + 'T00:00:00');
+    } else {
+      start = new Date(end);
+      start.setDate(start.getDate() - ((params?.days ?? 7) - 1));
+      start.setHours(0, 0, 0, 0);
+    }
 
     return this.saleModel.aggregate([
-      { $match: { createdAt: { $gte: start } } },
+      { $match: { createdAt: { $gte: start, $lte: end } } },
       { $unwind: '$items' },
       {
         $group: {

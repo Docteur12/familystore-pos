@@ -64,8 +64,29 @@ const PM_ICONS: Record<string, string> = {
   credit:        D.cash,
 };
 
-type ChartTab = '7j' | '30j' | '90j' | '1an';
-const CHART_DAYS: Record<ChartTab, number> = { '7j': 7, '30j': 30, '90j': 90, '1an': 365 };
+type ChartTab = 'Jour' | 'Mois' | 'T1' | 'T2' | 'T3' | 'T4' | 'An';
+
+const TAB_LABELS: Record<ChartTab, string> = {
+  Jour: 'Journalier', Mois: 'Mois en cours',
+  T1: '1er trimestre', T2: '2e trimestre', T3: '3e trimestre', T4: '4e trimestre',
+  An: 'Annuel',
+};
+
+type DateRange = { days?: number; dateFrom?: string; dateTo?: string };
+function getTabRange(tab: ChartTab): DateRange {
+  const now = new Date();
+  const y   = now.getFullYear();
+  if (tab === 'Jour') return { days: 1 };
+  if (tab === 'Mois') {
+    const s = new Date(y, now.getMonth(), 1);
+    return { dateFrom: s.toISOString().slice(0, 10), dateTo: now.toISOString().slice(0, 10) };
+  }
+  if (tab === 'T1') return { dateFrom: `${y}-01-01`, dateTo: `${y}-03-31` };
+  if (tab === 'T2') return { dateFrom: `${y}-04-01`, dateTo: `${y}-06-30` };
+  if (tab === 'T3') return { dateFrom: `${y}-07-01`, dateTo: `${y}-09-30` };
+  if (tab === 'T4') return { dateFrom: `${y}-10-01`, dateTo: `${y}-12-31` };
+  return { dateFrom: `${y}-01-01`, dateTo: now.toISOString().slice(0, 10) }; // An
+}
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -125,21 +146,15 @@ export default function AdminDashboard() {
   const [period,   setPeriod]   = useState<PeriodDay[]>([]);
   const [topProds, setTopProds] = useState<TopProduct[]>([]);
   const [payment,  setPayment]  = useState<PaymentSlice[]>([]);
-  const [chartTab, setChartTab] = useState<ChartTab>('7j');
+  const [chartTab, setChartTab] = useState<ChartTab>('Mois');
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Rechargement des données live
   const loadLive = useCallback(async (silent = false) => {
     try {
-      const [s, prods, pay] = await Promise.all([
-        getStatsToday(),
-        getTopProducts(),
-        getPaymentBreakdown('week'),
-      ]);
+      const [s] = await Promise.all([getStatsToday()]);
       setStats(s);
-      setTopProds(prods);
-      setPayment(pay);
       setLastRefresh(new Date());
     } catch {
       if (!silent) addToast('Erreur chargement des statistiques', 'error');
@@ -152,11 +167,18 @@ export default function AdminDashboard() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [loadLive]);
 
-  // Rechargement du graphe selon l'onglet
+  // Rechargement graphe + top produits + paiements selon l'onglet
   useEffect(() => {
-    getStatsPeriod(CHART_DAYS[chartTab])
-      .then(setPeriod)
-      .catch(() => {});
+    const range = getTabRange(chartTab);
+    Promise.all([
+      getStatsPeriod(7, range),
+      getTopProducts(range),
+      getPaymentBreakdown(range),
+    ]).then(([p, prods, pay]) => {
+      setPeriod(p);
+      setTopProds(prods);
+      setPayment(pay);
+    }).catch(() => {});
   }, [chartTab]);
 
   // ── Valeurs dérivées ────────────────────────────────────────────────────────
@@ -271,10 +293,10 @@ export default function AdminDashboard() {
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Évolution des ventes</div>
                   <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>Chiffre d'affaires · toutes caisses</div>
                 </div>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  {(['7j','30j','90j','1an'] as ChartTab[]).map(t => (
+                <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                  {(['Jour','Mois','T1','T2','T3','T4','An'] as ChartTab[]).map(t => (
                     <button key={t} onClick={() => setChartTab(t)} style={{
-                      padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', border: 'none',
+                      padding: '4px 9px', borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: 'none',
                       background: chartTab === t ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
                       color:      chartTab === t ? '#fff' : 'var(--fs-ink-400)',
                     }}>{t}</button>
@@ -312,7 +334,7 @@ export default function AdminDashboard() {
             {/* Top produits */}
             <div style={{ width: 280, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)', display: isMobile ? 'none' : undefined }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Meilleures ventes</div>
-              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Par volume · 7 derniers jours</div>
+              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Par volume · {TAB_LABELS[chartTab]}</div>
               {topProds.length === 0 ? (
                 <div style={{ textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 11, padding: '24px 0' }}>Aucune vente enregistrée</div>
               ) : (
@@ -350,7 +372,7 @@ export default function AdminDashboard() {
             {/* Donut modes de paiement */}
             <div style={{ width: isMobile ? '100%' : 220, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 16px', boxShadow: 'var(--fs-shadow-sm)', flexShrink: isMobile ? undefined : 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Modes de paiement</div>
-              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 10 }}>Répartition · 7 derniers jours</div>
+              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 10 }}>Répartition · {TAB_LABELS[chartTab]}</div>
 
               {payment.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--fs-ink-300)', fontSize: 11 }}>Aucune donnée</div>
