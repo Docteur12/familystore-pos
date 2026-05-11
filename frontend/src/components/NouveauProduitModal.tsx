@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createProduct, updateProduct, Product } from '../api/products';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -172,10 +172,11 @@ function CloseIcon() {
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Props {
-  onClose: () => void;
-  onCreated?: () => void;
-  onUpdated?: () => void;
-  product?: Product;
+  onClose:         () => void;
+  onCreated?:      () => void;
+  onUpdated?:      () => void;
+  product?:        Product;
+  knownCategories?: string[];
 }
 
 type FormState = {
@@ -196,7 +197,7 @@ const INITIAL_FORM: FormState = {
 
 // ── Modal component ───────────────────────────────────────────────────────────
 
-export default function NouveauProduitModal({ onClose, onCreated, onUpdated, product }: Props) {
+export default function NouveauProduitModal({ onClose, onCreated, onUpdated, product, knownCategories }: Props) {
   const [form, setForm] = useState<FormState>(() => product ? {
     name:           product.name,
     barcode:        product.barcode ?? '',
@@ -207,10 +208,27 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     stock:          String(product.stock),
     alertThreshold: String(product.alertThreshold),
   } : INITIAL_FORM);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
+  const [loading,         setLoading]         = useState(false);
+  const [error,           setError]           = useState('');
+  const [extraCategories, setExtraCategories] = useState<string[]>([]);
+  const [newCatInput,     setNewCatInput]     = useState('');
 
-  // Utilise la forme fonctionnelle pour éviter les closures périmées
+  const allCategories = useMemo(() => {
+    const base = new Set([...CATEGORIES, ...(knownCategories ?? [])]);
+    extraCategories.forEach(c => base.add(c));
+    // Inclure la catégorie du produit en édition si absente
+    if (product?.category) base.add(product.category);
+    return Array.from(base).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [knownCategories, extraCategories, product]);
+
+  const confirmNewCat = () => {
+    const v = newCatInput.trim();
+    if (!v) return;
+    if (!allCategories.includes(v)) setExtraCategories(p => [...p, v]);
+    setForm(f => ({ ...f, category: v }));
+    setNewCatInput('');
+  };
+
   const setField = (k: keyof FormState) => (v: string) =>
     setForm(prev => ({ ...prev, [k]: v }));
 
@@ -219,12 +237,17 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
       setError('Nom, prix et stock initial sont requis.');
       return;
     }
+    let finalCategory = form.category;
+    if (form.category === '__new__') {
+      if (!newCatInput.trim()) { setError('Saisissez et confirmez un nom de catégorie'); return; }
+      finalCategory = newCatInput.trim();
+    }
     setLoading(true);
     setError('');
     const payload = {
       name:           form.name.trim(),
       barcode:        form.barcode.trim() || undefined,
-      category:       form.category || undefined,
+      category:       finalCategory || undefined,
       unit:           form.unit,
       price:          parseFloat(form.price),
       costPrice:      parseFloat(form.costPrice) || 0,
@@ -281,13 +304,38 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
             <div>
               <label style={LABEL_STYLE}>Catégorie</label>
               <select
-                value={form.category}
-                onChange={e => setField('category')(e.target.value)}
+                value={allCategories.includes(form.category) ? form.category : (form.category === '__new__' ? '__new__' : '')}
+                onChange={e => {
+                  setField('category')(e.target.value);
+                  if (e.target.value !== '__new__') setNewCatInput('');
+                }}
                 style={{ ...INPUT_STYLE, background: '#fff' }}
               >
                 <option value="">— Sélectionner —</option>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="__new__">＋ Nouvelle catégorie…</option>
               </select>
+              {form.category === '__new__' && (
+                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                  <input
+                    type="text"
+                    value={newCatInput}
+                    onChange={e => setNewCatInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmNewCat(); } }}
+                    placeholder="Nom de la catégorie…"
+                    autoFocus
+                    style={{ ...INPUT_STYLE, fontSize: 12, padding: '6px 10px' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={confirmNewCat}
+                    disabled={!newCatInput.trim()}
+                    style={{ padding: '6px 12px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: newCatInput.trim() ? 1 : 0.4, flexShrink: 0 }}
+                  >
+                    OK
+                  </button>
+                </div>
+              )}
             </div>
             <div>
               <label style={LABEL_STYLE}>Unité</label>

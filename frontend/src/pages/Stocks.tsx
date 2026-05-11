@@ -476,7 +476,12 @@ export default function Stocks() {
     const s = expiryStatus(expiryOf(p));
     return s === 'soon' || s === 'near';
   }).length, [products]);
-  const stockValue  = useMemo(() => products.reduce((s, p) => s + p.stock * p.costPrice, 0), [products]);
+  const stockValue        = useMemo(() => products.reduce((s, p) => s + p.stock * p.costPrice, 0), [products]);
+  const derivedCategories = useMemo(() => {
+    const s = new Set<string>();
+    products.forEach(p => { if (p.category?.trim()) s.add(p.category.trim()); });
+    return Array.from(s);
+  }, [products]);
 
   // ── Filtered products ──────────────────────────────────────────────────────
   const displayed = useMemo(() => {
@@ -557,10 +562,10 @@ export default function Stocks() {
         <ReceptionModal product={reception} onConfirm={handleAddStock} onClose={() => setReception(null)}/>
       )}
       {newProduct && (
-        <NouveauProduitModal onClose={() => setNewProduct(false)} onCreated={fetchProducts}/>
+        <NouveauProduitModal knownCategories={derivedCategories} onClose={() => setNewProduct(false)} onCreated={fetchProducts}/>
       )}
       {editProduct && (
-        <NouveauProduitModal product={editProduct} onClose={() => setEditProduct(null)} onUpdated={handleProductUpdated}/>
+        <NouveauProduitModal knownCategories={derivedCategories} product={editProduct} onClose={() => setEditProduct(null)} onUpdated={handleProductUpdated}/>
       )}
 
       {/* ── Sidebar ── */}
