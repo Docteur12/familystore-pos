@@ -55,16 +55,27 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
   const dateStr = data.date.toLocaleDateString('fr-FR');
   const timeStr = data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
+  const totalDiscount = data.items.reduce((s, item) => {
+    if ((item.discount ?? 0) > 0 && item.originalPrice) {
+      return s + (item.originalPrice - item.unitPrice) * item.quantity;
+    }
+    return s;
+  }, 0);
+
   const itemRows = data.items.map(item => {
-    const sub      = (item.quantity * item.unitPrice).toLocaleString('fr-FR');
-    const promoTag = item.discount && item.discount > 0 && item.originalPrice
-      ? `<span style="color:#c0392b;font-size:9px;margin-left:4px">-${item.discount}% (${item.originalPrice.toLocaleString('fr-FR')})</span>`
+    const sub        = (item.quantity * item.unitPrice).toLocaleString('fr-FR');
+    const hasDiscount = item.discount && item.discount > 0 && item.originalPrice;
+    const prixLigne  = hasDiscount
+      ? `<span style="text-decoration:line-through;color:#999;font-size:10px;margin-right:4px">${item.originalPrice!.toLocaleString('fr-FR')}</span>${item.unitPrice.toLocaleString('fr-FR')}`
+      : item.unitPrice.toLocaleString('fr-FR');
+    const badge      = hasDiscount
+      ? `<span style="background:#c0392b;color:#fff;font-size:8px;font-weight:900;padding:1px 4px;border-radius:2px;margin-left:4px">-${item.discount}%</span>`
       : '';
     return `
     <div class="item">
-      <div class="iname">${item.name}${promoTag}</div>
+      <div class="iname">${item.name}${badge}</div>
       <div class="irow">
-        <span>${item.quantity} &times; ${item.unitPrice.toLocaleString('fr-FR')}</span>
+        <span>${item.quantity} &times; ${prixLigne}</span>
         <span class="bold">${sub} XAF</span>
       </div>
     </div>`;
@@ -128,7 +139,7 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
   <div class="dash"></div>
   <div class="row"><span>Sous-total</span><span>${data.total.toLocaleString('fr-FR')} XAF</span></div>
   ${tvaRow}
-  <div class="row"><span>Remise</span><span>0 XAF</span></div>
+  ${totalDiscount > 0 ? `<div class="row" style="color:#c0392b !important;font-weight:bold;"><span>R&eacute;duction appliqu&eacute;e</span><span>-${totalDiscount.toLocaleString('fr-FR')} XAF</span></div>` : ''}
   <div class="solid"></div>
   <div class="row total"><span>TOTAL</span><span>${data.total.toLocaleString('fr-FR')} XAF</span></div>
   <div class="solid"></div>

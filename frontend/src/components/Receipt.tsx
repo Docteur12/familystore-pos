@@ -33,7 +33,13 @@ export default function Receipt({ data, onNewSale }: Props) {
     } catch { /* silently ignore */ }
   };
 
-  const tvaDisplay = Math.round(data.total * 0.1925 / (1 + 0.1925));
+  const tvaDisplay     = Math.round(data.total * 0.1925 / (1 + 0.1925));
+  const totalDiscount  = data.items.reduce((s, item) => {
+    if ((item.discount ?? 0) > 0 && item.originalPrice) {
+      return s + (item.originalPrice - item.unitPrice) * item.quantity;
+    }
+    return s;
+  }, 0);
 
   return (
     <div style={{
@@ -77,21 +83,36 @@ export default function Receipt({ data, onNewSale }: Props) {
 
           {/* Articles */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
-            {data.items.map((item, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontWeight: 600, color: 'var(--fs-ink-900)', fontSize: 12, margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.name}
-                  </p>
-                  <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: 0 }}>
-                    {item.quantity} × {item.unitPrice.toLocaleString('fr-FR')} XAF
-                  </p>
+            {data.items.map((item, i) => {
+              const hasDiscount = (item.discount ?? 0) > 0 && item.originalPrice;
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
+                      <p style={{ fontWeight: 600, color: 'var(--fs-ink-900)', fontSize: 12, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.name}
+                      </p>
+                      {hasDiscount && (
+                        <span style={{ background: '#c0392b', color: '#fff', fontSize: 8, fontWeight: 900, padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>
+                          -{item.discount}%
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: 0 }}>
+                      {hasDiscount && (
+                        <span style={{ textDecoration: 'line-through', marginRight: 4 }}>
+                          {item.originalPrice!.toLocaleString('fr-FR')}
+                        </span>
+                      )}
+                      {item.quantity} × {item.unitPrice.toLocaleString('fr-FR')} XAF
+                    </p>
+                  </div>
+                  <span style={{ fontWeight: 700, fontSize: 12, color: hasDiscount ? '#c0392b' : 'var(--fs-wine-700)', flexShrink: 0 }}>
+                    {(item.quantity * item.unitPrice).toLocaleString('fr-FR')}
+                  </span>
                 </div>
-                <span style={{ fontWeight: 700, fontSize: 12, color: 'var(--fs-wine-700)', flexShrink: 0 }}>
-                  {(item.quantity * item.unitPrice).toLocaleString('fr-FR')}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div style={{ borderTop: '1px dashed var(--fs-line-2)', margin: '10px 0' }} />
@@ -108,10 +129,12 @@ export default function Receipt({ data, onNewSale }: Props) {
                 <span>{(data.tva ?? tvaDisplay).toLocaleString('fr-FR')} XAF</span>
               </div>
             )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--fs-ink-500)' }}>
-              <span>Remise</span>
-              <span>0 XAF</span>
-            </div>
+            {totalDiscount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#c0392b', fontWeight: 600 }}>
+                <span>Réduction appliquée</span>
+                <span>-{totalDiscount.toLocaleString('fr-FR')} XAF</span>
+              </div>
+            )}
           </div>
 
           {/* Total */}
