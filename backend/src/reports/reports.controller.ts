@@ -11,6 +11,22 @@ import { Roles } from '../auth/roles.decorator';
 export class ReportsController {
   constructor(private reportsService: ReportsService) {}
 
+  // GET /api/reports/analyse-week?year=2026&week=20
+  @Get('analyse-week')
+  analyseWeek(
+    @Query('year') yearQ?: string,
+    @Query('week') weekQ?: string,
+  ) {
+    const now  = new Date();
+    const year = yearQ ? parseInt(yearQ) : now.getFullYear();
+    const week = weekQ ? parseInt(weekQ) : (() => {
+      const d = new Date(now); d.setHours(12, 0, 0, 0);
+      d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+      return Math.ceil(((d.getTime() - new Date(d.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7);
+    })();
+    return this.reportsService.statsAnalyseWeek(year, week);
+  }
+
   // GET /api/reports/analyse?year=2026&month=5
   @Get('analyse')
   analyse(

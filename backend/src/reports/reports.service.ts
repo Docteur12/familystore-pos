@@ -225,6 +225,146 @@ export class ReportsService {
     };
   }
 
+  // ── Semaine ISO : bornes lun-dim ─────────────────────────────────────────
+
+  private getWeekBounds(year: number, week: number): { start: Date; end: Date } {
+    const jan4 = new Date(year, 0, 4);
+    const dow  = jan4.getDay() || 7;
+    const mondayW1 = new Date(jan4);
+    mondayW1.setDate(jan4.getDate() - (dow - 1));
+    mondayW1.setHours(0, 0, 0, 0);
+
+    const start = new Date(mondayW1);
+    start.setDate(mondayW1.getDate() + (week - 1) * 7);
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 7);
+
+    return { start, end };
+  }
+
+  // ── Analyse complète d'une semaine (JSON) ─────────────────────────────────
+
+  async statsAnalyseWeek(year: number, week: number) {
+    const { start, end } = this.getWeekBounds(year, week);
+
+    const [sales, expenses] = await Promise.all([
+      this.saleModel
+        .find({ createdAt: { $gte: start, $lt: end } })
+        .populate('items.product', 'name costPrice unit category')
+        .sort({ createdAt: 1 })
+        .lean() as Promise<SaleLean[]>,
+      this.expenseModel
+        .find({ date: { $gte: start, $lt: end } })
+        .lean() as Promise<ExpenseLean[]>,
+    ]);
+
+    // CA semaine précédente
+    const prevStart = new Date(start); prevStart.setDate(start.getDate() - 7);
+    const prevSales = await this.saleModel.find({ createdAt: { $gte: prevStart, $lt: start } }).lean();
+    const prevCA = prevSales.reduce((s: number, v: any) => s + v.total, 0);
+
+    // KPIs
+    let ca = 0, coutAchats = 0;
+    for (const sale of sales) {
+      ca += sale.total;
+      for (const item of sale.items) coutAchats += (item.product?.costPrice ?? 0) * item.quantity;
+    }
+    const depenses    = expenses.reduce((s, e) => s + e.amount, 0);
+    const margesBrute = ca - coutAchats;
+    const beneficeNet = margesBrute - depenses;
+    const nbVentes    = sales.length;
+    const panierMoyen = nbVentes > 0 ? Math.round(ca / nbVentes) : 0;
+    const saleTotals  = sales.map(s => s.total);
+    const minTicket   = saleTotals.length > 0 ? Math.min(...saleTotals) : 0;
+    const maxTicket   = saleTotals.length > 0 ? Math.max(...saleTotals) : 0;
+
+    // Par jour (Lun→Dim)
+    const DAYS_FR = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    const byDay: Record<number, { ca: number; nbVentes: number }> = {};
+    for (const sale of sales) {
+      const dow = new Date(sale.createdAt).getDay();
+      const idx = dow === 0 ? 6 : dow - 1;
+      if (!byDay[idx]) byDay[idx] = { ca: 0, nbVentes: 0 };
+      byDay[idx].ca += sale.total;
+      byDay[idx].nbVentes += 1;
+    }
+    const parJour = Array.from({ length: 7 }, (_, i) => {
+      const dayDate = new Date(start);
+      dayDate.setDate(start.getDate() + i);
+      const d = byDay[i] ?? { ca: 0, nbVentes: 0 };
+      return { jour: i + 1, label: `${DAYS_FR[i]} ${dayDate.getDate()}`, ...d };
+    });
+
+    // Par catégorie
+    const byCat: Record<string, { ca: number; quantite: number }> = {};
+    for (const sale of sales) {
+      for (const item of sale.items) {
+        const cat = (item.product as any)?.category || 'Autres';
+        if (!byCat[cat]) byCat[cat] = { ca: 0, quantite: 0 };
+        byCat[cat].ca += item.unitPrice * item.quantity;
+        byCat[cat].quantite += item.quantity;
+      }
+    }
+    const parCategorie = Object.entries(byCat)
+      .map(([categorie, d]) => ({ categorie, ca: Math.round(d.ca), quantite: d.quantite, pct: ca > 0 ? Math.round(d.ca / ca * 1000) / 10 : 0 }))
+      .sort((a, b) => b.ca - a.ca);
+
+    // Classement caissiers
+    const auditVentes = await this.auditLogModel
+      .find({ type: 'vente', createdAt: { $gte: start, $lt: end } }).lean();
+    const byCaissier: Record<string, { nbVentes: number; ca: number }> = {};
+    for (const a of auditVentes) {
+      if (!byCaissier[a.actorName]) byCaissier[a.actorName] = { nbVentes: 0, ca: 0 };
+      byCaissier[a.actorName].nbVentes += 1;
+      byCaissier[a.actorName].ca += (a.meta as any)?.total ?? 0;
+    }
+    const parCaissier = Object.entries(byCaissier)
+      .map(([nom, d]) => ({ nom, nbVentes: d.nbVentes, ca: d.ca, panierMoyen: d.nbVentes > 0 ? Math.round(d.ca / d.nbVentes) : 0 }))
+      .sort((a, b) => b.ca - a.ca);
+
+    // Top produits
+    const byProd: Record<string, { nom: string; ca: number; quantite: number }> = {};
+    for (const sale of sales) {
+      for (const item of sale.items) {
+        const it  = item as any;
+        const key = String(it.product?._id ?? it.name ?? '?');
+        const nom = it.name ?? it.product?.name ?? '?';
+        if (!byProd[key]) byProd[key] = { nom, ca: 0, quantite: 0 };
+        byProd[key].ca       += item.unitPrice * item.quantity;
+        byProd[key].quantite += item.quantity;
+      }
+    }
+    const topProduits = Object.values(byProd)
+      .sort((a, b) => b.ca - a.ca).slice(0, 10)
+      .map(p => ({ ...p, ca: Math.round(p.ca) }));
+
+    // Heatmap
+    const heat: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+    for (const sale of sales) {
+      const d = new Date(sale.createdAt);
+      let dow = d.getDay() - 1; if (dow < 0) dow = 6;
+      heat[dow][d.getHours()] += sale.total;
+    }
+    const maxHeat = Math.max(...heat.flat().filter(v => v > 0), 1);
+    const heatmap = heat.map(row => row.map(v => Math.round(v / maxHeat * 100) / 100));
+
+    // Label
+    const endDay = new Date(end); endDay.setDate(end.getDate() - 1);
+    const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const label = `Semaine ${week} · ${fmt(start)} – ${fmt(endDay)} ${year}`;
+
+    return {
+      year, month: 0, week,
+      label,
+      dateDebut: start.toISOString().split('T')[0],
+      dateFin:   endDay.toISOString().split('T')[0],
+      ca, coutAchats, margesBrute, beneficeNet, depenses,
+      nbVentes, panierMoyen, minTicket, maxTicket, prevCA,
+      parJour, parCategorie, parCaissier, topProduits, heatmap,
+    };
+  }
+
   // ── Données comptables d'un mois (JSON) ──────────────────────────────────
 
   async statsComptaMonth(year: number, month: number) {

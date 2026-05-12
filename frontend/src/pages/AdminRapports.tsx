@@ -6,8 +6,8 @@ import {
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import {
-  getAnalyseMonth, downloadReport, getByProduct,
-  AnalyseMonth, CaissierData, ProductStat,
+  getAnalyseMonth, getAnalyseWeek, downloadReport, getByProduct,
+  AnalyseMonth, AnalyseWeek, CaissierData, ProductStat,
 } from '../api/rapports';
 import { getStatsPeriod, getComparisons, getMultiYear, PeriodDay, Comparisons, YearData } from '../api/dashboard';
 import { getUsers, UserRecord } from '../api/auth';
@@ -167,10 +167,25 @@ function EmptyState({ label }: { label: string }) {
 export default function AdminRapports() {
   const { toasts, addToast, removeToast } = useToast();
 
+  const [viewMode, setViewMode] = useState<'mensuel' | 'semaine'>('mensuel');
+
+  // ── Mode mensuel ──────────────────────────────────────────────────────────
   const [monthIdx,   setMonthIdx]   = useState(0);
   const [data,       setData]       = useState<AnalyseMonth | null>(null);
   const [loading,    setLoading]    = useState(true);
   const [exporting,  setExporting]  = useState<'pdf' | 'excel' | null>(null);
+
+  // ── Mode semaine ──────────────────────────────────────────────────────────
+  const currentISOWeek = (() => {
+    const d = new Date(); d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+    const y = d.getFullYear();
+    const w = Math.ceil(((d.getTime() - new Date(y, 0, 1).getTime()) / 86400000 + 1) / 7);
+    return { year: y, week: w };
+  })();
+  const [weekYear, setWeekYear] = useState(currentISOWeek.year);
+  const [weekNum,  setWeekNum]  = useState(currentISOWeek.week);
+  const [weekData, setWeekData] = useState<AnalyseWeek | null>(null);
   const [monthlyStats,    setMonthlyStats]    = useState<PeriodDay[]>([]);
   const [comparisons,     setComparisons]     = useState<Comparisons | null>(null);
   const [byProduct,       setByProduct]       = useState<ProductStat[]>([]);
@@ -183,18 +198,32 @@ export default function AdminRapports() {
   const { year, month, label } = MONTHS[monthIdx];
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setData(null);
-    try {
-      setData(await getAnalyseMonth(year, month));
-    } catch {
-      addToast('Erreur chargement du rapport', 'error');
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true); setData(null);
+    try { setData(await getAnalyseMonth(year, month)); }
+    catch { addToast('Erreur chargement du rapport', 'error'); }
+    finally { setLoading(false); }
   }, [year, month, addToast]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadWeek = useCallback(async () => {
+    setLoading(true); setWeekData(null);
+    try { setWeekData(await getAnalyseWeek(weekYear, weekNum)); }
+    catch { addToast('Erreur chargement du rapport hebdomadaire', 'error'); }
+    finally { setLoading(false); }
+  }, [weekYear, weekNum, addToast]);
+
+  useEffect(() => {
+    if (viewMode === 'mensuel') load();
+    else loadWeek();
+  }, [viewMode, load, loadWeek]);
+
+  const navWeek = (delta: number) => {
+    let w = weekNum + delta, y = weekYear;
+    if (w < 1)  { y--; w = 52; }
+    if (w > 53) { y++; w = 1;  }
+    setWeekYear(y); setWeekNum(w);
+  };
+  const isCurrentWeekOrFuture = weekYear > currentISOWeek.year ||
+    (weekYear === currentISOWeek.year && weekNum >= currentISOWeek.week);
 
   // Chargement unique des stats globales (comparaisons + 12 mois + caissiers)
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { authHeaders } from './http';
 
-export interface JourData      { jour: number; ca: number; nbVentes: number; }
+export interface JourData      { jour: number; ca: number; nbVentes: number; label?: string; }
 export interface CategorieData { categorie: string; ca: number; pct: number; quantite: number; }
 export interface CaissierData  { nom: string; nbVentes: number; ca: number; panierMoyen: number; }
 export interface ProduitData   { nom: string; ca: number; quantite: number; }
@@ -40,6 +40,18 @@ export async function getByProduct(params?: { dateFrom?: string; dateTo?: string
   if (params?.dateTo)   qs.set('dateTo',   params.dateTo);
   const res = await fetch(`/api/sales/stats/by-product?${qs}`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Erreur chargement journal produits');
+  return res.json();
+}
+
+export interface AnalyseWeek extends AnalyseMonth {
+  week:      number;
+  dateDebut: string;
+  dateFin:   string;
+}
+
+export async function getAnalyseWeek(year: number, week: number): Promise<AnalyseWeek> {
+  const res = await fetch(`/api/reports/analyse-week?year=${year}&week=${week}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement analyse semaine');
   return res.json();
 }
 
