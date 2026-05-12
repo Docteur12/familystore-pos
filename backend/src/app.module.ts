@@ -13,6 +13,7 @@ import { CaissesModule } from './caisses/caisses.module';
 import { AuditModule }    from './audit/audit.module';
 import { FacturesModule }  from './factures/factures.module';
 import { SessionsModule }  from './sessions/sessions.module';
+import { AdminModule }     from './admin/admin.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { SessionsModule }  from './sessions/sessions.module';
     CaissesModule,
     FacturesModule,
     SessionsModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [],

@@ -7,6 +7,7 @@ import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings } from '.
 import { useSettings } from '../contexts/SettingsContext';
 import { getPendingSales, getLastSyncTime, syncPendingSales } from '../services/offlineSync';
 import { getPrintSettings, savePrintSettings, PrintSettings } from '../components/ReceiptPrint';
+import { authHeaders } from '../api/http';
 
 // ── Styles partagés ──────────────────────────────────────────────────────────
 
@@ -130,6 +131,25 @@ function fromSForm(f: SForm): Partial<StoreSettings> {
 export default function AdminParametres() {
   const { reloadSettings } = useSettings();
   const { toasts, addToast, removeToast } = useToast();
+
+  // ── Réinitialisation ─────────────────────────────────────────────────────
+  const [resetStep,    setResetStep]    = useState<0 | 1 | 2>(0);
+  const [resetLoading, setResetLoading] = useState(false);
+
+  const handleReset = async () => {
+    setResetLoading(true);
+    try {
+      const res = await fetch('/api/admin/reset', { method: 'POST', headers: authHeaders() });
+      if (!res.ok) throw new Error('Erreur serveur');
+      addToast('Base réinitialisée — bienvenue en production !', 'success');
+      setResetStep(0);
+      setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 2000);
+    } catch {
+      addToast('Erreur lors de la réinitialisation', 'error');
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   // ── Sync status ──────────────────────────────────────────────────────────
   const [syncPending,  setSyncPending]  = useState(0);
@@ -480,6 +500,67 @@ export default function AdminParametres() {
                   {accLoading ? 'Enregistrement…' : 'Mettre à jour mon compte'}
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* ── Zone de danger : réinitialisation ── */}
+          <div style={{ marginTop: 32, border: '2px solid #fca5a5', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ background: '#fef2f2', padding: '14px 20px', borderBottom: '1px solid #fca5a5' }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#991b1b', letterSpacing: '0.05em' }}>
+                ⚠️ ZONE DE DANGER — Mise en production
+              </p>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#b91c1c' }}>
+                Supprime toutes les données de test. Action irréversible.
+              </p>
+            </div>
+            <div style={{ padding: '16px 20px', background: '#fff', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 12, color: 'var(--fs-ink-600)', lineHeight: 1.6 }}>
+                Seront supprimés : <strong>tous les produits · ventes · factures · sessions · mouvements de stock · dépenses · logs · caissiers · gestionnaires · magaziniers</strong>.<br/>
+                Sera conservé : votre compte <strong>Admin Patron</strong> + la configuration des caisses.
+              </div>
+
+              {resetStep === 0 && (
+                <button onClick={() => setResetStep(1)}
+                  style={{ alignSelf: 'flex-start', padding: '10px 20px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  Réinitialiser pour la mise en production
+                </button>
+              )}
+
+              {resetStep === 1 && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#991b1b' }}>
+                    Êtes-vous sûr ? Toutes les données de test seront définitivement perdues.
+                  </p>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button onClick={() => setResetStep(2)}
+                      style={{ padding: '9px 18px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                      Oui, supprimer toutes les données
+                    </button>
+                    <button onClick={() => setResetStep(0)}
+                      style={{ padding: '9px 18px', background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-600)' }}>
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {resetStep === 2 && (
+                <div style={{ background: '#fef2f2', border: '2px solid #dc2626', borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#991b1b' }}>
+                    ⚠️ DERNIÈRE CONFIRMATION — Cette action est irréversible.
+                  </p>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button onClick={handleReset} disabled={resetLoading}
+                      style={{ padding: '10px 20px', background: '#991b1b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: resetLoading ? 0.7 : 1 }}>
+                      {resetLoading ? 'Réinitialisation en cours…' : '🗑️ CONFIRMER LA RÉINITIALISATION'}
+                    </button>
+                    <button onClick={() => setResetStep(0)}
+                      style={{ padding: '10px 18px', background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-600)' }}>
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
