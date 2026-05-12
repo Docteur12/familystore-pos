@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { SettingsProvider } from './contexts/SettingsContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -38,6 +38,42 @@ import AdminCaisses      from './pages/AdminCaisses';
 import Magazinier        from './pages/Magazinier';
 import { getTokenPayload } from './api/dashboard';
 
+const INACTIVITY_MS = 10 * 60 * 1000;
+const EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+
+// Composant racine qui gère l'inactivité globale — ne se démonte jamais
+function InactivityWatcher() {
+  const location = useLocation();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const resetTimer = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      const payload = getTokenPayload();
+      // La Caisse gère son propre verrouillage — on ne touche pas à sa page
+      if (!payload) return;
+      if (window.location.pathname === '/caisse') return;
+      localStorage.removeItem('access_token');
+      window.location.href = '/login';
+    }, INACTIVITY_MS);
+  };
+
+  useEffect(() => {
+    EVENTS.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+    return () => {
+      EVENTS.forEach(e => window.removeEventListener(e, resetTimer));
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Une seule fois au montage racine
+
+  // Réinitialiser le timer à chaque changement de page
+  useEffect(() => { resetTimer(); }, [location.pathname]);
+
+  return null;
+}
+
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('access_token');
   if (!token) return <Navigate to="/login" replace />;
@@ -63,6 +99,7 @@ export default function App() {
   return (
     <SettingsProvider>
     <BrowserRouter>
+      <InactivityWatcher />
       <Routes>
         <Route path="/login"     element={<Login />} />
         <Route path="/"          element={<RequireAuth><HomeRedirect /></RequireAuth>} />

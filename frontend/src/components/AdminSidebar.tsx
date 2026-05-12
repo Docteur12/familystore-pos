@@ -4,7 +4,6 @@ import { getTokenPayload } from '../api/dashboard';
 import { updateUser } from '../api/auth';
 import { useSettings } from '../contexts/SettingsContext';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { useInactivityTimer } from '../hooks/useInactivityTimer';
 
 const BG       = '#6B1221';
 const ACT      = '#4A0E1C';
@@ -189,7 +188,6 @@ export default function AdminSidebar() {
   const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
   const [showSettings, setShowSettings] = useState(false);
   const { settings } = useSettings();
-  useInactivityTimer(10 * 60 * 1000, () => { localStorage.removeItem('access_token'); window.location.href = '/login'; });
 
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);

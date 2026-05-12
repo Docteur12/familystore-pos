@@ -11,7 +11,6 @@ import {
   StatsToday, PeriodDay, TopProduct, PaymentSlice,
 } from '../api/dashboard';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { useInactivityTimer } from '../hooks/useInactivityTimer';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -148,7 +147,6 @@ export default function AdminDashboard() {
   const [topProds, setTopProds] = useState<TopProduct[]>([]);
   const [payment,  setPayment]  = useState<PaymentSlice[]>([]);
   const [chartTab, setChartTab] = useState<ChartTab>('Mois');
-  useInactivityTimer(10 * 60 * 1000, () => { localStorage.removeItem('access_token'); window.location.href = '/login'; });
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
