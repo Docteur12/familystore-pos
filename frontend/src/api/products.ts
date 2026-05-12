@@ -1,13 +1,19 @@
 export interface Product {
-  _id: string;
-  name: string;
-  barcode?: string;
-  price: number;
-  costPrice: number;
-  stock: number;
+  _id:            string;
+  name:           string;
+  barcode?:       string;
+  price:          number;
+  costPrice:      number;
+  stock:          number;
   alertThreshold: number;
-  category?: string;
-  unit: string;
+  category?:      string;
+  unit:           string;
+  discount?:      number;
+}
+
+export function effectivePrice(p: Product): number {
+  if (!p.discount || p.discount <= 0) return p.price;
+  return Math.round(p.price * (1 - p.discount / 100));
 }
 
 import { authHeaders } from './http';
@@ -97,14 +103,15 @@ export async function createSale(payload: SalePayload): Promise<SaleResponse> {
 }
 
 export interface ProductPayload {
-  name: string;
-  barcode?: string;
-  price: number;
-  costPrice: number;
-  stock: number;
+  name:           string;
+  barcode?:       string;
+  price:          number;
+  costPrice:      number;
+  stock:          number;
   alertThreshold: number;
-  category?: string;
-  unit: string;
+  category?:      string;
+  unit:           string;
+  discount?:      number;
 }
 
 export async function createProduct(data: ProductPayload): Promise<Product> {

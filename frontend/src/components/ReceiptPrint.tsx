@@ -2,10 +2,12 @@
 import { jsPDF } from 'jspdf';
 
 export interface ReceiptItem {
-  name:      string;
-  unit:      string;
-  quantity:  number;
-  unitPrice: number;
+  name:          string;
+  unit:          string;
+  quantity:      number;
+  unitPrice:     number;
+  originalPrice?: number;
+  discount?:     number;
 }
 
 export interface ReceiptData {
@@ -54,10 +56,13 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
   const timeStr = data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
   const itemRows = data.items.map(item => {
-    const sub = (item.quantity * item.unitPrice).toLocaleString('fr-FR');
+    const sub      = (item.quantity * item.unitPrice).toLocaleString('fr-FR');
+    const promoTag = item.discount && item.discount > 0 && item.originalPrice
+      ? `<span style="color:#c0392b;font-size:9px;margin-left:4px">-${item.discount}% (${item.originalPrice.toLocaleString('fr-FR')})</span>`
+      : '';
     return `
     <div class="item">
-      <div class="iname">${item.name}</div>
+      <div class="iname">${item.name}${promoTag}</div>
       <div class="irow">
         <span>${item.quantity} &times; ${item.unitPrice.toLocaleString('fr-FR')}</span>
         <span class="bold">${sub} XAF</span>

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell,
+  ResponsiveContainer, Cell, LineChart, Line, Legend,
 } from 'recharts';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
@@ -9,7 +9,7 @@ import {
   getAnalyseMonth, downloadReport, getByProduct,
   AnalyseMonth, CaissierData, ProductStat,
 } from '../api/rapports';
-import { getStatsPeriod, getComparisons, PeriodDay, Comparisons } from '../api/dashboard';
+import { getStatsPeriod, getComparisons, getMultiYear, PeriodDay, Comparisons, YearData } from '../api/dashboard';
 import { getUsers, UserRecord } from '../api/auth';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -175,6 +175,7 @@ export default function AdminRapports() {
   const [comparisons,     setComparisons]     = useState<Comparisons | null>(null);
   const [byProduct,       setByProduct]       = useState<ProductStat[]>([]);
   const [caissierNames,   setCaissierNames]   = useState<Set<string>>(new Set());
+  const [multiYear,       setMultiYear]       = useState<YearData[]>([]);
   const [prodDateFrom, setProdDateFrom] = useState('');
   const [prodDateTo,   setProdDateTo]   = useState('');
   const [prodLoading,  setProdLoading]  = useState(false);
@@ -203,6 +204,7 @@ export default function AdminRapports() {
     getUsers().then(us => {
       setCaissierNames(new Set(us.filter(u => u.role === 'caissier').map(u => u.name)));
     }).catch(() => {});
+    getMultiYear(5).then(setMultiYear).catch(() => {});
   }, []);
 
   const loadByProduct = async () => {
@@ -554,6 +556,45 @@ export default function AdminRapports() {
               })()}
             </>
           )}
+
+          {/* ── Comparaison 5 dernières années ── */}
+          {multiYear.length > 0 && (() => {
+            const MONTHS_FR = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+            const YEAR_COLORS = ['#7A1D2E','#D1A660','#7A9EC2','#7AB87A','#9A7AC2'];
+            const chartData = MONTHS_FR.map((m, mi) => {
+              const entry: Record<string, string | number> = { month: m };
+              multiYear.forEach(y => { entry[String(y.year)] = y.months[mi]; });
+              return entry;
+            });
+            return (
+              <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Comparaison des 5 dernières années</div>
+                <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Évolution du CA mensuel par année · XAF</div>
+                <div style={{ height: 240 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--fs-line)" vertical={false}/>
+                      <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false}/>
+                      <YAxis tickFormatter={v => fmtM(v)} tick={{ fontSize: 10, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={38}/>
+                      <Tooltip formatter={(v: number) => `${fmtN(v)} XAF`} labelStyle={{ fontWeight: 700 }} contentStyle={{ borderRadius: 8, border: '1px solid var(--fs-line)', fontSize: 12 }}/>
+                      <Legend wrapperStyle={{ fontSize: 11 }}/>
+                      {multiYear.map((y, i) => (
+                        <Line key={y.year} type="monotone" dataKey={String(y.year)} stroke={YEAR_COLORS[i % YEAR_COLORS.length]} strokeWidth={y.year === new Date().getFullYear() ? 2.5 : 1.5} dot={false} name={String(y.year)}/>
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <div style={{ marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                  {multiYear.map((y, i) => (
+                    <div key={y.year} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ width: 12, height: 3, borderRadius: 2, background: YEAR_COLORS[i % YEAR_COLORS.length] }}/>
+                      <span style={{ fontSize: 11, color: 'var(--fs-ink-600)', fontWeight: 600 }}>{y.year} : <span style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtM(y.totalCA)} XAF</span></span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ── Comparaisons (hors filtre mois) ── */}
           {comparisons && (

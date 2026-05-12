@@ -6,7 +6,7 @@
 import React, {
   memo, useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
-import { getAllProducts, createSale, getProductByBarcode, Product, SaleError } from '../api/products';
+import { getAllProducts, createSale, getProductByBarcode, Product, SaleError, effectivePrice } from '../api/products';
 import { openSession, closeSession, getActiveSession } from '../api/sessions';
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
@@ -19,6 +19,7 @@ import Receipt, { ReceiptData } from '../components/Receipt';
 import { buildReceiptHTML, doPrint, getPrintSettings, openCashDrawer } from '../components/ReceiptPrint';
 import { useSettings } from '../contexts/SettingsContext';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useInactivityTimer } from '../hooks/useInactivityTimer';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -175,6 +176,12 @@ export default function Caisse() {
   const [sessionId,      setSessionId]      = useState<string | null>(null);
   const [sessionStart,   setSessionStart]   = useState<Date | null>(null);
   const [sessionSales,   setSessionSales]   = useState(0);
+  const [locked,         setLocked]         = useState(false);
+  const [lockPin,        setLockPin]        = useState('');
+  const [lockError,      setLockError]      = useState(false);
+
+  const caissePIN = payload?.caisse?.pin ?? null;
+  useInactivityTimer(10 * 60 * 1000, () => setLocked(true));
 
   // Dynamic row height — computed after filteredProducts (see below)
 
@@ -368,7 +375,7 @@ export default function Caisse() {
   }, [filteredProducts.length]);
 
   // ── Totals ────────────────────────────────────────────────────────────────
-  const subtotal   = useMemo(() => cart.reduce((s, i) => s + i.product.price * i.quantity, 0), [cart]);
+  const subtotal   = useMemo(() => cart.reduce((s, i) => s + effectivePrice(i.product) * i.quantity, 0), [cart]);
   const offreAmt   = offrePct > 0 ? Math.round(subtotal * offrePct / 100) : 0;
   const total      = subtotal - offreAmt;
   const itemCount  = useMemo(() => cart.reduce((s, i) => s + i.quantity, 0), [cart]);
@@ -452,7 +459,11 @@ export default function Caisse() {
           date:         d,
           cashierName:  payload?.name ?? 'Caissier',
           storePhone:   settings.telephone || undefined,
-          items:        cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: i.product.price })),
+          items:        cartSnap.map(i => ({
+            name: i.product.name, unit: i.product.unit, quantity: i.quantity,
+            unitPrice: effectivePrice(i.product),
+            ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}),
+          })),
           total,
           tva:          tvaAmt,
           paymentLabel: pmLabel,
@@ -478,7 +489,7 @@ export default function Caisse() {
 
     // ── Retry loop (3 tentatives, 2s entre chaque) ──────────────────────────
     const MAX_RETRIES = 3;
-    const saleItems   = cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: i.product.price }));
+    const saleItems   = cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: effectivePrice(i.product) }));
 
     let succeeded      = false;
     let nonRetryable   = false;
@@ -502,7 +513,11 @@ export default function Caisse() {
           date:         d,
           cashierName:  payload?.name ?? 'Caissier',
           storePhone:   settings.telephone || undefined,
-          items:        cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: i.product.price })),
+          items:        cartSnap.map(i => ({
+            name: i.product.name, unit: i.product.unit, quantity: i.quantity,
+            unitPrice: effectivePrice(i.product),
+            ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}),
+          })),
           total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
         };
         setReceiptData(newData);
@@ -567,7 +582,11 @@ export default function Caisse() {
               date:         d,
               cashierName:  payload?.name ?? 'Caissier',
               storePhone:   settings.telephone || undefined,
-              items:        cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: i.product.price })),
+              items:        cartSnap.map(i => ({
+            name: i.product.name, unit: i.product.unit, quantity: i.quantity,
+            unitPrice: effectivePrice(i.product),
+            ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}),
+          })),
               total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid,
               change: Math.max(0, effPaid - total),
             };
@@ -618,6 +637,40 @@ export default function Caisse() {
     }}>
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* ── Lock screen (inactivité 10 min) ── */}
+      {locked && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--fs-wine-900)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+          <div style={{ color: 'var(--fs-gold-400)', fontFamily: 'var(--fs-font-display)', fontSize: 28, fontWeight: 700, letterSpacing: '0.1em' }}>FAMILY STORE</div>
+          <div style={{ color: 'rgba(245,235,217,0.6)', fontSize: 13 }}>Session verrouillée — Saisir le code PIN</div>
+          <div style={{ display: 'flex', gap: 10, margin: '8px 0' }}>
+            {[0,1,2,3].map(i => (
+              <div key={i} style={{ width: 14, height: 14, borderRadius: '50%', background: lockPin.length > i ? 'var(--fs-gold-400)' : 'rgba(255,255,255,0.2)' }}/>
+            ))}
+          </div>
+          {lockError && <div style={{ color: '#f87171', fontSize: 12 }}>Code incorrect</div>}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 64px)', gap: 10 }}>
+            {[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map((k, idx) => (
+              <button key={idx} onClick={() => {
+                if (k === '⌫') { setLockPin(p => p.slice(0,-1)); setLockError(false); return; }
+                if (k === '') return;
+                const next = lockPin + String(k);
+                setLockPin(next);
+                if (next.length === 4) {
+                  if (caissePIN && next === caissePIN) { setLocked(false); setLockPin(''); setLockError(false); }
+                  else { setLockError(true); setLockPin(''); }
+                }
+              }}
+                style={{ width: 64, height: 64, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,0.2)', background: k === '' ? 'transparent' : 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 20, fontWeight: 600, cursor: k === '' ? 'default' : 'pointer' }}>
+                {k}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }} style={{ marginTop: 8, background: 'none', border: 'none', color: 'rgba(245,235,217,0.35)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
+            Changer de session
+          </button>
+        </div>
+      )}
 
       {/* ── Logout confirmation modal ── */}
       {showLogoutModal && (
@@ -1508,8 +1561,17 @@ const ProductCard = memo(function ProductCard({
         </div>
       )}
 
+      {/* Badge réduction */}
+      {(product.discount ?? 0) > 0 && (
+        <div style={{
+          position: 'absolute', top: 8, left: 8,
+          background: '#c0392b', color: '#fff', borderRadius: 4,
+          padding: '2px 7px', fontSize: 9, fontWeight: 900, letterSpacing: '0.08em',
+        }}>-{product.discount}%</div>
+      )}
+
       {/* Alert badges */}
-      {lowStock && (
+      {lowStock && !(product.discount ?? 0) && (
         <div style={{
           position: 'absolute', top: 8, left: 8,
           background: 'var(--fs-danger-500)',
@@ -1541,12 +1603,15 @@ const ProductCard = memo(function ProductCard({
         }}>
           {product.category ?? 'Autre'} · {product.unit}
         </p>
-        <p style={{
-          fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-800)',
-          margin: 0, fontFamily: 'var(--fs-font-mono)',
-          letterSpacing: '-0.01em',
-        }}>
-          {product.price.toLocaleString('fr-FR')}{' '}
+        <p style={{ margin: 0, fontFamily: 'var(--fs-font-mono)' }}>
+          {(product.discount ?? 0) > 0 && (
+            <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', textDecoration: 'line-through', marginRight: 5 }}>
+              {product.price.toLocaleString('fr-FR')}
+            </span>
+          )}
+          <span style={{ fontSize: 16, fontWeight: 800, color: (product.discount ?? 0) > 0 ? '#c0392b' : 'var(--fs-ink-800)', letterSpacing: '-0.01em' }}>
+            {effectivePrice(product).toLocaleString('fr-FR')}
+          </span>{' '}
           <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--fs-ink-500)' }}>XAF</span>
         </p>
       </div>
@@ -1580,8 +1645,16 @@ const ProductListRow = memo(function ProductListRow({
         <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</p>
         <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: 0 }}>{product.category ?? 'Autre'} · {product.unit}</p>
       </div>
+      {(product.discount ?? 0) > 0 && (
+        <span style={{ fontSize: 9, fontWeight: 900, color: '#fff', background: '#c0392b', borderRadius: 3, padding: '1px 5px' }}>-{product.discount}%</span>
+      )}
       <span style={{ fontSize: 10, color: 'var(--fs-ink-300)', fontFamily: 'var(--fs-font-mono)' }}>×{product.stock}</span>
-      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-800)', fontFamily: 'var(--fs-font-mono)' }}>{product.price.toLocaleString('fr-FR')}</span>
+      <div style={{ textAlign: 'right' }}>
+        {(product.discount ?? 0) > 0 && (
+          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', textDecoration: 'line-through', fontFamily: 'var(--fs-font-mono)' }}>{product.price.toLocaleString('fr-FR')}</div>
+        )}
+        <span style={{ fontSize: 13, fontWeight: 700, color: (product.discount ?? 0) > 0 ? '#c0392b' : 'var(--fs-ink-800)', fontFamily: 'var(--fs-font-mono)' }}>{effectivePrice(product).toLocaleString('fr-FR')}</span>
+      </div>
     </div>
   );
 });

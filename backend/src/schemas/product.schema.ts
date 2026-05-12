@@ -28,6 +28,9 @@ export class Product {
 
   @Prop({ default: 'pce', trim: true })
   unit: string;
+
+  @Prop({ default: 0, min: 0, max: 100 })
+  discount: number;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

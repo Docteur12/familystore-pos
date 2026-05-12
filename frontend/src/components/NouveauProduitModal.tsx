@@ -180,19 +180,14 @@ interface Props {
 }
 
 type FormState = {
-  name: string;
-  barcode: string;
-  category: string;
-  unit: string;
-  price: string;
-  costPrice: string;
-  stock: string;
-  alertThreshold: string;
+  name: string; barcode: string; category: string; unit: string;
+  price: string; costPrice: string; stock: string; alertThreshold: string;
+  discount: string;
 };
 
 const INITIAL_FORM: FormState = {
   name: '', barcode: '', category: '', unit: 'unité',
-  price: '', costPrice: '', stock: '', alertThreshold: '',
+  price: '', costPrice: '', stock: '', alertThreshold: '', discount: '0',
 };
 
 // ── Modal component ───────────────────────────────────────────────────────────
@@ -207,6 +202,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     costPrice:      String(product.costPrice),
     stock:          String(product.stock),
     alertThreshold: String(product.alertThreshold),
+    discount:       String(product.discount ?? 0),
   } : INITIAL_FORM);
   const [loading,         setLoading]         = useState(false);
   const [error,           setError]           = useState('');
@@ -244,8 +240,9 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     }
     setLoading(true);
     setError('');
+    const rawName = form.name.trim();
     const payload = {
-      name:           form.name.trim(),
+      name:           rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase(),
       barcode:        form.barcode.trim() || undefined,
       category:       finalCategory || undefined,
       unit:           form.unit,
@@ -253,6 +250,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
       costPrice:      parseFloat(form.costPrice) || 0,
       stock:          parseInt(form.stock),
       alertThreshold: parseInt(form.alertThreshold) || 5,
+      discount:       Math.min(100, Math.max(0, parseFloat(form.discount) || 0)),
     };
     try {
       if (product) {
@@ -297,7 +295,17 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
           )}
 
           {/* FormField reçoit value + onChange — pas de fermeture sur form */}
-          <FormField label="Nom du produit *"    value={form.name}     onChange={setField('name')}     placeholder="ex: Savon Lux Rose 90g"/>
+          <div>
+            <label style={LABEL_STYLE}>Nom du produit *</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={e => setField('name')(e.target.value)}
+              onBlur={e => { const v = e.target.value.trim(); if (v) setField('name')(v.charAt(0).toUpperCase() + v.slice(1).toLowerCase()); }}
+              placeholder="ex: Savon lux rose 90g"
+              style={INPUT_STYLE}
+            />
+          </div>
           <BarcodeField value={form.barcode} onChange={setField('barcode')}/>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -352,6 +360,25 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <FormField label="Prix de vente * (XAF)" value={form.price}     onChange={setField('price')}     type="number" placeholder="ex: 500"/>
             <FormField label="Prix d'achat (XAF)"    value={form.costPrice} onChange={setField('costPrice')} type="number" placeholder="ex: 300"/>
+          </div>
+
+          <div>
+            <label style={LABEL_STYLE}>🏷️ Réduction (%)</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="number" min={0} max={100} step={1}
+                value={form.discount}
+                onChange={e => setField('discount')(String(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0))))}
+                placeholder="0"
+                style={{ ...INPUT_STYLE, width: 100 }}
+              />
+              <span style={{ fontSize: 13, color: 'var(--fs-ink-500)' }}>%</span>
+              {parseFloat(form.discount) > 0 && form.price && (
+                <span style={{ fontSize: 12, color: '#c0392b', fontWeight: 700 }}>
+                  Prix client : {Math.round(parseFloat(form.price) * (1 - parseFloat(form.discount) / 100)).toLocaleString('fr-FR')} XAF
+                </span>
+              )}
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

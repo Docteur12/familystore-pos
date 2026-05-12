@@ -88,6 +88,13 @@ export const getRecentSales      = () => get<RecentSale[]>('/api/sales/stats/rec
 export const getPaymentBreakdown = (range?: DateRange) => get<PaymentSlice[]>(`/api/sales/stats/payment?${rangeQS(range ?? { days: 7 })}`);
 export const getComparisons      = () => get<Comparisons>('/api/sales/stats/comparisons');
 
+export interface YearData {
+  year:    number;
+  months:  number[];
+  totalCA: number;
+}
+export const getMultiYear = (years = 5) => get<YearData[]>(`/api/sales/stats/multi-year?years=${years}`);
+
 // kept for backward compat
 export const getStatsWeek = () => getStatsPeriod(7);
 

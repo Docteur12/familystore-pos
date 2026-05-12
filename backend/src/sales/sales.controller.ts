@@ -113,8 +113,13 @@ export class SalesController {
   @Get('stats/comparisons')
   @UseGuards(RolesGuard)
   @Roles('patron')
-  comparisons() {
-    return this.salesService.comparisons();
+  comparisons() { return this.salesService.comparisons(); }
+
+  @Get('stats/multi-year')
+  @UseGuards(RolesGuard)
+  @Roles('patron')
+  multiYear(@Query('years') years?: string) {
+    return this.salesService.multiYear(years ? parseInt(years) : 5);
   }
 
   // GET /api/sales — historique complet (patron)

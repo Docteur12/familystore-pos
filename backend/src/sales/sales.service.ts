@@ -473,6 +473,34 @@ export class SalesService {
     return days;
   }
 
+  // ── GET /api/sales/stats/multi-year — comparaison N dernières années ──────
+
+  async multiYear(yearsCount = 5) {
+    const now         = new Date();
+    const currentYear = now.getFullYear();
+    const years       = Array.from({ length: yearsCount }, (_, i) => currentYear - (yearsCount - 1 - i));
+
+    return Promise.all(years.map(async year => {
+      const start = new Date(year, 0, 1);
+      const end   = new Date(year + 1, 0, 1);
+      const sales = await this.saleModel
+        .find({ createdAt: { $gte: start, $lt: end } })
+        .select('total createdAt')
+        .lean();
+
+      const byMonth = new Array(12).fill(0);
+      for (const sale of sales) {
+        byMonth[new Date(sale.createdAt).getMonth()] += sale.total;
+      }
+
+      return {
+        year,
+        months:  byMonth.map(Math.round),
+        totalCA: Math.round(sales.reduce((s, v) => s + v.total, 0)),
+      };
+    }));
+  }
+
   // ── GET /api/sales/stats/top-products ─────────────────────────────────────
 
   topProducts(params?: { days?: number; dateFrom?: string; dateTo?: string }) {
