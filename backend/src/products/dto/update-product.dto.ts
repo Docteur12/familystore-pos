@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsNumber, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 
 export class UpdateProductDto {
   @IsOptional()
@@ -37,4 +37,10 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   unit?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  discount?: number;
 }
