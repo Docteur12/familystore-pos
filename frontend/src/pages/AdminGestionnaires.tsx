@@ -188,8 +188,14 @@ function FormPanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]; 
     if (!form.prenom || !form.nom || !form.password) { setError('Prénom, nom et mot de passe obligatoires.'); return; }
     setLoading(true); setError('');
     try {
-      const created = await createUser({ name: `${form.prenom} ${form.nom}`, email: form.email || `${form.prenom.toLowerCase()}.${form.nom[0].toLowerCase()}@familystore.cm`, password: form.password, role: 'gestionnaire', phone: form.phone || undefined });
-      if (form.assignedLocation) await updateUser(created._id, { assignedLocation: form.assignedLocation });
+      await createUser({
+        name:             `${form.prenom} ${form.nom}`,
+        email:            form.email || `${form.prenom.toLowerCase()}.${form.nom[0].toLowerCase()}@familystore.cm`,
+        password:         form.password,
+        role:             'gestionnaire',
+        phone:            form.phone            || undefined,
+        assignedLocation: form.assignedLocation || undefined,
+      });
       onCreated();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
     finally { setLoading(false); }

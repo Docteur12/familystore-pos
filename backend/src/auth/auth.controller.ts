@@ -45,11 +45,11 @@ export class AuthController {
   @Roles('patron')
   async register(
     @Body()
-    body: { name: string; email: string; password: string; role: 'caissier' | 'patron' | 'gestionnaire'; phone?: string; caisseId?: string },
+    body: { name: string; email: string; password: string; role: 'caissier' | 'patron' | 'gestionnaire'; phone?: string; caisseId?: string; assignedLocation?: string },
     @Req() req: Request,
   ) {
     const actor = (req as any)['user'];
-    const result = await this.authService.register(body.name, body.email, body.password, body.role ?? 'caissier', body.phone, body.caisseId);
+    const result = await this.authService.register(body.name, body.email, body.password, body.role ?? 'caissier', body.phone, body.caisseId, body.assignedLocation);
     this.auditService.log({
       type: 'creation', module: 'utilisateurs',
       actorName: actor.name, actorRole: actor.role,

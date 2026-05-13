@@ -30,7 +30,7 @@ export async function getUserActivity(): Promise<UserActivity[]> {
 
 export async function createUser(data: {
   name: string; email: string; password: string;
-  role: 'caissier' | 'gestionnaire' | 'magazinier'; phone?: string; caisseId?: string;
+  role: 'caissier' | 'gestionnaire' | 'magazinier'; phone?: string; caisseId?: string; assignedLocation?: string;
 }): Promise<UserRecord> {
   const res = await fetch('/api/auth/register', {
     method: 'POST',

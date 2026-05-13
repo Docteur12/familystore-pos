@@ -198,14 +198,14 @@ function CreatePanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]
     if (form.password.length < 4) { setError('Mot de passe : 4 caractères minimum.'); return; }
     setLoading(true); setError('');
     try {
-      const created = await createUser({
-        name:     `${form.prenom} ${form.nom}`,
-        email:    form.email || identifiant,
-        password: form.password,
-        role:     'magazinier',
-        phone:    form.phone || undefined,
+      await createUser({
+        name:             `${form.prenom} ${form.nom}`,
+        email:            form.email || identifiant,
+        password:         form.password,
+        role:             'magazinier',
+        phone:            form.phone            || undefined,
+        assignedLocation: form.assignedLocation || undefined,
       });
-      if (form.assignedLocation) await updateUser(created._id, { assignedLocation: form.assignedLocation });
       onCreated();
     } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
     finally { setLoading(false); }

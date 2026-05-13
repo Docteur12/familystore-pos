@@ -54,7 +54,7 @@ export class AuthService {
     };
   }
 
-  async register(name: string, email: string, password: string, role: string, phone?: string, caisseId?: string) {
+  async register(name: string, email: string, password: string, role: string, phone?: string, caisseId?: string, assignedLocation?: string) {
     const existing = await this.userModel.findOne({ email: email.toLowerCase() });
     if (existing) {
       throw new ConflictException('Cet email est déjà utilisé');
@@ -62,8 +62,9 @@ export class AuthService {
     const hashed = await bcrypt.hash(password, 10);
     const user = await this.userModel.create({
       name, email, password: hashed, role,
-      phone: phone ?? '',
-      caisseId: caisseId ?? null,
+      phone:            phone            ?? '',
+      caisseId:         caisseId         ?? null,
+      assignedLocation: assignedLocation ?? '',
     });
     return { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone };
   }
