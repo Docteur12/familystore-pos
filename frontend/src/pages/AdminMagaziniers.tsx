@@ -135,12 +135,14 @@ function EditPanel({ user, caisses, onSaved, onCancel, onDeleted }: {
         <Field label="Nom" value={nom} onChange={setNom}/>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Affectation</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Magasin / Entrepôt assigné</label>
-          <select value={location} onChange={e => setLocation(e.target.value)}
-            style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-            <option value="">— Sélectionner —</option>
-            {caisses.map(c => <option key={c._id} value={c.nom}>{c.nom}{c.ville ? ` (${c.ville})` : ''}</option>)}
-          </select>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>🏭 Dépôt / Entrepôt assigné</label>
+          <input
+            type="text"
+            value={location}
+            onChange={e => setLocation(e.target.value)}
+            placeholder="ex: Dépôt principal, Entrepôt Nord…"
+            style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}
+          />
         </div>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Nouveau mot de passe</p>
         <div>
@@ -232,12 +234,14 @@ function CreatePanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]
 
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Affectation</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Magasin / Entrepôt assigné</label>
-          <select value={form.assignedLocation} onChange={e => set('assignedLocation', e.target.value)}
-            style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-            <option value="">— Sélectionner —</option>
-            {caisses.map(c => <option key={c._id} value={c.nom}>{c.nom}{c.ville ? ` (${c.ville})` : ''}</option>)}
-          </select>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>🏭 Dépôt / Entrepôt assigné</label>
+          <input
+            type="text"
+            value={form.assignedLocation}
+            onChange={e => set('assignedLocation', e.target.value)}
+            placeholder="ex: Dépôt principal, Entrepôt Nord…"
+            style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}
+          />
         </div>
 
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Accès</p>
