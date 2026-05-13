@@ -125,9 +125,10 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
 <body>
   <div class="center">
     <div class="store">FAMILY STORE</div>
-    <div class="sub">by RDCT &mdash; Point de Vente</div>
+    <div class="sub">by RDCT</div>
     <div class="sub">Beaut&eacute; &middot; Saveurs &middot; Bien-&ecirc;tre</div>
-    <div class="sub" style="margin-top:3px;font-weight:bold;">March&eacute; Bonamoussadi &middot; Douala</div>
+    <div class="sub" style="margin-top:3px;font-weight:bold;">Point de Vente</div>
+    <div class="sub" style="font-weight:bold;">March&eacute; Bonamoussadi &middot; Douala</div>
     <div class="sub" style="font-weight:bold;">Tel: ${data.storePhone || '682 263 435'}</div>
   </div>
   <div class="solid"></div>

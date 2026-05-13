@@ -59,7 +59,13 @@ export default function Receipt({ data, onNewSale }: Props) {
             FAMILY STORE
           </p>
           <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 11, margin: '0 0 1px' }}>
-            by RDCT — Point de Vente
+            by RDCT
+          </p>
+          <p style={{ color: 'rgba(245,235,217,0.5)', fontSize: 10, margin: '0 0 1px' }}>
+            Beauté · Saveurs · Bien-être
+          </p>
+          <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 11, fontWeight: 700, margin: '0 0 1px' }}>
+            Point de Vente
           </p>
           <p style={{ color: 'rgba(245,235,217,0.45)', fontSize: 10, margin: 0 }}>
             Marché Bonamoussadi · Douala &nbsp;|&nbsp; {data.storePhone || '682 263 435'}
