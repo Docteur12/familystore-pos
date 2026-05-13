@@ -77,8 +77,10 @@ export class ProductsController {
     return result;
   }
 
-  // PATCH /api/products/:id/stock/add
+  // PATCH /api/products/:id/stock/add — patron et gestionnaire uniquement
   @Patch(':id/stock/add')
+  @UseGuards(RolesGuard)
+  @Roles('patron', 'gestionnaire')
   async addStock(@Param('id') id: string, @Body('quantity') quantity: number, @Req() req: Request) {
     const actor = (req as any)['user'];
     const result = await this.productsService.addStock(id, quantity);

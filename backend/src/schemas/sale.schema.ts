@@ -12,23 +12,31 @@ class SaleItem {
   product: Types.ObjectId;
 
   @Prop({ required: true, trim: true })
-  name: string;           // snapshot nom produit
+  name: string;
 
   @Prop({ required: true, min: 1 })
   quantity: number;
 
   @Prop({ required: true, min: 0 })
   unitPrice: number;
+
+  @Prop({ default: 0, min: 0, max: 100 })
+  discount: number;        // % de réduction appliqué (0 = aucune)
+
+  @Prop({ default: 0, min: 0 })
+  originalPrice: number;   // prix avant réduction (0 si aucune)
 }
 
 @Schema({ timestamps: true })
 export class Sale {
   @Prop({
     type: [{
-      product:   { type: MongooseSchema.Types.ObjectId, ref: 'Product', required: true },
-      name:      { type: String, required: true },
-      quantity:  { type: Number, required: true, min: 1 },
-      unitPrice: { type: Number, required: true, min: 0 },
+      product:       { type: MongooseSchema.Types.ObjectId, ref: 'Product', required: true },
+      name:          { type: String, required: true },
+      quantity:      { type: Number, required: true, min: 1 },
+      unitPrice:     { type: Number, required: true, min: 0 },
+      discount:      { type: Number, default: 0, min: 0, max: 100 },
+      originalPrice: { type: Number, default: 0, min: 0 },
     }],
     required: true,
   })

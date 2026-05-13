@@ -203,8 +203,9 @@ export function buildReceiptPDF(data: ReceiptData, showTva = true): string {
 
   // En-tête
   line('FAMILY STORE', 14, true, 'center'); y += 1;
-  line('by RDCT — Point de Vente', 8, false, 'center');
+  line('by RDCT', 8, false, 'center');
   line('Beaute · Saveurs · Bien-etre', 7, false, 'center');
+  line('Point de Vente', 8, true, 'center');
   line('Marche Bonamoussadi · Douala', 8, true, 'center');
   line(`Tel: ${data.storePhone || '682 263 435'}`, 8, true, 'center');
   y += 1;
@@ -230,9 +231,15 @@ export function buildReceiptPDF(data: ReceiptData, showTva = true): string {
   dash();
 
   // Totaux
+  const pdfDiscount = data.items.reduce((s, item) => {
+    if ((item.discount ?? 0) > 0 && item.originalPrice) {
+      return s + (item.originalPrice - item.unitPrice) * item.quantity;
+    }
+    return s;
+  }, 0);
   row('Sous-total', `${fmt(data.total)} XAF`, 8);
   if (showTva) row('TVA incluse (19.25%)', `${fmt(data.tva)} XAF`, 8);
-  row('Remise', '0 XAF', 8);
+  if (pdfDiscount > 0) row(`Reduction appliquee`, `-${fmt(pdfDiscount)} XAF`, 8);
   solid();
   row('TOTAL', `${fmt(data.total)} XAF`, 12, true);
   solid();
