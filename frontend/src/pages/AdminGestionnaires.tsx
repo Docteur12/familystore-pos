@@ -244,11 +244,7 @@ export default function AdminGestionnaires() {
     getCaisses().then(setCaisses).catch(() => {});
   }, []);
 
-  const mockStaff: UserRecord[] = [
-    { _id: '3', name: 'Samuel Onana',   email: 'samuel@fs.cm', role: 'gestionnaire' },
-    { _id: '6', name: 'Patrick Mbarga', email: 'pat@fs.cm',    role: 'gestionnaire' },
-  ];
-  const staff = users.length > 0 ? users : mockStaff;
+  const staff = users;
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
