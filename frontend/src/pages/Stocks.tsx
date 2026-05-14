@@ -285,7 +285,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
 
   return (
     <div style={isMobile ? {
-      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
+      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 300,
       height: '85vh', background: '#fff',
       borderRadius: '16px 16px 0 0',
       boxShadow: '0 -8px 32px rgba(0,0,0,0.2)',
@@ -807,16 +807,16 @@ export default function Stocks() {
       {/* ── Detail panel ── */}
       {selected && isMobile && (
         <div onClick={() => setSelected(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.45)' }}/>
+          style={{ position: 'fixed', inset: 0, zIndex: 299, background: 'rgba(0,0,0,0.45)' }}/>
       )}
       {selected && (
         <DetailPanel
           product={selected}
           isMobile={isMobile}
           onClose={() => setSelected(null)}
-          onReception={() => setReception(selected)}
+          onReception={() => { if (isMobile) setSelected(null); setReception(selected); }}
           onRefresh={fetchProducts}
-          onEdit={() => setEditProduct(selected)}
+          onEdit={() => { if (isMobile) setSelected(null); setEditProduct(selected); }}
           onDelete={handleDeleteProduct}
         />
       )}
