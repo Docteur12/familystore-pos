@@ -95,10 +95,12 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
   <meta charset="utf-8">
   <title>Recu ${data.receiptNo}</title>
   <style>
+    @page {
+      size: 80mm auto;
+      margin: 0;
+    }
     @media print {
-      @page { size: 80mm auto; margin: 3mm 0; }
-      body  { width: 80mm; margin: 0; }
-      *     { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
     * {
       margin: 0; padding: 0; box-sizing: border-box;
@@ -106,7 +108,13 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
       font-size: 13px;
       color: #000 !important;
     }
-    body   { width: 80mm; margin: 0 auto; padding: 10px 12px 18px; background: #fff; }
+    html, body {
+      width: 80mm;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+    }
+    body { padding: 8px 10px 16px; }
     .center{ text-align: center; }
     .bold  { font-weight: bold; }
     .solid { border-top: 2px solid #000; margin: 7px 0; }
