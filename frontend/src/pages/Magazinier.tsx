@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { getAllProducts, Product } from '../api/products';
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
+import { useIsMobile } from '../hooks/useIsMobile';
 import {
   createReception, getDemandes, marquerEnvoye, getHistorique,
   DemandeStock, ReceptionRecord,
@@ -66,9 +67,11 @@ interface RecRow { productId: string; quantity: number }
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Magazinier() {
-  const payload = getTokenPayload();
+  const payload   = getTokenPayload();
+  const isMobile  = useIsMobile();
   const { toasts, addToast, removeToast } = useToast();
-  const [tab, setTab] = useState<Tab>('receptions');
+  const [tab,       setTab]       = useState<Tab>('receptions');
+  const [sideOpen,  setSideOpen]  = useState(false);
 
   // ── Product list for reception form ──────────────────────────────────────
   const [products, setProducts] = useState<Product[]>([]);
@@ -147,8 +150,40 @@ export default function Magazinier() {
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <ToastContainer toasts={toasts} onRemove={removeToast}/>
 
+      {/* ── Bouton hamburger mobile ──────────────────────────────────────── */}
+      {isMobile && (
+        <button onClick={() => setSideOpen(o => !o)} style={{
+          position: 'fixed', top: 12, left: sideOpen ? 212 : 12, zIndex: 201,
+          width: 36, height: 36, borderRadius: 8,
+          background: 'var(--fs-wine-900)', border: 'none', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.3)', transition: 'left 0.25s',
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fs-gold-400)" strokeWidth="2" strokeLinecap="round">
+            {sideOpen
+              ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
+              : <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>
+            }
+          </svg>
+        </button>
+      )}
+
+      {/* Overlay mobile */}
+      {isMobile && sideOpen && (
+        <div onClick={() => setSideOpen(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.4)' }}/>
+      )}
+
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-      <aside style={{ width: 200, height: '100vh', background: 'var(--fs-wine-900)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      <aside style={{
+        width: 200, height: '100vh', background: 'var(--fs-wine-900)',
+        display: 'flex', flexDirection: 'column', flexShrink: 0,
+        ...(isMobile ? {
+          position: 'fixed', top: 0, left: sideOpen ? 0 : -216,
+          zIndex: 200, transition: 'left 0.25s',
+          boxShadow: sideOpen ? '4px 0 24px rgba(0,0,0,0.4)' : 'none',
+        } : {}),
+      }}>
         <div style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>Family Store</div>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Magazinier</div>
@@ -156,7 +191,7 @@ export default function Magazinier() {
 
         <nav style={{ flex: 1, padding: '10px 8px' }}>
           {TABS.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)} style={{
+            <button key={t.key} onClick={() => { setTab(t.key); setSideOpen(false); }} style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 9,
               padding: '9px 10px', marginBottom: 2, borderRadius: 8, border: 'none',
               background: tab === t.key ? 'var(--fs-wine-700)' : 'transparent',
@@ -192,7 +227,7 @@ export default function Magazinier() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '12px 14px 12px 58px' : '12px 28px', flexShrink: 0 }}>
           <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Magazinier</p>
           <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>
             {TABS.find(t => t.key === tab)?.label}
