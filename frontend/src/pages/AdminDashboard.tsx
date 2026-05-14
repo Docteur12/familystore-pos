@@ -11,6 +11,7 @@ import {
   StatsToday, PeriodDay, TopProduct, PaymentSlice,
 } from '../api/dashboard';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { getAllProducts } from '../api/products';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -142,10 +143,12 @@ export default function AdminDashboard() {
   const prenom   = payload?.name?.split(' ')[0] ?? '';
   const today    = new Date().toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
 
-  const [stats,    setStats]    = useState<StatsToday | null>(null);
-  const [period,   setPeriod]   = useState<PeriodDay[]>([]);
-  const [topProds, setTopProds] = useState<TopProduct[]>([]);
-  const [payment,  setPayment]  = useState<PaymentSlice[]>([]);
+  const [stats,         setStats]         = useState<StatsToday | null>(null);
+  const [period,        setPeriod]        = useState<PeriodDay[]>([]);
+  const [topProds,      setTopProds]      = useState<TopProduct[]>([]);
+  const [payment,       setPayment]       = useState<PaymentSlice[]>([]);
+  const [prodCount,     setProdCount]     = useState<number | null>(null);
+  const [prodLowCount,  setProdLowCount]  = useState(0);
   const [chartTab, setChartTab] = useState<ChartTab>('Mois');
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -166,6 +169,14 @@ export default function AdminDashboard() {
     timerRef.current = setInterval(() => loadLive(true), 30_000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [loadLive]);
+
+  // Chargement catalogue produits (une fois au montage)
+  useEffect(() => {
+    getAllProducts().then(prods => {
+      setProdCount(prods.length);
+      setProdLowCount(prods.filter(p => p.stock <= p.alertThreshold).length);
+    }).catch(() => {});
+  }, []);
 
   // Rechargement graphe + top produits + paiements selon l'onglet
   useEffect(() => {
@@ -276,6 +287,17 @@ export default function AdminDashboard() {
               value={`${fmtN(benefice)} XAF`}
               sub={`Marge ${marge} % sur coût d'achat`}
             />
+            <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)', minWidth: 0 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 8 }}>Catalogue produits</div>
+              <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)', lineHeight: 1, marginBottom: 4 }}>
+                {prodCount === null ? '…' : prodCount}
+              </div>
+              {prodCount !== null && (
+                <div style={{ fontSize: 11, color: prodLowCount > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)', fontWeight: 600 }}>
+                  {prodLowCount > 0 ? `⚠ ${prodLowCount} stock bas` : '✓ Stocks OK'}
+                </div>
+              )}
+            </div>
             <MetricCard
               title="Marge nette"
               value={`${marge} %`}
