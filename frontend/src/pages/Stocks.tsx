@@ -9,6 +9,7 @@ import NouveauProduitModal from '../components/NouveauProduitModal';
 import { addStockWithMovement, getMovements, StockMovement } from '../api/stock';
 import ToastContainer, { useToast }            from '../components/Toast';
 import StocksSidebar                           from '../components/StocksSidebar';
+import { useIsMobile }                         from '../hooks/useIsMobile';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -258,8 +259,8 @@ function ReceptionModal({ product, onConfirm, onClose }:
 
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
-function DetailPanel({ product, onClose, onReception, onRefresh, onEdit, onDelete }:
-  { product: Product; onClose: () => void; onReception: () => void; onRefresh: () => void; onEdit: () => void; onDelete: () => Promise<void> }) {
+function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdit, onDelete }:
+  { product: Product; isMobile: boolean; onClose: () => void; onReception: () => void; onRefresh: () => void; onEdit: () => void; onDelete: () => Promise<void> }) {
   const [movements, setMovements]     = useState<StockMovement[]>([]);
   const [confirmDel, setConfirmDel]   = useState(false);
   const [deleting,   setDeleting]     = useState(false);
@@ -283,13 +284,26 @@ function DetailPanel({ product, onClose, onReception, onRefresh, onEdit, onDelet
   }, [product._id]);
 
   return (
-    <div style={{
+    <div style={isMobile ? {
+      position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 200,
+      height: '85vh', background: '#fff',
+      borderRadius: '16px 16px 0 0',
+      boxShadow: '0 -8px 32px rgba(0,0,0,0.2)',
+      display: 'flex', flexDirection: 'column', overflow: 'hidden',
+    } : {
       width: 340, minWidth: 340, height: '100vh',
       background: '#fff',
       borderLeft: '1px solid var(--fs-line)',
       display: 'flex', flexDirection: 'column',
       overflow: 'hidden',
     }}>
+      {/* Drag handle mobile */}
+      {isMobile && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--fs-line-2)' }}/>
+        </div>
+      )}
+
       {/* Top header */}
       <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -452,6 +466,7 @@ type TabMode = 'all' | 'low' | 'expiry';
 
 export default function Stocks() {
   const { toasts, addToast, removeToast } = useToast();
+  const isMobile = useIsMobile();
   const [products,  setProducts]  = useState<Product[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [search,    setSearch]    = useState('');
@@ -790,9 +805,14 @@ export default function Stocks() {
       </main>
 
       {/* ── Detail panel ── */}
+      {selected && isMobile && (
+        <div onClick={() => setSelected(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.45)' }}/>
+      )}
       {selected && (
         <DetailPanel
           product={selected}
+          isMobile={isMobile}
           onClose={() => setSelected(null)}
           onReception={() => setReception(selected)}
           onRefresh={fetchProducts}
