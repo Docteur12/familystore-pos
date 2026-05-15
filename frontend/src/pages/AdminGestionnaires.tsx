@@ -180,6 +180,7 @@ function DeleteGestPanel({ user, onDeleted, onCancel }: { user: UserRecord; onDe
 
 function FormPanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]; onCreated: () => void; onCancel: () => void }) {
   const [form, setForm] = useState({ prenom: '', nom: '', email: '', phone: '', assignedLocation: '', dateEmb: new Date().toISOString().slice(0, 10), password: '' });
+  const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
@@ -225,7 +226,22 @@ function FormPanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]; 
         </div>
         <Field label="Date d'embauche" value={form.dateEmb} onChange={v => set('dateEmb', v)} type="date"/>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Sécurité</p>
-        <Field label="Mot de passe *" value={form.password} onChange={v => set('password', v)} type="password" placeholder="Min. 6 caractères"/>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Mot de passe *</label>
+          <div style={{ position: 'relative' }}>
+            <input
+              type={showPwd ? 'text' : 'password'}
+              value={form.password}
+              onChange={e => set('password', e.target.value)}
+              placeholder="Min. 6 caractères"
+              style={{ width: '100%', padding: '9px 36px 9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}
+            />
+            <button type="button" onClick={() => setShowPwd(p => !p)}
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}>
+              <I d={D.eye} size={14}/>
+            </button>
+          </div>
+        </div>
       </div>
       <div style={{ padding: '12px 18px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 10, flexShrink: 0 }}>
         <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>Annuler</button>
