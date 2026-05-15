@@ -135,6 +135,22 @@ export default function AdminParametres() {
   // ── Réinitialisation ─────────────────────────────────────────────────────
   const [resetStep,    setResetStep]    = useState<0 | 1 | 2>(0);
   const [resetLoading, setResetLoading] = useState(false);
+  const [cleanLoading, setCleanLoading] = useState(false);
+  const [cleanDone,    setCleanDone]    = useState(false);
+
+  const handleCleanTransactions = async () => {
+    setCleanLoading(true);
+    try {
+      const res = await fetch('/api/admin/clean-transactions', { method: 'POST', headers: authHeaders() });
+      if (!res.ok) throw new Error('Erreur serveur');
+      setCleanDone(true);
+      addToast('Ventes et sessions de test supprimées — produits conservés ✓', 'success');
+    } catch {
+      addToast('Erreur lors du nettoyage', 'error');
+    } finally {
+      setCleanLoading(false);
+    }
+  };
 
   const handleReset = async () => {
     setResetLoading(true);
@@ -510,13 +526,35 @@ export default function AdminParametres() {
                 ⚠️ ZONE DE DANGER — Mise en production
               </p>
               <p style={{ margin: '4px 0 0', fontSize: 12, color: '#b91c1c' }}>
-                Supprime toutes les données de test. Action irréversible.
+                Actions irréversibles.
               </p>
             </div>
-            <div style={{ padding: '16px 20px', background: '#fff', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ padding: '16px 20px', background: '#fff', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* ── Nettoyage données test (garde produits) ── */}
+              <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#C2410C' }}>🧹 Nettoyer les données de test</p>
+                  <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--fs-ink-600)', lineHeight: 1.5 }}>
+                    Supprime : <strong>ventes · factures · sessions · mouvements · dépenses · logs</strong><br/>
+                    Conserve : <strong>produits · caissiers · gestionnaires · caisses</strong>
+                  </p>
+                </div>
+                {cleanDone ? (
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>✓ Nettoyage effectué avec succès</p>
+                ) : (
+                  <button onClick={handleCleanTransactions} disabled={cleanLoading}
+                    style={{ alignSelf: 'flex-start', padding: '9px 18px', background: '#EA580C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: cleanLoading ? 0.7 : 1 }}>
+                    {cleanLoading ? 'Nettoyage…' : 'Supprimer les données de test uniquement'}
+                  </button>
+                )}
+              </div>
+
+              <div style={{ borderTop: '1px solid #fca5a5' }}/>
+
               <div style={{ fontSize: 12, color: 'var(--fs-ink-600)', lineHeight: 1.6 }}>
-                Seront supprimés : <strong>tous les produits · ventes · factures · sessions · mouvements de stock · dépenses · logs · caissiers · gestionnaires · magaziniers</strong>.<br/>
-                Sera conservé : votre compte <strong>Admin Patron</strong> + la configuration des caisses.
+                <strong>Réinitialisation complète :</strong> supprime <strong>tout</strong> y compris les produits · caissiers · gestionnaires.<br/>
+                Conserve : votre compte <strong>Admin Patron</strong> + configuration des caisses.
               </div>
 
               {resetStep === 0 && (

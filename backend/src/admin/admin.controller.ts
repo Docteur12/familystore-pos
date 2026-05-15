@@ -60,4 +60,20 @@ export class AdminController {
 
     return { message: 'Base de données réinitialisée avec succès. Seul le compte patron a été conservé.' };
   }
+
+  // POST /api/admin/clean-transactions — supprime ventes/sessions/factures SANS toucher aux produits ni caissiers
+  @Post('clean-transactions')
+  async cleanTransactions() {
+    await Promise.all([
+      this.saleModel.deleteMany({}),
+      this.expenseModel.deleteMany({}),
+      this.factureModel.deleteMany({}),
+      this.sessionModel.deleteMany({}),
+      this.auditModel.deleteMany({}),
+      this.movementModel.deleteMany({}),
+      this.receptionModel.deleteMany({}),
+      this.demandeModel.deleteMany({}),
+    ]);
+    return { message: 'Données transactionnelles supprimées. Produits, caissiers et configuration conservés.' };
+  }
 }

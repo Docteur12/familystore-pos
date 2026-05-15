@@ -166,20 +166,24 @@ function EditPanel({ user, caisses, onSaved, onCancel }: {
   user: UserRecord; caisses: CaisseRecord[]; onSaved: () => void; onCancel: () => void;
 }) {
   const nameParts = user.name.split(' ');
-  const [prenom,  setPrenom]  = useState(nameParts[0] ?? '');
-  const [nom,     setNom]     = useState(nameParts.slice(1).join(' ') ?? '');
+  const [prenom,   setPrenom]   = useState(nameParts[0] ?? '');
+  const [nom,      setNom]      = useState(nameParts.slice(1).join(' ') ?? '');
   const [caisseId, setCaisseId] = useState(user.caisseId ?? '');
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState('');
+  const [pwd,      setPwd]      = useState('');
+  const [showPwd,  setShowPwd]  = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState('');
 
   const handleSave = async () => {
     const fullName = `${prenom} ${nom}`.trim();
     if (!fullName) { setError('Le nom est obligatoire.'); return; }
+    if (pwd && pwd.length < 4) { setError('Le mot de passe doit contenir au moins 4 caractères.'); return; }
     setLoading(true); setError('');
     try {
-      const patch: { name?: string; caisseId?: string | null } = {};
+      const patch: { name?: string; caisseId?: string | null; password?: string } = {};
       if (fullName !== user.name) patch.name = fullName;
       patch.caisseId = caisseId || null;
+      if (pwd) patch.password = pwd;
       await updateUser(user._id, patch);
       onSaved();
     } catch (e: unknown) {
@@ -220,6 +224,19 @@ function EditPanel({ user, caisses, onSaved, onCancel }: {
             {caisses.map(c => <option key={c._id} value={c._id}>{c.nom} ({c.code}) · PIN: {c.pin}</option>)}
           </select>
         </div>
+
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Sécurité</p>
+        <div>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Nouveau mot de passe</label>
+          <div style={{ position: 'relative' }}>
+            <input type={showPwd ? 'text' : 'password'} value={pwd} onChange={e => setPwd(e.target.value)}
+              placeholder="Laisser vide pour ne pas changer"
+              style={{ width: '100%', padding: '9px 36px 9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
+            <button type="button" onClick={() => setShowPwd(p => !p)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}>
+              <I d={D.eye} size={14}/>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div style={{ padding: '12px 18px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 8, flexShrink: 0 }}>
@@ -245,7 +262,7 @@ function CreatePanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]
 
   const handleCreate = async () => {
     if (!form.prenom || !form.nom) { setError('Prénom et nom obligatoires.'); return; }
-    if (form.pin.length !== 4) { setError('Le code PIN doit contenir 4 chiffres.'); return; }
+    if (form.pin.length < 4) { setError('Le mot de passe doit contenir au moins 4 caractères.'); return; }
     setLoading(true); setError('');
     try {
       await createUser({
@@ -295,12 +312,12 @@ function CreatePanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]
 
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Accès caisse</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Code PIN * (4 chiffres)</label>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Mot de passe * (min. 4 caractères)</label>
           <div style={{ position: 'relative' }}>
             <input type={showPin ? 'text' : 'password'} value={form.pin}
-              onChange={e => set('pin', e.target.value.replace(/\D/g, '').slice(0, 4))}
-              maxLength={4} placeholder="••••"
-              style={{ width: '100%', padding: '9px 36px 9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: form.pin ? 20 : 13, outline: 'none', boxSizing: 'border-box', letterSpacing: form.pin ? '0.35em' : 0, fontFamily: 'var(--fs-font-mono)' }}/>
+              onChange={e => set('pin', e.target.value)}
+              placeholder="Min. 4 caractères"
+              style={{ width: '100%', padding: '9px 36px 9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
             <button onClick={() => setShowPin(p => !p)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}>
               <I d={D.eye} size={14}/>
             </button>

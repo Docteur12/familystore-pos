@@ -30,6 +30,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error,    setError]    = useState<string | null>(null);
   const [loading,  setLoading]  = useState(false);
+  const [showPwd,  setShowPwd]  = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMsg, setForgotMsg] = useState<string | null>(null);
@@ -250,7 +251,7 @@ export default function Login() {
                   <LockIcon/>
                 </span>
                 <input
-                  type="password"
+                  type={showPwd ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -258,7 +259,7 @@ export default function Login() {
                   style={{
                     width: '100%',
                     paddingLeft: 40,
-                    paddingRight: 14,
+                    paddingRight: 42,
                     paddingTop: 11,
                     paddingBottom: 11,
                     border: `1px solid var(--fs-line-2)`,
@@ -280,6 +281,28 @@ export default function Login() {
                     e.target.style.boxShadow = 'none';
                   }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(p => !p)}
+                  style={{
+                    position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--fs-ink-400)', display: 'flex', alignItems: 'center', padding: 2,
+                  }}
+                  title={showPwd ? 'Masquer' : 'Afficher'}
+                >
+                  {showPwd ? (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22"/>
+                      <path d="M10.73 10.73A2 2 0 0 0 12 14a2 2 0 0 0 1.27-3.27"/>
+                    </svg>
+                  ) : (
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                      <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  )}
+                </button>
               </div>
             </div>
 

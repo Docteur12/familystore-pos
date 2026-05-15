@@ -11,7 +11,7 @@ import {
   StatsToday, PeriodDay, TopProduct, PaymentSlice,
 } from '../api/dashboard';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { getAllProducts } from '../api/products';
+import { getAllProducts, Product } from '../api/products';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -149,6 +149,8 @@ export default function AdminDashboard() {
   const [payment,       setPayment]       = useState<PaymentSlice[]>([]);
   const [prodCount,     setProdCount]     = useState<number | null>(null);
   const [prodLowCount,  setProdLowCount]  = useState(0);
+  const [products,      setProducts]      = useState<Product[]>([]);
+  const [prodSearch,    setProdSearch]    = useState('');
   const [chartTab, setChartTab] = useState<ChartTab>('Mois');
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -173,6 +175,7 @@ export default function AdminDashboard() {
   // Chargement catalogue produits (une fois au montage)
   useEffect(() => {
     getAllProducts().then(prods => {
+      setProducts(prods);
       setProdCount(prods.length);
       setProdLowCount(prods.filter(p => p.stock <= p.alertThreshold).length);
     }).catch(() => {});
@@ -432,6 +435,61 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
+          {/* ── Catalogue produits ── */}
+          {products.length > 0 && (
+            <div style={{ marginTop: 18, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Catalogue produits</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{prodCount} référence{prodCount !== 1 ? 's' : ''} · {prodLowCount > 0 ? <span style={{ color: 'var(--fs-danger-700)', fontWeight: 600 }}>⚠ {prodLowCount} stock bas</span> : <span style={{ color: 'var(--fs-success-700)', fontWeight: 600 }}>✓ Stocks OK</span>}</div>
+                </div>
+                <input
+                  value={prodSearch} onChange={e => setProdSearch(e.target.value)}
+                  placeholder="Rechercher un produit…"
+                  style={{ padding: '7px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', width: 200, fontFamily: 'var(--fs-font-sans)' }}
+                />
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--fs-ivory)' }}>
+                      {['Produit', 'Catégorie', 'Prix vente', 'Stock', 'Seuil', 'Statut'].map((h, i) => (
+                        <th key={h} style={{ padding: '9px 14px', textAlign: i >= 2 ? 'right' : 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products
+                      .filter(p => !prodSearch || p.name.toLowerCase().includes(prodSearch.toLowerCase()) || (p.category ?? '').toLowerCase().includes(prodSearch.toLowerCase()))
+                      .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+                      .map((p, i) => {
+                        const low = p.stock <= p.alertThreshold;
+                        const out = p.stock === 0;
+                        return (
+                          <tr key={p._id} style={{ borderBottom: '1px solid var(--fs-line)', background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
+                            <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</td>
+                            <td style={{ padding: '10px 14px', color: 'var(--fs-ink-500)' }}>{p.category ?? '—'}</td>
+                            <td style={{ padding: '10px 14px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}>{fmtN(p.price)} XAF</td>
+                            <td style={{ padding: '10px 14px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 800, color: out ? 'var(--fs-danger-700)' : low ? '#D1A660' : 'var(--fs-ink-900)' }}>{p.stock}</td>
+                            <td style={{ padding: '10px 14px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-400)' }}>{p.alertThreshold}</td>
+                            <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                              <span style={{
+                                padding: '2px 10px', borderRadius: 8, fontSize: 10, fontWeight: 700,
+                                background: out ? 'var(--fs-danger-100)' : low ? '#FFF7ED' : '#F0FDF4',
+                                color:      out ? 'var(--fs-danger-700)' : low ? '#EA580C' : '#16A34A',
+                              }}>
+                                {out ? 'Rupture' : low ? 'Stock bas' : 'OK'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
         </div>
       </main>
     </div>

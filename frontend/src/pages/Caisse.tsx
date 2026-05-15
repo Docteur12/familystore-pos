@@ -27,9 +27,9 @@ const TVA_RATE = 0.1925;
 const fmtN = (n: number) => n.toLocaleString('fr-FR');
 
 const PAYMENT_METHODS = [
-  { value: 'cash',   label: 'Espèces'  },
-  { value: 'mobile', label: 'Mobile M.' },
-  { value: 'card',   label: 'Carte'    },
+  { value: 'cash',         label: 'Espèces'  },
+  { value: 'mobile_money', label: 'Mobile M.' },
+  { value: 'card',         label: 'Carte'    },
 ] as const;
 type PaymentMethod = typeof PAYMENT_METHODS[number]['value'];
 
