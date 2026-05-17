@@ -33,12 +33,13 @@ interface FormState {
   costPrice:      string;
   stock:          string;
   alertThreshold: string;
+  expiryDate:     string;
 }
 
 const EMPTY_FORM: FormState = {
   barcode: '', name: '', category: 'Alimentation',
   unit: 'pce', price: '', costPrice: '',
-  stock: '0', alertThreshold: '5',
+  stock: '0', alertThreshold: '5', expiryDate: '',
 };
 
 interface AddModalProps {
@@ -103,6 +104,7 @@ function AddModal({ baseCategories, onSave, onClose }: AddModalProps) {
         costPrice,
         stock:          parseInt(form.stock, 10) || 0,
         alertThreshold: parseInt(form.alertThreshold, 10) || 5,
+        expiryDate:     form.expiryDate || null,
       });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erreur');
@@ -282,6 +284,20 @@ function AddModal({ baseCategories, onSave, onClose }: AddModalProps) {
                   className="input-field w-full"
                 />
               </div>
+            </div>
+
+            {/* Date de péremption */}
+            <div>
+              <label className="label-field">📅 Date de péremption <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(optionnel)</span></label>
+              <input
+                type="date"
+                value={form.expiryDate}
+                onChange={e => set('expiryDate', e.target.value)}
+                className="input-field w-full"
+              />
+              {form.expiryDate && new Date(form.expiryDate) < new Date() && (
+                <p className="text-red-600 text-xs mt-1 font-semibold">⚠ Date déjà expirée</p>
+              )}
             </div>
 
             {/* Erreur */}
