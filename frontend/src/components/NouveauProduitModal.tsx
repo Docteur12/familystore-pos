@@ -209,6 +209,15 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
   const [error,           setError]           = useState('');
   const [extraCategories, setExtraCategories] = useState<string[]>([]);
   const [newCatInput,     setNewCatInput]     = useState('');
+  const [markupPct,       setMarkupPct]       = useState('');
+
+  const applyMarkup = (cost: string, pct: string) => {
+    const c = parseFloat(cost);
+    const p = parseFloat(pct);
+    if (!isNaN(c) && c > 0 && !isNaN(p) && p > 0) {
+      setForm(f => ({ ...f, price: String(Math.round(c * (1 + p / 100))) }));
+    }
+  };
 
   const allCategories = useMemo(() => {
     const base = new Set([...CATEGORIES, ...(knownCategories ?? [])]);
@@ -359,10 +368,45 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <FormField label="Prix de vente * (XAF)" value={form.price}     onChange={setField('price')}     type="number" placeholder="ex: 500"/>
-            <FormField label="Prix d'achat (XAF)"    value={form.costPrice} onChange={setField('costPrice')} type="number" placeholder="ex: 300"/>
+          {/* Prix achat + marge → prix vente */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'end' }}>
+            <div>
+              <label style={LABEL_STYLE}>Prix d'achat (XAF)</label>
+              <input
+                type="number" min={0} value={form.costPrice}
+                onChange={e => { setField('costPrice')(e.target.value); applyMarkup(e.target.value, markupPct); }}
+                placeholder="ex: 300"
+                style={INPUT_STYLE}
+              />
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <label style={{ ...LABEL_STYLE, textAlign: 'center' }}>Marge %</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  type="number" min={0} max={500} step={1}
+                  value={markupPct}
+                  onChange={e => { setMarkupPct(e.target.value); applyMarkup(form.costPrice, e.target.value); }}
+                  placeholder="0"
+                  style={{ ...INPUT_STYLE, width: 60, textAlign: 'center' }}
+                />
+                <span style={{ fontSize: 13, color: 'var(--fs-ink-400)', flexShrink: 0 }}>%</span>
+              </div>
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Prix de vente * (XAF)</label>
+              <input
+                type="number" min={0} value={form.price}
+                onChange={e => { setField('price')(e.target.value); setMarkupPct(''); }}
+                placeholder="ex: 500"
+                style={{ ...INPUT_STYLE, background: markupPct ? '#f0fdf4' : '#fff', borderColor: markupPct ? '#86efac' : undefined }}
+              />
+            </div>
           </div>
+          {markupPct && form.costPrice && form.price && (
+            <div style={{ fontSize: 11, color: 'var(--fs-success-700)', fontWeight: 600, marginTop: -4 }}>
+              {form.costPrice} XAF × {markupPct}% de marge → {form.price} XAF
+            </div>
+          )}
 
           <div>
             <label style={LABEL_STYLE}>🏷️ Réduction (%)</label>

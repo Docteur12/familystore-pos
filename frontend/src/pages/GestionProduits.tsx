@@ -58,6 +58,15 @@ function AddModal({ baseCategories, onSave, onClose }: AddModalProps) {
   const nameRef = useRef<HTMLInputElement>(null);
 
   const allCategories = [...baseCategories, ...extraCategories.filter(c => !baseCategories.includes(c))];
+  const [markupPct, setMarkupPct] = useState('');
+
+  const applyMarkup = (cost: string, pct: string) => {
+    const c = parseFloat(cost);
+    const p = parseFloat(pct);
+    if (!isNaN(c) && c > 0 && !isNaN(p) && p > 0) {
+      setForm(f => ({ ...f, price: String(Math.round(c * (1 + p / 100))) }));
+    }
+  };
 
   const confirmNewCat = () => {
     const v = newCatInput.trim();
@@ -234,32 +243,43 @@ function AddModal({ baseCategories, onSave, onClose }: AddModalProps) {
               </div>
             </div>
 
-            {/* Prix vente + Prix achat */}
+            {/* Prix achat + marge → prix vente */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label-field">Prix vente (FCFA) *</label>
+                <label className="label-field">Prix achat (FCFA)</label>
                 <input
-                  type="number"
-                  min={0}
-                  value={form.price}
-                  onChange={e => set('price', e.target.value)}
-                  required
-                  placeholder="0"
-                  className="input-field w-full"
+                  type="number" min={0} value={form.costPrice}
+                  onChange={e => { set('costPrice', e.target.value); applyMarkup(e.target.value, markupPct); }}
+                  placeholder="0" className="input-field w-full"
                 />
               </div>
               <div>
-                <label className="label-field">Prix achat (FCFA) *</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={form.costPrice}
-                  onChange={e => set('costPrice', e.target.value)}
-                  required
-                  placeholder="0"
-                  className="input-field w-full"
-                />
+                <label className="label-field">Marge (%)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number" min={0} max={500} step={1}
+                    value={markupPct}
+                    onChange={e => { setMarkupPct(e.target.value); applyMarkup(form.costPrice, e.target.value); }}
+                    placeholder="0" className="input-field w-full"
+                  />
+                  <span className="text-gray-400 font-bold text-sm">%</span>
+                </div>
               </div>
+            </div>
+            <div>
+              <label className="label-field">Prix vente (FCFA) *</label>
+              <input
+                type="number" min={0} value={form.price}
+                onChange={e => { set('price', e.target.value); setMarkupPct(''); }}
+                required placeholder="0"
+                className="input-field w-full"
+                style={{ background: markupPct ? '#f0fdf4' : undefined }}
+              />
+              {markupPct && form.costPrice && form.price && (
+                <p className="text-green-700 text-xs mt-1 font-semibold">
+                  {form.costPrice} × {markupPct}% → {form.price} XAF
+                </p>
+              )}
             </div>
 
             {/* Stock initial + Seuil alerte */}
