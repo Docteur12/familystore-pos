@@ -582,10 +582,10 @@ export default function Stocks() {
         <ReceptionModal product={reception} onConfirm={handleAddStock} onClose={() => setReception(null)}/>
       )}
       {newProduct && (
-        <NouveauProduitModal knownCategories={derivedCategories} onClose={() => setNewProduct(false)} onCreated={fetchProducts}/>
+        <NouveauProduitModal knownCategories={derivedCategories} existingProducts={products} onClose={() => setNewProduct(false)} onCreated={fetchProducts} onUpdated={fetchProducts}/>
       )}
       {editProduct && (
-        <NouveauProduitModal knownCategories={derivedCategories} product={editProduct} onClose={() => setEditProduct(null)} onUpdated={handleProductUpdated}/>
+        <NouveauProduitModal knownCategories={derivedCategories} existingProducts={products} product={editProduct} onClose={() => setEditProduct(null)} onUpdated={handleProductUpdated}/>
       )}
 
       {/* ── Sidebar ── */}

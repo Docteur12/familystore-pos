@@ -9,7 +9,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  createProduct, getAllProducts, Product, ProductPayload,
+  createProduct, updateProduct, getAllProducts, Product, ProductPayload,
 } from '../api/products';
 import QRScanner from '../components/QRScanner';
 
@@ -43,12 +43,14 @@ const EMPTY_FORM: FormState = {
 };
 
 interface AddModalProps {
-  baseCategories: string[];
-  onSave:  (payload: ProductPayload) => Promise<void>;
-  onClose: () => void;
+  baseCategories:   string[];
+  existingProducts: Product[];
+  onSave:           (payload: ProductPayload) => Promise<void>;
+  onSaveExisting?:  (id: string, payload: Partial<ProductPayload>) => Promise<void>;
+  onClose:          () => void;
 }
 
-function AddModal({ baseCategories, onSave, onClose }: AddModalProps) {
+function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, onClose }: AddModalProps) {
   const [form,            setForm]            = useState<FormState>(EMPTY_FORM);
   const [showQR,          setShowQR]          = useState(false);
   const [error,           setError]           = useState<string | null>(null);
@@ -58,7 +60,32 @@ function AddModal({ baseCategories, onSave, onClose }: AddModalProps) {
   const nameRef = useRef<HTMLInputElement>(null);
 
   const allCategories = [...baseCategories, ...extraCategories.filter(c => !baseCategories.includes(c))];
-  const [markupPct, setMarkupPct] = useState('');
+  const [markupPct,    setMarkupPct]    = useState('');
+  const [foundProduct, setFoundProduct] = useState<Product | null>(null);
+
+  const lookupBarcode = (code: string) => {
+    if (!code.trim()) { setFoundProduct(null); return; }
+    const found = existingProducts.find(p =>
+      p.barcode && p.barcode.toLowerCase() === code.trim().toLowerCase()
+    );
+    if (found) {
+      setFoundProduct(found);
+      setForm({
+        barcode:        found.barcode ?? code,
+        name:           found.name,
+        category:       found.category ?? 'Alimentation',
+        unit:           found.unit,
+        price:          String(found.price),
+        costPrice:      String(found.costPrice),
+        stock:          String(found.stock),
+        alertThreshold: String(found.alertThreshold),
+        expiryDate:     found.expiryDate ? found.expiryDate.slice(0, 10) : '',
+      });
+      setMarkupPct('');
+    } else {
+      setFoundProduct(null);
+    }
+  };
 
   const applyMarkup = (cost: string, pct: string) => {
     const c = parseFloat(cost);
@@ -82,6 +109,7 @@ function AddModal({ baseCategories, onSave, onClose }: AddModalProps) {
   // Quand un code-barres est scanné → remplir champ barcode + focus nom
   const handleScan = (code: string) => {
     set('barcode', code);
+    lookupBarcode(code);
     setTimeout(() => nameRef.current?.focus(), 100);
   };
 
@@ -102,19 +130,25 @@ function AddModal({ baseCategories, onSave, onClose }: AddModalProps) {
     if (isNaN(price) || price < 0)        { setError('Prix de vente invalide');  return; }
     if (isNaN(costPrice) || costPrice < 0) { setError("Prix d'achat invalide");  return; }
 
+    const payload: ProductPayload = {
+      name:           form.name.trim(),
+      barcode:        form.barcode.trim() || undefined,
+      category:       finalCategory,
+      unit:           form.unit,
+      price,
+      costPrice,
+      stock:          parseInt(form.stock, 10) || 0,
+      alertThreshold: parseInt(form.alertThreshold, 10) || 5,
+      expiryDate:     form.expiryDate || null,
+    };
+
     setLoading(true);
     try {
-      await onSave({
-        name:           form.name.trim(),
-        barcode:        form.barcode.trim() || undefined,
-        category:       finalCategory,
-        unit:           form.unit,
-        price,
-        costPrice,
-        stock:          parseInt(form.stock, 10) || 0,
-        alertThreshold: parseInt(form.alertThreshold, 10) || 5,
-        expiryDate:     form.expiryDate || null,
-      });
+      if (foundProduct && onSaveExisting) {
+        await onSaveExisting(foundProduct._id, payload);
+      } else {
+        await onSave(payload);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Erreur');
     } finally {
@@ -152,6 +186,17 @@ function AddModal({ baseCategories, onSave, onClose }: AddModalProps) {
 
           <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4">
 
+            {/* Produit existant trouvé */}
+            {foundProduct && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex gap-3 items-start">
+                <span className="text-xl">🔍</span>
+                <div>
+                  <p className="text-blue-800 font-bold text-sm">Produit déjà enregistré — informations chargées</p>
+                  <p className="text-blue-600 text-xs mt-0.5">Modifiez si nécessaire puis cliquez <strong>Mettre à jour</strong>.</p>
+                </div>
+              </div>
+            )}
+
             {/* Code-barres + bouton caméra */}
             <div>
               <label className="label-field">Code-barres</label>
@@ -159,7 +204,7 @@ function AddModal({ baseCategories, onSave, onClose }: AddModalProps) {
                 <input
                   type="text"
                   value={form.barcode}
-                  onChange={e => set('barcode', e.target.value)}
+                  onChange={e => { set('barcode', e.target.value); lookupBarcode(e.target.value); }}
                   placeholder="Saisir ou scanner…"
                   className="input-field flex-1"
                 />
@@ -343,7 +388,7 @@ function AddModal({ baseCategories, onSave, onClose }: AddModalProps) {
                       rounded-full animate-spin" />
                     Enregistrement…
                   </span>
-                ) : 'Ajouter le produit'}
+                ) : (foundProduct ? 'Mettre à jour' : 'Ajouter le produit')}
               </button>
               <button
                 type="button"
@@ -404,10 +449,16 @@ export default function GestionProduits() {
 
   const handleSave = async (payload: ProductPayload) => {
     const created = await createProduct(payload);
-    setProducts(prev => [...prev, created].sort((a, b) =>
-      a.name.localeCompare(b.name)));
+    setProducts(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
     setShowModal(false);
     flash(`Produit "${created.name}" ajouté`);
+  };
+
+  const handleSaveExisting = async (id: string, payload: Partial<ProductPayload>) => {
+    const updated = await updateProduct(id, payload);
+    setProducts(prev => prev.map(p => p._id === id ? updated : p));
+    setShowModal(false);
+    flash(`Produit "${updated.name}" mis à jour`);
   };
 
   return (
@@ -415,7 +466,7 @@ export default function GestionProduits() {
 
       {/* Modal ajout */}
       {showModal && (
-        <AddModal baseCategories={derivedCategories} onSave={handleSave} onClose={() => setShowModal(false)} />
+        <AddModal baseCategories={derivedCategories} existingProducts={products} onSave={handleSave} onSaveExisting={handleSaveExisting} onClose={() => setShowModal(false)} />
       )}
 
       {/* Header */}

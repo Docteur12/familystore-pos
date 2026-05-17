@@ -172,11 +172,12 @@ function CloseIcon() {
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Props {
-  onClose:         () => void;
-  onCreated?:      () => void;
-  onUpdated?:      () => void;
-  product?:        Product;
+  onClose:          () => void;
+  onCreated?:       () => void;
+  onUpdated?:       () => void;
+  product?:         Product;
   knownCategories?: string[];
+  existingProducts?: Product[];
 }
 
 type FormState = {
@@ -192,7 +193,7 @@ const INITIAL_FORM: FormState = {
 
 // ── Modal component ───────────────────────────────────────────────────────────
 
-export default function NouveauProduitModal({ onClose, onCreated, onUpdated, product, knownCategories }: Props) {
+export default function NouveauProduitModal({ onClose, onCreated, onUpdated, product, knownCategories, existingProducts = [] }: Props) {
   const [form, setForm] = useState<FormState>(() => product ? {
     name:           product.name,
     barcode:        product.barcode ?? '',
@@ -210,6 +211,33 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
   const [extraCategories, setExtraCategories] = useState<string[]>([]);
   const [newCatInput,     setNewCatInput]     = useState('');
   const [markupPct,       setMarkupPct]       = useState('');
+  const [foundProduct,    setFoundProduct]    = useState<Product | null>(null);
+
+  // Recherche produit existant par code-barres
+  const lookupBarcode = (code: string) => {
+    if (!code.trim() || product) { setFoundProduct(null); return; }
+    const found = existingProducts.find(p =>
+      p.barcode && p.barcode.toLowerCase() === code.trim().toLowerCase()
+    );
+    if (found) {
+      setFoundProduct(found);
+      setForm({
+        name:           found.name,
+        barcode:        found.barcode ?? code,
+        category:       found.category ?? '',
+        unit:           found.unit,
+        price:          String(found.price),
+        costPrice:      String(found.costPrice),
+        stock:          String(found.stock),
+        alertThreshold: String(found.alertThreshold),
+        discount:       String(found.discount ?? 0),
+        expiryDate:     found.expiryDate ? found.expiryDate.slice(0, 10) : '',
+      });
+      setMarkupPct('');
+    } else {
+      setFoundProduct(null);
+    }
+  };
 
   const applyMarkup = (cost: string, pct: string) => {
     const c = parseFloat(cost);
@@ -264,8 +292,8 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
       expiryDate:     form.expiryDate || null,
     };
     try {
-      if (product) {
-        await updateProduct(product._id, payload);
+      if (product || foundProduct) {
+        await updateProduct((product ?? foundProduct)!._id, payload);
         onUpdated?.();
       } else {
         await createProduct(payload);
@@ -317,7 +345,16 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
               style={INPUT_STYLE}
             />
           </div>
-          <BarcodeField value={form.barcode} onChange={setField('barcode')}/>
+          <BarcodeField value={form.barcode} onChange={v => { setField('barcode')(v); lookupBarcode(v); }}/>
+          {foundProduct && (
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>🔍</span>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>Produit déjà enregistré — informations chargées</div>
+                <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 2 }}>Modifiez les champs si nécessaire puis cliquez <strong>Mettre à jour</strong>.</div>
+              </div>
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
@@ -453,7 +490,9 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
             disabled={loading}
             style={{ flex: 1, padding: '11px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}
           >
-            {loading ? (product ? 'Mise à jour…' : 'Enregistrement…') : (product ? 'Mettre à jour' : 'Enregistrer le produit')}
+            {loading
+              ? ((product || foundProduct) ? 'Mise à jour…' : 'Enregistrement…')
+              : ((product || foundProduct) ? 'Mettre à jour' : 'Enregistrer le produit')}
           </button>
           <button
             onClick={onClose}
