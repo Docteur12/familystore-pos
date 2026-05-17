@@ -368,11 +368,16 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
         {/* Info rows */}
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--fs-line)' }}>
           {[
-            { icon: D.fournisseurs, label: 'Fournisseur',     val: supplier },
-            { icon: D.depots,       label: 'Emplacement',     val: `Dépôt principal · ${location}` },
-            { icon: D.etiquettes,   label: 'Péremption',      val: `${fmtDate(expiry)} · ${expiryDays > 0 ? expiryDays + ' jours' : 'Expiré'}` },
-            { icon: D.reception,    label: 'Dernière entrée', val: `12 avril 2026 · +${product.alertThreshold * 2} unités` },
-            { icon: D.catalogue,    label: 'Vitesse de vente',val: `~${speed} unités / jour` },
+            { icon: D.catalogue,    label: 'Vitesse de vente', val: `~${speed} unités / jour` },
+            ...(product.expiryDate ? [{
+              icon: D.etiquettes,
+              label: 'Date de péremption',
+              val: (() => {
+                const d = new Date(product.expiryDate!);
+                const days = Math.ceil((d.getTime() - Date.now()) / 86400000);
+                return `${fmtDate(d)} · ${days > 0 ? `${days} j restants` : 'Expiré'}`;
+              })(),
+            }] : []),
           ].map(row => (
             <div key={row.label} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
               <span style={{ color: 'var(--fs-ink-300)', marginTop: 1, flexShrink: 0 }}><I d={row.icon} size={13}/></span>

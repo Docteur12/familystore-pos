@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git -C \"c:/Users/Jorda/familystore-pos\" remote -v)"
+      "Bash(git -C \"c:/Users/Jorda/familystore-pos\" remote -v)",
+      "PowerShell(cd \"c:\\\\Users\\\\Jorda\\\\familystore-pos\\\\frontend\"; npx tsc --noEmit 2>&1 | Where-Object { $_ -match \"error TS\" } | Select-Object -First 10)"
     ]
   }
 }

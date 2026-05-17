@@ -31,6 +31,9 @@ export class Product {
 
   @Prop({ default: 0, min: 0, max: 100 })
   discount: number;
+
+  @Prop({ default: null })
+  expiryDate: Date | null;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

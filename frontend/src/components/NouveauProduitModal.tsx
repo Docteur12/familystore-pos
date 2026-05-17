@@ -182,12 +182,12 @@ interface Props {
 type FormState = {
   name: string; barcode: string; category: string; unit: string;
   price: string; costPrice: string; stock: string; alertThreshold: string;
-  discount: string;
+  discount: string; expiryDate: string;
 };
 
 const INITIAL_FORM: FormState = {
   name: '', barcode: '', category: '', unit: 'unité',
-  price: '', costPrice: '', stock: '', alertThreshold: '', discount: '0',
+  price: '', costPrice: '', stock: '', alertThreshold: '', discount: '0', expiryDate: '',
 };
 
 // ── Modal component ───────────────────────────────────────────────────────────
@@ -203,6 +203,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     stock:          String(product.stock),
     alertThreshold: String(product.alertThreshold),
     discount:       String(product.discount ?? 0),
+    expiryDate:     product.expiryDate ? product.expiryDate.slice(0, 10) : '',
   } : INITIAL_FORM);
   const [loading,         setLoading]         = useState(false);
   const [error,           setError]           = useState('');
@@ -251,6 +252,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
       stock:          parseInt(form.stock),
       alertThreshold: parseInt(form.alertThreshold) || 5,
       discount:       Math.min(100, Math.max(0, parseFloat(form.discount) || 0)),
+      expiryDate:     form.expiryDate || null,
     };
     try {
       if (product) {
@@ -384,6 +386,19 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <FormField label="Stock initial *" value={form.stock}          onChange={setField('stock')}          type="number" placeholder="ex: 50"/>
             <FormField label="Seuil d'alerte"  value={form.alertThreshold} onChange={setField('alertThreshold')} type="number" placeholder="ex: 10"/>
+          </div>
+
+          <div>
+            <label style={LABEL_STYLE}>📅 Date de péremption <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(optionnel)</span></label>
+            <input
+              type="date"
+              value={form.expiryDate}
+              onChange={e => setField('expiryDate')(e.target.value)}
+              style={{ ...INPUT_STYLE }}
+            />
+            {form.expiryDate && new Date(form.expiryDate) < new Date() && (
+              <div style={{ marginTop: 4, fontSize: 11, color: '#c0392b', fontWeight: 600 }}>⚠ Date déjà expirée</div>
+            )}
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import { IsDateString, IsNumber, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 
 export class UpdateProductDto {
   @IsOptional()
@@ -43,4 +43,8 @@ export class UpdateProductDto {
   @Min(0)
   @Max(100)
   discount?: number;
+
+  @IsOptional()
+  @IsDateString()
+  expiryDate?: string;
 }

@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  IsDateString,
   IsNumber,
   IsOptional,
   IsString,
@@ -49,4 +50,8 @@ export class CreateProductDto {
   @Min(0)
   @Max(100)
   discount?: number;
+
+  @IsOptional()
+  @IsDateString()
+  expiryDate?: string;
 }
