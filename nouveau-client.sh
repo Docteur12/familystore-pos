@@ -1,0 +1,25 @@
+#!/bin/bash
+# Script de personnalisation rapide pour un nouveau client
+# Usage: bash nouveau-client.sh "Nom Magasin" "#couleurPrimaire" "#couleurAccent"
+
+NOM="${1:-Mon Magasin}"
+COULEUR_PRINCIPALE="${2:-#8B1A2B}"
+COULEUR_ACCENT="${3:-#C9A84C}"
+
+echo "🏗️  Personnalisation pour : $NOM"
+echo "🎨  Couleur principale : $COULEUR_PRINCIPALE"
+echo "✨  Couleur accent : $COULEUR_ACCENT"
+echo ""
+echo "👉 Pensez à modifier manuellement :"
+echo "   - frontend/src/pages/Login.tsx (nom affiché)"
+echo "   - frontend/src/components/ReceiptPrint.tsx (reçu)"
+echo "   - backend/.env (MONGO_URI + JWT_SECRET)"
+echo "   - frontend/netlify.toml (URL backend Render)"
+echo ""
+echo "✅ Checklist :"
+echo "   [ ] MongoDB Atlas : nouvelle base créée"
+echo "   [ ] Render : nouveau service déployé"
+echo "   [ ] Netlify : nouveau site connecté"
+echo "   [ ] Test complet effectué"
+echo ""
+echo "🚀 Prêt pour la livraison !"
