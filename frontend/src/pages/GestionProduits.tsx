@@ -231,7 +231,7 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
                 onChange={e => set('name', e.target.value)}
                 onBlur={e => {
                   const v = e.target.value.trim();
-                  if (v) set('name', v.charAt(0).toUpperCase() + v.slice(1).toLowerCase());
+                  if (v) set('name', v.charAt(0).toUpperCase() + v.slice(1));
                 }}
                 required
                 placeholder="ex: Huile diamaor 1l"

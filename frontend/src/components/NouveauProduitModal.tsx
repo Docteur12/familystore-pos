@@ -280,7 +280,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     setError('');
     const rawName = form.name.trim();
     const payload = {
-      name:           rawName.charAt(0).toUpperCase() + rawName.slice(1).toLowerCase(),
+      name:           rawName.charAt(0).toUpperCase() + rawName.slice(1),
       barcode:        form.barcode.trim() || undefined,
       category:       finalCategory || undefined,
       unit:           form.unit,
@@ -340,7 +340,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
               type="text"
               value={form.name}
               onChange={e => setField('name')(e.target.value)}
-              onBlur={e => { const v = e.target.value.trim(); if (v) setField('name')(v.charAt(0).toUpperCase() + v.slice(1).toLowerCase()); }}
+              onBlur={e => { const v = e.target.value.trim(); if (v) setField('name')(v.charAt(0).toUpperCase() + v.slice(1)); }}
               placeholder="ex: Savon lux rose 90g"
               style={INPUT_STYLE}
             />
