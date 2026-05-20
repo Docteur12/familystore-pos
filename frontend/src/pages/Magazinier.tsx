@@ -377,7 +377,8 @@ export default function Magazinier() {
                   )}
 
                   {rows.map((row, i) => {
-                    const prod = products.find(p => p._id === row.productId);
+                    const prod  = products.find(p => p._id === row.productId);
+                    const seuil = prod?.magazinierThreshold ?? 0;
                     return (
                       <div key={i} style={{ marginBottom: 10 }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 36px', gap: 8, marginBottom: prod ? 4 : 0 }}>
@@ -394,22 +395,27 @@ export default function Magazinier() {
                           </button>
                         </div>
                         {prod && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 10px', background: 'var(--fs-ivory)', borderRadius: 6, fontSize: 11 }}>
-                            <span style={{ color: 'var(--fs-ink-400)' }}>Stock actuel : <strong style={{ color: prod.stock <= prod.alertThreshold ? 'var(--fs-danger-700)' : 'var(--fs-ink-700)' }}>{prod.stock} {prod.unit}</strong></span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 12px', background: 'var(--fs-ivory)', borderRadius: 7, fontSize: 11 }}>
+                            <span style={{ color: 'var(--fs-ink-400)' }}>
+                              Stock : <strong style={{ color: 'var(--fs-ink-800)' }}>{prod.stock} {prod.unit}</strong>
+                            </span>
                             <span style={{ color: 'var(--fs-ink-300)' }}>|</span>
-                            <span style={{ color: 'var(--fs-ink-400)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                              Seuil :
-                              <input type="number" min={0} defaultValue={prod.alertThreshold}
+                            <span style={{ color: 'var(--fs-ink-400)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                              Mon seuil de commande :
+                              <input
+                                type="number" min={0}
+                                defaultValue={seuil || ''}
+                                placeholder="0"
                                 onBlur={e => {
-                                  const v = parseInt(e.target.value);
-                                  if (!isNaN(v) && v !== prod.alertThreshold) {
-                                    updateProduct(prod._id, { alertThreshold: v })
-                                      .then(loadProducts)
-                                      .catch(() => {});
+                                  const v = parseInt(e.target.value) || 0;
+                                  if (v !== seuil) {
+                                    updateProduct(prod._id, { magazinierThreshold: v })
+                                      .then(loadProducts).catch(() => {});
                                   }
                                 }}
-                                style={{ width: 48, padding: '2px 6px', border: '1px solid var(--fs-line-2)', borderRadius: 5, fontSize: 11, textAlign: 'center', fontFamily: 'var(--fs-font-mono)' }}
+                                style={{ width: 56, padding: '3px 7px', border: '1.5px solid var(--fs-wine-200)', borderRadius: 6, fontSize: 12, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, background: '#fff' }}
                               />
+                              <span style={{ color: 'var(--fs-ink-300)' }}>{prod.unit}</span>
                             </span>
                           </div>
                         )}
@@ -543,13 +549,17 @@ export default function Magazinier() {
           {/* ════════════════════════════════════════════════════════════════
               ONGLET 4 — TABLEAU DE BORD MAGAZINIER
           ════════════════════════════════════════════════════════════════ */}
-          {tab === 'dashboard' && (
+          {tab === 'dashboard' && (() => {
+            // Uniquement les produits que le magazinier a déjà reçus
+            const mesProduits = products.filter(p => lastRecByProd[p._id]);
+            return (
             <div style={{ maxWidth: 600 }}>
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                 <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--fs-line)' }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>
-                    Mes produits — {products.length} référence{products.length !== 1 ? 's' : ''}
+                    Mes produits — {mesProduits.length} référence{mesProduits.length !== 1 ? 's' : ''}
                   </p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--fs-ink-400)' }}>Produits que vous avez déjà réceptionnés</p>
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
@@ -563,13 +573,13 @@ export default function Magazinier() {
                     </tr>
                   </thead>
                   <tbody>
-                    {products.length === 0 ? (
+                    {mesProduits.length === 0 ? (
                       <tr>
                         <td colSpan={3} style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontStyle: 'italic' }}>
-                          Aucun produit enregistré
+                          Aucune réception enregistrée — validez une réception pour voir vos produits ici
                         </td>
                       </tr>
-                    ) : products.map((p, i) => {
+                    ) : mesProduits.map((p, i) => {
                       const seuil = p.magazinierThreshold ?? 0;
                       const bas   = seuil > 0 && p.stock <= seuil;
                       return (
@@ -605,7 +615,8 @@ export default function Magazinier() {
                 </table>
               </div>
             </div>
-          )}
+            );
+          })()}
 
         </div>
       </main>
