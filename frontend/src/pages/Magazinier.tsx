@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { getAllProducts, Product } from '../api/products';
+import { getAllProducts, createProduct, updateProduct, Product } from '../api/products';
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -58,7 +58,7 @@ function fmtDate(d: string) {
 
 // ── Tab types ─────────────────────────────────────────────────────────────────
 
-type Tab = 'receptions' | 'demandes' | 'historique';
+type Tab = 'receptions' | 'demandes' | 'historique' | 'dashboard';
 
 // ── Reception form row ────────────────────────────────────────────────────────
 
@@ -73,9 +73,67 @@ export default function Magazinier() {
   const [tab,       setTab]       = useState<Tab>('receptions');
   const [sideOpen,  setSideOpen]  = useState(false);
 
-  // ── Product list for reception form ──────────────────────────────────────
+  // ── Product list ─────────────────────────────────────────────────────────
   const [products, setProducts] = useState<Product[]>([]);
-  useEffect(() => { getAllProducts().then(setProducts).catch(() => {}); }, []);
+  const loadProducts = useCallback(() => getAllProducts().then(setProducts).catch(() => {}), []);
+  useEffect(() => { loadProducts(); }, [loadProducts]);
+
+  // ── Fournisseurs connus (depuis l'historique) ─────────────────────────────
+  const [knownSuppliers, setKnownSuppliers] = useState<string[]>([]);
+  useEffect(() => {
+    getHistorique().then(h => {
+      const unique = [...new Set(h.receptions.map((r: ReceptionRecord) => r.fournisseur).filter(Boolean))];
+      setKnownSuppliers(unique as string[]);
+    }).catch(() => {});
+  }, []);
+
+  // ── Nouveau produit inline ────────────────────────────────────────────────
+  const [showNewProd,  setShowNewProd]  = useState(false);
+  const [newProdForm,  setNewProdForm]  = useState({ name: '', price: '', costPrice: '', stock: '', alertThreshold: '5', unit: 'unité' });
+  const [newProdLoading, setNewProdLoading] = useState(false);
+  const setNP = (k: keyof typeof newProdForm, v: string) => setNewProdForm(p => ({ ...p, [k]: v }));
+
+  const handleCreateProd = async () => {
+    if (!newProdForm.name || !newProdForm.price) { addToast('Nom et prix requis', 'error'); return; }
+    setNewProdLoading(true);
+    try {
+      await createProduct({
+        name:           newProdForm.name.trim(),
+        price:          parseFloat(newProdForm.price) || 0,
+        costPrice:      parseFloat(newProdForm.costPrice) || 0,
+        stock:          parseInt(newProdForm.stock) || 0,
+        alertThreshold: parseInt(newProdForm.alertThreshold) || 5,
+        unit:           newProdForm.unit,
+      });
+      await loadProducts();
+      setShowNewProd(false);
+      setNewProdForm({ name: '', price: '', costPrice: '', stock: '', alertThreshold: '5', unit: 'unité' });
+      addToast('Produit créé ✓', 'success');
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+    finally { setNewProdLoading(false); }
+  };
+
+  // ── Dernière réception par produit ───────────────────────────────────────
+  const [lastRecByProd, setLastRecByProd] = useState<Record<string, string>>({});
+  useEffect(() => {
+    getHistorique().then(h => {
+      const map: Record<string, string> = {};
+      [...h.receptions].reverse().forEach((r: ReceptionRecord) => {
+        r.items?.forEach((it: any) => {
+          const id = it.productId ?? it.product ?? it.product?._id;
+          if (id && !map[id]) map[id] = r.createdAt;
+        });
+      });
+      setLastRecByProd(map);
+    }).catch(() => {});
+  }, []);
+
+  // ── Commander un produit depuis le catalogue ──────────────────────────────
+  const commanderProduit = (product: Product) => {
+    setRows([{ productId: product._id, quantity: Math.max(1, product.alertThreshold * 2) }]);
+    setTab('receptions');
+    setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
+  };
 
   // ── Reception form ────────────────────────────────────────────────────────
   const [fournisseur,  setFournisseur]  = useState('');
@@ -141,9 +199,10 @@ export default function Magazinier() {
 
   // ── Tabs config ───────────────────────────────────────────────────────────
   const TABS: { key: Tab; label: string; icon: string }[] = [
-    { key: 'receptions', label: 'Réceptions',        icon: D.reception },
-    { key: 'demandes',   label: 'Demandes en attente', icon: D.demande  },
-    { key: 'historique', label: 'Historique',         icon: D.history  },
+    { key: 'receptions', label: 'Réceptions',         icon: D.reception },
+    { key: 'demandes',   label: 'Demandes en attente', icon: D.demande   },
+    { key: 'historique', label: 'Historique',          icon: D.history   },
+    { key: 'dashboard',  label: 'Tableau de bord',      icon: D.pkg       },
   ];
 
   return (
@@ -243,39 +302,103 @@ export default function Magazinier() {
             <div style={{ maxWidth: 640 }}>
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 24, boxShadow: 'var(--fs-shadow-sm)' }}>
 
-                {/* Fournisseur */}
+                {/* Fournisseur avec autocomplete */}
                 <div style={{ marginBottom: 16 }}>
                   <label style={LABEL}>Fournisseur</label>
-                  <input style={INPUT} value={fournisseur} onChange={e => setFournisseur(e.target.value)} placeholder="Nom du fournisseur"/>
+                  <input
+                    list="suppliers-list"
+                    style={INPUT} value={fournisseur}
+                    onChange={e => setFournisseur(e.target.value)}
+                    placeholder="Nom du fournisseur ou sélectionner…"
+                  />
+                  <datalist id="suppliers-list">
+                    {knownSuppliers.map(s => <option key={s} value={s}/>)}
+                  </datalist>
+                  {knownSuppliers.length > 0 && (
+                    <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {knownSuppliers.slice(0, 5).map(s => (
+                        <button key={s} type="button" onClick={() => setFournisseur(s)}
+                          style={{ padding: '3px 10px', border: '1px solid var(--fs-line-2)', borderRadius: 20, fontSize: 11, background: fournisseur === s ? 'var(--fs-wine-700)' : '#fff', color: fournisseur === s ? '#fff' : 'var(--fs-ink-600)', cursor: 'pointer' }}>
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {/* Produits */}
+                {/* Produits reçus */}
                 <div style={{ marginBottom: 8 }}>
-                  <label style={LABEL}>Produits reçus</label>
-                  {rows.map((row, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 36px', gap: 8, marginBottom: 8 }}>
-                      <select
-                        value={row.productId}
-                        onChange={e => setRow(i, 'productId', e.target.value)}
-                        style={{ ...INPUT, cursor: 'pointer' }}
-                      >
-                        <option value="">— Choisir un produit —</option>
-                        {products.map(p => (
-                          <option key={p._id} value={p._id}>{p.name}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="number" min={1} value={row.quantity}
-                        onChange={e => setRow(i, 'quantity', parseInt(e.target.value) || 1)}
-                        style={{ ...INPUT, textAlign: 'right' }}
-                        placeholder="Qté"
-                      />
-                      <button onClick={() => removeRow(i)} disabled={rows.length === 1}
-                        style={{ padding: '9px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <I d={D.trash} size={14}/>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <label style={{ ...LABEL, marginBottom: 0 }}>Produits reçus</label>
+                    <button type="button" onClick={() => setShowNewProd(v => !v)}
+                      style={{ ...BTN_OUTLINE, fontSize: 11, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <I d={D.plus} size={11}/> {showNewProd ? 'Annuler' : 'Nouveau produit'}
+                    </button>
+                  </div>
+
+                  {/* Mini formulaire nouveau produit */}
+                  {showNewProd && (
+                    <div style={{ background: '#f8faf7', border: '1.5px solid #86efac', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px' }}>Créer un nouveau produit</p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                        <div style={{ gridColumn: '1/-1' }}>
+                          <input style={INPUT} value={newProdForm.name} onChange={e => setNP('name', e.target.value)} placeholder="Nom du produit *"/>
+                        </div>
+                        <input style={INPUT} type="number" value={newProdForm.price} onChange={e => setNP('price', e.target.value)} placeholder="Prix vente XAF *"/>
+                        <input style={INPUT} type="number" value={newProdForm.costPrice} onChange={e => setNP('costPrice', e.target.value)} placeholder="Prix achat XAF"/>
+                        <input style={INPUT} type="number" value={newProdForm.stock} onChange={e => setNP('stock', e.target.value)} placeholder="Stock initial"/>
+                        <input style={INPUT} type="number" value={newProdForm.alertThreshold} onChange={e => setNP('alertThreshold', e.target.value)} placeholder="Seuil alerte"/>
+                        <select style={{ ...INPUT, background: '#fff' }} value={newProdForm.unit} onChange={e => setNP('unit', e.target.value)}>
+                          {['unité','kg','g','L','mL','pièce','boîte','sachet','bouteille'].map(u => <option key={u}>{u}</option>)}
+                        </select>
+                      </div>
+                      <button onClick={handleCreateProd} disabled={newProdLoading}
+                        style={{ ...BTN_PRIMARY, fontSize: 12, padding: '8px 16px', opacity: newProdLoading ? 0.7 : 1 }}>
+                        {newProdLoading ? 'Création…' : '✓ Créer le produit'}
                       </button>
                     </div>
-                  ))}
+                  )}
+
+                  {rows.map((row, i) => {
+                    const prod = products.find(p => p._id === row.productId);
+                    return (
+                      <div key={i} style={{ marginBottom: 10 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 36px', gap: 8, marginBottom: prod ? 4 : 0 }}>
+                          <select value={row.productId} onChange={e => setRow(i, 'productId', e.target.value)} style={{ ...INPUT, cursor: 'pointer' }}>
+                            <option value="">— Choisir un produit —</option>
+                            {products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+                          </select>
+                          <input type="number" min={1} value={row.quantity}
+                            onChange={e => setRow(i, 'quantity', parseInt(e.target.value) || 1)}
+                            style={{ ...INPUT, textAlign: 'right' }} placeholder="Qté"/>
+                          <button onClick={() => removeRow(i)} disabled={rows.length === 1}
+                            style={{ padding: '9px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <I d={D.trash} size={14}/>
+                          </button>
+                        </div>
+                        {prod && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 10px', background: 'var(--fs-ivory)', borderRadius: 6, fontSize: 11 }}>
+                            <span style={{ color: 'var(--fs-ink-400)' }}>Stock actuel : <strong style={{ color: prod.stock <= prod.alertThreshold ? 'var(--fs-danger-700)' : 'var(--fs-ink-700)' }}>{prod.stock} {prod.unit}</strong></span>
+                            <span style={{ color: 'var(--fs-ink-300)' }}>|</span>
+                            <span style={{ color: 'var(--fs-ink-400)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              Seuil :
+                              <input type="number" min={0} defaultValue={prod.alertThreshold}
+                                onBlur={e => {
+                                  const v = parseInt(e.target.value);
+                                  if (!isNaN(v) && v !== prod.alertThreshold) {
+                                    updateProduct(prod._id, { alertThreshold: v })
+                                      .then(loadProducts)
+                                      .catch(() => {});
+                                  }
+                                }}
+                                style={{ width: 48, padding: '2px 6px', border: '1px solid var(--fs-line-2)', borderRadius: 5, fontSize: 11, textAlign: 'center', fontFamily: 'var(--fs-font-mono)' }}
+                              />
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                   <button onClick={addRow} style={{ ...BTN_OUTLINE, display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
                     <I d={D.plus} size={13}/> Ajouter une ligne
                   </button>
@@ -399,6 +522,93 @@ export default function Magazinier() {
               )}
             </div>
           )}
+
+          {/* ════════════════════════════════════════════════════════════════
+              ONGLET 4 — TABLEAU DE BORD MAGAZINIER
+          ════════════════════════════════════════════════════════════════ */}
+          {tab === 'dashboard' && (() => {
+            const aCommander = products.filter(p => p.stock <= p.alertThreshold);
+            const enStock    = products.filter(p => p.stock > p.alertThreshold);
+            const TH: React.CSSProperties = { padding: '10px 14px', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' };
+
+            const fmtDateTime = (iso?: string) => {
+              if (!iso) return '—';
+              const d = new Date(iso);
+              return `${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+            };
+
+            const renderRow = (p: Product, i: number) => {
+              const low     = p.stock <= p.alertThreshold;
+              const lastRec = lastRecByProd[p._id];
+              return (
+                <tr key={p._id} style={{ borderBottom: '1px solid var(--fs-line)', background: low ? '#fef9f9' : i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
+                  <td style={{ padding: '10px 14px' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)', fontSize: 13 }}>{p.name}</div>
+                    <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 1 }}>{p.category ?? '—'} · {p.unit}</div>
+                  </td>
+                  <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                    <span style={{ fontWeight: 900, fontFamily: 'var(--fs-font-mono)', fontSize: 18, color: low ? '#dc2626' : '#16a34a' }}>{p.stock}</span>
+                    <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', display: 'block' }}>{p.unit}</span>
+                  </td>
+                  <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                    <span style={{ fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{p.alertThreshold}</span>
+                    <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', display: 'block' }}>{p.unit}</span>
+                  </td>
+                  <td style={{ padding: '10px 14px', fontSize: 11, color: 'var(--fs-ink-500)', whiteSpace: 'nowrap' }}>
+                    {fmtDateTime(lastRec)}
+                  </td>
+                  <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                    {low ? (
+                      <button onClick={() => commanderProduit(p)}
+                        style={{ padding: '6px 14px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                        <I d={D.truck} size={12}/> Commander
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ OK</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            };
+
+            return (
+              <div style={{ maxWidth: 800 }}>
+                {/* Résumé */}
+                <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'Total produits', val: products.length, color: 'var(--fs-ink-900)', bg: '#fff' },
+                    { label: 'En stock OK',    val: enStock.length,  color: '#16a34a',           bg: '#f0fdf4' },
+                    { label: 'À commander',   val: aCommander.length, color: aCommander.length > 0 ? '#dc2626' : 'var(--fs-ink-400)', bg: aCommander.length > 0 ? '#fef2f2' : '#fff' },
+                  ].map(s => (
+                    <div key={s.label} style={{ flex: 1, minWidth: 120, background: s.bg, border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px' }}>
+                      <div style={{ fontSize: 24, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: s.color }}>{s.val}</div>
+                      <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', fontWeight: 600, marginTop: 2 }}>{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Tableau */}
+                <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--fs-ivory)' }}>
+                        <th style={{ ...TH, textAlign: 'left' }}>Produit</th>
+                        <th style={{ ...TH, textAlign: 'center' }}>Quantité</th>
+                        <th style={{ ...TH, textAlign: 'center' }}>Seuil alerte</th>
+                        <th style={{ ...TH, textAlign: 'left' }}>Dernière réception</th>
+                        <th style={{ ...TH, textAlign: 'center' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {products.length === 0 ? (
+                        <tr><td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontStyle: 'italic' }}>Aucun produit enregistré</td></tr>
+                      ) : [...aCommander, ...enStock].map((p, i) => renderRow(p, i))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
 
         </div>
       </main>
