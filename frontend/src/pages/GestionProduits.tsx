@@ -29,6 +29,7 @@ interface FormState {
   name:           string;
   category:       string;
   unit:           string;
+  subCategory:    string;
   price:          string;
   costPrice:      string;
   stock:          string;
@@ -37,7 +38,7 @@ interface FormState {
 }
 
 const EMPTY_FORM: FormState = {
-  barcode: '', name: '', category: 'Alimentation',
+  barcode: '', name: '', category: 'Alimentation', subCategory: '',
   unit: 'pce', price: '', costPrice: '',
   stock: '0', alertThreshold: '5', expiryDate: '',
 };
@@ -74,6 +75,7 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
         barcode:        found.barcode ?? code,
         name:           found.name,
         category:       found.category ?? 'Alimentation',
+        subCategory:    found.subCategory ?? '',
         unit:           found.unit,
         price:          String(found.price),
         costPrice:      String(found.costPrice),
@@ -134,6 +136,7 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
       name:           form.name.trim(),
       barcode:        form.barcode.trim() || undefined,
       category:       finalCategory,
+      subCategory:    form.subCategory.trim() || undefined,
       unit:           form.unit,
       price,
       costPrice,
@@ -286,6 +289,19 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
                   {UNITS.map(u => <option key={u}>{u}</option>)}
                 </select>
               </div>
+            </div>
+
+            {/* Sous-catégorie */}
+            <div>
+              <label className="label-field">Sous-catégorie <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(optionnel)</span></label>
+              <input
+                type="text"
+                value={form.subCategory}
+                onChange={e => set('subCategory', e.target.value)}
+                onBlur={e => { const v = e.target.value.trim(); if (v) set('subCategory', v.charAt(0).toUpperCase() + v.slice(1)); }}
+                placeholder="ex: Parfum, Shampoing, Lait..."
+                className="input-field w-full"
+              />
             </div>
 
             {/* Prix achat + marge → prix vente */}

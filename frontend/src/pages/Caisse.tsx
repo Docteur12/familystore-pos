@@ -159,7 +159,10 @@ export default function Caisse() {
   const [scanError,      setScanError]      = useState<string | null>(null);
   const [validating,     setValidating]     = useState(false);
   const [retryLabel,     setRetryLabel]     = useState('');
-  const [heldTickets,    setHeldTickets]    = useState<HeldTicket[]>([]);
+  const [heldTickets,    setHeldTickets]    = useState<HeldTicket[]>(() => {
+    try { const s = localStorage.getItem('fs_held_tickets'); if (s) { localStorage.removeItem('fs_held_tickets'); return JSON.parse(s); } } catch {}
+    return [];
+  });
   const [showHeld,       setShowHeld]       = useState(false);
   const [paymentMethod,  setPaymentMethod]  = useState<PaymentMethod>('cash');
   const [amountPaid,     setAmountPaid]     = useState('');
@@ -296,24 +299,41 @@ export default function Caisse() {
   }, []);
 
   const addToCart = useCallback((product: Product) => {
+    if (product.stock === 0) {
+      addToast(`${product.name} — rupture de stock`, 'warning');
+      playBeep(false); return;
+    }
     setCart(prev => {
       const idx = prev.findIndex(i => i.product._id === product._id);
-      return idx !== -1
-        ? prev.map((i, n) => n === idx ? { ...i, quantity: i.quantity + 1 } : i)
-        : [...prev, { product, quantity: 1 }];
+      if (idx !== -1) {
+        const cur = prev[idx].quantity;
+        if (cur >= product.stock) {
+          setTimeout(() => addToast(`Stock max atteint — ${product.stock} disponible${product.stock > 1 ? 's' : ''}`, 'warning'), 0);
+          return prev;
+        }
+        return prev.map((i, n) => n === idx ? { ...i, quantity: cur + 1 } : i);
+      }
+      return [...prev, { product, quantity: 1 }];
     });
     setSearchQuery('');
     setScanError(null);
     playBeep(true);
     vibrate(40);
     flashAdded(product._id);
-  }, [flashAdded]);
+  }, [flashAdded, addToast]);
 
   const changeQty = useCallback((id: string, delta: number) =>
-    setCart(prev =>
-      prev.map(i => i.product._id === id ? { ...i, quantity: i.quantity + delta } : i)
-          .filter(i => i.quantity > 0)
-    ), []);
+    setCart(prev => {
+      if (delta > 0) {
+        const item = prev.find(i => i.product._id === id);
+        if (item && item.quantity >= item.product.stock) {
+          setTimeout(() => addToast(`Stock max atteint — ${item.product.stock} disponible${item.product.stock > 1 ? 's' : ''}`, 'warning'), 0);
+          return prev;
+        }
+      }
+      return prev.map(i => i.product._id === id ? { ...i, quantity: i.quantity + delta } : i)
+                 .filter(i => i.quantity > 0);
+    }), [addToast]);
 
   const removeItem = useCallback((id: string) =>
     setCart(prev => prev.filter(i => i.product._id !== id)), []);
@@ -549,7 +569,21 @@ export default function Caisse() {
 
         } else if (kind === 'stock') {
           nonRetryable = true;
-          addToast(msg, 'error');
+          // Auto-réduction : parse "disponible N" et "pour "Nom""
+          const availMatch = msg.match(/disponible[^\d]*(\d+)/i);
+          const nameMatch  = msg.match(/pour\s+"([^"]+)"/i) ?? msg.match(/pour\s+'([^']+)'/i);
+          if (availMatch && nameMatch) {
+            const available   = parseInt(availMatch[1]);
+            const productName = nameMatch[1];
+            setCart(prev => prev
+              .map(i => i.product.name === productName && i.quantity > available
+                ? { ...i, quantity: available }
+                : i)
+              .filter(i => i.quantity > 0));
+            addToast(`Quantité réduite à ${available} pour "${productName}" — vérifiez le ticket`, 'warning');
+          } else {
+            addToast(msg, 'error');
+          }
 
         } else if (attempt < MAX_RETRIES - 1) {
           // Erreur récupérable → on informe et on réessaie
@@ -684,7 +718,21 @@ export default function Caisse() {
             </div>
             <div style={{ padding: '18px 22px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <button
-                onClick={() => { handleHold(); setShowLogoutModal(false); if (sessionId) closeSession(sessionId); localStorage.removeItem('access_token'); window.location.href = '/login'; }}
+                onClick={() => {
+                  // Sauvegarder le ticket dans localStorage AVANT la redirection
+                  const held: HeldTicket = {
+                    id: Date.now().toString(),
+                    ticketNo,
+                    time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                    cart: [...cart],
+                    total,
+                  };
+                  try { localStorage.setItem('fs_held_tickets', JSON.stringify([...heldTickets, held])); } catch {}
+                  setShowLogoutModal(false);
+                  if (sessionId) closeSession(sessionId);
+                  localStorage.removeItem('access_token');
+                  window.location.href = '/login';
+                }}
                 style={{ padding: '11px 0', borderRadius: 10, border: '2px solid var(--fs-wine-700)', background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
               >
                 Mettre en attente &amp; se déconnecter
@@ -1601,7 +1649,7 @@ const ProductCard = memo(function ProductCard({
           fontSize: 12, color: 'var(--fs-ink-500)', margin: '0 0 7px',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {product.category ?? 'Autre'} · {product.unit}
+          {product.category ?? 'Autre'}{product.subCategory ? ` › ${product.subCategory}` : ''} · {product.unit}
         </p>
         <p style={{ margin: 0, fontFamily: 'var(--fs-font-mono)' }}>
           {(product.discount ?? 0) > 0 && (

@@ -43,6 +43,10 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsString()
+  subCategory?: string;
+
+  @IsOptional()
+  @IsString()
   unit?: string;
 
   @IsOptional()

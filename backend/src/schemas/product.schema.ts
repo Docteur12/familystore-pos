@@ -26,6 +26,9 @@ export class Product {
   @Prop({ trim: true })
   category: string;
 
+  @Prop({ trim: true, default: '' })
+  subCategory: string;
+
   @Prop({ default: 'pce', trim: true })
   unit: string;
 

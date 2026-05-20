@@ -181,13 +181,13 @@ interface Props {
 }
 
 type FormState = {
-  name: string; barcode: string; category: string; unit: string;
+  name: string; barcode: string; category: string; subCategory: string; unit: string;
   price: string; costPrice: string; stock: string; alertThreshold: string;
   discount: string; expiryDate: string;
 };
 
 const INITIAL_FORM: FormState = {
-  name: '', barcode: '', category: '', unit: 'unité',
+  name: '', barcode: '', category: '', subCategory: '', unit: 'unité',
   price: '', costPrice: '', stock: '', alertThreshold: '', discount: '0', expiryDate: '',
 };
 
@@ -205,6 +205,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     alertThreshold: String(product.alertThreshold),
     discount:       String(product.discount ?? 0),
     expiryDate:     product.expiryDate ? product.expiryDate.slice(0, 10) : '',
+    subCategory:    product.subCategory ?? '',
   } : INITIAL_FORM);
   const [loading,         setLoading]         = useState(false);
   const [error,           setError]           = useState('');
@@ -225,6 +226,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
         name:           found.name,
         barcode:        found.barcode ?? code,
         category:       found.category ?? '',
+        subCategory:    found.subCategory ?? '',
         unit:           found.unit,
         price:          String(found.price),
         costPrice:      String(found.costPrice),
@@ -290,6 +292,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
       alertThreshold: parseInt(form.alertThreshold) || 5,
       discount:       Math.min(100, Math.max(0, parseFloat(form.discount) || 0)),
       expiryDate:     form.expiryDate || null,
+      subCategory:    form.subCategory.trim() || undefined,
     };
     try {
       if (product || foundProduct) {
@@ -392,6 +395,17 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
                   </button>
                 </div>
               )}
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Sous-catégorie <span style={{ fontWeight: 400, textTransform: 'none' }}>(optionnel)</span></label>
+              <input
+                type="text"
+                value={form.subCategory}
+                onChange={e => setField('subCategory')(e.target.value)}
+                onBlur={e => { const v = e.target.value.trim(); if (v) setField('subCategory')(v.charAt(0).toUpperCase() + v.slice(1)); }}
+                placeholder="ex: Parfum, Shampoing, Lait…"
+                style={{ ...INPUT_STYLE }}
+              />
             </div>
             <div>
               <label style={LABEL_STYLE}>Unité</label>

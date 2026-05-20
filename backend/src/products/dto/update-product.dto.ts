@@ -36,6 +36,10 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsString()
+  subCategory?: string;
+
+  @IsOptional()
+  @IsString()
   unit?: string;
 
   @IsOptional()

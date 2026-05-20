@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { getSettings, SETTINGS_DEFAULTS, StoreSettings } from '../api/settings';
+import { getSettings, SETTINGS_DEFAULTS, StoreSettings, applyPrimaryColor } from '../api/settings';
 
 interface SettingsCtx {
   settings: StoreSettings;
@@ -15,7 +15,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<StoreSettings>(SETTINGS_DEFAULTS);
 
   const load = useCallback(() => {
-    getSettings().then(s => setSettings(s)).catch(() => {});
+    getSettings().then(s => {
+      setSettings(s);
+      if (s.couleurPrincipale) applyPrimaryColor(s.couleurPrincipale);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => { load(); }, [load]);

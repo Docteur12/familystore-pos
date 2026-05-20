@@ -3,7 +3,7 @@ import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import { updateUser } from '../api/auth';
 import { getTokenPayload } from '../api/dashboard';
-import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings } from '../api/settings';
+import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings, applyPrimaryColor } from '../api/settings';
 import { useSettings } from '../contexts/SettingsContext';
 import { getPendingSales, getLastSyncTime, syncPendingSales } from '../services/offlineSync';
 import { getPrintSettings, savePrintSettings, PrintSettings } from '../components/ReceiptPrint';
@@ -90,23 +90,25 @@ interface SForm {
   facebook: string;
   whatsapp: string;
   langue: string;
+  couleurPrincipale: string;
 }
 
 function toSForm(s: StoreSettings): SForm {
   return {
-    nomMagasin: s.nomMagasin,
-    adresse:    s.adresse,
-    ville:      s.ville,
-    telephone:  s.telephone,
-    email:      s.email,
-    tva:        String(s.tva),
-    devise:     s.devise,
-    logoUrl:    s.logoUrl,
-    ouverture:  s.horaires?.ouverture ?? '08:00',
-    fermeture:  s.horaires?.fermeture ?? '20:00',
-    facebook:   s.reseauxSociaux?.facebook ?? '',
-    whatsapp:   s.reseauxSociaux?.whatsapp ?? '',
-    langue:     s.langue ?? 'fr',
+    nomMagasin:        s.nomMagasin,
+    adresse:           s.adresse,
+    ville:             s.ville,
+    telephone:         s.telephone,
+    email:             s.email,
+    tva:               String(s.tva),
+    devise:            s.devise,
+    logoUrl:           s.logoUrl,
+    ouverture:         s.horaires?.ouverture ?? '08:00',
+    fermeture:         s.horaires?.fermeture ?? '20:00',
+    facebook:          s.reseauxSociaux?.facebook ?? '',
+    whatsapp:          s.reseauxSociaux?.whatsapp ?? '',
+    langue:            s.langue ?? 'fr',
+    couleurPrincipale: s.couleurPrincipale ?? '#7A1D2E',
   };
 }
 
@@ -121,8 +123,9 @@ function fromSForm(f: SForm): Partial<StoreSettings> {
     devise:     f.devise.trim() || 'XAF',
     logoUrl:    f.logoUrl,
     horaires:   { ouverture: f.ouverture, fermeture: f.fermeture },
-    reseauxSociaux: { facebook: f.facebook.trim(), whatsapp: f.whatsapp.trim() },
-    langue:     f.langue,
+    reseauxSociaux:    { facebook: f.facebook.trim(), whatsapp: f.whatsapp.trim() },
+    langue:            f.langue,
+    couleurPrincipale: f.couleurPrincipale || '#7A1D2E',
   };
 }
 
@@ -316,6 +319,46 @@ export default function AdminParametres() {
                 )}
                 <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '4px 0 0' }}>PNG, JPG · max 500 Ko · stocké en base64</p>
               </div>
+            </div>
+          </div>
+
+          {/* ── Couleur principale ───────────────────────────────────────── */}
+          <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
+            <p style={SECTION_TITLE}>Couleur de la boutique</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <div style={{ width: 52, height: 52, borderRadius: 10, background: form.couleurPrincipale || 'var(--fs-wine-700)', border: '2px solid var(--fs-line-2)', overflow: 'hidden', cursor: 'pointer' }}>
+                  <input
+                    type="color"
+                    value={form.couleurPrincipale || '#7A1D2E'}
+                    onChange={e => {
+                      mkChange('couleurPrincipale')(e.target.value);
+                      if (typeof applyPrimaryColor === 'function') applyPrimaryColor(e.target.value);
+                    }}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                  />
+                </div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={LABEL_STYLE}>Code couleur hex</label>
+                <input
+                  type="text"
+                  value={form.couleurPrincipale || '#7A1D2E'}
+                  onChange={e => {
+                    mkChange('couleurPrincipale')(e.target.value);
+                    if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value) && typeof applyPrimaryColor === 'function') applyPrimaryColor(e.target.value);
+                  }}
+                  placeholder="#7A1D2E"
+                  style={{ ...INPUT_STYLE, fontFamily: 'var(--fs-font-mono)', width: 130 }}
+                />
+                <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '6px 0 0' }}>
+                  S'applique sur toute l'interface — boutons, sidebar, en-têtes.
+                </p>
+              </div>
+              <button onClick={() => { mkChange('couleurPrincipale')('#7A1D2E'); if (typeof applyPrimaryColor === 'function') applyPrimaryColor('#7A1D2E'); }}
+                style={{ padding: '7px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)' }}>
+                Défaut
+              </button>
             </div>
           </div>
 

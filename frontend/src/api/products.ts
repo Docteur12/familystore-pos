@@ -7,6 +7,7 @@ export interface Product {
   stock:          number;
   alertThreshold: number;
   category?:      string;
+  subCategory?:   string;
   unit:           string;
   discount?:      number;
   expiryDate?:           string | null;
@@ -112,6 +113,7 @@ export interface ProductPayload {
   stock:          number;
   alertThreshold: number;
   category?:      string;
+  subCategory?:   string;
   unit:           string;
   discount?:      number;
   expiryDate?:           string | null;

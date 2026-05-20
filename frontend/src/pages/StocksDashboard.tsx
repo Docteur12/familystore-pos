@@ -53,6 +53,7 @@ export default function StocksDashboard() {
   const [demandeModal, setDemandeModal] = useState<{ product: Product } | null>(null);
   const [demandeQty,   setDemandeQty]   = useState('');
   const [dSending,     setDSending]     = useState(false);
+  const [alertPanel,   setAlertPanel]   = useState<'stock' | 'expiry' | null>(null);
 
   const handleDemander = useCallback(async () => {
     if (!demandeModal) return;
@@ -83,6 +84,8 @@ export default function StocksDashboard() {
   const lowCount     = products.filter(p => p.stock <= p.alertThreshold).length;
   const stockValue   = products.reduce((s, p) => s + p.stock * p.costPrice, 0);
   const ruptureCount = products.filter(p => p.stock === 0).length;
+  const in6months    = new Date(); in6months.setMonth(in6months.getMonth() + 6);
+  const expiryProds  = products.filter(p => p.expiryDate && new Date(p.expiryDate) <= in6months).sort((a, b) => new Date(a.expiryDate!).getTime() - new Date(b.expiryDate!).getTime());
 
   const todayReceptions = (() => {
     try {
@@ -98,10 +101,10 @@ export default function StocksDashboard() {
     .slice(0, 5);
 
   const kpis = [
-    { label: 'Références',      value: products.length,  sub: 'produits actifs',          icon: D.pkg,     accent: false },
-    { label: 'Valeur du stock', value: fmtN(stockValue), sub: 'XAF coût achat',            icon: D.receipt, accent: true  },
-    { label: 'Stock faible',    value: lowCount,         sub: `dont ${ruptureCount} ruptures`, icon: D.bell, accent: false },
-    { label: 'Réceptions/jour', value: todayReceptions,  sub: 'bons reçus aujourd\'hui',   icon: D.truck,   accent: false },
+    { label: 'Références',      value: products.length,   sub: 'produits actifs',              icon: D.pkg,     accent: false, panel: null as 'stock'|'expiry'|null },
+    { label: 'Valeur du stock', value: fmtN(stockValue),  sub: 'XAF coût achat',               icon: D.receipt, accent: true,  panel: null as 'stock'|'expiry'|null },
+    { label: 'Stock faible',    value: lowCount,           sub: `dont ${ruptureCount} ruptures`, icon: D.bell,    accent: false, panel: 'stock' as 'stock'|'expiry'|null, link: true },
+    { label: 'Péremption < 6 mois', value: expiryProds.length, sub: expiryProds.length > 0 ? 'À surveiller' : 'Aucun', icon: D.bell, accent: false, panel: 'expiry' as 'stock'|'expiry'|null, link: expiryProds.length > 0 },
   ];
 
   return (
@@ -166,18 +169,73 @@ export default function StocksDashboard() {
           {/* KPI Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {kpis.map(kpi => (
-              <div key={kpi.label} style={{ background: '#fff', border: `1px solid ${kpi.accent ? 'rgba(122,29,46,0.2)' : 'var(--fs-line)'}`, borderRadius: 12, padding: '16px 18px', boxShadow: 'var(--fs-shadow-sm)' }}>
+              <div key={kpi.label}
+                onClick={() => kpi.panel && setAlertPanel(alertPanel === kpi.panel ? null : kpi.panel)}
+                style={{
+                  background: '#fff',
+                  border: `1px solid ${alertPanel === kpi.panel ? 'var(--fs-wine-700)' : kpi.accent ? 'rgba(122,29,46,0.2)' : 'var(--fs-line)'}`,
+                  borderRadius: 12, padding: '16px 18px',
+                  cursor: kpi.panel ? 'pointer' : 'default',
+                  boxShadow: alertPanel === kpi.panel ? '0 0 0 3px rgba(122,29,46,0.1)' : 'var(--fs-shadow-sm)',
+                }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{kpi.label}</span>
-                  <span style={{ color: kpi.accent ? 'var(--fs-wine-700)' : 'var(--fs-ink-300)' }}><I d={kpi.icon} size={14}/></span>
+                  <span style={{ color: kpi.panel ? 'var(--fs-wine-700)' : kpi.accent ? 'var(--fs-wine-700)' : 'var(--fs-ink-300)' }}><I d={kpi.icon} size={14}/></span>
                 </div>
                 <div style={{ fontSize: 28, fontWeight: 800, color: kpi.accent ? 'var(--fs-wine-700)' : 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-mono)', lineHeight: 1 }}>
                   {kpi.value}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 5 }}>{kpi.sub}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 5 }}>
+                  <span style={{ fontSize: 11, color: (kpi as any).link && Number(kpi.value) > 0 ? 'var(--fs-danger-700)' : 'var(--fs-ink-400)' }}>{kpi.sub}</span>
+                  {kpi.panel && <span style={{ fontSize: 10, color: 'var(--fs-wine-700)', fontWeight: 600 }}>{alertPanel === kpi.panel ? '▲' : '▼'}</span>}
+                </div>
               </div>
             ))}
           </div>
+
+          {/* Panneau produits à surveiller */}
+          {alertPanel && (
+            <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
+                  {alertPanel === 'stock' ? `⚠ Produits sous le seuil d'alerte (${lowCount})` : `📅 Produits expirant dans moins de 6 mois (${expiryProds.length})`}
+                </p>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={() => navigate(alertPanel === 'stock' ? '/stocks/alertes' : '/stocks')}
+                    style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-wine-700)', background: 'none', border: '1px solid var(--fs-wine-700)', padding: '4px 12px', borderRadius: 7, cursor: 'pointer' }}>
+                    Voir tout →
+                  </button>
+                  <button onClick={() => setAlertPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', fontSize: 16 }}>✕</button>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
+                {(alertPanel === 'stock' ? lowProducts : expiryProds.slice(0, 10)).map(p => {
+                  const daysLeft = p.expiryDate ? Math.ceil((new Date(p.expiryDate).getTime() - Date.now()) / 86400000) : null;
+                  return (
+                    <div key={p._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--fs-ivory)', borderRadius: 9, border: '1px solid var(--fs-line)' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
+                          {alertPanel === 'stock'
+                            ? `Stock : ${p.stock} / Seuil : ${p.alertThreshold} ${p.unit}`
+                            : daysLeft !== null
+                              ? daysLeft < 0 ? '🔴 Expiré' : `⏱ ${daysLeft} j restants (${new Date(p.expiryDate!).toLocaleDateString('fr-FR')})`
+                              : '—'
+                          }
+                        </div>
+                      </div>
+                      {alertPanel === 'stock' && (
+                        <button onClick={() => { setDemandeModal({ product: p }); setDemandeQty(''); }}
+                          style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', background: '#FEF0E0', color: '#92400e', border: '1px solid #FCD34D', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}>
+                          + Demander
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Chart + Shortcuts */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: 14 }}>

@@ -629,7 +629,7 @@ export default function AdminRapports() {
           {comparisons && (
             <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Comparaisons de périodes</div>
-              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 16 }}>Semaine · Mois · Année — vs période précédente</div>
+              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 16 }}>Semaine · Mois · Année — CA, Tickets (nb, montant MIN/MAX/MOY) vs période précédente</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {([
                   { label: 'Semaine en cours', curr: comparisons.week,  prev: comparisons.prevWeek,  icon: '📅' },
@@ -637,11 +637,11 @@ export default function AdminRapports() {
                   { label: 'Année en cours',   curr: comparisons.year,  prev: comparisons.prevYear,  icon: '📆' },
                 ] as const).map(({ label, curr, prev, icon }) => {
                   const metrics = [
-                    { name: 'CA', curr: curr.ca, prev: prev.ca, fmt: (v: number) => `${fmtN(v)} XAF` },
-                    { name: 'Tickets', curr: curr.nb, prev: prev.nb, fmt: (v: number) => String(v) },
-                    { name: 'MIN',  curr: curr.min, prev: prev.min, fmt: (v: number) => `${fmtN(v)} XAF` },
-                    { name: 'MAX',  curr: curr.max, prev: prev.max, fmt: (v: number) => `${fmtN(v)} XAF` },
-                    { name: 'Moy.', curr: curr.avg, prev: prev.avg, fmt: (v: number) => `${fmtN(v)} XAF` },
+                    { name: 'CA Total',    curr: curr.ca,  prev: prev.ca,  fmt: (v: number) => `${fmtN(v)} XAF` },
+                    { name: 'Nb Tickets',  curr: curr.nb,  prev: prev.nb,  fmt: (v: number) => String(v) },
+                    { name: 'MIN Ticket',  curr: curr.min, prev: prev.min, fmt: (v: number) => `${fmtN(v)} XAF` },
+                    { name: 'MAX Ticket',  curr: curr.max, prev: prev.max, fmt: (v: number) => `${fmtN(v)} XAF` },
+                    { name: 'MOY Ticket',  curr: curr.avg, prev: prev.avg, fmt: (v: number) => `${fmtN(v)} XAF` },
                   ];
                   return (
                     <div key={label} style={{ border: '1px solid var(--fs-line)', borderRadius: 10, overflow: 'hidden' }}>
