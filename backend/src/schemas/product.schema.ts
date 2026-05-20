@@ -34,6 +34,9 @@ export class Product {
 
   @Prop({ default: null })
   expiryDate: Date | null;
+
+  @Prop({ default: 0, min: 0 })
+  magazinierThreshold: number;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

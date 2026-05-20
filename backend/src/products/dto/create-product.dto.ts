@@ -54,4 +54,9 @@ export class CreateProductDto {
   @IsOptional()
   @IsDateString()
   expiryDate?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  magazinierThreshold?: number;
 }

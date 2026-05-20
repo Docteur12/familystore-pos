@@ -86,6 +86,15 @@ function RequireAuthBare({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RequireRole({ role, children }: { role: string | string[]; children: React.ReactNode }) {
+  const token   = localStorage.getItem('access_token');
+  if (!token) return <Navigate to="/login" replace />;
+  const payload = getTokenPayload();
+  const roles   = Array.isArray(role) ? role : [role];
+  if (!payload || !roles.includes(payload.role)) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 function HomeRedirect() {
   const payload = getTokenPayload();
   const role = payload?.role;
@@ -135,7 +144,7 @@ export default function App() {
         <Route path="/admin/sessions"      element={<RequireAuthBare><AdminSessions /></RequireAuthBare>} />
         <Route path="/admin/magaziniers"   element={<RequireAuthBare><AdminMagaziniers /></RequireAuthBare>} />
         <Route path="/admin/caisses"       element={<RequireAuthBare><AdminCaisses /></RequireAuthBare>} />
-        <Route path="/magazinier"          element={<RequireAuthBare><Magazinier /></RequireAuthBare>} />
+        <Route path="/magazinier"          element={<RequireRole role={['magazinier','patron']}><Magazinier /></RequireRole>} />
       </Routes>
     </BrowserRouter>
     </SettingsProvider>

@@ -88,26 +88,26 @@ export default function Magazinier() {
   }, []);
 
   // ── Nouveau produit inline ────────────────────────────────────────────────
-  const [showNewProd,  setShowNewProd]  = useState(false);
-  const [newProdForm,  setNewProdForm]  = useState({ name: '', price: '', costPrice: '', stock: '', alertThreshold: '5', unit: 'unité' });
+  const [showNewProd,    setShowNewProd]    = useState(false);
+  const [newProdName,    setNewProdName]    = useState('');
+  const [newProdQty,     setNewProdQty]     = useState('');
   const [newProdLoading, setNewProdLoading] = useState(false);
-  const setNP = (k: keyof typeof newProdForm, v: string) => setNewProdForm(p => ({ ...p, [k]: v }));
 
   const handleCreateProd = async () => {
-    if (!newProdForm.name || !newProdForm.price) { addToast('Nom et prix requis', 'error'); return; }
+    if (!newProdName.trim()) { addToast('Le nom du produit est requis', 'error'); return; }
     setNewProdLoading(true);
     try {
       await createProduct({
-        name:           newProdForm.name.trim(),
-        price:          parseFloat(newProdForm.price) || 0,
-        costPrice:      parseFloat(newProdForm.costPrice) || 0,
-        stock:          parseInt(newProdForm.stock) || 0,
-        alertThreshold: parseInt(newProdForm.alertThreshold) || 5,
-        unit:           newProdForm.unit,
+        name:           newProdName.trim().charAt(0).toUpperCase() + newProdName.trim().slice(1),
+        price:          0,
+        costPrice:      0,
+        stock:          parseInt(newProdQty) || 0,
+        alertThreshold: 5,
+        unit:           'unité',
       });
       await loadProducts();
       setShowNewProd(false);
-      setNewProdForm({ name: '', price: '', costPrice: '', stock: '', alertThreshold: '5', unit: 'unité' });
+      setNewProdName(''); setNewProdQty('');
       addToast('Produit créé ✓', 'success');
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
     finally { setNewProdLoading(false); }
@@ -339,19 +339,26 @@ export default function Magazinier() {
                   {/* Mini formulaire nouveau produit */}
                   {showNewProd && (
                     <div style={{ background: '#f8faf7', border: '1.5px solid #86efac', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px' }}>Créer un nouveau produit</p>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                        <div style={{ gridColumn: '1/-1' }}>
-                          <input style={INPUT} value={newProdForm.name} onChange={e => setNP('name', e.target.value)} placeholder="Nom du produit *"/>
-                        </div>
-                        <input style={INPUT} type="number" value={newProdForm.price} onChange={e => setNP('price', e.target.value)} placeholder="Prix vente XAF *"/>
-                        <input style={INPUT} type="number" value={newProdForm.costPrice} onChange={e => setNP('costPrice', e.target.value)} placeholder="Prix achat XAF"/>
-                        <input style={INPUT} type="number" value={newProdForm.stock} onChange={e => setNP('stock', e.target.value)} placeholder="Stock initial"/>
-                        <input style={INPUT} type="number" value={newProdForm.alertThreshold} onChange={e => setNP('alertThreshold', e.target.value)} placeholder="Seuil alerte"/>
-                        <select style={{ ...INPUT, background: '#fff' }} value={newProdForm.unit} onChange={e => setNP('unit', e.target.value)}>
-                          {['unité','kg','g','L','mL','pièce','boîte','sachet','bouteille'].map(u => <option key={u}>{u}</option>)}
-                        </select>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px' }}>Nouveau produit</p>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 8, marginBottom: 10 }}>
+                        <input
+                          style={INPUT}
+                          value={newProdName}
+                          onChange={e => setNewProdName(e.target.value)}
+                          placeholder="Nom du produit *"
+                          autoFocus
+                        />
+                        <input
+                          style={{ ...INPUT, textAlign: 'center' }}
+                          type="number" min={0}
+                          value={newProdQty}
+                          onChange={e => setNewProdQty(e.target.value)}
+                          placeholder="Quantité"
+                        />
                       </div>
+                      <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: '0 0 10px' }}>
+                        Le prix et les autres détails seront complétés par l'administrateur.
+                      </p>
                       <button onClick={handleCreateProd} disabled={newProdLoading}
                         style={{ ...BTN_PRIMARY, fontSize: 12, padding: '8px 16px', opacity: newProdLoading ? 0.7 : 1 }}>
                         {newProdLoading ? 'Création…' : '✓ Créer le produit'}
@@ -526,89 +533,70 @@ export default function Magazinier() {
           {/* ════════════════════════════════════════════════════════════════
               ONGLET 4 — TABLEAU DE BORD MAGAZINIER
           ════════════════════════════════════════════════════════════════ */}
-          {tab === 'dashboard' && (() => {
-            const aCommander = products.filter(p => p.stock <= p.alertThreshold);
-            const enStock    = products.filter(p => p.stock > p.alertThreshold);
-            const TH: React.CSSProperties = { padding: '10px 14px', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' };
-
-            const fmtDateTime = (iso?: string) => {
-              if (!iso) return '—';
-              const d = new Date(iso);
-              return `${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
-            };
-
-            const renderRow = (p: Product, i: number) => {
-              const low     = p.stock <= p.alertThreshold;
-              const lastRec = lastRecByProd[p._id];
-              return (
-                <tr key={p._id} style={{ borderBottom: '1px solid var(--fs-line)', background: low ? '#fef9f9' : i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
-                  <td style={{ padding: '10px 14px' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)', fontSize: 13 }}>{p.name}</div>
-                    <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 1 }}>{p.category ?? '—'} · {p.unit}</div>
-                  </td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                    <span style={{ fontWeight: 900, fontFamily: 'var(--fs-font-mono)', fontSize: 18, color: low ? '#dc2626' : '#16a34a' }}>{p.stock}</span>
-                    <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', display: 'block' }}>{p.unit}</span>
-                  </td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                    <span style={{ fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{p.alertThreshold}</span>
-                    <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', display: 'block' }}>{p.unit}</span>
-                  </td>
-                  <td style={{ padding: '10px 14px', fontSize: 11, color: 'var(--fs-ink-500)', whiteSpace: 'nowrap' }}>
-                    {fmtDateTime(lastRec)}
-                  </td>
-                  <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                    {low ? (
-                      <button onClick={() => commanderProduit(p)}
-                        style={{ padding: '6px 14px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                        <I d={D.truck} size={12}/> Commander
-                      </button>
-                    ) : (
-                      <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ OK</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            };
-
-            return (
-              <div style={{ maxWidth: 800 }}>
-                {/* Résumé */}
-                <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-                  {[
-                    { label: 'Total produits', val: products.length, color: 'var(--fs-ink-900)', bg: '#fff' },
-                    { label: 'En stock OK',    val: enStock.length,  color: '#16a34a',           bg: '#f0fdf4' },
-                    { label: 'À commander',   val: aCommander.length, color: aCommander.length > 0 ? '#dc2626' : 'var(--fs-ink-400)', bg: aCommander.length > 0 ? '#fef2f2' : '#fff' },
-                  ].map(s => (
-                    <div key={s.label} style={{ flex: 1, minWidth: 120, background: s.bg, border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px' }}>
-                      <div style={{ fontSize: 24, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: s.color }}>{s.val}</div>
-                      <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', fontWeight: 600, marginTop: 2 }}>{s.label}</div>
-                    </div>
-                  ))}
+          {tab === 'dashboard' && (
+            <div style={{ maxWidth: 600 }}>
+              <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+                <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--fs-line)' }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>
+                    Mes produits — {products.length} référence{products.length !== 1 ? 's' : ''}
+                  </p>
                 </div>
-
-                {/* Tableau */}
-                <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                    <thead>
-                      <tr style={{ background: 'var(--fs-ivory)' }}>
-                        <th style={{ ...TH, textAlign: 'left' }}>Produit</th>
-                        <th style={{ ...TH, textAlign: 'center' }}>Quantité</th>
-                        <th style={{ ...TH, textAlign: 'center' }}>Seuil alerte</th>
-                        <th style={{ ...TH, textAlign: 'left' }}>Dernière réception</th>
-                        <th style={{ ...TH, textAlign: 'center' }}>Action</th>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--fs-ivory)' }}>
+                      {['Produit', 'Quantité', 'Seuil commande'].map((h, i) => (
+                        <th key={h} style={{ padding: '10px 16px', textAlign: i === 0 ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' }}>
+                          {h}
+                          {h === 'Seuil commande' && <div style={{ fontWeight: 400, textTransform: 'none', fontSize: 9, letterSpacing: 0, marginTop: 1 }}>Cliquer pour modifier</div>}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {products.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontStyle: 'italic' }}>
+                          Aucun produit enregistré
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {products.length === 0 ? (
-                        <tr><td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontStyle: 'italic' }}>Aucun produit enregistré</td></tr>
-                      ) : [...aCommander, ...enStock].map((p, i) => renderRow(p, i))}
-                    </tbody>
-                  </table>
-                </div>
+                    ) : products.map((p, i) => {
+                      const seuil = p.magazinierThreshold ?? 0;
+                      const bas   = seuil > 0 && p.stock <= seuil;
+                      return (
+                        <tr key={p._id} style={{ borderBottom: '1px solid var(--fs-line)', background: bas ? '#fef9f9' : i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
+                          <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--fs-ink-900)' }}>
+                            {p.name}
+                            {bas && <span style={{ marginLeft: 8, fontSize: 10, background: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>À commander</span>}
+                            {p.category && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--fs-ink-400)', fontWeight: 400 }}>{p.category}</span>}
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 800, fontSize: 16, fontFamily: 'var(--fs-font-mono)', color: bas ? '#dc2626' : 'var(--fs-wine-700)' }}>
+                            {p.stock} <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--fs-ink-400)' }}>{p.unit}</span>
+                          </td>
+                          <td style={{ padding: '8px 16px', textAlign: 'center' }}>
+                            <input
+                              type="number" min={0}
+                              defaultValue={seuil}
+                              placeholder="0"
+                              onBlur={e => {
+                                const v = parseInt(e.target.value) || 0;
+                                if (v !== seuil) {
+                                  updateProduct(p._id, { magazinierThreshold: v })
+                                    .then(loadProducts)
+                                    .catch(() => addToast('Erreur mise à jour seuil', 'error'));
+                                }
+                              }}
+                              style={{ width: 64, padding: '5px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, fontSize: 13, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: seuil > 0 ? 'var(--fs-ink-800)' : 'var(--fs-ink-300)', background: seuil > 0 ? '#fff' : 'var(--fs-ivory)' }}
+                            />
+                            <div style={{ fontSize: 9, color: 'var(--fs-ink-300)', marginTop: 2 }}>{p.unit}</div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            );
-          })()}
+            </div>
+          )}
 
         </div>
       </main>

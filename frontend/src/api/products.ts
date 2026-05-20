@@ -9,7 +9,8 @@ export interface Product {
   category?:      string;
   unit:           string;
   discount?:      number;
-  expiryDate?:    string | null;
+  expiryDate?:           string | null;
+  magazinierThreshold?:  number;
 }
 
 export function effectivePrice(p: Product): number {
@@ -113,7 +114,8 @@ export interface ProductPayload {
   category?:      string;
   unit:           string;
   discount?:      number;
-  expiryDate?:    string | null;
+  expiryDate?:           string | null;
+  magazinierThreshold?:  number;
 }
 
 export async function createProduct(data: ProductPayload): Promise<Product> {
