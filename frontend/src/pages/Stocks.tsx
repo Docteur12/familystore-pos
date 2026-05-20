@@ -125,17 +125,22 @@ const D = {
 
 // ── Metric card ───────────────────────────────────────────────────────────────
 
-function MetricCard({ title, value, sub, subColor, icon, accent }:
-  { title: string; value: string | number; sub?: string; subColor?: string; icon?: string; accent?: boolean }) {
+function MetricCard({ title, value, sub, subColor, icon, accent, onClick }:
+  { title: string; value: string | number; sub?: string; subColor?: string; icon?: string; accent?: boolean; onClick?: () => void }) {
   return (
-    <div style={{
+    <div onClick={onClick} style={{
       flex: 1, background: '#fff',
       border: '1px solid var(--fs-line)',
       borderRadius: 'var(--fs-r-md)',
       padding: '14px 18px',
       boxShadow: 'var(--fs-shadow-sm)',
       minWidth: 0,
-    }}>
+      cursor: onClick ? 'pointer' : 'default',
+      transition: 'border-color 0.15s',
+    }}
+    onMouseEnter={onClick ? e => (e.currentTarget.style.borderColor = 'var(--fs-wine-700)') : undefined}
+    onMouseLeave={onClick ? e => (e.currentTarget.style.borderColor = 'var(--fs-line)') : undefined}
+    >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
           {title}
@@ -649,8 +654,8 @@ export default function Stocks() {
         <div style={{ display: 'flex', gap: 14, padding: '16px 24px', flexShrink: 0 }}>
           <MetricCard title="Références actives" value={products.length} sub="+12" subColor="var(--fs-success-700)" icon={D.pkg}/>
           <MetricCard title="Valeur du stock" value={`${fmtN(stockValue)} XAF`} sub="+6,2 %" subColor="var(--fs-success-700)" icon={D.export} accent/>
-          <MetricCard title="Stock faible" value={lowCount} sub={lowCount > 0 ? `${lowCount} à réapprovisionner` : 'Tout est OK'} subColor={lowCount > 0 ? 'var(--fs-warning-700)' : undefined} icon={D.alertes}/>
-          <MetricCard title="Péremption < 6 mois" value={expiryCount} sub={expiryCount > 0 ? 'À surveiller' : 'Aucune alerte'} subColor={expiryCount > 0 ? 'var(--fs-danger-700)' : undefined} icon={D.bell}/>
+          <MetricCard title="Stock faible" value={lowCount} sub={lowCount > 0 ? `${lowCount} à réapprovisionner` : 'Tout est OK'} subColor={lowCount > 0 ? 'var(--fs-warning-700)' : undefined} icon={D.alertes} onClick={lowCount > 0 ? () => setTab('low') : undefined}/>
+          <MetricCard title="Péremption < 6 mois" value={expiryCount} sub={expiryCount > 0 ? 'À surveiller ↓' : 'Aucune alerte'} subColor={expiryCount > 0 ? 'var(--fs-danger-700)' : undefined} icon={D.bell} onClick={expiryCount > 0 ? () => setTab('expiry') : undefined}/>
         </div>
 
         {/* Filter tabs + actions */}
