@@ -484,11 +484,13 @@ export default function Caisse() {
             unitPrice: effectivePrice(i.product),
             ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}),
           })),
+          subtotal,
           total,
           tva:          tvaAmt,
           paymentLabel: pmLabel,
           amountPaid:   effPaid,
           change:       Math.max(0, effPaid - total),
+          ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
         };
         setReceiptData(offlineData);
         setCart([]); setAmountPaid(''); setPaymentMethod('cash');
@@ -538,7 +540,9 @@ export default function Caisse() {
             unitPrice: effectivePrice(i.product),
             ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}),
           })),
+          subtotal,
           total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
+          ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
         };
         setReceiptData(newData);
         setCart([]); setAmountPaid(''); setPaymentMethod('cash'); setOffrePct(0);
@@ -621,8 +625,10 @@ export default function Caisse() {
             unitPrice: effectivePrice(i.product),
             ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}),
           })),
+              subtotal,
               total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid,
               change: Math.max(0, effPaid - total),
+              ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
             };
             setReceiptData(offlineData);
             setCart([]); setAmountPaid(''); setPaymentMethod('cash');

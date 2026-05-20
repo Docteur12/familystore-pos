@@ -191,6 +191,27 @@ export default function AdminRapports() {
   const [byProduct,       setByProduct]       = useState<ProductStat[]>([]);
   const [caissierNames,   setCaissierNames]   = useState<Set<string>>(new Set());
   const [multiYear,       setMultiYear]       = useState<YearData[]>([]);
+
+  // ── Graphiques tickets ────────────────────────────────────────────────────
+  type TicketTab = 'Sem' | 'Mois' | 'T1' | 'T2' | 'T3' | 'T4' | 'An';
+  const [ticketTab,  setTicketTab]  = useState<TicketTab>('Mois');
+  const [ticketData, setTicketData] = useState<PeriodDay[]>([]);
+
+  const getTicketRange = (tab: TicketTab) => {
+    const now = new Date(); const y = now.getFullYear();
+    if (tab === 'Sem') { const s = new Date(now); s.setDate(s.getDate() - 6); return { dateFrom: s.toISOString().slice(0,10), dateTo: now.toISOString().slice(0,10) }; }
+    if (tab === 'Mois') { const s = new Date(y, now.getMonth(), 1); return { dateFrom: s.toISOString().slice(0,10), dateTo: now.toISOString().slice(0,10) }; }
+    if (tab === 'T1') return { dateFrom: `${y}-01-01`, dateTo: `${y}-03-31` };
+    if (tab === 'T2') return { dateFrom: `${y}-04-01`, dateTo: `${y}-06-30` };
+    if (tab === 'T3') return { dateFrom: `${y}-07-01`, dateTo: `${y}-09-30` };
+    if (tab === 'T4') return { dateFrom: `${y}-10-01`, dateTo: `${y}-12-31` };
+    return { dateFrom: `${y}-01-01`, dateTo: now.toISOString().slice(0,10) };
+  };
+
+  useEffect(() => {
+    const range = getTicketRange(ticketTab);
+    getStatsPeriod(7, range).then(setTicketData).catch(() => {});
+  }, [ticketTab]);
   const [prodDateFrom, setProdDateFrom] = useState('');
   const [prodDateTo,   setProdDateTo]   = useState('');
   const [prodLoading,  setProdLoading]  = useState(false);
@@ -671,6 +692,104 @@ export default function AdminRapports() {
               </div>
             </div>
           )}
+
+          {/* ── Graphiques tickets ── */}
+          {(() => {
+            const tabs: TicketTab[] = ['Sem','Mois','T1','T2','T3','T4','An'];
+            const hasData = ticketData.some(r => r.nbVentes > 0);
+            const fmtXKey = (r: PeriodDay) => r.label ?? String(r.date);
+            return (
+              <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
+                {/* Header + onglets */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Statistiques tickets</div>
+                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>Nb tickets · MIN · MAX · MOY par période</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 3 }}>
+                    {tabs.map(t => (
+                      <button key={t} onClick={() => setTicketTab(t)} style={{
+                        padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
+                        background: ticketTab === t ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
+                        color: ticketTab === t ? '#fff' : 'var(--fs-ink-400)',
+                      }}>{t}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {!hasData ? (
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-300)', fontSize: 12 }}>Aucune donnée pour cette période</div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+                    {/* Nb tickets */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                        Nb tickets — total : {ticketData.reduce((s, r) => s + r.nbVentes, 0)}
+                      </div>
+                      <div style={{ height: 160 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={ticketData} barSize={8} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--fs-line)" vertical={false}/>
+                            <XAxis dataKey={fmtXKey} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} interval={Math.max(0, Math.floor(ticketData.length / 8) - 1)}/>
+                            <YAxis tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={24} allowDecimals={false}/>
+                            <Tooltip formatter={(v: number) => [v, 'Tickets']} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
+                            <Bar dataKey="nbVentes" fill="#7A1D2E" radius={[2,2,0,0]}/>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* MIN / MAX / MOY */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                        MIN · MAX · MOY ticket (XAF)
+                      </div>
+                      <div style={{ height: 160 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={ticketData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--fs-line)" vertical={false}/>
+                            <XAxis dataKey={fmtXKey} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} interval={Math.max(0, Math.floor(ticketData.length / 8) - 1)}/>
+                            <YAxis tickFormatter={fmtK} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={36}/>
+                            <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`]} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
+                            <Legend wrapperStyle={{ fontSize: 10 }}/>
+                            <Line type="monotone" dataKey="minTicket" stroke="#7AB87A" strokeWidth={1.5} dot={false} name="MIN"/>
+                            <Line type="monotone" dataKey="avgTicket" stroke="#7A1D2E" strokeWidth={2} dot={false} name="MOY"/>
+                            <Line type="monotone" dataKey="maxTicket" stroke="#D1A660" strokeWidth={1.5} dot={false} name="MAX"/>
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Mini KPIs récap */}
+                    {ticketData.length > 0 && (() => {
+                      const rows = ticketData.filter(r => r.nbVentes > 0);
+                      if (!rows.length) return null;
+                      const totalNb  = rows.reduce((s, r) => s + r.nbVentes, 0);
+                      const globalMin = Math.min(...rows.map(r => r.minTicket ?? 0).filter(v => v > 0));
+                      const globalMax = Math.max(...rows.map(r => r.maxTicket ?? 0));
+                      const globalAvg = rows.reduce((s, r) => s + r.totalCA, 0) / totalNb;
+                      return (
+                        <div style={{ gridColumn: '1/-1', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 4 }}>
+                          {[
+                            { label: 'Total tickets',  val: fmtN(totalNb),        color: 'var(--fs-wine-700)' },
+                            { label: 'Ticket MIN',     val: `${fmtN(globalMin)} XAF`, color: '#7AB87A' },
+                            { label: 'Ticket MAX',     val: `${fmtN(globalMax)} XAF`, color: '#D1A660' },
+                            { label: 'Ticket MOY',     val: `${fmtN(Math.round(globalAvg))} XAF`, color: 'var(--fs-ink-800)' },
+                          ].map(s => (
+                            <div key={s.label} style={{ background: 'var(--fs-ivory)', borderRadius: 8, padding: '10px 14px', textAlign: 'center', border: '1px solid var(--fs-line)' }}>
+                              <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--fs-ink-400)', marginBottom: 5 }}>{s.label}</div>
+                              <div style={{ fontSize: 15, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: s.color }}>{s.val}</div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ── Journal par produit ── */}
           <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>

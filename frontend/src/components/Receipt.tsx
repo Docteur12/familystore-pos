@@ -34,6 +34,7 @@ export default function Receipt({ data, onNewSale }: Props) {
   };
 
   const tvaDisplay     = Math.round(data.total * 0.1925 / (1 + 0.1925));
+  const subDisplay     = data.subtotal ?? data.total;
   const totalDiscount  = data.items.reduce((s, item) => {
     if ((item.discount ?? 0) > 0 && item.originalPrice) {
       return s + (item.originalPrice - item.unitPrice) * item.quantity;
@@ -127,7 +128,7 @@ export default function Receipt({ data, onNewSale }: Props) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--fs-ink-500)' }}>
               <span>Sous-total</span>
-              <span>{data.total.toLocaleString('fr-FR')} XAF</span>
+              <span>{subDisplay.toLocaleString('fr-FR')} XAF</span>
             </div>
             {ps.showTva && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--fs-ink-500)' }}>
@@ -137,8 +138,14 @@ export default function Receipt({ data, onNewSale }: Props) {
             )}
             {totalDiscount > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#c0392b', fontWeight: 600 }}>
-                <span>Réduction appliquée</span>
+                <span>Réduction produits</span>
                 <span>-{totalDiscount.toLocaleString('fr-FR')} XAF</span>
+              </div>
+            )}
+            {(data.offrePct ?? 0) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#c0392b', fontWeight: 700 }}>
+                <span>Réduction facture -{data.offrePct}%</span>
+                <span>-{(data.offreAmt ?? 0).toLocaleString('fr-FR')} XAF</span>
               </div>
             )}
           </div>

@@ -11,16 +11,19 @@ export interface ReceiptItem {
 }
 
 export interface ReceiptData {
-  receiptNo:    string;
-  date:         Date;
-  cashierName:  string;
-  storePhone?:  string;
-  items:        ReceiptItem[];
-  total:        number;
-  tva:          number;
-  paymentLabel: string;
-  amountPaid:   number;
-  change:       number;
+  receiptNo:      string;
+  date:           Date;
+  cashierName:    string;
+  storePhone?:    string;
+  items:          ReceiptItem[];
+  subtotal:       number;  // avant réduction facture
+  total:          number;  // après réduction facture
+  tva:            number;
+  paymentLabel:   string;
+  amountPaid:     number;
+  change:         number;
+  offrePct?:      number;  // % réduction sur facture (ex: 5)
+  offreAmt?:      number;  // montant déduit (ex: 250)
 }
 
 export interface PrintSettings {
@@ -146,9 +149,10 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
   <div class="dash"></div>
   ${itemRows}
   <div class="dash"></div>
-  <div class="row"><span>Sous-total</span><span>${data.total.toLocaleString('fr-FR')} XAF</span></div>
+  <div class="row"><span>Sous-total</span><span>${data.subtotal.toLocaleString('fr-FR')} XAF</span></div>
   ${tvaRow}
-  ${totalDiscount > 0 ? `<div class="row" style="color:#c0392b !important;font-weight:bold;"><span>R&eacute;duction appliqu&eacute;e</span><span>-${totalDiscount.toLocaleString('fr-FR')} XAF</span></div>` : ''}
+  ${totalDiscount > 0 ? `<div class="row" style="color:#c0392b !important;font-weight:bold;"><span>R&eacute;duction produits</span><span>-${totalDiscount.toLocaleString('fr-FR')} XAF</span></div>` : ''}
+  ${(data.offrePct ?? 0) > 0 ? `<div class="row" style="color:#c0392b !important;font-weight:bold;"><span>R&eacute;duction facture (-${data.offrePct}%)</span><span>-${(data.offreAmt ?? 0).toLocaleString('fr-FR')} XAF</span></div>` : ''}
   <div class="solid"></div>
   <div class="row total"><span>TOTAL</span><span>${data.total.toLocaleString('fr-FR')} XAF</span></div>
   <div class="solid"></div>
