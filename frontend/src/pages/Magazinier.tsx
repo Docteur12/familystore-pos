@@ -91,6 +91,7 @@ export default function Magazinier() {
   const [showNewProd,    setShowNewProd]    = useState(false);
   const [newProdName,    setNewProdName]    = useState('');
   const [newProdQty,     setNewProdQty]     = useState('');
+  const [newProdSeuil,   setNewProdSeuil]   = useState('');
   const [newProdLoading, setNewProdLoading] = useState(false);
 
   const handleCreateProd = async () => {
@@ -98,16 +99,17 @@ export default function Magazinier() {
     setNewProdLoading(true);
     try {
       await createProduct({
-        name:           newProdName.trim().charAt(0).toUpperCase() + newProdName.trim().slice(1),
-        price:          0,
-        costPrice:      0,
-        stock:          parseInt(newProdQty) || 0,
-        alertThreshold: 5,
-        unit:           'unité',
+        name:                newProdName.trim().charAt(0).toUpperCase() + newProdName.trim().slice(1),
+        price:               0,
+        costPrice:           0,
+        stock:               parseInt(newProdQty) || 0,
+        alertThreshold:      5,
+        unit:                'unité',
+        magazinierThreshold: parseInt(newProdSeuil) || 0,
       });
       await loadProducts();
       setShowNewProd(false);
-      setNewProdName(''); setNewProdQty('');
+      setNewProdName(''); setNewProdQty(''); setNewProdSeuil('');
       addToast('Produit créé ✓', 'success');
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
     finally { setNewProdLoading(false); }
@@ -340,7 +342,7 @@ export default function Magazinier() {
                   {showNewProd && (
                     <div style={{ background: '#f8faf7', border: '1.5px solid #86efac', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
                       <p style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px' }}>Nouveau produit</p>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 8, marginBottom: 10 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px', gap: 8, marginBottom: 10 }}>
                         <input
                           style={INPUT}
                           value={newProdName}
@@ -354,6 +356,14 @@ export default function Magazinier() {
                           value={newProdQty}
                           onChange={e => setNewProdQty(e.target.value)}
                           placeholder="Quantité"
+                        />
+                        <input
+                          style={{ ...INPUT, textAlign: 'center' }}
+                          type="number" min={0}
+                          value={newProdSeuil}
+                          onChange={e => setNewProdSeuil(e.target.value)}
+                          placeholder="Seuil"
+                          title="Seuil d'alerte pour commander"
                         />
                       </div>
                       <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: '0 0 10px' }}>
@@ -569,8 +579,8 @@ export default function Magazinier() {
                             {bas && <span style={{ marginLeft: 8, fontSize: 10, background: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>À commander</span>}
                             {p.category && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--fs-ink-400)', fontWeight: 400 }}>{p.category}</span>}
                           </td>
-                          <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 800, fontSize: 16, fontFamily: 'var(--fs-font-mono)', color: bas ? '#dc2626' : 'var(--fs-wine-700)' }}>
-                            {p.stock} <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--fs-ink-400)' }}>{p.unit}</span>
+                          <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 800, fontSize: 20, fontFamily: 'var(--fs-font-mono)', color: bas ? '#dc2626' : 'var(--fs-wine-700)' }}>
+                            {p.stock}
                           </td>
                           <td style={{ padding: '8px 16px', textAlign: 'center' }}>
                             <input
@@ -587,7 +597,6 @@ export default function Magazinier() {
                               }}
                               style={{ width: 64, padding: '5px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, fontSize: 13, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: seuil > 0 ? 'var(--fs-ink-800)' : 'var(--fs-ink-300)', background: seuil > 0 ? '#fff' : 'var(--fs-ivory)' }}
                             />
-                            <div style={{ fontSize: 9, color: 'var(--fs-ink-300)', marginTop: 2 }}>{p.unit}</div>
                           </td>
                         </tr>
                       );
