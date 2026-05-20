@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
 import { getAllReceptions } from '../api/magazinier';
+import { getEcartsCount }  from '../api/ecarts';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 const LS_RECEPTION_SEEN = 'receptions_last_seen';
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
   { id: 'etiquettes',  label: 'Étiquettes / SKU',   icon: D.etiquettes,   path: '/stocks/etiquettes'   },
   { id: 'depots',      label: 'Dépôts',             icon: D.depots,       path: '/stocks/depots'       },
   { id: 'fournisseurs',label: 'Fournisseurs',        icon: D.fournisseurs, path: '/stocks/fournisseurs' },
+  { id: 'ecarts',      label: 'Écarts de stock',     icon: D.alertes,      path: '/stocks/ecarts'       },
 ];
 
 export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number }) {
@@ -49,6 +51,11 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
   const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
 
   const [receptionBadge, setReceptionBadge] = useState(0);
+  const [ecartBadge,     setEcartBadge]     = useState(0);
+
+  useEffect(() => {
+    getEcartsCount().then(setEcartBadge).catch(() => {});
+  }, [location.pathname]);
 
   useEffect(() => {
     getAllReceptions().then(recs => {
@@ -156,6 +163,11 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
                 {item.id === 'receptions' && receptionBadge > 0 && (
                   <span style={{ background: '#ef4444', color: '#fff', fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 8 }}>
                     {receptionBadge}
+                  </span>
+                )}
+                {item.id === 'ecarts' && ecartBadge > 0 && (
+                  <span style={{ background: '#DC2626', color: '#fff', fontSize: 9, fontWeight: 800, padding: '1px 6px', borderRadius: 8, animation: 'pulse 2s infinite' }}>
+                    {ecartBadge}
                   </span>
                 )}
               </Link>

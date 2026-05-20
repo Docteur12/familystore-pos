@@ -6,7 +6,7 @@
 import React, {
   memo, useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
-import { getAllProducts, createSale, getProductByBarcode, Product, SaleError, effectivePrice } from '../api/products';
+import { getAllProducts, createSale, getProductByBarcode, Product, SalePayload, SaleError, effectivePrice } from '../api/products';
 import { openSession, closeSession, getActiveSession } from '../api/sessions';
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
@@ -299,41 +299,31 @@ export default function Caisse() {
   }, []);
 
   const addToCart = useCallback((product: Product) => {
-    if (product.stock === 0) {
-      addToast(`${product.name} — rupture de stock`, 'warning');
-      playBeep(false); return;
-    }
     setCart(prev => {
       const idx = prev.findIndex(i => i.product._id === product._id);
-      if (idx !== -1) {
-        const cur = prev[idx].quantity;
-        if (cur >= product.stock) {
-          setTimeout(() => addToast(`Stock max atteint — ${product.stock} disponible${product.stock > 1 ? 's' : ''}`, 'warning'), 0);
-          return prev;
-        }
-        return prev.map((i, n) => n === idx ? { ...i, quantity: cur + 1 } : i);
-      }
-      return [...prev, { product, quantity: 1 }];
+      return idx !== -1
+        ? prev.map((i, n) => n === idx ? { ...i, quantity: i.quantity + 1 } : i)
+        : [...prev, { product, quantity: 1 }];
     });
     setSearchQuery('');
     setScanError(null);
     playBeep(true);
     vibrate(40);
     flashAdded(product._id);
-  }, [flashAdded, addToast]);
+  }, [flashAdded]);
 
   const changeQty = useCallback((id: string, delta: number) =>
-    setCart(prev => {
-      if (delta > 0) {
-        const item = prev.find(i => i.product._id === id);
-        if (item && item.quantity >= item.product.stock) {
-          setTimeout(() => addToast(`Stock max atteint — ${item.product.stock} disponible${item.product.stock > 1 ? 's' : ''}`, 'warning'), 0);
-          return prev;
-        }
-      }
-      return prev.map(i => i.product._id === id ? { ...i, quantity: i.quantity + delta } : i)
-                 .filter(i => i.quantity > 0);
-    }), [addToast]);
+    setCart(prev =>
+      prev.map(i => i.product._id === id ? { ...i, quantity: i.quantity + delta } : i)
+          .filter(i => i.quantity > 0)
+    ), []);
+
+  // ── Écart stock : modal de confirmation ──────────────────────────────────
+  const [ecartModal, setEcartModal] = useState<{
+    items: Array<{ product: CartItem['product']; stockSysteme: number; quantiteVendue: number; ecart: number }>;
+    onConfirmReduce: () => void;
+    onConfirmForce: () => void;
+  } | null>(null);
 
   const removeItem = useCallback((id: string) =>
     setCart(prev => prev.filter(i => i.product._id !== id)), []);
@@ -443,210 +433,149 @@ export default function Caisse() {
     setHeldTickets(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  // ── Validate ──────────────────────────────────────────────────────────────
+  // ── Exécute la vente (normale ou forcée) ─────────────────────────────────
+  const doValidate = useCallback(async (forceVente = false, ecartsData?: SalePayload['ecarts']) => {
+    const cartSnap = [...cart];
+    const pmLabel  = PAYMENT_METHODS.find(p => p.value === paymentMethod)?.label ?? paymentMethod;
+    const effPaid  = paymentMethod === 'cash' ? paid : total;
+
+    setValidating(true);
+    setEcartModal(null);
+
+    // ── Offline path ───────────────────────────────────────────────────────
+    if (!navigator.onLine) {
+      try {
+        await savePendingSale({ items: cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: effectivePrice(i.product) })), total, paymentMethod, amountPaid: effPaid });
+        for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
+        const cached = await getCachedProducts(); setAllProducts(cached);
+        setPendingCount(prev => prev + 1); setSessionSales(n => n + 1);
+        addToast('Mode hors ligne — vente sauvegardée, à synchroniser', 'warning');
+        const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
+        const offlineData: ReceiptData = {
+          receiptNo: `OFF-${dateP}-${Math.random().toString(36).slice(2,8).toUpperCase()}`, date: d,
+          cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
+          items: cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
+          subtotal, total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
+          ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
+        };
+        setReceiptData(offlineData); setCart([]); setAmountPaid(''); setPaymentMethod('cash');
+        const ps = getPrintSettings(); if (ps.auto) doPrint(buildReceiptHTML(offlineData, ps.showTva), ps.copies);
+      } catch { addToast('Erreur sauvegarde locale', 'error'); }
+      finally { setValidating(false); focusScan(); }
+      return;
+    }
+
+    const MAX_RETRIES = 3;
+    const saleItems = cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: effectivePrice(i.product) }));
+    let succeeded = false; let nonRetryable = false;
+
+    for (let attempt = 0; attempt < MAX_RETRIES && !nonRetryable && !succeeded; attempt++) {
+      if (attempt > 0) await new Promise<void>(r => setTimeout(r, 2000));
+      try {
+        const result = await createSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid, sessionId: sessionId ?? undefined, forceVente: forceVente || undefined, ecarts: ecartsData });
+        succeeded = true;
+        const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const idPart = String(result.sale._id).slice(-6).toUpperCase(); const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
+        const newData: ReceiptData = {
+          receiptNo: `FSV-${dateP}-${idPart}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
+          items: cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
+          subtotal, total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
+          ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
+        };
+        setReceiptData(newData); setCart([]); setAmountPaid(''); setPaymentMethod('cash'); setOffrePct(0);
+        setSessionSales(n => n + 1);
+        if (attempt > 0) addToast('Vente enregistrée ✅', 'success');
+        const ps = getPrintSettings(); if (ps.auto) { doPrint(buildReceiptHTML(newData, ps.showTva), ps.copies); if (paymentMethod === 'cash') openCashDrawer(); }
+        for (const a of result.alerts) addToast(a.stock === 0 ? `Rupture — ${a.productName}` : `Stock bas — ${a.productName} : ${a.stock} restant(s)`, 'warning');
+      } catch (err: unknown) {
+        const kind = err instanceof SaleError ? err.kind : 'unknown';
+        const msg  = err instanceof Error ? err.message : "Erreur d'enregistrement";
+        if (kind === 'auth') {
+          nonRetryable = true;
+          try { await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid }); addToast('Session expirée — ticket sauvegardé localement', 'warning'); } catch {}
+          setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 1800);
+        } else if (kind === 'stock') {
+          nonRetryable = true;
+          const availMatch = msg.match(/disponible[^\d]*(\d+)/i); const nameMatch = msg.match(/pour\s+"([^"]+)"/i) ?? msg.match(/pour\s+'([^']+)'/i);
+          if (availMatch && nameMatch) {
+            const available = parseInt(availMatch[1]); const productName = nameMatch[1];
+            setCart(prev => prev.map(i => i.product.name === productName && i.quantity > available ? { ...i, quantity: available } : i).filter(i => i.quantity > 0));
+            addToast(`Quantité réduite à ${available} pour "${productName}"`, 'warning');
+          } else { addToast(msg, 'error'); }
+        } else if (attempt < MAX_RETRIES - 1) {
+          if (kind === 'timeout') { setRetryLabel(`Connexion lente, tentative ${attempt + 2}/${MAX_RETRIES}…`); addToast('Connexion lente — nouvelle tentative…', 'warning'); }
+          else if (kind === 'server_sleep') { setRetryLabel(`Serveur en démarrage, tentative ${attempt + 2}/${MAX_RETRIES}…`); addToast('Serveur en démarrage (30s) — nouvelle tentative…', 'warning'); }
+          else { setRetryLabel(`Tentative ${attempt + 2}/${MAX_RETRIES}…`); addToast(`Erreur réseau — tentative ${attempt + 2}/${MAX_RETRIES}…`, 'warning'); }
+        } else {
+          setRetryLabel('Sauvegarde locale…');
+          try {
+            await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid });
+            for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
+            const cached = await getCachedProducts(); setAllProducts(cached); setPendingCount(prev => prev + 1);
+            const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
+            const offlineData: ReceiptData = {
+              receiptNo: `OFF-${dateP}-${Math.random().toString(36).slice(2,8).toUpperCase()}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
+              items: cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
+              subtotal, total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
+              ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
+            };
+            setReceiptData(offlineData); setCart([]); setAmountPaid(''); setPaymentMethod('cash');
+            addToast('Vente sauvegardée localement — synchronisation dès que possible', 'warning');
+            const ps = getPrintSettings(); if (ps.auto) doPrint(buildReceiptHTML(offlineData, ps.showTva), ps.copies);
+          } catch { addToast("Échec définitif — impossible d'enregistrer la vente", 'error'); }
+        }
+      }
+    }
+    setRetryLabel(''); setValidating(false); focusScan();
+  }, [cart, paymentMethod, paid, total, subtotal, offrePct, offreAmt, sessionId, addToast, focusScan, payload, settings]);
+
+  // ── Validate — vérifie les écarts avant d'appeler doValidate ─────────────
   const handleValidate = useCallback(async () => {
     if (!canValidate) return;
     if (paymentMethod === 'cash' && (paid === 0 || paid < total)) {
       addToast('Montant reçu insuffisant', 'error'); return;
     }
-    const cartSnap = [...cart];
-    const pmLabel  = PAYMENT_METHODS.find(p => p.value === paymentMethod)?.label ?? paymentMethod;
-    const effPaid  = paymentMethod === 'cash' ? paid : total;
-    setValidating(true);
 
-    // ── Offline path ─────────────────────────────────────────────────────────
-    if (!navigator.onLine) {
-      try {
-        await savePendingSale({
-          items: cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: i.product.price })),
-          total, paymentMethod, amountPaid: effPaid,
-        });
-        for (const item of cart) {
-          await decrementCachedStock(item.product._id, item.quantity);
-        }
-        const cached = await getCachedProducts();
-        setAllProducts(cached);
-        setPendingCount(prev => prev + 1);
-        setSessionSales(n => n + 1);
-        addToast('Mode hors ligne — vente sauvegardée, à synchroniser', 'warning');
+    // Détecter les écarts de stock
+    const ecarts = cart.filter(i => i.quantity > i.product.stock).map(i => ({
+      product: i.product,
+      stockSysteme:   i.product.stock,
+      quantiteVendue: i.quantity,
+      ecart:          i.product.stock - i.quantity, // négatif
+    }));
 
-        // Générer et afficher le reçu hors ligne (impression possible)
-        const d       = new Date();
-        const dateP   = d.toISOString().slice(0, 10).replace(/-/g, '');
-        const tvaAmt  = Math.round(total * TVA_RATE / (1 + TVA_RATE));
-        const offlineData: ReceiptData = {
-          receiptNo:    `OFF-${dateP}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-          date:         d,
-          cashierName:  payload?.name ?? 'Caissier',
-          storePhone:   settings.telephone || undefined,
-          items:        cartSnap.map(i => ({
-            name: i.product.name, unit: i.product.unit, quantity: i.quantity,
-            unitPrice: effectivePrice(i.product),
-            ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}),
-          })),
-          subtotal,
-          total,
-          tva:          tvaAmt,
-          paymentLabel: pmLabel,
-          amountPaid:   effPaid,
-          change:       Math.max(0, effPaid - total),
-          ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
-        };
-        setReceiptData(offlineData);
-        setCart([]); setAmountPaid(''); setPaymentMethod('cash');
-
-        // Auto-impression si activée
-        const ps = getPrintSettings();
-        if (ps.auto) {
-          const html = buildReceiptHTML(offlineData, ps.showTva);
-          doPrint(html, ps.copies);
-        }
-      } catch {
-        addToast('Erreur sauvegarde locale', 'error');
-      } finally {
-        setValidating(false); focusScan();
-      }
+    if (ecarts.length > 0) {
+      // Afficher le modal de confirmation
+      setEcartModal({
+        items: ecarts.map(e => ({ product: e.product, stockSysteme: e.stockSysteme, quantiteVendue: e.quantiteVendue, ecart: e.ecart })),
+        onConfirmReduce: () => {
+          // Réduire les quantités au stock disponible
+          setCart(prev => prev.map(i => {
+            const ec = ecarts.find(e => e.product._id === i.product._id);
+            return ec ? { ...i, quantity: ec.stockSysteme } : i;
+          }).filter(i => i.quantity > 0));
+          setEcartModal(null);
+          // doValidate sera rappelé depuis le cart mis à jour
+        },
+        onConfirmForce: () => {
+          const ecartsData = ecarts.map(e => ({
+            produit:        e.product._id,
+            nomProduit:     e.product.name,
+            stockSysteme:   e.stockSysteme,
+            quantiteVendue: e.quantiteVendue,
+            ecart:          e.ecart,
+          }));
+          doValidate(true, ecartsData);
+        },
+      });
       return;
     }
 
-    // ── Retry loop (3 tentatives, 2s entre chaque) ──────────────────────────
-    const MAX_RETRIES = 3;
-    const saleItems   = cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: effectivePrice(i.product) }));
+    // Pas d'écart → validation normale
+    doValidate(false);
+  }, [canValidate, cart, paymentMethod, paid, total, addToast, doValidate]);
 
-    let succeeded      = false;
-    let nonRetryable   = false;
 
-    for (let attempt = 0; attempt < MAX_RETRIES && !nonRetryable && !succeeded; attempt++) {
-      if (attempt > 0) {
-        await new Promise<void>(r => setTimeout(r, 2000));
-      }
 
-      try {
-        const result = await createSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid, sessionId: sessionId ?? undefined });
-
-        // ── Succès ───────────────────────────────────────────────────────────
-        succeeded = true;
-        const d      = new Date();
-        const dateP  = d.toISOString().slice(0, 10).replace(/-/g, '');
-        const idPart = String(result.sale._id).slice(-6).toUpperCase();
-        const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
-        const newData: ReceiptData = {
-          receiptNo:    `FSV-${dateP}-${idPart}`,
-          date:         d,
-          cashierName:  payload?.name ?? 'Caissier',
-          storePhone:   settings.telephone || undefined,
-          items:        cartSnap.map(i => ({
-            name: i.product.name, unit: i.product.unit, quantity: i.quantity,
-            unitPrice: effectivePrice(i.product),
-            ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}),
-          })),
-          subtotal,
-          total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
-          ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
-        };
-        setReceiptData(newData);
-        setCart([]); setAmountPaid(''); setPaymentMethod('cash'); setOffrePct(0);
-
-        setSessionSales(n => n + 1);
-        if (attempt > 0) addToast('Vente enregistrée ✅', 'success');
-
-        const ps = getPrintSettings();
-        if (ps.auto) {
-          doPrint(buildReceiptHTML(newData, ps.showTva), ps.copies);
-          if (paymentMethod === 'cash') openCashDrawer();
-        }
-        for (const a of result.alerts) {
-          addToast(a.stock === 0 ? `Rupture — ${a.productName}` : `Stock bas — ${a.productName} : ${a.stock} restant(s)`, 'warning');
-        }
-
-      } catch (err: unknown) {
-        const kind = err instanceof SaleError ? err.kind : 'unknown';
-        const msg  = err instanceof Error ? err.message : "Erreur d'enregistrement";
-
-        if (kind === 'auth') {
-          nonRetryable = true;
-          try {
-            await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid });
-            addToast('Session expirée — ticket sauvegardé localement', 'warning');
-          } catch { /* ignore */ }
-          setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 1800);
-
-        } else if (kind === 'stock') {
-          nonRetryable = true;
-          // Auto-réduction : parse "disponible N" et "pour "Nom""
-          const availMatch = msg.match(/disponible[^\d]*(\d+)/i);
-          const nameMatch  = msg.match(/pour\s+"([^"]+)"/i) ?? msg.match(/pour\s+'([^']+)'/i);
-          if (availMatch && nameMatch) {
-            const available   = parseInt(availMatch[1]);
-            const productName = nameMatch[1];
-            setCart(prev => prev
-              .map(i => i.product.name === productName && i.quantity > available
-                ? { ...i, quantity: available }
-                : i)
-              .filter(i => i.quantity > 0));
-            addToast(`Quantité réduite à ${available} pour "${productName}" — vérifiez le ticket`, 'warning');
-          } else {
-            addToast(msg, 'error');
-          }
-
-        } else if (attempt < MAX_RETRIES - 1) {
-          // Erreur récupérable → on informe et on réessaie
-          if (kind === 'timeout') {
-            setRetryLabel(`Connexion lente, tentative ${attempt + 2}/${MAX_RETRIES}…`);
-            addToast('Connexion lente — nouvelle tentative…', 'warning');
-          } else if (kind === 'server_sleep') {
-            setRetryLabel(`Serveur en démarrage, tentative ${attempt + 2}/${MAX_RETRIES}…`);
-            addToast('Serveur en démarrage (30s) — nouvelle tentative…', 'warning');
-          } else {
-            setRetryLabel(`Tentative ${attempt + 2}/${MAX_RETRIES}…`);
-            addToast(`Erreur réseau — tentative ${attempt + 2}/${MAX_RETRIES}…`, 'warning');
-          }
-
-        } else {
-          // Toutes les tentatives épuisées → fallback offline
-          setRetryLabel('Sauvegarde locale…');
-          try {
-            await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid });
-            for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
-            const cached = await getCachedProducts();
-            setAllProducts(cached);
-            setPendingCount(prev => prev + 1);
-
-            const d      = new Date();
-            const dateP  = d.toISOString().slice(0, 10).replace(/-/g, '');
-            const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
-            const offlineData: ReceiptData = {
-              receiptNo:    `OFF-${dateP}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-              date:         d,
-              cashierName:  payload?.name ?? 'Caissier',
-              storePhone:   settings.telephone || undefined,
-              items:        cartSnap.map(i => ({
-            name: i.product.name, unit: i.product.unit, quantity: i.quantity,
-            unitPrice: effectivePrice(i.product),
-            ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}),
-          })),
-              subtotal,
-              total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid,
-              change: Math.max(0, effPaid - total),
-              ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
-            };
-            setReceiptData(offlineData);
-            setCart([]); setAmountPaid(''); setPaymentMethod('cash');
-            addToast('Vente sauvegardée localement — synchronisation dès que possible', 'warning');
-
-            const ps = getPrintSettings();
-            if (ps.auto) doPrint(buildReceiptHTML(offlineData, ps.showTva), ps.copies);
-          } catch {
-            addToast("Échec définitif — impossible d'enregistrer la vente", 'error');
-          }
-        }
-      }
-    }
-
-    setRetryLabel('');
-    setValidating(false);
-    focusScan();
-  }, [canValidate, cart, paymentMethod, paid, total, addToast, focusScan]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
@@ -677,6 +606,57 @@ export default function Caisse() {
     }}>
 
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* ── Modal écart de stock ── */}
+      {ecartModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
+            <div style={{ background: '#DC2626', padding: '16px 22px' }}>
+              <p style={{ color: '#fff', fontWeight: 800, fontSize: 15, margin: 0 }}>⚠ Stock insuffisant en système</p>
+              <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, margin: '4px 0 0' }}>Ces produits dépassent le stock enregistré</p>
+            </div>
+            <div style={{ padding: '18px 22px' }}>
+              {ecartModal.items.map((item, i) => (
+                <div key={i} style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1F1A1A', marginBottom: 6 }}>{item.product.name}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                    {[
+                      { label: 'Stock système', val: item.stockSysteme,   color: '#DC2626' },
+                      { label: 'Qté vendue',   val: item.quantiteVendue, color: '#7A1D2E' },
+                      { label: 'Écart',        val: item.ecart,          color: '#991B1B' },
+                    ].map(s => (
+                      <div key={s.label} style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6B7280', marginBottom: 2 }}>{s.label}</div>
+                        <div style={{ fontSize: 18, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: s.color }}>{s.val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '14px 0 16px', textAlign: 'center' }}>
+                Confirmez-vous que ces produits sont physiquement disponibles ?
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  onClick={() => { setEcartModal(null); }}
+                  style={{ padding: '11px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: '#6B7280' }}>
+                  Annuler la vente
+                </button>
+                <button
+                  onClick={ecartModal.onConfirmReduce}
+                  style={{ padding: '11px', border: '1.5px solid #D97706', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#FFF7ED', color: '#92400E' }}>
+                  Réduire au stock disponible
+                </button>
+                <button
+                  onClick={ecartModal.onConfirmForce}
+                  style={{ padding: '11px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: 'pointer', background: '#DC2626', color: '#fff' }}>
+                  ✓ Confirmer la vente avec écart
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Lock screen (inactivité 10 min) ── */}
       {locked && (

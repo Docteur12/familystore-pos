@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Sale, SaleDocument }             from '../schemas/sale.schema';
 import { Product, ProductDocument }       from '../schemas/product.schema';
 import { StockMovement, StockMovementDocument } from '../schemas/stock-movement.schema';
+import { EcartStock, EcartStockDocument } from '../schemas/ecart-stock.schema';
 import { MailService }                    from '../mail/mail.service';
 import { CreateSaleDto }                  from './dto/create-sale.dto';
 
@@ -20,9 +21,10 @@ export class SalesService {
   private readonly logger = new Logger(SalesService.name);
 
   constructor(
-    @InjectModel(Sale.name)          private saleModel:    Model<SaleDocument>,
-    @InjectModel(Product.name)       private productModel: Model<ProductDocument>,
+    @InjectModel(Sale.name)          private saleModel:     Model<SaleDocument>,
+    @InjectModel(Product.name)       private productModel:  Model<ProductDocument>,
     @InjectModel(StockMovement.name) private movementModel: Model<StockMovementDocument>,
+    @InjectModel(EcartStock.name)    private ecartModel:    Model<EcartStockDocument>,
     private mailService: MailService,
   ) {}
 
@@ -45,7 +47,8 @@ export class SalesService {
         stockErrors.push(`Produit introuvable : ${item.name}`);
         continue;
       }
-      if (p.stock < item.quantity) {
+      // Si forceVente → on autorise même si stock insuffisant
+      if (!dto.forceVente && p.stock < item.quantity) {
         stockErrors.push(
           `Stock insuffisant pour "${p.name}" : disponible ${p.stock}, demandé ${item.quantity}`,
         );
@@ -71,6 +74,24 @@ export class SalesService {
       caisseName:    actor?.caisse?.nom ?? '',
       sessionId:     dto.sessionId      ?? '',
     });
+
+    // ── 3b. Enregistrement des écarts si vente forcée ────────────────────────
+    if (dto.forceVente && dto.ecarts?.length) {
+      await Promise.all(dto.ecarts.map(e =>
+        this.ecartModel.create({
+          produit:        new Types.ObjectId(e.produit),
+          nomProduit:     e.nomProduit,
+          stockSysteme:   e.stockSysteme,
+          quantiteVendue: e.quantiteVendue,
+          ecart:          e.ecart,
+          caissiereName:  actor?.name  ?? '',
+          caissiereEmail: actor?.email ?? '',
+          saleId:         sale._id,
+          justification:  'Vente forcée',
+          statut:         'en_attente',
+        }),
+      ));
+    }
 
     // ── 4. Décrémentation stock + création mouvements (parallèle) ─────────────
     const updateResults = await Promise.all(

@@ -65,4 +65,18 @@ export class CreateSaleDto {
   @IsOptional()
   @IsString()
   sessionId?: string;
+
+  /** Vente forcée malgré stock insuffisant */
+  @IsOptional()
+  forceVente?: boolean;
+
+  /** Écarts détectés à enregistrer */
+  @IsOptional()
+  ecarts?: Array<{
+    produit:        string;
+    nomProduit:     string;
+    stockSysteme:   number;
+    quantiteVendue: number;
+    ecart:          number;
+  }>;
 }

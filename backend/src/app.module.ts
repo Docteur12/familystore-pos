@@ -14,6 +14,7 @@ import { AuditModule }    from './audit/audit.module';
 import { FacturesModule }  from './factures/factures.module';
 import { SessionsModule }  from './sessions/sessions.module';
 import { AdminModule }     from './admin/admin.module';
+import { EcartsModule }   from './ecarts/ecarts.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { AdminModule }     from './admin/admin.module';
     FacturesModule,
     SessionsModule,
     AdminModule,
+    EcartsModule,
   ],
   controllers: [AppController],
   providers: [],

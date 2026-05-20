@@ -45,6 +45,8 @@ export interface SalePayload {
   paymentMethod: string;
   amountPaid:    number;
   sessionId?:    string;
+  forceVente?:   boolean;
+  ecarts?:       Array<{ produit: string; nomProduit: string; stockSysteme: number; quantiteVendue: number; ecart: number }>;
 }
 
 export interface StockAlert {
