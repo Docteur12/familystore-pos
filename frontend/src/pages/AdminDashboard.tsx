@@ -151,6 +151,7 @@ export default function AdminDashboard() {
   const [prodLowCount,  setProdLowCount]  = useState(0);
   const [products,      setProducts]      = useState<Product[]>([]);
   const [prodSearch,    setProdSearch]    = useState('');
+  const [prodPanel,     setProdPanel]     = useState<'low' | 'expiry' | null>(null);
   const [chartTab, setChartTab] = useState<ChartTab>('Mois');
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -179,6 +180,8 @@ export default function AdminDashboard() {
       setProdCount(prods.length);
       setProdLowCount(prods.filter(p => p.stock <= p.alertThreshold).length);
     }).catch(() => {});
+    // Dérivés expiry pour le panneau
+
   }, []);
 
   // Rechargement graphe + top produits + paiements selon l'onglet
@@ -290,14 +293,31 @@ export default function AdminDashboard() {
               value={`${fmtN(benefice)} XAF`}
               sub={`Marge ${marge} % sur coût d'achat`}
             />
-            <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)', minWidth: 0 }}>
+            <div style={{ flex: 1, background: '#fff', border: `1px solid ${prodPanel ? 'var(--fs-wine-700)' : 'var(--fs-line)'}`, borderRadius: 12, padding: '16px 20px', boxShadow: prodPanel ? '0 0 0 3px rgba(122,29,46,0.1)' : 'var(--fs-shadow-sm)', minWidth: 0 }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 8 }}>Catalogue produits</div>
-              <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)', lineHeight: 1, marginBottom: 4 }}>
+              <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)', lineHeight: 1, marginBottom: 6 }}>
                 {prodCount === null ? '…' : prodCount}
               </div>
               {prodCount !== null && (
-                <div style={{ fontSize: 11, color: prodLowCount > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)', fontWeight: 600 }}>
-                  {prodLowCount > 0 ? `⚠ ${prodLowCount} stock bas` : '✓ Stocks OK'}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {(() => {
+                    const in6m = new Date(); in6m.setMonth(in6m.getMonth() + 6);
+                    const expCount = products.filter(p => p.expiryDate && new Date(p.expiryDate) <= in6m).length;
+                    return (
+                      <>
+                        <button onClick={() => setProdPanel(p => p === 'low' ? null : 'low')} style={{ textAlign: 'left', background: 'none', border: 'none', cursor: prodLowCount > 0 ? 'pointer' : 'default', padding: 0 }}>
+                          <span style={{ fontSize: 11, color: prodLowCount > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)', fontWeight: 600 }}>
+                            {prodLowCount > 0 ? `⚠ ${prodLowCount} stock bas →` : '✓ Stocks OK'}
+                          </span>
+                        </button>
+                        {expCount > 0 && (
+                          <button onClick={() => setProdPanel(p => p === 'expiry' ? null : 'expiry')} style={{ textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                            <span style={{ fontSize: 11, color: '#D97706', fontWeight: 600 }}>📅 {expCount} péremption &lt; 6 mois →</span>
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -307,6 +327,50 @@ export default function AdminDashboard() {
               sub={ca > 0 ? `CA : ${fmtK(ca)} XAF · ${tickets} ticket${tickets > 1 ? 's' : ''}` : 'En attente de ventes'}
             />
           </div>
+
+          {/* Panneau produits à surveiller */}
+          {prodPanel && (() => {
+            const in6m = new Date(); in6m.setMonth(in6m.getMonth() + 6);
+            const liste = prodPanel === 'low'
+              ? products.filter(p => p.stock <= p.alertThreshold).sort((a, b) => a.stock - b.stock)
+              : products.filter(p => p.expiryDate && new Date(p.expiryDate) <= in6m).sort((a, b) => new Date(a.expiryDate!).getTime() - new Date(b.expiryDate!).getTime());
+            const titre = prodPanel === 'low' ? `⚠ Produits en stock bas (${liste.length})` : `📅 Péremption < 6 mois (${liste.length})`;
+            return (
+              <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{titre}</span>
+                  <button onClick={() => setProdPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', fontSize: 16 }}>✕</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 8 }}>
+                  {liste.slice(0, 9).map(p => {
+                    const daysLeft = p.expiryDate ? Math.ceil((new Date(p.expiryDate).getTime() - Date.now()) / 86400000) : null;
+                    return (
+                      <div key={p._id} style={{ padding: '10px 14px', background: 'var(--fs-ivory)', borderRadius: 9, border: '1px solid var(--fs-line)' }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 3 }}>
+                          {prodPanel === 'low'
+                            ? <span style={{ color: p.stock === 0 ? 'var(--fs-danger-700)' : '#D97706', fontWeight: 600 }}>
+                                {p.stock === 0 ? 'RUPTURE' : `Stock : ${p.stock} / Seuil : ${p.alertThreshold}`}
+                              </span>
+                            : daysLeft !== null
+                              ? <span style={{ color: daysLeft < 0 ? 'var(--fs-danger-700)' : '#D97706', fontWeight: 600 }}>
+                                  {daysLeft < 0 ? '🔴 Expiré' : `⏱ ${daysLeft} j — ${new Date(p.expiryDate!).toLocaleDateString('fr-FR')}`}
+                                </span>
+                              : '—'
+                          }
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {liste.length > 9 && (
+                  <div style={{ marginTop: 10, fontSize: 11, color: 'var(--fs-ink-400)', textAlign: 'center' }}>
+                    + {liste.length - 9} autres — consultez la page Stocks pour la liste complète
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Graphe + top produits */}
           <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: 16, marginBottom: 18 }}>
