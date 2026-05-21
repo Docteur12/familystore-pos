@@ -4,7 +4,8 @@ export interface Product {
   barcode?:       string;
   price:          number;
   costPrice:      number;
-  stock:          number;
+  stock:          number;         // ← stock caisse (point de vente)
+  stockMagazin?:  number;         // ← stock entrepôt magazinier (indépendant)
   alertThreshold: number;
   category?:      string;
   subCategory?:   string;

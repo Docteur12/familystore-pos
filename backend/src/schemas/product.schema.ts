@@ -35,6 +35,9 @@ export class Product {
   @Prop({ default: 0, min: 0, max: 100 })
   discount: number;
 
+  @Prop({ default: 0 })
+  stockMagazin: number;  // stock entrepôt (magazinier) — indépendant du stock caisse
+
   @Prop({ default: null })
   expiryDate: Date | null;
 

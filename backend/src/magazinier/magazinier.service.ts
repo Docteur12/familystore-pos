@@ -24,9 +24,10 @@ export class MagazinierService {
     const enriched: { productId: Types.ObjectId; productName: string; quantity: number }[] = [];
 
     for (const item of body.items) {
+      // ↓ Incrémente le stock ENTREPÔT (pas le stock caisse)
       const product = await this.productModel.findByIdAndUpdate(
         item.productId,
-        { $inc: { stock: item.quantity } },
+        { $inc: { stockMagazin: item.quantity } },
         { new: true },
       );
       if (!product) throw new NotFoundException(`Produit introuvable : ${item.productId}`);
@@ -81,6 +82,14 @@ export class MagazinierService {
     const demande = await this.demandeModel.findById(demandeId);
     if (!demande) throw new NotFoundException('Demande introuvable');
     if (demande.statut !== 'en_attente') throw new ForbiddenException('Demande déjà traitée');
+
+    // Transfert entrepôt → caisse : stockMagazin ↓ / stock ↑
+    await this.productModel.findByIdAndUpdate(demande.produit, {
+      $inc: {
+        stockMagazin: -demande.quantiteDemandee,  // sortie entrepôt
+        stock:        +demande.quantiteDemandee,  // entrée caisse
+      },
+    });
 
     demande.statut    = 'envoyé';
     demande.dateEnvoi = new Date();

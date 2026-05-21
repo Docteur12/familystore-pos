@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { getAllProducts, createProduct, updateProduct, Product } from '../api/products';
+import { getAllProducts, createProduct, updateProduct, getProductByBarcode, Product } from '../api/products';
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
+import QRScanner from '../components/QRScanner';
 import { useIsMobile } from '../hooks/useIsMobile';
 import {
   createReception, getDemandes, marquerEnvoye, getHistorique,
@@ -28,6 +29,7 @@ const D = {
   check:     'M20 6L9 17l-5-5',
   logout:    'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h12',
   truck:     'M1 3h15v13H1zM16 8h4l3 3v5h-7V8z',
+  scan:      'M23 7V1h-6M1 7V1h6M23 17v6h-6M1 17v6h6M4 12h2M9 12h2M14 12h2M19 12h2',
   pkg:       'M12 2l9 4.5v11L12 22 3 17.5v-11L12 2zM12 22V11.5M3 6.5l9 5 9-5',
 };
 
@@ -88,28 +90,39 @@ export default function Magazinier() {
   }, []);
 
   // ── Nouveau produit inline ────────────────────────────────────────────────
+  const NP_EMPTY = { name: '', barcode: '', category: '', subCategory: '', unit: 'unité', qty: '', seuilCommande: '', seuilAlerte: '5', expiryDate: '' };
   const [showNewProd,    setShowNewProd]    = useState(false);
-  const [newProdName,    setNewProdName]    = useState('');
-  const [newProdQty,     setNewProdQty]     = useState('');
-  const [newProdSeuil,   setNewProdSeuil]   = useState('');
+  const [newProd,        setNewProd]        = useState({ ...NP_EMPTY });
   const [newProdLoading, setNewProdLoading] = useState(false);
+  const setNP = (k: keyof typeof NP_EMPTY, v: string) => setNewProd(p => ({ ...p, [k]: v }));
+
+  // Catégories dérivées des produits existants
+  const knownCategories = [...new Set(['Beauté','Hygiène','Parfumerie','Épicerie','Boissons','Alimentation','Bien-être','Maison', ...products.map(p => p.category).filter(Boolean) as string[]])].sort((a, b) => a.localeCompare(b, 'fr'));
+  const UNITS = ['unité','kg','g','L','mL','pièce','boîte','sachet','bouteille'];
+
+  // ── Scanner QR ─────────────────────────────────────────────────────────────
+  const [scanTarget, setScanTarget] = useState<'newprod' | number | null>(null);
 
   const handleCreateProd = async () => {
-    if (!newProdName.trim()) { addToast('Le nom du produit est requis', 'error'); return; }
+    if (!newProd.name.trim()) { addToast('Le nom du produit est requis', 'error'); return; }
     setNewProdLoading(true);
     try {
       await createProduct({
-        name:                newProdName.trim().charAt(0).toUpperCase() + newProdName.trim().slice(1),
+        name:                newProd.name.trim().charAt(0).toUpperCase() + newProd.name.trim().slice(1),
+        barcode:             newProd.barcode.trim() || undefined,
+        category:            newProd.category || undefined,
+        subCategory:         newProd.subCategory.trim() || undefined,
+        unit:                newProd.unit || 'unité',
         price:               0,
         costPrice:           0,
-        stock:               parseInt(newProdQty) || 0,
-        alertThreshold:      5,
-        unit:                'unité',
-        magazinierThreshold: parseInt(newProdSeuil) || 0,
+        stock:               0,
+        alertThreshold:      parseInt(newProd.seuilAlerte) || 5,
+        expiryDate:          newProd.expiryDate || null,
+        magazinierThreshold: parseInt(newProd.seuilCommande) || 0,
       });
       await loadProducts();
       setShowNewProd(false);
-      setNewProdName(''); setNewProdQty(''); setNewProdSeuil('');
+      setNewProd({ ...NP_EMPTY });
       addToast('Produit créé ✓', 'success');
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
     finally { setNewProdLoading(false); }
@@ -147,6 +160,40 @@ export default function Magazinier() {
   const removeRow = useCallback((i: number) => setRows(r => r.filter((_, n) => n !== i)), []);
   const setRow    = useCallback((i: number, field: keyof RecRow, val: string | number) =>
     setRows(r => r.map((row, n) => n === i ? { ...row, [field]: val } : row)), []);
+
+  // ── handleScan — défini après setRow ────────────────────────────────────────
+  const handleScan = useCallback(async (code: string) => {
+    setScanTarget(null);
+    if (scanTarget === 'newprod') {
+      setNP('barcode', code);
+      try {
+        const found = await getProductByBarcode(code);
+        // Remplir tous les champs non-financiers
+        setNewProd({
+          name:          found.name,
+          barcode:       found.barcode ?? code,
+          category:      found.category ?? '',
+          subCategory:   found.subCategory ?? '',
+          unit:          found.unit ?? 'unité',
+          qty:           String(found.stockMagazin ?? 0),
+          seuilCommande: String(found.magazinierThreshold ?? 0),
+          seuilAlerte:   String(found.alertThreshold ?? 5),
+          expiryDate:    found.expiryDate ? found.expiryDate.slice(0, 10) : '',
+        });
+        addToast(`✓ Produit existant trouvé : ${found.name} — vérifiez et complétez`, 'success');
+      } catch {
+        addToast('Nouveau code-barres enregistré — remplissez les informations', 'info' as any);
+      }
+    } else if (typeof scanTarget === 'number') {
+      try {
+        const found = await getProductByBarcode(code);
+        setRow(scanTarget, 'productId', found._id);
+        addToast(`${found.name} sélectionné`, 'success');
+      } catch {
+        addToast('Produit introuvable pour ce code-barres', 'error');
+      }
+    }
+  }, [scanTarget, addToast, setRow]);
 
   const handleValidateReception = useCallback(async () => {
     if (!fournisseur.trim()) { addToast('Indiquez le nom du fournisseur', 'error'); return; }
@@ -210,6 +257,14 @@ export default function Magazinier() {
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <ToastContainer toasts={toasts} onRemove={removeToast}/>
+
+      {/* ── QR Scanner overlay ───────────────────────────────────────────── */}
+      {scanTarget !== null && (
+        <QRScanner
+          onDetected={handleScan}
+          onClose={() => setScanTarget(null)}
+        />
+      )}
 
       {/* ── Bouton hamburger mobile ──────────────────────────────────────── */}
       {isMobile && (
@@ -341,34 +396,51 @@ export default function Magazinier() {
                   {/* Mini formulaire nouveau produit */}
                   {showNewProd && (
                     <div style={{ background: '#f8faf7', border: '1.5px solid #86efac', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px' }}>Nouveau produit</p>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px', gap: 8, marginBottom: 10 }}>
-                        <input
-                          style={INPUT}
-                          value={newProdName}
-                          onChange={e => setNewProdName(e.target.value)}
-                          placeholder="Nom du produit *"
-                          autoFocus
-                        />
-                        <input
-                          style={{ ...INPUT, textAlign: 'center' }}
-                          type="number" min={0}
-                          value={newProdQty}
-                          onChange={e => setNewProdQty(e.target.value)}
-                          placeholder="Quantité"
-                        />
-                        <input
-                          style={{ ...INPUT, textAlign: 'center' }}
-                          type="number" min={0}
-                          value={newProdSeuil}
-                          onChange={e => setNewProdSeuil(e.target.value)}
-                          placeholder="Seuil"
-                          title="Seuil d'alerte pour commander"
-                        />
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>Nouveau produit</p>
+                        <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: 0 }}>Prix complété par l'administrateur</p>
                       </div>
-                      <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: '0 0 10px' }}>
-                        Le prix et les autres détails seront complétés par l'administrateur.
-                      </p>
+
+                      {/* Code-barres / QR — scan en premier */}
+                      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                        <input style={{ ...INPUT, fontFamily: 'var(--fs-font-mono)', flex: 1 }}
+                          value={newProd.barcode} onChange={e => setNP('barcode', e.target.value)}
+                          placeholder="Code-barres / QR (scan pour auto-remplir)"/>
+                        <button type="button" onClick={() => setScanTarget('newprod')}
+                          style={{ padding: '0 12px', border: '1.5px solid #86efac', borderRadius: 8, background: '#f0fdf4', cursor: 'pointer', color: '#16a34a', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+                          <I d={D.scan} size={14}/> Scanner QR
+                        </button>
+                      </div>
+                      {newProd.barcode && <p style={{ fontSize: 10, color: '#16a34a', fontWeight: 600, margin: '-4px 0 10px' }}>✓ {newProd.barcode}</p>}
+
+                      {/* Nom */}
+                      <div style={{ marginBottom: 8 }}>
+                        <input style={INPUT} value={newProd.name} onChange={e => setNP('name', e.target.value)} placeholder="Nom du produit *" autoFocus={!newProd.barcode}/>
+                      </div>
+
+                      {/* Catégorie + Sous-catégorie */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                        <select style={{ ...INPUT, background: '#fff', cursor: 'pointer' }} value={newProd.category} onChange={e => setNP('category', e.target.value)}>
+                          <option value="">— Catégorie —</option>
+                          {knownCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <input style={INPUT} value={newProd.subCategory} onChange={e => setNP('subCategory', e.target.value)} placeholder="Sous-catégorie (optionnel)"/>
+                      </div>
+
+                      {/* Unité + Seuil alerte admin */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+                        <select style={{ ...INPUT, background: '#fff', cursor: 'pointer' }} value={newProd.unit} onChange={e => setNP('unit', e.target.value)}>
+                          {UNITS.map(u => <option key={u}>{u}</option>)}
+                        </select>
+                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.seuilAlerte} onChange={e => setNP('seuilAlerte', e.target.value)} placeholder="Seuil alerte" title="Seuil d'alerte stock (gestionnaire)"/>
+                      </div>
+
+                      {/* Quantité entrepôt + Seuil commande + Date péremption */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
+                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.qty} onChange={e => setNP('qty', e.target.value)} placeholder="Qté reçue"/>
+                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.seuilCommande} onChange={e => setNP('seuilCommande', e.target.value)} placeholder="Seuil commande" title="Seuil pour déclencher une commande"/>
+                        <input style={INPUT} type="date" value={newProd.expiryDate} onChange={e => setNP('expiryDate', e.target.value)} title="Date de péremption"/>
+                      </div>
                       <button onClick={handleCreateProd} disabled={newProdLoading}
                         style={{ ...BTN_PRIMARY, fontSize: 12, padding: '8px 16px', opacity: newProdLoading ? 0.7 : 1 }}>
                         {newProdLoading ? 'Création…' : '✓ Créer le produit'}
@@ -381,7 +453,7 @@ export default function Magazinier() {
                     const seuil = prod?.magazinierThreshold ?? 0;
                     return (
                       <div key={i} style={{ marginBottom: 10 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 36px', gap: 8, marginBottom: prod ? 4 : 0 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 32px 32px', gap: 6, marginBottom: prod ? 4 : 0 }}>
                           <select value={row.productId} onChange={e => setRow(i, 'productId', e.target.value)} style={{ ...INPUT, cursor: 'pointer' }}>
                             <option value="">— Choisir un produit —</option>
                             {products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
@@ -389,15 +461,20 @@ export default function Magazinier() {
                           <input type="number" min={1} value={row.quantity}
                             onChange={e => setRow(i, 'quantity', parseInt(e.target.value) || 1)}
                             style={{ ...INPUT, textAlign: 'right' }} placeholder="Qté"/>
+                          <button onClick={() => setScanTarget(i)} title="Scanner le QR code du produit"
+                            style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#f0fdf4', color: '#16a34a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <I d={D.scan} size={13}/>
+                          </button>
                           <button onClick={() => removeRow(i)} disabled={rows.length === 1}
-                            style={{ padding: '9px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <I d={D.trash} size={14}/>
+                            style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <I d={D.trash} size={13}/>
                           </button>
                         </div>
                         {prod && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 12px', background: 'var(--fs-ivory)', borderRadius: 7, fontSize: 11 }}>
                             <span style={{ color: 'var(--fs-ink-400)' }}>
-                              Stock : <strong style={{ color: 'var(--fs-ink-800)' }}>{prod.stock} {prod.unit}</strong>
+                              Entrepôt : <strong style={{ color: 'var(--fs-ink-800)' }}>{prod.stockMagazin ?? 0} {prod.unit}</strong>
+                              &nbsp;·&nbsp; Caisse : <strong style={{ color: 'var(--fs-ink-600)' }}>{prod.stock} {prod.unit}</strong>
                             </span>
                             <span style={{ color: 'var(--fs-ink-300)' }}>|</span>
                             <span style={{ color: 'var(--fs-ink-400)', display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -580,8 +657,9 @@ export default function Magazinier() {
                         </td>
                       </tr>
                     ) : mesProduits.map((p, i) => {
-                      const seuil = p.magazinierThreshold ?? 0;
-                      const bas   = seuil > 0 && p.stock <= seuil;
+                      const seuil      = p.magazinierThreshold ?? 0;
+                      const qteEntrepot = p.stockMagazin ?? 0;
+                      const bas         = seuil > 0 && qteEntrepot <= seuil;
                       return (
                         <tr key={p._id} style={{ borderBottom: '1px solid var(--fs-line)', background: bas ? '#fef9f9' : i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
                           <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--fs-ink-900)' }}>
@@ -590,7 +668,7 @@ export default function Magazinier() {
                             {p.category && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--fs-ink-400)', fontWeight: 400 }}>{p.category}</span>}
                           </td>
                           <td style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 800, fontSize: 20, fontFamily: 'var(--fs-font-mono)', color: bas ? '#dc2626' : 'var(--fs-wine-700)' }}>
-                            {p.stock}
+                            {qteEntrepot}
                           </td>
                           <td style={{ padding: '8px 16px', textAlign: 'center' }}>
                             <input
