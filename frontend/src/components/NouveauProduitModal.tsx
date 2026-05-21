@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createProduct, updateProduct, Product } from '../api/products';
+import AutocompleteInput from './AutocompleteInput';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -252,10 +253,16 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
   const allCategories = useMemo(() => {
     const base = new Set([...CATEGORIES, ...(knownCategories ?? [])]);
     extraCategories.forEach(c => base.add(c));
-    // Inclure la catégorie du produit en édition si absente
     if (product?.category) base.add(product.category);
     return Array.from(base).sort((a, b) => a.localeCompare(b, 'fr'));
   }, [knownCategories, extraCategories, product]);
+
+  const allSubCategories = useMemo(() => {
+    const base = new Set<string>();
+    (existingProducts ?? []).forEach(p => { if (p.subCategory) base.add(p.subCategory); });
+    if (product?.subCategory) base.add(product.subCategory);
+    return Array.from(base).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [existingProducts, product]);
 
   const confirmNewCat = () => {
     const v = newCatInput.trim();
@@ -362,49 +369,20 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={LABEL_STYLE}>Catégorie</label>
-              <select
-                value={allCategories.includes(form.category) ? form.category : (form.category === '__new__' ? '__new__' : '')}
-                onChange={e => {
-                  setField('category')(e.target.value);
-                  if (e.target.value !== '__new__') setNewCatInput('');
-                }}
-                style={{ ...INPUT_STYLE, background: '#fff' }}
-              >
-                <option value="">— Sélectionner —</option>
-                {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                <option value="__new__">＋ Nouvelle catégorie…</option>
-              </select>
-              {form.category === '__new__' && (
-                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                  <input
-                    type="text"
-                    value={newCatInput}
-                    onChange={e => setNewCatInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmNewCat(); } }}
-                    placeholder="Nom de la catégorie…"
-                    autoFocus
-                    style={{ ...INPUT_STYLE, fontSize: 12, padding: '6px 10px' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={confirmNewCat}
-                    disabled={!newCatInput.trim()}
-                    style={{ padding: '6px 12px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: newCatInput.trim() ? 1 : 0.4, flexShrink: 0 }}
-                  >
-                    OK
-                  </button>
-                </div>
-              )}
+              <AutocompleteInput
+                value={form.category}
+                onChange={v => setField('category')(v)}
+                suggestions={allCategories}
+                placeholder="Saisir ou choisir une catégorie…"
+              />
             </div>
             <div>
               <label style={LABEL_STYLE}>Sous-catégorie <span style={{ fontWeight: 400, textTransform: 'none' }}>(optionnel)</span></label>
-              <input
-                type="text"
+              <AutocompleteInput
                 value={form.subCategory}
-                onChange={e => setField('subCategory')(e.target.value)}
-                onBlur={e => { const v = e.target.value.trim(); if (v) setField('subCategory')(v.charAt(0).toUpperCase() + v.slice(1)); }}
-                placeholder="ex: Parfum, Shampoing, Lait…"
-                style={{ ...INPUT_STYLE }}
+                onChange={v => setField('subCategory')(v)}
+                suggestions={allSubCategories}
+                placeholder="ex: Parfum, Shampoing…"
               />
             </div>
             <div>

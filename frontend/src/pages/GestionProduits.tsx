@@ -11,7 +11,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   createProduct, updateProduct, getAllProducts, Product, ProductPayload,
 } from '../api/products';
-import QRScanner from '../components/QRScanner';
+import QRScanner          from '../components/QRScanner';
+import AutocompleteInput  from '../components/AutocompleteInput';
 
 // ── Catégories et unités prédéfinies ─────────────────────────────────────────
 
@@ -60,7 +61,8 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
   const [newCatInput,     setNewCatInput]     = useState('');
   const nameRef = useRef<HTMLInputElement>(null);
 
-  const allCategories = [...baseCategories, ...extraCategories.filter(c => !baseCategories.includes(c))];
+  const allCategories    = [...baseCategories, ...extraCategories.filter(c => !baseCategories.includes(c))];
+  const allSubCategories = [...new Set(existingProducts.map(p => p.subCategory).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'fr'));
   const [markupPct,    setMarkupPct]    = useState('');
   const [foundProduct, setFoundProduct] = useState<Product | null>(null);
 
@@ -246,38 +248,12 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label-field">Catégorie</label>
-                <select
-                  value={allCategories.includes(form.category) ? form.category : '__new__'}
-                  onChange={e => {
-                    set('category', e.target.value);
-                    if (e.target.value !== '__new__') setNewCatInput('');
-                  }}
-                  className="input-field w-full"
-                >
-                  {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                  <option value="__new__">＋ Nouvelle…</option>
-                </select>
-                {form.category === '__new__' && (
-                  <div className="flex gap-1.5 mt-1.5">
-                    <input
-                      type="text"
-                      value={newCatInput}
-                      onChange={e => setNewCatInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); confirmNewCat(); } }}
-                      placeholder="Nom de la catégorie…"
-                      autoFocus
-                      className="input-field flex-1 text-xs py-1.5"
-                    />
-                    <button
-                      type="button"
-                      onClick={confirmNewCat}
-                      disabled={!newCatInput.trim()}
-                      className="px-2.5 py-1.5 rounded-lg bg-bordeaux text-cream text-xs font-bold disabled:opacity-40 shrink-0"
-                    >
-                      OK
-                    </button>
-                  </div>
-                )}
+                <AutocompleteInput
+                  value={form.category}
+                  onChange={v => set('category', v)}
+                  suggestions={allCategories}
+                  placeholder="Saisir ou choisir…"
+                />
               </div>
               <div>
                 <label className="label-field">Unité</label>
@@ -294,13 +270,11 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
             {/* Sous-catégorie */}
             <div>
               <label className="label-field">Sous-catégorie <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(optionnel)</span></label>
-              <input
-                type="text"
+              <AutocompleteInput
                 value={form.subCategory}
-                onChange={e => set('subCategory', e.target.value)}
-                onBlur={e => { const v = e.target.value.trim(); if (v) set('subCategory', v.charAt(0).toUpperCase() + v.slice(1)); }}
+                onChange={v => set('subCategory', v)}
+                suggestions={allSubCategories}
                 placeholder="ex: Parfum, Shampoing, Lait..."
-                className="input-field w-full"
               />
             </div>
 

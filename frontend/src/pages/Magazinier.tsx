@@ -3,7 +3,8 @@ import { getAllProducts, createProduct, updateProduct, getProductByBarcode, Prod
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
 import QRScanner from '../components/QRScanner';
-import { useIsMobile } from '../hooks/useIsMobile';
+import { useIsMobile }       from '../hooks/useIsMobile';
+import AutocompleteInput     from '../components/AutocompleteInput';
 import {
   createReception, getDemandes, marquerEnvoye, getHistorique,
   DemandeStock, ReceptionRecord,
@@ -96,8 +97,9 @@ export default function Magazinier() {
   const [newProdLoading, setNewProdLoading] = useState(false);
   const setNP = (k: keyof typeof NP_EMPTY, v: string) => setNewProd(p => ({ ...p, [k]: v }));
 
-  // Catégories dérivées des produits existants
-  const knownCategories = [...new Set(['Beauté','Hygiène','Parfumerie','Épicerie','Boissons','Alimentation','Bien-être','Maison', ...products.map(p => p.category).filter(Boolean) as string[]])].sort((a, b) => a.localeCompare(b, 'fr'));
+  // Catégories et sous-catégories dérivées des produits existants
+  const knownCategories    = [...new Set(['Beauté','Hygiène','Parfumerie','Épicerie','Boissons','Alimentation','Bien-être','Maison', ...products.map(p => p.category).filter(Boolean) as string[]])].sort((a, b) => a.localeCompare(b, 'fr'));
+  const knownSubCategories = [...new Set(products.map(p => p.subCategory).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'fr'));
   const UNITS = ['unité','kg','g','L','mL','pièce','boîte','sachet','bouteille'];
 
   // ── Scanner QR ─────────────────────────────────────────────────────────────
@@ -420,11 +422,18 @@ export default function Magazinier() {
 
                       {/* Catégorie + Sous-catégorie */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
-                        <select style={{ ...INPUT, background: '#fff', cursor: 'pointer' }} value={newProd.category} onChange={e => setNP('category', e.target.value)}>
-                          <option value="">— Catégorie —</option>
-                          {knownCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
-                        <input style={INPUT} value={newProd.subCategory} onChange={e => setNP('subCategory', e.target.value)} placeholder="Sous-catégorie (optionnel)"/>
+                        <AutocompleteInput
+                          value={newProd.category}
+                          onChange={v => setNP('category', v)}
+                          suggestions={knownCategories}
+                          placeholder="Catégorie…"
+                        />
+                        <AutocompleteInput
+                          value={newProd.subCategory}
+                          onChange={v => setNP('subCategory', v)}
+                          suggestions={knownSubCategories}
+                          placeholder="Sous-catégorie…"
+                        />
                       </div>
 
                       {/* Unité + Seuil alerte admin */}
