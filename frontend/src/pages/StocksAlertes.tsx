@@ -207,7 +207,7 @@ export default function StocksAlertes() {
                         </td>
                         <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{p.category ?? '—'}</td>
                         <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 16, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: p.stock === 0 ? 'var(--fs-danger-700)' : 'var(--fs-warning-700)' }}>
-                          {p.stock} <span style={{ fontSize: 11, fontWeight: 400 }}>{p.unit}</span>
+                          {p.stock}
                         </td>
                         <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                           <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{p.alertThreshold}</div>
