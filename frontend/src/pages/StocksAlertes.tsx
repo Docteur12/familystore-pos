@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
-import { getAllProducts, Product, updateProduct } from '../api/products';
+import { getAllProducts, Product } from '../api/products';
 import ToastContainer, { useToast } from '../components/Toast';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -17,13 +17,9 @@ const STATUS_CFG: Record<AlertStatus, { label: string; bg: string; color: string
   alerte:   { label: 'Alerte',   bg: '#F7ECD4', color: '#8B5A14' },
 };
 
-// Deterministic expiry simulation (matches Stocks.tsx)
-function expiryOf(p: Product): Date {
-  const h = p._id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const days = (h % 450) - 30;
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d;
+function expiryOf(p: Product): Date | null {
+  if (!p.expiryDate) return null;
+  return new Date(p.expiryDate);
 }
 function daysUntil(d: Date) {
   return Math.round((d.getTime() - Date.now()) / 86_400_000);
@@ -39,7 +35,6 @@ function I({ d, size = 14 }: { d: string; size?: number }) {
 }
 const D = {
   refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
-  check:   'M20 6L9 17l-5-5',
   mail:    'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6',
   zap:     'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
 };
@@ -53,8 +48,6 @@ export default function StocksAlertes() {
   const { toasts, addToast, removeToast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [editing, setEditing]   = useState<Record<string, string>>({});
-  const [saving, setSaving]     = useState<string | null>(null);
   const [tab, setTab]           = useState<TabKey>('reappro');
   const [expiryFilter, setExpFilter] = useState<ExpiryFilter>('180');
 
@@ -67,29 +60,16 @@ export default function StocksAlertes() {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleSaveThreshold = async (p: Product) => {
-    const val = parseInt(editing[p._id] ?? '');
-    if (isNaN(val) || val < 0) return;
-    setSaving(p._id);
-    try {
-      await updateProduct(p._id, { alertThreshold: val });
-      addToast(`Seuil mis à jour — ${p.name}`, 'success');
-      load();
-    } catch (e: unknown) {
-      addToast(e instanceof Error ? e.message : 'Erreur', 'error');
-    } finally { setSaving(null); }
-  };
-
   // Tab 1: low stock
   const lowProducts = products
     .filter(p => p.stock <= p.alertThreshold)
     .sort((a, b) => (a.stock / a.alertThreshold) - (b.stock / b.alertThreshold));
 
-  // Tab 2: expiry
+  // Tab 2: expiry (only products with a real expiryDate)
   const maxDays = parseInt(expiryFilter);
   const expiryProducts = products
-    .map(p => ({ p, days: daysUntil(expiryOf(p)) }))
-    .filter(({ days }) => days <= maxDays)
+    .map(p => { const exp = expiryOf(p); return exp ? { p, days: daysUntil(exp) } : null; })
+    .filter((x): x is { p: Product; days: number } => x !== null && x.days <= maxDays)
     .sort((a, b) => a.days - b.days);
 
   // Tab 3: suggestions (products needing reorder)
@@ -210,8 +190,8 @@ export default function StocksAlertes() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['Produit', 'Catégorie', 'Stock actuel', 'Seuil actuel', 'Modifier seuil', 'Statut'].map((h, i) => (
-                      <th key={h} style={{ padding: '10px 12px', textAlign: i >= 2 && i <= 4 ? 'center' : 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid var(--fs-line)', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>{h}</th>
+                    {['Produit', 'Catégorie', 'Stock actuel', 'Seuil (auto 10%)', 'Statut'].map((h, i) => (
+                      <th key={h} style={{ padding: '10px 12px', textAlign: i >= 2 && i <= 3 ? 'center' : 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid var(--fs-line)', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -219,28 +199,19 @@ export default function StocksAlertes() {
                   {lowProducts.map((p, idx) => {
                     const status = getStatus(p);
                     const st = STATUS_CFG[status];
-                    const isEditing = editing[p._id] !== undefined;
                     return (
                       <tr key={p._id} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
-                        <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
+                          {p.localName && <div style={{ fontSize: 11, color: '#999', marginTop: 1 }}>{p.localName}</div>}
+                        </td>
                         <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{p.category ?? '—'}</td>
                         <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 16, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: p.stock === 0 ? 'var(--fs-danger-700)' : 'var(--fs-warning-700)' }}>
                           {p.stock} <span style={{ fontSize: 11, fontWeight: 400 }}>{p.unit}</span>
                         </td>
-                        <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-500)' }}>{p.alertThreshold}</td>
-                        <td style={{ padding: '6px 12px', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                            <input type="number" min={0} placeholder={String(p.alertThreshold)}
-                              value={editing[p._id] ?? ''}
-                              onChange={e => setEditing(prev => ({ ...prev, [p._id]: e.target.value }))}
-                              style={{ width: 80, padding: '5px 8px', textAlign: 'center', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, fontFamily: 'var(--fs-font-mono)', outline: 'none' }}/>
-                            {isEditing && (
-                              <button onClick={() => handleSaveThreshold(p)} disabled={saving === p._id}
-                                style={{ padding: '5px 8px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', opacity: saving === p._id ? 0.6 : 1 }}>
-                                <I d={D.check} size={12}/>
-                              </button>
-                            )}
-                          </div>
+                        <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{p.alertThreshold}</div>
+                          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>= 10% de {p.initialStock ?? p.stock}</div>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
                           <span style={{ background: st.bg, color: st.color, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 10 }}>{st.label}</span>
@@ -268,14 +239,17 @@ export default function StocksAlertes() {
                 </thead>
                 <tbody>
                   {expiryProducts.map(({ p, days }, idx) => {
-                    const exp = expiryOf(p);
+                    const exp = expiryOf(p)!;
                     const isExpired = days < 0;
                     const isSoon = days >= 0 && days <= 30;
                     const bg   = isExpired ? '#FAE5DF' : isSoon ? '#FEF0E0' : '#F7ECD4';
                     const color = isExpired ? '#8B2C1A' : '#8B5A14';
                     return (
                       <tr key={p._id} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
-                        <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
+                          {p.localName && <div style={{ fontSize: 11, color: '#999', marginTop: 1 }}>{p.localName}</div>}
+                        </td>
                         <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{p.category ?? '—'}</td>
                         <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{p.stock} {p.unit}</td>
                         <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-500)' }}>
@@ -318,7 +292,10 @@ export default function StocksAlertes() {
                   <tbody>
                     {suggestions.map(({ p, recommended, urgency }, idx) => (
                       <tr key={p._id} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
-                        <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
+                          {p.localName && <div style={{ fontSize: 11, color: '#999', marginTop: 1 }}>{p.localName}</div>}
+                        </td>
                         <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{p.category ?? '—'}</td>
                         <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: p.stock === 0 ? 'var(--fs-danger-700)' : 'var(--fs-warning-700)' }}>{p.stock}</td>
                         <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-400)' }}>{p.alertThreshold}</td>

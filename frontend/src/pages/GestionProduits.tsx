@@ -25,23 +25,30 @@ const UNITS = ['pce', 'kg', 'g', 'L', 'cl', 'bouteille', 'boite', 'sachet'];
 
 // ── Formulaire d'ajout ────────────────────────────────────────────────────────
 
+function defaultExpiryDate(): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 interface FormState {
-  barcode:        string;
-  name:           string;
-  category:       string;
-  unit:           string;
-  subCategory:    string;
-  price:          string;
-  costPrice:      string;
-  stock:          string;
-  alertThreshold: string;
-  expiryDate:     string;
+  barcode:     string;
+  name:        string;
+  localName:   string;
+  category:    string;
+  unit:        string;
+  valeur:      string;
+  subCategory: string;
+  price:       string;
+  costPrice:   string;
+  stock:       string;
+  expiryDate:  string;
 }
 
 const EMPTY_FORM: FormState = {
-  barcode: '', name: '', category: 'Alimentation', subCategory: '',
-  unit: 'pce', price: '', costPrice: '',
-  stock: '0', alertThreshold: '5', expiryDate: '',
+  barcode: '', name: '', localName: '', category: 'Alimentation', subCategory: '',
+  unit: 'pce', valeur: '', price: '', costPrice: '',
+  stock: '0', expiryDate: defaultExpiryDate(),
 };
 
 interface AddModalProps {
@@ -74,16 +81,17 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
     if (found) {
       setFoundProduct(found);
       setForm({
-        barcode:        found.barcode ?? code,
-        name:           found.name,
-        category:       found.category ?? 'Alimentation',
-        subCategory:    found.subCategory ?? '',
-        unit:           found.unit,
-        price:          String(found.price),
-        costPrice:      String(found.costPrice),
-        stock:          String(found.stock),
-        alertThreshold: String(found.alertThreshold),
-        expiryDate:     found.expiryDate ? found.expiryDate.slice(0, 10) : '',
+        barcode:     found.barcode ?? code,
+        name:        found.name,
+        localName:   found.localName ?? '',
+        category:    found.category ?? 'Alimentation',
+        subCategory: found.subCategory ?? '',
+        unit:        found.unit,
+        valeur:      found.valeur ?? '',
+        price:       String(found.price),
+        costPrice:   String(found.costPrice),
+        stock:       String(found.stock),
+        expiryDate:  found.expiryDate ? found.expiryDate.slice(0, 10) : defaultExpiryDate(),
       });
       setMarkupPct('');
     } else {
@@ -135,16 +143,17 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
     if (isNaN(costPrice) || costPrice < 0) { setError("Prix d'achat invalide");  return; }
 
     const payload: ProductPayload = {
-      name:           form.name.trim(),
-      barcode:        form.barcode.trim() || undefined,
-      category:       finalCategory,
-      subCategory:    form.subCategory.trim() || undefined,
-      unit:           form.unit,
+      name:        form.name.trim(),
+      localName:   form.localName.trim() || undefined,
+      barcode:     form.barcode.trim() || undefined,
+      category:    finalCategory,
+      subCategory: form.subCategory.trim() || undefined,
+      unit:        form.unit,
+      valeur:      form.valeur.trim() || undefined,
       price,
       costPrice,
-      stock:          parseInt(form.stock, 10) || 0,
-      alertThreshold: parseInt(form.alertThreshold, 10) || 5,
-      expiryDate:     form.expiryDate || null,
+      stock:       parseInt(form.stock, 10) || 0,
+      expiryDate:  form.expiryDate || null,
     };
 
     setLoading(true);
@@ -226,9 +235,9 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
               </div>
             </div>
 
-            {/* Nom */}
+            {/* Nom d'origine + nom local */}
             <div>
-              <label className="label-field">Nom du produit *</label>
+              <label className="label-field">Nom d'origine *</label>
               <input
                 ref={nameRef}
                 type="text"
@@ -239,12 +248,29 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
                   if (v) set('name', v.charAt(0).toUpperCase() + v.slice(1));
                 }}
                 required
-                placeholder="ex: Huile diamaor 1l"
+                placeholder="ex: Huile diamaor 1L"
                 className="input-field w-full"
               />
             </div>
+            <div>
+              <label className="label-field">Nom local <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(optionnel)</span></label>
+              <input
+                type="text"
+                value={form.localName}
+                onChange={e => set('localName', e.target.value)}
+                placeholder="ex: Mafuta ya asali"
+                className="input-field w-full"
+              />
+              {form.name && form.localName && (
+                <div className="mt-1.5 px-3 py-2 bg-cream rounded-lg border border-gray-100 text-xs">
+                  <span className="font-bold text-gray-800">{form.name}</span>
+                  <br/>
+                  <span className="text-gray-400">{form.localName}</span>
+                </div>
+              )}
+            </div>
 
-            {/* Catégorie + Unité */}
+            {/* Catégorie + Unité + Valeur */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label-field">Catégorie</label>
@@ -264,6 +290,16 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
                 >
                   {UNITS.map(u => <option key={u}>{u}</option>)}
                 </select>
+              </div>
+              <div className="col-span-2">
+                <label className="label-field">Valeur <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(optionnel — ex: 50mL, 250g)</span></label>
+                <input
+                  type="text"
+                  value={form.valeur}
+                  onChange={e => set('valeur', e.target.value)}
+                  placeholder="ex: 50mL, 1L, 250g…"
+                  className="input-field w-full"
+                />
               </div>
             </div>
 
@@ -317,7 +353,7 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
               )}
             </div>
 
-            {/* Stock initial + Seuil alerte */}
+            {/* Stock initial + Seuil alerte auto */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="label-field">Stock initial</label>
@@ -330,20 +366,19 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
                 />
               </div>
               <div>
-                <label className="label-field">Seuil alerte</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={form.alertThreshold}
-                  onChange={e => set('alertThreshold', e.target.value)}
-                  className="input-field w-full"
-                />
+                <label className="label-field">Seuil alerte <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(auto 10%)</span></label>
+                <div className="input-field w-full bg-gray-50 text-gray-500 flex items-center justify-between cursor-not-allowed select-none">
+                  <span className="font-bold font-mono">
+                    {Math.max(1, Math.ceil((parseInt(form.stock, 10) || 0) * 0.10))}
+                  </span>
+                  <span className="text-xs text-gray-400">= 10% de {form.stock || '0'}</span>
+                </div>
               </div>
             </div>
 
             {/* Date de péremption */}
             <div>
-              <label className="label-field">📅 Date de péremption <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(optionnel)</span></label>
+              <label className="label-field">📅 Date de péremption <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(défaut : +1 an)</span></label>
               <input
                 type="date"
                 value={form.expiryDate}
@@ -554,7 +589,8 @@ export default function GestionProduits() {
                           ${low ? 'bg-red-50/30' : ''}`}>
                         <td className="px-5 py-3">
                           <p className="font-semibold text-gray-800">{p.name}</p>
-                          <p className="text-xs text-gray-400">{p.unit}</p>
+                          {p.localName && <p className="text-xs text-gray-400 italic">{p.localName}</p>}
+                          <p className="text-xs text-gray-400">{p.unit}{p.valeur ? ` · ${p.valeur}` : ''}</p>
                         </td>
                         <td className="px-5 py-3 hidden md:table-cell">
                           <span className="font-mono text-xs text-gray-500

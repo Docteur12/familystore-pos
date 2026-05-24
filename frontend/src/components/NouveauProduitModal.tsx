@@ -181,32 +181,39 @@ interface Props {
   existingProducts?: Product[];
 }
 
+function defaultExpiryDate(): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 type FormState = {
-  name: string; barcode: string; category: string; subCategory: string; unit: string;
-  price: string; costPrice: string; stock: string; alertThreshold: string;
+  name: string; localName: string; barcode: string; category: string; subCategory: string;
+  unit: string; valeur: string; price: string; costPrice: string; stock: string;
   discount: string; expiryDate: string;
 };
 
 const INITIAL_FORM: FormState = {
-  name: '', barcode: '', category: '', subCategory: '', unit: 'unité',
-  price: '', costPrice: '', stock: '', alertThreshold: '', discount: '0', expiryDate: '',
+  name: '', localName: '', barcode: '', category: '', subCategory: '', unit: 'unité',
+  valeur: '', price: '', costPrice: '', stock: '', discount: '0', expiryDate: defaultExpiryDate(),
 };
 
 // ── Modal component ───────────────────────────────────────────────────────────
 
 export default function NouveauProduitModal({ onClose, onCreated, onUpdated, product, knownCategories, existingProducts = [] }: Props) {
   const [form, setForm] = useState<FormState>(() => product ? {
-    name:           product.name,
-    barcode:        product.barcode ?? '',
-    category:       product.category ?? '',
-    unit:           product.unit,
-    price:          String(product.price),
-    costPrice:      String(product.costPrice),
-    stock:          String(product.stock),
-    alertThreshold: String(product.alertThreshold),
-    discount:       String(product.discount ?? 0),
-    expiryDate:     product.expiryDate ? product.expiryDate.slice(0, 10) : '',
-    subCategory:    product.subCategory ?? '',
+    name:        product.name,
+    localName:   product.localName ?? '',
+    barcode:     product.barcode ?? '',
+    category:    product.category ?? '',
+    unit:        product.unit,
+    valeur:      product.valeur ?? '',
+    price:       String(product.price),
+    costPrice:   String(product.costPrice),
+    stock:       String(product.stock),
+    discount:    String(product.discount ?? 0),
+    expiryDate:  product.expiryDate ? product.expiryDate.slice(0, 10) : defaultExpiryDate(),
+    subCategory: product.subCategory ?? '',
   } : INITIAL_FORM);
   const [loading,         setLoading]         = useState(false);
   const [error,           setError]           = useState('');
@@ -224,17 +231,18 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     if (found) {
       setFoundProduct(found);
       setForm({
-        name:           found.name,
-        barcode:        found.barcode ?? code,
-        category:       found.category ?? '',
-        subCategory:    found.subCategory ?? '',
-        unit:           found.unit,
-        price:          String(found.price),
-        costPrice:      String(found.costPrice),
-        stock:          String(found.stock),
-        alertThreshold: String(found.alertThreshold),
-        discount:       String(found.discount ?? 0),
-        expiryDate:     found.expiryDate ? found.expiryDate.slice(0, 10) : '',
+        name:        found.name,
+        localName:   found.localName ?? '',
+        barcode:     found.barcode ?? code,
+        category:    found.category ?? '',
+        subCategory: found.subCategory ?? '',
+        unit:        found.unit,
+        valeur:      found.valeur ?? '',
+        price:       String(found.price),
+        costPrice:   String(found.costPrice),
+        stock:       String(found.stock),
+        discount:    String(found.discount ?? 0),
+        expiryDate:  found.expiryDate ? found.expiryDate.slice(0, 10) : defaultExpiryDate(),
       });
       setMarkupPct('');
     } else {
@@ -275,6 +283,8 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
   const setField = (k: keyof FormState) => (v: string) =>
     setForm(prev => ({ ...prev, [k]: v }));
 
+  const computedThreshold = Math.max(1, Math.ceil((parseInt(form.stock) || 0) * 0.10));
+
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.price || !form.stock) {
       setError('Nom, prix et stock initial sont requis.');
@@ -289,17 +299,18 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     setError('');
     const rawName = form.name.trim();
     const payload = {
-      name:           rawName.charAt(0).toUpperCase() + rawName.slice(1),
-      barcode:        form.barcode.trim() || undefined,
-      category:       finalCategory || undefined,
-      unit:           form.unit,
-      price:          parseFloat(form.price),
-      costPrice:      parseFloat(form.costPrice) || 0,
-      stock:          parseInt(form.stock),
-      alertThreshold: parseInt(form.alertThreshold) || 5,
-      discount:       Math.min(100, Math.max(0, parseFloat(form.discount) || 0)),
-      expiryDate:     form.expiryDate || null,
-      subCategory:    form.subCategory.trim() || undefined,
+      name:        rawName.charAt(0).toUpperCase() + rawName.slice(1),
+      localName:   form.localName.trim() || undefined,
+      barcode:     form.barcode.trim() || undefined,
+      category:    finalCategory || undefined,
+      unit:        form.unit,
+      valeur:      form.valeur.trim() || undefined,
+      price:       parseFloat(form.price),
+      costPrice:   parseFloat(form.costPrice) || 0,
+      stock:       parseInt(form.stock),
+      discount:    Math.min(100, Math.max(0, parseFloat(form.discount) || 0)),
+      expiryDate:  form.expiryDate || null,
+      subCategory: form.subCategory.trim() || undefined,
     };
     try {
       if (product || foundProduct) {
@@ -328,7 +339,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
         <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
             <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{product ? 'Modifier le produit' : 'Nouveau produit'}</p>
-            <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '2px 0 0' }}>{product ? product.name : 'Remplir le formulaire et enregistrer'}</p>
+            <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '2px 0 0' }}>{product ? (product.localName ? `${product.name} · ${product.localName}` : product.name) : 'Remplir le formulaire et enregistrer'}</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.7)', cursor: 'pointer', display: 'flex' }}>
             <CloseIcon/>
@@ -343,17 +354,33 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
             </div>
           )}
 
-          {/* FormField reçoit value + onChange — pas de fermeture sur form */}
+          {/* Nom d'origine + nom local (hamburger) */}
           <div>
-            <label style={LABEL_STYLE}>Nom du produit *</label>
+            <label style={LABEL_STYLE}>Nom d'origine *</label>
             <input
               type="text"
               value={form.name}
               onChange={e => setField('name')(e.target.value)}
               onBlur={e => { const v = e.target.value.trim(); if (v) setField('name')(v.charAt(0).toUpperCase() + v.slice(1)); }}
-              placeholder="ex: Savon lux rose 90g"
+              placeholder="ex: Nivea Shampoing 400ml"
               style={INPUT_STYLE}
             />
+          </div>
+          <div>
+            <label style={LABEL_STYLE}>Nom local <span style={{ fontWeight: 400, textTransform: 'none' }}>(optionnel)</span></label>
+            <input
+              type="text"
+              value={form.localName}
+              onChange={e => setField('localName')(e.target.value)}
+              placeholder="ex: Shampoua ya asali"
+              style={INPUT_STYLE}
+            />
+            {form.name && form.localName && (
+              <div style={{ marginTop: 6, padding: '8px 12px', background: 'var(--fs-ivory)', borderRadius: 8, border: '1px solid var(--fs-line)' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{form.name}</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{form.localName}</div>
+              </div>
+            )}
           </div>
           <BarcodeField value={form.barcode} onChange={v => { setField('barcode')(v); lookupBarcode(v); }}/>
           {foundProduct && (
@@ -394,6 +421,16 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
               >
                 {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
+            </div>
+            <div>
+              <label style={LABEL_STYLE}>Valeur <span style={{ fontWeight: 400, textTransform: 'none' }}>(optionnel)</span></label>
+              <input
+                type="text"
+                value={form.valeur}
+                onChange={e => setField('valeur')(e.target.value)}
+                placeholder="ex: 50mL, 250g, 1L…"
+                style={INPUT_STYLE}
+              />
             </div>
           </div>
 
@@ -457,12 +494,18 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <FormField label="Stock initial *" value={form.stock}          onChange={setField('stock')}          type="number" placeholder="ex: 50"/>
-            <FormField label="Seuil d'alerte"  value={form.alertThreshold} onChange={setField('alertThreshold')} type="number" placeholder="ex: 10"/>
+            <FormField label="Stock initial *" value={form.stock} onChange={setField('stock')} type="number" placeholder="ex: 50"/>
+            <div>
+              <label style={LABEL_STYLE}>Seuil d'alerte <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(auto 10%)</span></label>
+              <div style={{ ...INPUT_STYLE, background: 'var(--fs-ivory)', color: 'var(--fs-ink-500)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 700, fontFamily: 'var(--fs-font-mono)' }}>{computedThreshold}</span>
+                <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>= 10% de {form.stock || '0'}</span>
+              </div>
+            </div>
           </div>
 
           <div>
-            <label style={LABEL_STYLE}>📅 Date de péremption <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(optionnel)</span></label>
+            <label style={LABEL_STYLE}>📅 Date de péremption <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(défaut : +1 an)</span></label>
             <input
               type="date"
               value={form.expiryDate}

@@ -43,12 +43,9 @@ function locationOf(p: Product): string {
   return `${row}-${col}`;
 }
 
-function expiryOf(p: Product): Date {
-  const h = p._id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const days = (h % 450) - 30; // -30 → 420 days from now
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d;
+function expiryOf(p: Product): Date | null {
+  if (p.expiryDate) return new Date(p.expiryDate);
+  return null;
 }
 
 function supplierOf(p: Product): string {
@@ -70,14 +67,16 @@ function daysUntil(d: Date) {
   return Math.round((d.getTime() - Date.now()) / 86_400_000);
 }
 
-function fmtDate(d: Date) {
+function fmtDate(d: Date | null) {
+  if (!d) return '—';
   return d.toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
 
 function fmtN(n: number) { return n.toLocaleString('fr-FR'); }
 
 type ExpiryStatus = 'ok' | 'near' | 'soon' | 'expired';
-function expiryStatus(d: Date): ExpiryStatus {
+function expiryStatus(d: Date | null): ExpiryStatus {
+  if (!d) return 'ok';
   const days = daysUntil(d);
   if (days < 0)   return 'expired';
   if (days < 30)  return 'soon';
@@ -85,11 +84,11 @@ function expiryStatus(d: Date): ExpiryStatus {
   return 'ok';
 }
 
-const EXPIRY_BADGE: Record<ExpiryStatus, { bg: string; color: string; label: (d: number) => string }> = {
-  ok:      { bg: '#E8F0E5', color: '#3F6B3A', label: d => `${d} j`         },
-  near:    { bg: '#F7ECD4', color: '#8B5A14', label: d => `${d} j`         },
-  soon:    { bg: '#FAE5DF', color: '#8B2C1A', label: d => `${d} j`         },
-  expired: { bg: '#FAE5DF', color: '#8B2C1A', label: _=> 'Expiré'          },
+const EXPIRY_BADGE: Record<ExpiryStatus, { bg: string; color: string; label: (d: number | null) => string }> = {
+  ok:      { bg: '#E8F0E5', color: '#3F6B3A', label: d => d !== null ? `${d} j` : '—' },
+  near:    { bg: '#F7ECD4', color: '#8B5A14', label: d => d !== null ? `${d} j` : '—' },
+  soon:    { bg: '#FAE5DF', color: '#8B2C1A', label: d => d !== null ? `${d} j` : '—' },
+  expired: { bg: '#FAE5DF', color: '#8B2C1A', label: _ => 'Expiré'                    },
 };
 
 // ── SVG icon ──────────────────────────────────────────────────────────────────
@@ -161,9 +160,9 @@ function MetricCard({ title, value, sub, subColor, icon, accent, onClick }:
 
 // ── Expiry badge ──────────────────────────────────────────────────────────────
 
-function ExpiryBadge({ date }: { date: Date }) {
+function ExpiryBadge({ date }: { date: Date | null }) {
   const status = expiryStatus(date);
-  const days   = daysUntil(date);
+  const days   = date ? daysUntil(date) : null;
   const cfg    = EXPIRY_BADGE[status];
   return (
     <span style={{
@@ -281,7 +280,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
   const maxStock   = Math.max(product.stock, product.alertThreshold * 4, 60);
   const lowStock   = product.stock <= product.alertThreshold;
   const color      = catColor(product.category);
-  const expiryDays = daysUntil(expiry);
+  const expiryDays = expiry ? daysUntil(expiry) : null;
   const exStatus   = expiryStatus(expiry);
 
   useEffect(() => {
@@ -329,9 +328,12 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {/* Product identity */}
         <div style={{ padding: '14px 16px 0' }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--fs-ink-900)', lineHeight: 1.2, marginBottom: 3 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--fs-ink-900)', lineHeight: 1.2, marginBottom: 2 }}>
             {product.name}
           </div>
+          {product.localName && (
+            <div style={{ fontSize: 12, color: '#999', marginBottom: 3 }}>{product.localName}</div>
+          )}
           <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', fontFamily: 'var(--fs-font-mono)' }}>
             {sku}
           </div>
@@ -728,7 +730,7 @@ export default function Stocks() {
                 const isSelec  = selected?._id === p._id;
                 const color    = catColor(p.category);
                 const exStatus = expiryStatus(expiry);
-                const exDays   = daysUntil(expiry);
+                const exDays   = expiry ? daysUntil(expiry) : null;
                 const exCfg    = EXPIRY_BADGE[exStatus];
 
                 return (
@@ -749,7 +751,8 @@ export default function Stocks() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 8, height: 36, borderRadius: 4, background: color, flexShrink: 0 }}/>
                         <div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', marginBottom: 2 }}>{p.name}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', marginBottom: 1 }}>{p.name}</div>
+                          {p.localName && <div style={{ fontSize: 10, color: '#999', marginBottom: 1 }}>{p.localName}</div>}
                           <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{supplier}</div>
                         </div>
                       </div>

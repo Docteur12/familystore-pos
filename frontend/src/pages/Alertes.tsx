@@ -183,6 +183,9 @@ export default function Alertes() {
                       <p className="font-bold text-gray-800 text-sm leading-tight truncate">
                         {p.name}
                       </p>
+                      {p.localName && (
+                        <p className="text-xs text-gray-400 italic truncate mt-0">{p.localName}</p>
+                      )}
                       <div className="flex items-center gap-2 mt-0.5">
                         {p.barcode && (
                           <span className="font-mono text-xs text-gray-400">

@@ -96,14 +96,21 @@ export default function Receipt({ data, onNewSale }: Props) {
                 <div key={i} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
-                      <p style={{ fontWeight: 600, color: 'var(--fs-ink-900)', fontSize: 12, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.name}
-                      </p>
-                      {hasDiscount && (
-                        <span style={{ background: '#c0392b', color: '#fff', fontSize: 8, fontWeight: 900, padding: '1px 5px', borderRadius: 3, flexShrink: 0 }}>
-                          -{item.discount}%
-                        </span>
-                      )}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{ fontWeight: 600, color: 'var(--fs-ink-900)', fontSize: 12, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.name}
+                          {hasDiscount && (
+                            <span style={{ background: '#c0392b', color: '#fff', fontSize: 8, fontWeight: 900, padding: '1px 5px', borderRadius: 3, marginLeft: 4 }}>
+                              -{item.discount}%
+                            </span>
+                          )}
+                        </p>
+                        {item.localName && (
+                          <p style={{ fontSize: 10, color: '#999', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.localName}
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: 0 }}>
                       {hasDiscount && (

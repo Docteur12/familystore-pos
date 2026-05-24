@@ -1,15 +1,18 @@
 export interface Product {
   _id:            string;
   name:           string;
+  localName?:     string;
   barcode?:       string;
   price:          number;
   costPrice:      number;
   stock:          number;         // ← stock caisse (point de vente)
   stockMagazin?:  number;         // ← stock entrepôt magazinier (indépendant)
   alertThreshold: number;
+  initialStock?:  number;
   category?:      string;
   subCategory?:   string;
   unit:           string;
+  valeur?:        string;
   discount?:      number;
   expiryDate?:           string | null;
   magazinierThreshold?:  number;
@@ -110,16 +113,17 @@ export async function createSale(payload: SalePayload): Promise<SaleResponse> {
 
 export interface ProductPayload {
   name:           string;
+  localName?:     string;
   barcode?:       string;
   price:          number;
   costPrice:      number;
   stock:          number;
-  alertThreshold: number;
   category?:      string;
   subCategory?:   string;
   unit:           string;
+  valeur?:        string;
   discount?:      number;
-  expiryDate?:           string | null;
+  expiryDate?:    string | null;
   magazinierThreshold?:  number;
 }
 

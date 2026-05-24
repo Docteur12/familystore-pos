@@ -3,6 +3,7 @@ import { jsPDF } from 'jspdf';
 
 export interface ReceiptItem {
   name:          string;
+  localName?:    string;
   unit:          string;
   quantity:      number;
   unitPrice:     number;
@@ -74,9 +75,13 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
     const badge      = hasDiscount
       ? `<span style="background:#c0392b;color:#fff;font-size:8px;font-weight:900;padding:1px 4px;border-radius:2px;margin-left:4px">-${item.discount}%</span>`
       : '';
+    const localNameRow = item.localName
+      ? `<div class="ilocal">${item.localName}</div>`
+      : '';
     return `
     <div class="item">
       <div class="iname">${item.name}${badge}</div>
+      ${localNameRow}
       <div class="irow">
         <span>${item.quantity} &times; ${prixLigne}</span>
         <span class="bold">${sub} XAF</span>
@@ -127,6 +132,7 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
     .meta  { font-size: 12px; margin: 2px 0; }
     .item  { margin: 5px 0; }
     .iname { font-size: 13px; font-weight: 600; }
+    .ilocal{ font-size: 10px; color: #666; margin-top: 1px; }
     .irow  { display: flex; justify-content: space-between; font-size: 12px; padding-left: 4px; }
     .row   { display: flex; justify-content: space-between; font-size: 13px; margin: 3px 0; }
     .total { font-size: 16px; font-weight: 900; margin: 5px 0; }
@@ -233,6 +239,7 @@ export function buildReceiptPDF(data: ReceiptData, showTva = true): string {
   // Articles
   for (const item of data.items) {
     line(item.name, 9, true);
+    if (item.localName) line(item.localName, 7, false);
     row(
       `  ${item.quantity} x ${fmt(item.unitPrice)}`,
       `${fmt(item.quantity * item.unitPrice)} XAF`,

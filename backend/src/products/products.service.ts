@@ -55,7 +55,17 @@ export class ProductsService {
   }
 
   create(dto: CreateProductDto) {
-    return this.productModel.create(dto);
+    const initialStock = dto.stock ?? 0;
+    const alertThreshold = Math.max(1, Math.ceil(initialStock * 0.10));
+    const oneYearFromNow = new Date();
+    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+    const expiryDate = dto.expiryDate ?? oneYearFromNow.toISOString().slice(0, 10);
+    return this.productModel.create({
+      ...dto,
+      initialStock,
+      alertThreshold,
+      expiryDate,
+    });
   }
 
   async update(id: string, dto: UpdateProductDto) {

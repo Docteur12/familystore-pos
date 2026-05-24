@@ -15,7 +15,7 @@ const UNITS       = ['unité', 'kg', 'litre', 'sachet', 'boîte', 'carton', 'pac
 const CATEGORIES  = ['Alimentation', 'Boisson', 'Hygiène', 'Ménage', 'Électronique', 'Autre'];
 const EMPTY: ProductPayload = {
   name: '', barcode: '', price: 0, costPrice: 0,
-  stock: 0, alertThreshold: 5, category: '', unit: 'unité',
+  stock: 0, category: '', unit: 'unité',
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -73,9 +73,9 @@ export default function Produits() {
   const openEdit = (p: Product) => {
     setEditTarget(p);
     setForm({
-      name: p.name, barcode: p.barcode ?? '', price: p.price,
+      name: p.name, localName: p.localName ?? '', barcode: p.barcode ?? '', price: p.price,
       costPrice: p.costPrice, stock: p.stock,
-      alertThreshold: p.alertThreshold, category: p.category ?? '', unit: p.unit,
+      category: p.category ?? '', unit: p.unit, valeur: p.valeur ?? '',
     });
     setModal(true);
     setTimeout(() => nameRef.current?.focus(), 80);
@@ -396,17 +396,20 @@ export default function Produits() {
                 </div>
               )}
 
-              {/* Stock + Seuil */}
+              {/* Stock + Seuil auto */}
               <div className="grid grid-cols-2 gap-3">
                 <F label="Stock initial">
                   <input type="number" min={0} value={form.stock}
                     onChange={e => setField('stock', Number(e.target.value))}
                     className={cx} />
                 </F>
-                <F label="Seuil d'alerte">
-                  <input type="number" min={0} value={form.alertThreshold}
-                    onChange={e => setField('alertThreshold', Number(e.target.value))}
-                    className={cx} />
+                <F label="Seuil d'alerte (auto 10%)">
+                  <div className={`${cx} bg-gray-50 text-gray-500 flex items-center justify-between cursor-not-allowed`}>
+                    <span className="font-bold font-mono">
+                      {Math.max(1, Math.ceil((Number(form.stock) || 0) * 0.10))}
+                    </span>
+                    <span className="text-xs text-gray-400">auto</span>
+                  </div>
                 </F>
               </div>
 

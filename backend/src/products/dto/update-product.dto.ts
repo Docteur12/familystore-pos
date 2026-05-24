@@ -8,6 +8,10 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsString()
+  localName?: string;
+
+  @IsOptional()
+  @IsString()
   barcode?: string;
 
   @IsOptional()
@@ -41,6 +45,10 @@ export class UpdateProductDto {
   @IsOptional()
   @IsString()
   unit?: string;
+
+  @IsOptional()
+  @IsString()
+  valeur?: string;
 
   @IsOptional()
   @IsNumber()

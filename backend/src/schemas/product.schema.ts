@@ -8,6 +8,9 @@ export class Product {
   @Prop({ required: true, trim: true })
   name: string;
 
+  @Prop({ trim: true, default: '' })
+  localName: string;
+
   @Prop({ unique: true, sparse: true, trim: true })
   barcode: string;
 
@@ -31,6 +34,12 @@ export class Product {
 
   @Prop({ default: 'pce', trim: true })
   unit: string;
+
+  @Prop({ trim: true, default: '' })
+  valeur: string;
+
+  @Prop({ default: 0, min: 0 })
+  initialStock: number;
 
   @Prop({ default: 0, min: 0, max: 100 })
   discount: number;

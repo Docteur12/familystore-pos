@@ -118,7 +118,6 @@ export default function Magazinier() {
         price:               0,
         costPrice:           0,
         stock:               0,
-        alertThreshold:      parseInt(newProd.seuilAlerte) || 5,
         expiryDate:          newProd.expiryDate || null,
         magazinierThreshold: parseInt(newProd.seuilCommande) || 0,
       });

@@ -123,8 +123,15 @@ function LabelCard({ product, template, selected, onToggle }: {
       {/* Category strip */}
       <div style={{ height: 3, borderRadius: 2, background: color, marginBottom: 8 }}/>
 
-      <div style={{ fontSize: isMini ? 11 : isLarge ? 15 : 12, fontWeight: 700, color: 'var(--fs-ink-900)', lineHeight: 1.3, marginBottom: 4, paddingRight: 24 }}>
-        {product.name}
+      <div style={{ paddingRight: 24, marginBottom: 4 }}>
+        <div style={{ fontSize: isMini ? 11 : isLarge ? 15 : 12, fontWeight: 700, color: 'var(--fs-ink-900)', lineHeight: 1.3 }}>
+          {product.name}
+        </div>
+        {product.localName && (
+          <div style={{ fontSize: isMini ? 9 : 10, color: '#999', marginTop: 1, lineHeight: 1.2 }}>
+            {product.localName}
+          </div>
+        )}
       </div>
 
       {!isMini && (
@@ -149,7 +156,7 @@ function LabelCard({ product, template, selected, onToggle }: {
         </div>
         <div style={{ textAlign: 'right' }}>
           {!isMini && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', fontWeight: 600, marginBottom: 1 }}>UNITÉ</div>}
-          <div style={{ fontSize: isMini ? 10 : 12, fontWeight: 700, color: 'var(--fs-ink-600)' }}>{product.unit}</div>
+          <div style={{ fontSize: isMini ? 10 : 12, fontWeight: 700, color: 'var(--fs-ink-600)' }}>{product.unit}{product.valeur ? ` · ${product.valeur}` : ''}</div>
         </div>
       </div>
     </div>
@@ -209,7 +216,8 @@ export default function StocksEtiquettes() {
         body { margin: 0; font-family: Arial, sans-serif; }
         .label { page-break-after: always; padding: 4px; }
         .strip { height: 3px; border-radius: 2px; margin-bottom: 6px; }
-        .name  { font-size: ${fs.name}px; font-weight: bold; margin-bottom: 3px; }
+        .name  { font-size: ${fs.name}px; font-weight: bold; margin-bottom: 1px; }
+        .lname { font-size: ${Math.max(fs.name - 3, 8)}px; color: #999; margin-bottom: 3px; }
         .cat   { font-size: 8px; color: #999; text-transform: uppercase; margin-bottom: 6px; }
         .bc    { background: #f5f5f0; border-radius: 4px; padding: 4px; text-align: center; margin-bottom: 6px; }
         .sku   { font-size: ${fs.sku}px; font-family: monospace; letter-spacing: 0.1em; }
@@ -234,6 +242,7 @@ export default function StocksEtiquettes() {
             <div class="label">
               <div class="strip" style="background:${col}"></div>
               <div class="name">${p.name}</div>
+              ${p.localName ? `<div class="lname">${p.localName}</div>` : ''}
               <div class="cat">${p.category ?? ''}</div>
               <div class="bc">
                 <div class="bars">${bars}</div>
@@ -241,7 +250,7 @@ export default function StocksEtiquettes() {
               </div>
               <div class="row">
                 <div class="price">${fmtN(p.price)} <span style="font-size:10px;font-weight:600">XAF</span></div>
-                <div class="unit">${p.unit}</div>
+                <div class="unit">${p.unit}${p.valeur ? ' · ' + p.valeur : ''}</div>
               </div>
             </div>
           `;

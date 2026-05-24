@@ -454,7 +454,7 @@ export default function Caisse() {
         const offlineData: ReceiptData = {
           receiptNo: `OFF-${dateP}-${Math.random().toString(36).slice(2,8).toUpperCase()}`, date: d,
           cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
-          items: cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
+          items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
           subtotal, total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
           ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
         };
@@ -477,7 +477,7 @@ export default function Caisse() {
         const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const idPart = String(result.sale._id).slice(-6).toUpperCase(); const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
         const newData: ReceiptData = {
           receiptNo: `FSV-${dateP}-${idPart}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
-          items: cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
+          items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
           subtotal, total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
           ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
         };
@@ -514,7 +514,7 @@ export default function Caisse() {
             const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
             const offlineData: ReceiptData = {
               receiptNo: `OFF-${dateP}-${Math.random().toString(36).slice(2,8).toUpperCase()}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
-              items: cartSnap.map(i => ({ name: i.product.name, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
+              items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
               subtotal, total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
               ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
             };
@@ -1628,14 +1628,19 @@ const ProductCard = memo(function ProductCard({
       <div style={{ padding: '10px 10px 12px', background: 'rgba(255,255,255,0.62)' }}>
         <p style={{
           fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)',
-          margin: '0 0 4px',
+          margin: '0 0 1px',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{product.name}</p>
+        {product.localName && (
+          <p style={{ fontSize: 11, color: '#999', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {product.localName}
+          </p>
+        )}
         <p style={{
           fontSize: 12, color: 'var(--fs-ink-500)', margin: '0 0 7px',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {product.category ?? 'Autre'}{product.subCategory ? ` › ${product.subCategory}` : ''} · {product.unit}
+          {product.category ?? 'Autre'}{product.subCategory ? ` › ${product.subCategory}` : ''} · {product.unit}{product.valeur ? ` · ${product.valeur}` : ''}
         </p>
         <p style={{ margin: 0, fontFamily: 'var(--fs-font-mono)' }}>
           {(product.discount ?? 0) > 0 && (
@@ -1677,7 +1682,10 @@ const ProductListRow = memo(function ProductListRow({
       <div style={{ width: 32, height: 32, borderRadius: 'var(--fs-r-sm)', background: color, flexShrink: 0 }}/>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</p>
-        <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: 0 }}>{product.category ?? 'Autre'} · {product.unit}</p>
+        {product.localName && (
+          <p style={{ fontSize: 10, color: '#aaa', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.localName}</p>
+        )}
+        <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: 0 }}>{product.category ?? 'Autre'} · {product.unit}{product.valeur ? ` · ${product.valeur}` : ''}</p>
       </div>
       {(product.discount ?? 0) > 0 && (
         <span style={{ fontSize: 9, fontWeight: 900, color: '#fff', background: '#c0392b', borderRadius: 3, padding: '1px 5px' }}>-{product.discount}%</span>
@@ -1714,9 +1722,14 @@ const TicketItem = memo(function TicketItem({
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, marginTop: 4, flexShrink: 0, border: '1px solid rgba(0,0,0,0.1)' }}/>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--fs-ink-900)', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--fs-ink-900)', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {item.product.name}
           </p>
+          {item.product.localName && (
+            <p style={{ fontSize: 11, color: '#999', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {item.product.localName}
+            </p>
+          )}
           <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: 0, fontFamily: 'var(--fs-font-mono)' }}>
             {item.product.price.toLocaleString('fr-FR')} × {item.quantity}
           </p>

@@ -16,6 +16,10 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsString()
+  localName?: string;
+
+  @IsOptional()
+  @IsString()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   barcode?: string;
 
@@ -33,11 +37,6 @@ export class CreateProductDto {
   stock?: number;
 
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  alertThreshold?: number;
-
-  @IsOptional()
   @IsString()
   category?: string;
 
@@ -48,6 +47,10 @@ export class CreateProductDto {
   @IsOptional()
   @IsString()
   unit?: string;
+
+  @IsOptional()
+  @IsString()
+  valeur?: string;
 
   @IsOptional()
   @IsNumber()
