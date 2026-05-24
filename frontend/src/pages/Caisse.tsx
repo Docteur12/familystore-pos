@@ -1024,9 +1024,10 @@ export default function Caisse() {
           background: 'var(--fs-paper)',
         }}>
           <span style={{ fontSize: 14, color: 'var(--fs-ink-500)' }}>
-            {selectedCat ?? 'Tout'}{' '}
+            {selectedCat ?? 'Tout'}
+            <span style={{ color: 'var(--fs-ink-300)', margin: '0 5px' }}>›</span>
             <span style={{ color: 'var(--fs-ink-300)', fontFamily: 'var(--fs-font-mono)', fontSize: 13 }}>
-              {filteredProducts.length} produit{filteredProducts.length !== 1 ? 's' : ''}
+              {filteredProducts.length} produit{filteredProducts.length !== 1 ? 's' : ''} différent{filteredProducts.length !== 1 ? 's' : ''}
             </span>
           </span>
 
@@ -1320,25 +1321,6 @@ export default function Caisse() {
           </div>
         </div>
 
-        {/* Loyalty row */}
-        <button style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '9px 14px',
-          background: 'var(--fs-gold-50)',
-          border: 'none',
-          borderBottom: '1px solid var(--fs-line)',
-          cursor: 'pointer',
-          width: '100%',
-          textAlign: 'left',
-          flexShrink: 0,
-        }}>
-          <Ico d={ICO_LOYALTY} size={13}/>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-700)' }}>Associer un client fidélité</div>
-            <div style={{ fontSize: 11, color: 'var(--fs-gold-600)' }}>Facultatif · +5% sur les achats</div>
-          </div>
-          <Ico d={ICO_CHEVRON} size={12}/>
-        </button>
 
         {/* Cart items */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
