@@ -233,7 +233,7 @@ function ReceptionModal({ product, onConfirm, onClose }:
       <div style={{ background: '#fff', borderRadius: 14, width: 360, overflow: 'hidden', boxShadow: 'var(--fs-shadow-lg)' }}>
         <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px' }}>
           <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{product.name}</p>
-          <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '3px 0 0' }}>Stock actuel : <b style={{ color: '#f5ebd9' }}>{product.stock} {product.unit}</b></p>
+          <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '3px 0 0' }}>Stock actuel : <b style={{ color: '#f5ebd9' }}>{product.stock}</b></p>
         </div>
         <div style={{ padding: '20px' }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Ajout rapide</p>
