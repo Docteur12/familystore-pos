@@ -121,7 +121,7 @@ export default function StocksDashboard() {
             <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>Demande au magazinier</p>
             <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', margin: '0 0 16px' }}>{demandeModal.product.name}</h3>
             <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: '0 0 14px' }}>
-              Stock actuel : <strong style={{ color: 'var(--fs-danger-700)' }}>{demandeModal.product.stock} {demandeModal.product.unit}</strong>
+              Stock actuel : <strong style={{ color: 'var(--fs-danger-700)' }}>{demandeModal.product.stock}</strong>
             </p>
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>
@@ -133,7 +133,7 @@ export default function StocksDashboard() {
                 onChange={e => setDemandeQty(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleDemander(); if (e.key === 'Escape') setDemandeModal(null); }}
                 style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
-                placeholder={`Nombre de ${demandeModal.product.unit}s`}
+                placeholder="Quantité"
               />
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
@@ -217,7 +217,7 @@ export default function StocksDashboard() {
                         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
                           {alertPanel === 'stock'
-                            ? `Stock : ${p.stock} / Seuil : ${p.alertThreshold} ${p.unit}`
+                            ? `Stock : ${p.stock} / Seuil : ${p.alertThreshold}`
                             : daysLeft !== null
                               ? daysLeft < 0 ? '🔴 Expiré' : `⏱ ${daysLeft} j restants (${new Date(p.expiryDate!).toLocaleDateString('fr-FR')})`
                               : '—'

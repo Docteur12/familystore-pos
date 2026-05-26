@@ -907,10 +907,10 @@ export default function Magazinier() {
                       {d.produit?.name ?? '—'}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', marginTop: 2 }}>
-                      {d.quantiteDemandee} {d.produit?.unit ?? 'u.'} demandé(s) · par {d.demandePar?.name ?? '?'} · {fmtDate(d.createdAt)}
+                      {d.quantiteDemandee} demandé(s) · par {d.demandePar?.name ?? '?'} · {fmtDate(d.createdAt)}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--fs-ink-300)', marginTop: 1 }}>
-                      Stock actuel : {d.produit?.stock ?? '?'} {d.produit?.unit ?? 'u.'}
+                      Stock actuel : {d.produit?.stock ?? '?'}
                     </div>
                   </div>
                   <button

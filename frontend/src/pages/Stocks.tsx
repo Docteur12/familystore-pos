@@ -295,7 +295,7 @@ function DemandeModal({ product, onConfirm, onClose }:
           <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Disponible en entrepôt</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: '#15803d', fontFamily: 'var(--fs-font-mono)' }}>
-              {max} <span style={{ fontSize: 13, fontWeight: 600 }}>{product.unit}</span>
+              {max}
             </div>
           </div>
           <div style={{ marginBottom: 6 }}>
@@ -430,7 +430,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 2 }}>Livraison en transit</div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#1e40af' }}>
-                    {pendingDelivery.quantiteDemandee} {product.unit} envoyé{pendingDelivery.quantiteDemandee > 1 ? 's' : ''} par le magazinier
+                    {pendingDelivery.quantiteDemandee} envoyé{pendingDelivery.quantiteDemandee > 1 ? 's' : ''} par le magazinier
                   </div>
                 </div>
                 {onRecu && (
@@ -447,7 +447,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
                 <div>
                   <div style={{ fontSize: 10, fontWeight: 600, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>Stock entrepôt</div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: '#15803d', fontFamily: 'var(--fs-font-mono)' }}>
-                    {product.stockMagazin} <span style={{ fontSize: 12, fontWeight: 500 }}>{product.unit}</span>
+                    {product.stockMagazin}
                   </div>
                 </div>
                 {onDemande && (product.stockMagazin ?? 0) > 0 && lowStock && (
@@ -556,7 +556,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
               width: '100%', padding: '10px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8,
               fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}>
-              <I d={D.check} size={13}/> Confirmer réception — {pendingDelivery.quantiteDemandee} {product.unit}
+              <I d={D.check} size={13}/> Confirmer réception — {pendingDelivery.quantiteDemandee}
             </button>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
@@ -631,7 +631,7 @@ export default function Stocks() {
     try {
       await createDemande({ produitId: demandeProduct._id, quantiteDemandee: qty });
       setDemandeProduct(null);
-      addToast(`Demande envoyée au magazinier — ${qty} ${demandeProduct.unit}`, 'success');
+      addToast(`Demande envoyée au magazinier — ${qty} unités`, 'success');
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Erreur', 'error');
     }
@@ -646,7 +646,7 @@ export default function Stocks() {
       if (delivery?.type === 'envoi') {
         // Stock caisse mis à jour automatiquement côté backend
         fetchProducts();
-        addToast(`Réception confirmée ✓ — +${delivery.quantiteDemandee} ${delivery.produit.unit} ajouté au stock`, 'success');
+        addToast(`Réception confirmée ✓ — +${delivery.quantiteDemandee} ajouté au stock`, 'success');
       } else {
         addToast('Réception confirmée ✓ — pensez à mettre à jour le stock manuellement', 'success');
       }
@@ -728,7 +728,7 @@ export default function Stocks() {
       const result = await addStockWithMovement(reception._id, qty);
       setProducts(prev => prev.map(p => p._id === reception._id ? { ...p, stock: result.newStock } : p));
       if (selected?._id === reception._id) setSelected(prev => prev ? { ...prev, stock: result.newStock } : null);
-      addToast(`+${qty} ${reception.unit} — ${reception.name}`, 'success');
+      addToast(`+${qty} — ${reception.name}`, 'success');
       setReception(null);
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Erreur', 'error');
@@ -845,7 +845,7 @@ export default function Stocks() {
                       )}
                     </div>
                     <div style={{ fontSize: 11, color: d.type === 'envoi' ? '#16a34a' : '#3b82f6', marginTop: 2 }}>
-                      {d.quantiteDemandee} {d.produit.unit}
+                      {d.quantiteDemandee}
                       {d.type === 'envoi' ? ' · envoyé spontanément par le magazinier' : ' · en réponse à votre demande'}
                     </div>
                     {d.type === 'envoi' && (

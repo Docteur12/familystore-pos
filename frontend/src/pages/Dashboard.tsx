@@ -461,7 +461,7 @@ function StockAlertCard({ product }: { product: Product }) {
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm text-gray-800 truncate">{product.name}</p>
         <p className="text-xs text-gray-500 mt-0.5">
-          Seuil : {product.alertThreshold} {product.unit}
+          Seuil : {product.alertThreshold}
         </p>
       </div>
       <div className="text-right shrink-0">
