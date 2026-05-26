@@ -10,6 +10,7 @@ import { addStockWithMovement, getMovements, StockMovement } from '../api/stock'
 import ToastContainer, { useToast }            from '../components/Toast';
 import StocksSidebar                           from '../components/StocksSidebar';
 import { useIsMobile }                         from '../hooks/useIsMobile';
+import { createDemande, getDemandes, marquerRecu, DemandeStock } from '../api/magazinier';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -120,6 +121,9 @@ const D = {
   reception:  'M5 12H3l9-9 9 9h-2M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7',
   catalogue:  'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z',
   alertes:    'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+  truck:      'M1 3h15v13H1zM16 8h4l3 3v5h-7V8z',
+  check:      'M20 6L9 17l-5-5',
+  warehouse:  'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10',
 };
 
 // ── Metric card ───────────────────────────────────────────────────────────────
@@ -261,10 +265,71 @@ function ReceptionModal({ product, onConfirm, onClose }:
   );
 }
 
+// ── Demande magazinier modal ──────────────────────────────────────────────────
+
+function DemandeModal({ product, onConfirm, onClose }:
+  { product: Product; onConfirm: (qty: number) => Promise<void>; onClose: () => void }) {
+  const [qty,     setQty]   = useState('');
+  const [loading, setLoad]  = useState(false);
+  const max = product.stockMagazin ?? 0;
+
+  const n = parseInt(qty) || 0;
+  const valid = n > 0 && n <= max;
+
+  const confirm = async () => {
+    if (!valid || loading) return;
+    setLoad(true);
+    await onConfirm(n);
+    setLoad(false);
+  };
+
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: 400, overflow: 'hidden', boxShadow: 'var(--fs-shadow-lg)' }}>
+        <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px' }}>
+          <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>Demande au magazinier</p>
+          <p style={{ color: 'rgba(245,235,217,0.7)', fontSize: 12, margin: '3px 0 0' }}>{product.name}{product.localName ? ` · ${product.localName}` : ''}</p>
+        </div>
+        <div style={{ padding: '20px' }}>
+          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Disponible en entrepôt</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: '#15803d', fontFamily: 'var(--fs-font-mono)' }}>
+              {max} <span style={{ fontSize: 13, fontWeight: 600 }}>{product.unit}</span>
+            </div>
+          </div>
+          <div style={{ marginBottom: 6 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>
+              Quantité demandée
+            </label>
+            <input
+              type="number" min={1} max={max} value={qty}
+              onChange={e => setQty(e.target.value)}
+              placeholder={`1 – ${max}`}
+              autoFocus
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${!qty ? 'var(--fs-line-2)' : valid ? '#86efac' : '#fca5a5'}`, outline: 'none', fontSize: 16, fontWeight: 700, textAlign: 'center', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', marginBottom: 4 }}
+            />
+            {n > max && <p style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, margin: '2px 0 0' }}>⚠ Quantité supérieure au stock entrepôt ({max})</p>}
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+            <button onClick={confirm} disabled={!valid || loading}
+              style={{ flex: 2, padding: '11px', background: valid ? 'var(--fs-wine-700)' : 'var(--fs-line-2)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: valid ? 'pointer' : 'not-allowed', opacity: loading ? 0.7 : 1 }}>
+              {loading ? 'Envoi…' : 'Confirmer la demande'}
+            </button>
+            <button onClick={onClose} style={{ flex: 1, padding: '11px', background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
-function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdit, onDelete }:
-  { product: Product; isMobile: boolean; onClose: () => void; onReception: () => void; onRefresh: () => void; onEdit: () => void; onDelete: () => Promise<void> }) {
+function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdit, onDelete, onDemande, pendingDelivery, onRecu }:
+  { product: Product; isMobile: boolean; onClose: () => void; onReception: () => void; onRefresh: () => void; onEdit: () => void; onDelete: () => Promise<void>; onDemande?: () => void; pendingDelivery?: DemandeStock | null; onRecu?: (id: string) => void }) {
   const [movements, setMovements]     = useState<StockMovement[]>([]);
   const [confirmDel, setConfirmDel]   = useState(false);
   const [deleting,   setDeleting]     = useState(false);
@@ -357,6 +422,47 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
           <StockBar stock={product.stock} threshold={product.alertThreshold} max={maxStock}/>
         </div>
 
+        {/* Entrepôt magazinier */}
+        {(product.stockMagazin !== undefined || pendingDelivery) && (
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--fs-line)', background: pendingDelivery ? '#eff6ff' : '#f8faf7' }}>
+            {pendingDelivery ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 2 }}>Livraison en transit</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1e40af' }}>
+                    {pendingDelivery.quantiteDemandee} {product.unit} envoyé{pendingDelivery.quantiteDemandee > 1 ? 's' : ''} par le magazinier
+                  </div>
+                </div>
+                {onRecu && (
+                  <button onClick={() => onRecu(pendingDelivery._id)} style={{
+                    padding: '7px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8,
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+                  }}>
+                    <I d={D.check} size={12}/> Reçu ✓
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>Stock entrepôt</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: '#15803d', fontFamily: 'var(--fs-font-mono)' }}>
+                    {product.stockMagazin} <span style={{ fontSize: 12, fontWeight: 500 }}>{product.unit}</span>
+                  </div>
+                </div>
+                {onDemande && (product.stockMagazin ?? 0) > 0 && lowStock && (
+                  <button onClick={onDemande} style={{
+                    padding: '7px 12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8,
+                    fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+                  }}>
+                    <I d={D.truck} size={12}/> Demander
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Price grid */}
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--fs-line)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           {[
@@ -444,28 +550,38 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
           </div>
         </div>
       ) : (
-        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 8, flexShrink: 0 }}>
-          <button onClick={onReception} style={{
-            flex: 1, padding: '9px 6px', background: 'var(--fs-wine-700)', color: '#fff',
-            border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-          }}>
-            <I d={D.plus} size={12}/> Réception
-          </button>
-          <button onClick={onEdit} style={{
-            flex: 1, padding: '9px 6px', background: 'var(--fs-ivory)',
-            border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, color: 'var(--fs-ink-700)',
-          }}>
-            <I d={D.edit} size={12}/> Modifier
-          </button>
-          <button onClick={() => setConfirmDel(true)} style={{
-            padding: '9px 10px', background: 'var(--fs-danger-100)',
-            border: '1.5px solid rgba(194,62,36,0.2)', borderRadius: 8, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', color: 'var(--fs-danger-700)',
-          }}>
-            <I d={D.trash} size={13}/>
-          </button>
+        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--fs-line)', display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+          {pendingDelivery && onRecu && (
+            <button onClick={() => onRecu(pendingDelivery._id)} style={{
+              width: '100%', padding: '10px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8,
+              fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+              <I d={D.check} size={13}/> Confirmer réception — {pendingDelivery.quantiteDemandee} {product.unit}
+            </button>
+          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onReception} style={{
+              flex: 1, padding: '9px 6px', background: 'var(--fs-wine-700)', color: '#fff',
+              border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+            }}>
+              <I d={D.plus} size={12}/> Réception
+            </button>
+            <button onClick={onEdit} style={{
+              flex: 1, padding: '9px 6px', background: 'var(--fs-ivory)',
+              border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, color: 'var(--fs-ink-700)',
+            }}>
+              <I d={D.edit} size={12}/> Modifier
+            </button>
+            <button onClick={() => setConfirmDel(true)} style={{
+              padding: '9px 10px', background: 'var(--fs-danger-100)',
+              border: '1.5px solid rgba(194,62,36,0.2)', borderRadius: 8, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', color: 'var(--fs-danger-700)',
+            }}>
+              <I d={D.trash} size={13}/>
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -487,6 +603,9 @@ export default function Stocks() {
   const [reception,   setReception]   = useState<Product | null>(null);
   const [newProduct,  setNewProduct]  = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const [demandeProduct, setDemandeProduct] = useState<Product | null>(null);
+  const [pendingDeliveries, setPendingDeliveries] = useState<DemandeStock[]>([]);
+  const [recuLoading, setRecuLoading] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -496,6 +615,45 @@ export default function Stocks() {
   }, []);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  // Polling livraisons en transit (badge + encart)
+  const fetchPending = useCallback(() => {
+    getDemandes('envoyé').then(setPendingDeliveries).catch(() => {});
+  }, []);
+  useEffect(() => {
+    fetchPending();
+    const id = setInterval(fetchPending, 30_000);
+    return () => clearInterval(id);
+  }, [fetchPending]);
+
+  const handleDemande = async (qty: number) => {
+    if (!demandeProduct) return;
+    try {
+      await createDemande({ produitId: demandeProduct._id, quantiteDemandee: qty });
+      setDemandeProduct(null);
+      addToast(`Demande envoyée au magazinier — ${qty} ${demandeProduct.unit}`, 'success');
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+    }
+  };
+
+  const handleRecu = async (demandeId: string) => {
+    setRecuLoading(demandeId);
+    const delivery = pendingDeliveries.find(d => d._id === demandeId);
+    try {
+      await marquerRecu(demandeId);
+      setPendingDeliveries(prev => prev.filter(d => d._id !== demandeId));
+      if (delivery?.type === 'envoi') {
+        // Stock caisse mis à jour automatiquement côté backend
+        fetchProducts();
+        addToast(`Réception confirmée ✓ — +${delivery.quantiteDemandee} ${delivery.produit.unit} ajouté au stock`, 'success');
+      } else {
+        addToast('Réception confirmée ✓ — pensez à mettre à jour le stock manuellement', 'success');
+      }
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+    } finally { setRecuLoading(null); }
+  };
 
   // ── Derived metrics ────────────────────────────────────────────────────────
   const lowCount    = useMemo(() => products.filter(p => p.stock <= p.alertThreshold).length, [products]);
@@ -588,6 +746,9 @@ export default function Stocks() {
       {reception && (
         <ReceptionModal product={reception} onConfirm={handleAddStock} onClose={() => setReception(null)}/>
       )}
+      {demandeProduct && (
+        <DemandeModal product={demandeProduct} onConfirm={handleDemande} onClose={() => setDemandeProduct(null)}/>
+      )}
       {newProduct && (
         <NouveauProduitModal knownCategories={derivedCategories} existingProducts={products} onClose={() => setNewProduct(false)} onCreated={fetchProducts} onUpdated={fetchProducts}/>
       )}
@@ -608,8 +769,13 @@ export default function Stocks() {
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>
                 Gestion de stock
               </p>
-              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, letterSpacing: '-0.01em' }}>
+              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 10 }}>
                 Catalogue produits
+                {pendingDeliveries.length > 0 && (
+                  <span style={{ background: '#2563eb', color: '#fff', fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 20, fontFamily: 'var(--fs-font-mono)', letterSpacing: 0 }}>
+                    {pendingDeliveries.length} livraison{pendingDeliveries.length > 1 ? 's' : ''} en transit
+                  </span>
+                )}
               </h1>
             </div>
 
@@ -659,6 +825,46 @@ export default function Stocks() {
           <MetricCard title="Stock faible" value={lowCount} sub={lowCount > 0 ? `${lowCount} à réapprovisionner` : 'Tout est OK'} subColor={lowCount > 0 ? 'var(--fs-warning-700)' : undefined} icon={D.alertes} onClick={lowCount > 0 ? () => setTab('low') : undefined}/>
           <MetricCard title="Péremption < 6 mois" value={expiryCount} sub={expiryCount > 0 ? 'À surveiller ↓' : 'Aucune alerte'} subColor={expiryCount > 0 ? 'var(--fs-danger-700)' : undefined} icon={D.bell} onClick={expiryCount > 0 ? () => setTab('expiry') : undefined}/>
         </div>
+
+        {/* Livraisons en transit */}
+        {pendingDeliveries.length > 0 && (
+          <div style={{ margin: '0 24px 10px', background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 10, padding: '12px 16px', flexShrink: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <I d={D.truck} size={12}/> Livraisons en transit — en attente de réception
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {pendingDeliveries.map(d => (
+                <div key={d._id} style={{ background: '#fff', border: `1px solid ${d.type === 'envoi' ? '#86efac' : '#bfdbfe'}`, borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: d.type === 'envoi' ? '#15803d' : '#1e40af' }}>{d.produit.name}</div>
+                      {d.type === 'envoi' && (
+                        <span style={{ fontSize: 10, fontWeight: 700, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '1px 7px', color: '#15803d' }}>
+                          Envoi direct
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: d.type === 'envoi' ? '#16a34a' : '#3b82f6', marginTop: 2 }}>
+                      {d.quantiteDemandee} {d.produit.unit}
+                      {d.type === 'envoi' ? ' · envoyé spontanément par le magazinier' : ' · en réponse à votre demande'}
+                    </div>
+                    {d.type === 'envoi' && (
+                      <div style={{ fontSize: 10, color: '#16a34a', marginTop: 1, fontStyle: 'italic' }}>
+                        Le stock sera mis à jour automatiquement à la réception
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleRecu(d._id)}
+                    disabled={recuLoading === d._id}
+                    style={{ padding: '6px 14px', background: d.type === 'envoi' ? '#16a34a' : '#2563eb', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: recuLoading === d._id ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                    <I d={D.check} size={11}/> {recuLoading === d._id ? '…' : 'Reçu ✓'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Filter tabs + actions */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px 10px', flexShrink: 0 }}>
@@ -831,6 +1037,9 @@ export default function Stocks() {
           onRefresh={fetchProducts}
           onEdit={() => { if (isMobile) setSelected(null); setEditProduct(selected); }}
           onDelete={handleDeleteProduct}
+          onDemande={() => setDemandeProduct(selected)}
+          pendingDelivery={pendingDeliveries.find(d => d.produit._id === selected._id) ?? null}
+          onRecu={handleRecu}
         />
       )}
     </div>

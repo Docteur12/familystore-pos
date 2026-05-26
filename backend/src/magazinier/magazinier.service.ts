@@ -27,7 +27,7 @@ export class MagazinierService {
       // ↓ Incrémente le stock ENTREPÔT (pas le stock caisse)
       const product = await this.productModel.findByIdAndUpdate(
         item.productId,
-        { $inc: { stockMagazin: item.quantity } },
+        { $inc: { stockMagazin: item.quantity }, $set: { stockMagazinAjuste: false } },
         { new: true },
       );
       if (!product) throw new NotFoundException(`Produit introuvable : ${item.productId}`);
@@ -54,10 +54,10 @@ export class MagazinierService {
   // ── GET /magazinier/demandes ──────────────────────────────────────────────
 
   getDemandes(statut?: string) {
-    const filter = statut ? { statut } : { statut: 'en_attente' };
+    const filter: Record<string, unknown> = statut ? { statut } : { statut: 'en_attente' };
     return this.demandeModel
       .find(filter)
-      .populate('produit', 'name unit stock')
+      .populate('produit', 'name unit stock stockMagazin')
       .populate('demandePar', 'name')
       .sort({ createdAt: -1 })
       .lean();
@@ -83,13 +83,11 @@ export class MagazinierService {
     if (!demande) throw new NotFoundException('Demande introuvable');
     if (demande.statut !== 'en_attente') throw new ForbiddenException('Demande déjà traitée');
 
-    // Transfert entrepôt → caisse : stockMagazin ↓ / stock ↑
-    await this.productModel.findByIdAndUpdate(demande.produit, {
-      $inc: {
-        stockMagazin: -demande.quantiteDemandee,  // sortie entrepôt
-        stock:        +demande.quantiteDemandee,  // entrée caisse
-      },
-    });
+    // Décrémente le stock entrepôt quand les produits quittent physiquement le magazin
+    await this.productModel.findByIdAndUpdate(
+      demande.produit,
+      { $inc: { stockMagazin: -demande.quantiteDemandee } },
+    );
 
     demande.statut    = 'envoyé';
     demande.dateEnvoi = new Date();
@@ -97,9 +95,83 @@ export class MagazinierService {
 
     return this.demandeModel
       .findById(demandeId)
-      .populate('produit', 'name unit stock')
+      .populate('produit', 'name unit stock stockMagazin')
       .populate('demandePar', 'name')
       .lean();
+  }
+
+  // ── PATCH /magazinier/produits/:id/stock-entrepot ─────────────────────────
+
+  async ajusterStockEntrepot(productId: string, stockMagazin: number) {
+    const product = await this.productModel.findByIdAndUpdate(
+      productId,
+      { $set: { stockMagazin: Math.max(0, stockMagazin), stockMagazinAjuste: true } },
+      { new: true },
+    );
+    if (!product) throw new NotFoundException('Produit introuvable');
+    return product;
+  }
+
+  // ── POST /magazinier/reset-entrepot ───────────────────────────────────────
+
+  async resetEntrepot() {
+    await this.productModel.updateMany({}, { $set: { stockMagazin: 0 } });
+    await this.receptionModel.deleteMany({});
+    return { ok: true };
+  }
+
+  // ── PATCH /magazinier/demandes/:id/recevoir ───────────────────────────────
+
+  async marquerRecu(demandeId: string) {
+    const demande = await this.demandeModel.findById(demandeId);
+    if (!demande) throw new NotFoundException('Demande introuvable');
+    if (demande.statut !== 'envoyé') throw new ForbiddenException('Demande non encore envoyée');
+
+    // Envoi direct du magazinier : mise à jour automatique du stock caisse
+    if (demande.type === 'envoi') {
+      await this.productModel.findByIdAndUpdate(
+        demande.produit,
+        { $inc: { stock: demande.quantiteDemandee } },
+      );
+    }
+
+    demande.statut = 'reçu';
+    await demande.save();
+
+    return this.demandeModel
+      .findById(demandeId)
+      .populate('produit', 'name unit stock stockMagazin')
+      .populate('demandePar', 'name')
+      .lean();
+  }
+
+  // ── POST /magazinier/envois ───────────────────────────────────────────────
+
+  async createEnvoi(
+    body: { items: { produitId: string; quantite: number }[] },
+    userId: string,
+  ) {
+    const result = [];
+    for (const item of body.items) {
+      const product = await this.productModel.findById(item.produitId);
+      if (!product) throw new NotFoundException(`Produit introuvable : ${item.produitId}`);
+
+      await this.productModel.findByIdAndUpdate(
+        item.produitId,
+        { $inc: { stockMagazin: -item.quantite } },
+      );
+
+      const envoi = await this.demandeModel.create({
+        produit:          new Types.ObjectId(item.produitId),
+        quantiteDemandee: item.quantite,
+        demandePar:       new Types.ObjectId(userId),
+        statut:           'envoyé',
+        type:             'envoi',
+        dateEnvoi:        new Date(),
+      });
+      result.push(envoi);
+    }
+    return result;
   }
 
   // ── GET /magazinier/receptions (toutes, filtre optionnel) ────────────────

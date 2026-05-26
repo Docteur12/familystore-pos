@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import { createUser, deleteUser, getUsers, updateUser, UserRecord } from '../api/auth';
 import { getCaisses, CaisseRecord } from '../api/caisses';
+import { getAllProducts, Product } from '../api/products';
+import { getDemandes, DemandeStock, ajusterStockEntrepot, resetEntrepot, getAllReceptions, ReceptionFull } from '../api/magazinier';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -13,14 +15,19 @@ function I({ d, size = 14 }: { d: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>;
 }
 const D = {
-  plus:  'M12 5v14M5 12h14',
-  edit:  'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z',
-  trash: 'M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2',
-  eye:   'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
-  close: 'M18 6L6 18M6 6l12 12',
-  pkg:   'M12 2l9 4.5v11L12 22 3 17.5v-11L12 2zM12 22V11.5M3 6.5l9 5 9-5',
-  truck: 'M1 3h15v13H1zM16 8h4l3 3v5h-7V8z',
-  mail:  'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6',
+  plus:     'M12 5v14M5 12h14',
+  edit:     'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z',
+  trash:    'M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2',
+  eye:      'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+  close:    'M18 6L6 18M6 6l12 12',
+  pkg:      'M12 2l9 4.5v11L12 22 3 17.5v-11L12 2zM12 22V11.5M3 6.5l9 5 9-5',
+  truck:    'M1 3h15v13H1zM16 8h4l3 3v5h-7V8z',
+  mail:     'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2zM22 6l-10 7L2 6',
+  warehouse:'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10',
+  users:    'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+  search:   'M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z',
+  alert:    'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+  reset:    'M2.5 2v6h6M2.66 15.57a10 10 0 1 0 .57-8.38',
 };
 
 function Field({ label, value, onChange, type = 'text', placeholder = '' }: {
@@ -273,81 +280,419 @@ function CreatePanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]
   );
 }
 
+// ── Stock entrepôt view ───────────────────────────────────────────────────────
+
+const CAT_COLORS: Record<string, string> = {
+  'beauté': '#F5C4B2', 'hygiène': '#B8D8EC', 'parfumerie': '#D8C4E8',
+  'épicerie': '#EDD8A0', 'boissons': '#B4DCC4', 'alimentation': '#F0D4B0',
+  'bien-être': '#A8E0D4', 'maison': '#D4C8B8',
+};
+const catColor = (c?: string) => CAT_COLORS[c?.toLowerCase() ?? ''] ?? '#DDD4C8';
+const fmtN = (n: number) => n.toLocaleString('fr-FR');
+
+function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
+  products: Product[];
+  demandes: DemandeStock[];
+  onReload: () => void;
+  onResetRequest: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [filtre, setFiltre] = useState<'tous' | 'bas'>('tous');
+  const [adjusting, setAdjusting] = useState<string | null>(null);
+
+  // Métriques : seulement les produits avec stock > 0
+  const avecStock = products.filter(p => (p.stockMagazin ?? 0) > 0);
+
+  const basCount = avecStock.filter(p => {
+    const seuil = p.magazinierThreshold ?? 0;
+    return seuil > 0 && (p.stockMagazin ?? 0) <= seuil;
+  }).length;
+
+  // Tableau : tous les produits (l'admin doit pouvoir corriger même ceux à 0)
+  const displayed = products.filter(p => {
+    const q = search.toLowerCase();
+    const matchSearch = !q
+      || p.name.toLowerCase().includes(q)
+      || (p.localName ?? '').toLowerCase().includes(q)
+      || (p.category ?? '').toLowerCase().includes(q);
+    const mag   = p.stockMagazin ?? 0;
+    const seuil = p.magazinierThreshold ?? 0;
+    const matchFiltre = filtre === 'tous' ? true : seuil > 0 && mag <= seuil;
+    return matchSearch && matchFiltre;
+  });
+
+  const totalEntrepot = avecStock.reduce((s, p) => s + (p.stockMagazin ?? 0), 0);
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Métriques */}
+      <div style={{ display: 'flex', gap: 12, padding: '16px 24px', flexShrink: 0 }}>
+        {[
+          { label: 'Total unités entrepôt', value: fmtN(totalEntrepot), color: 'var(--fs-wine-700)', sub: `${avecStock.length} référence${avecStock.length !== 1 ? 's' : ''} avec stock` },
+          { label: 'Références en stock', value: avecStock.length, color: '#15803d', sub: `sur ${products.length} produits au total` },
+          { label: 'Stock bas / critique', value: basCount, color: basCount > 0 ? '#dc2626' : '#15803d', sub: basCount > 0 ? 'sous le seuil commande' : 'tout est OK' },
+          { label: 'Envois au gestionnaire', value: demandes.length, color: '#2563eb', sub: `${demandes.filter(d => d.statut === 'reçu').length} reçu${demandes.filter(d => d.statut === 'reçu').length !== 1 ? 's' : ''} · ${demandes.filter(d => d.statut === 'envoyé').length} en transit` },
+        ].map(m => (
+          <div key={m.label} style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', boxShadow: 'var(--fs-shadow-sm)' }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{m.label}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: m.color, fontFamily: 'var(--fs-font-mono)' }}>{m.value}</div>
+            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 3 }}>{m.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Barre filtres + recherche + reset */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 24px 12px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {([
+            { id: 'tous', label: 'Tous',       count: products.length },
+            { id: 'bas',  label: 'Stock bas',  count: basCount        },
+          ] as { id: typeof filtre; label: string; count: number }[]).map(f => (
+            <button key={f.id} onClick={() => setFiltre(f.id)} style={{
+              padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              border: filtre === f.id ? 'none' : '1.5px solid var(--fs-line-2)',
+              background: filtre === f.id ? 'var(--fs-wine-700)' : '#fff',
+              color: filtre === f.id ? '#fff' : 'var(--fs-ink-500)',
+              fontFamily: 'var(--fs-font-sans)', display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+              {f.label}
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: filtre === f.id ? 'rgba(255,255,255,0.25)' : 'var(--fs-ivory)', color: filtre === f.id ? '#fff' : 'var(--fs-ink-400)' }}>
+                {f.count}
+              </span>
+            </button>
+          ))}
+        </div>
+        <div style={{ position: 'relative', flex: 1, maxWidth: 340 }}>
+          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-300)' }}>
+            <I d={D.search} size={13}/>
+          </span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un produit…"
+            style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff', width: '100%', boxSizing: 'border-box' }}/>
+        </div>
+        <button onClick={onResetRequest} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1.5px solid #fca5a5', borderRadius: 8, background: '#fef2f2', color: '#dc2626', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)', flexShrink: 0 }}>
+          <I d={D.reset} size={13}/> Réinitialiser le magazin
+        </button>
+      </div>
+
+      {/* Tableau */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px' }}>
+        {products.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>
+            <I d={D.warehouse} size={36}/><br/><br/>
+            Aucun produit — le magazinier n'a pas encore enregistré de réception.
+          </div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+            <thead>
+              <tr style={{ background: 'var(--fs-ivory)' }}>
+                {['Produit', 'Catégorie', 'Stock entrepôt', 'Stock caisse', 'Seuil commande', 'État'].map((h, i) => (
+                  <th key={h} style={{
+                    padding: '10px 14px', textAlign: i >= 2 ? 'center' : 'left',
+                    fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)',
+                    textTransform: 'uppercase', letterSpacing: '0.08em',
+                    borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap',
+                    position: 'sticky', top: 0, background: 'var(--fs-ivory)', zIndex: 1,
+                  }}>
+                    {h}
+                    {h === 'Stock entrepôt' && <div style={{ fontWeight: 400, textTransform: 'none', fontSize: 9, letterSpacing: 0, marginTop: 1, color: '#2563eb' }}>Cliquer pour modifier</div>}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {displayed.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '48px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 14 }}>
+                    Aucun produit trouvé
+                  </td>
+                </tr>
+              ) : displayed.map((p, idx) => {
+                const mag   = p.stockMagazin ?? 0;
+                const seuil = p.magazinierThreshold ?? 0;
+                const bas   = seuil > 0 && mag <= seuil;
+                const color = catColor(p.category);
+                return (
+                  <tr key={p._id} style={{ borderBottom: '1px solid var(--fs-line)', background: bas ? '#fef9f9' : idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
+                    <td style={{ padding: '11px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <div style={{ width: 8, height: 34, borderRadius: 4, background: color, flexShrink: 0 }}/>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{p.name}</div>
+                          {p.localName && <div style={{ fontSize: 10, color: '#999', marginTop: 1 }}>{p.localName}</div>}
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '11px 14px' }}>
+                      {p.category && (
+                        <span style={{ fontSize: 10, fontWeight: 700, background: color + '55', border: `1px solid ${color}`, borderRadius: 6, padding: '2px 8px', color: 'var(--fs-ink-700)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          {p.category}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: '8px 14px', textAlign: 'center' }}>
+                      <input
+                        type="number" min={0}
+                        key={p._id + '-' + mag}
+                        defaultValue={mag}
+                        disabled={adjusting === p._id}
+                        onBlur={async e => {
+                          const v = parseInt(e.target.value) || 0;
+                          if (v === mag) return;
+                          setAdjusting(p._id);
+                          try { await ajusterStockEntrepot(p._id, v); onReload(); }
+                          catch { /* silencieux, l'admin peut réessayer */ }
+                          finally { setAdjusting(null); }
+                        }}
+                        style={{ width: 76, padding: '5px 8px', border: `1.5px solid ${bas ? '#dc2626' : '#2563eb44'}`, borderRadius: 7, fontSize: 18, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 800, color: bas ? '#dc2626' : '#15803d', background: bas ? '#fef9f9' : '#f0fdf4', opacity: adjusting === p._id ? 0.5 : 1 }}
+                      />
+                    </td>
+                    <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                      <span style={{ fontSize: 16, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: p.stock === 0 ? 'var(--fs-danger-700)' : p.stock <= p.alertThreshold ? '#C48518' : 'var(--fs-ink-700)' }}>
+                        {p.stock}
+                      </span>
+                    </td>
+                    <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                      <span style={{ fontSize: 13, fontFamily: 'var(--fs-font-mono)', color: seuil > 0 ? 'var(--fs-ink-600)' : 'var(--fs-ink-300)', fontWeight: seuil > 0 ? 700 : 400 }}>
+                        {seuil > 0 ? seuil : '—'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                      {bas ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+                          <I d={D.alert} size={10}/> À commander
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac' }}>
+                          OK
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+
+        {/* ── Section envois au gestionnaire ── */}
+        <div style={{ marginTop: 20, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+          <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <I d={D.truck} size={14}/>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Envois du magazinier au gestionnaire</span>
+            <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 20, padding: '2px 10px', color: 'var(--fs-ink-500)' }}>
+              {demandes.length} envoi{demandes.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          {demandes.length === 0 ? (
+            <div style={{ padding: '28px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13, fontStyle: 'italic' }}>
+              Aucun produit encore envoyé au gestionnaire
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: 'var(--fs-ivory)' }}>
+                  {['Produit', 'Qté envoyée', 'Demandé par', 'Statut', 'Date envoi'].map((h, i) => (
+                    <th key={h} style={{ padding: '9px 14px', textAlign: i === 0 ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--fs-ivory)', zIndex: 1 }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {demandes.map((d, idx) => (
+                  <tr key={d._id} style={{ borderBottom: '1px solid var(--fs-line)', background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--fs-ink-900)' }}>
+                      {d.produit?.name ?? '—'}
+                      {d.produit?.unit && <span style={{ marginLeft: 5, fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 400 }}>{d.produit.unit}</span>}
+                    </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)', fontSize: 16 }}>
+                      {d.quantiteDemandee}
+                    </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, color: 'var(--fs-ink-600)' }}>
+                      {d.demandePar?.name ?? '—'}
+                    </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: d.statut === 'reçu' ? '#f0fdf4' : '#eff6ff', color: d.statut === 'reçu' ? '#16a34a' : '#2563eb', border: `1px solid ${d.statut === 'reçu' ? '#86efac' : '#bfdbfe'}` }}>
+                        {d.statut === 'reçu' ? '✓ Reçu' : '🚚 En transit'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 11, color: 'var(--fs-ink-400)' }}>
+                      {d.dateEnvoi ? new Date(d.dateEnvoi).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 type PanelMode = { type: 'create' } | { type: 'edit'; user: UserRecord } | null;
+
+type ViewMode = 'equipe' | 'stock';
 
 export default function AdminMagaziniers() {
   const [users, setUsers]     = useState<UserRecord[]>([]);
   const [caisses, setCaisses] = useState<CaisseRecord[]>([]);
   const [panel, setPanel]     = useState<PanelMode>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('equipe');
+  const [products, setProducts]     = useState<Product[]>([]);
+  const [demandes, setDemandes]     = useState<DemandeStock[]>([]);
+  const [receptions, setReceptions] = useState<ReceptionFull[]>([]);
+  const [resetConfirm, setResetConfirm] = useState(false);
+  const [resetting, setResetting]       = useState(false);
 
   const load = () => getUsers().then(us => setUsers(us.filter(u => u.role === 'magazinier'))).catch(() => {});
+
+  const reloadStock = () => {
+    getAllProducts().then(setProducts).catch(() => {});
+    getAllReceptions().then(setReceptions).catch(() => {});
+    Promise.all([getDemandes('envoyé'), getDemandes('reçu')])
+      .then(([env, rec]) => setDemandes([...env, ...rec].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())))
+      .catch(() => {});
+  };
+
   useEffect(() => {
     load();
     getCaisses().then(setCaisses).catch(() => {});
+    reloadStock();
   }, []);
+
+  const handleReset = async () => {
+    setResetting(true);
+    try { await resetEntrepot(); setResetConfirm(false); reloadStock(); }
+    catch { /* garder le modal ouvert si erreur */ }
+    finally { setResetting(false); }
+  };
+
+  // Produits qui ont été reçus au moins une fois par le magazinier
+  const receivedIds = new Set(
+    receptions.flatMap(r => r.items.map(it => String(it.productId)))
+  );
+  const magazinierProducts = products.filter(p => receivedIds.has(p._id));
 
   const selectedId = panel?.type === 'edit' ? panel.user._id : null;
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <AdminSidebar/>
+
+      {/* ── Modal confirmation réinitialisation ── */}
+      {resetConfirm && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '28px 32px', maxWidth: 420, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#dc2626' }}>
+                <I d={D.alert} size={22}/>
+              </div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)' }}>Réinitialiser le magazin ?</div>
+                <div style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginTop: 2 }}>Cette action est irréversible.</div>
+              </div>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 20 }}>
+              Cela va <strong>remettre à zéro le stock entrepôt</strong> de tous les produits et <strong>supprimer tout l'historique des réceptions</strong>. Le magazinier devra recommencer à enregistrer ses réceptions depuis le début.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setResetConfirm(false)} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
+                Annuler
+              </button>
+              <button onClick={handleReset} disabled={resetting} style={{ flex: 1, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#dc2626', color: '#fff', opacity: resetting ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
+                {resetting ? 'Réinitialisation…' : 'Oui, réinitialiser'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Personnel — Entrepôt</p>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>
-                Magaziniers · {users.length} compte{users.length !== 1 ? 's' : ''}
-              </h1>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>Personnel — Entrepôt</p>
+              {/* Onglets */}
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button onClick={() => { setViewMode('equipe'); setPanel(null); }} style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  border: viewMode === 'equipe' ? '1.5px solid var(--fs-wine-700)' : '1.5px solid var(--fs-line-2)',
+                  background: viewMode === 'equipe' ? 'var(--fs-wine-700)' : '#fff',
+                  color: viewMode === 'equipe' ? '#fff' : 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)',
+                }}>
+                  <I d={D.users} size={13}/> Équipe
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 10, background: viewMode === 'equipe' ? 'rgba(255,255,255,0.25)' : 'var(--fs-ivory)', color: viewMode === 'equipe' ? '#fff' : 'var(--fs-ink-400)' }}>
+                    {users.length}
+                  </span>
+                </button>
+                <button onClick={() => { setViewMode('stock'); setPanel(null); }} style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  border: viewMode === 'stock' ? '1.5px solid var(--fs-wine-700)' : '1.5px solid var(--fs-line-2)',
+                  background: viewMode === 'stock' ? 'var(--fs-wine-700)' : '#fff',
+                  color: viewMode === 'stock' ? '#fff' : 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)',
+                }}>
+                  <I d={D.warehouse} size={13}/> Stock entrepôt
+                  <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 10, background: viewMode === 'stock' ? 'rgba(255,255,255,0.25)' : 'var(--fs-ivory)', color: viewMode === 'stock' ? '#fff' : 'var(--fs-ink-400)' }}>
+                    {magazinierProducts.length}
+                  </span>
+                </button>
+              </div>
             </div>
-            <button onClick={() => setPanel({ type: 'create' })}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-              <I d={D.plus} size={13}/> Ajouter un magazinier
-            </button>
-          </div>
-        </div>
-
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          {/* Grid */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
-            {users.length === 0 ? (
-              <div style={{ textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, padding: '60px 0' }}>
-                <I d={D.pkg} size={36}/><br/><br/>
-                Aucun magazinier — cliquez sur <strong>Ajouter</strong> pour créer le premier compte.
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
-                {users.map(u => (
-                  <MagazinierCard
-                    key={u._id}
-                    user={u}
-                    selected={selectedId === u._id}
-                    onEdit={() => setPanel({ type: 'edit', user: u })}
-                    onDelete={() => setPanel({ type: 'edit', user: u })}
-                  />
-                ))}
-              </div>
+            {viewMode === 'equipe' && (
+              <button onClick={() => setPanel({ type: 'create' })}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                <I d={D.plus} size={13}/> Ajouter un magazinier
+              </button>
             )}
           </div>
-
-          {/* Right panel */}
-          {panel?.type === 'create' && (
-            <CreatePanel caisses={caisses} onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>
-          )}
-          {panel?.type === 'edit' && (
-            <EditPanel
-              user={panel.user}
-              caisses={caisses}
-              onSaved={() => { load(); setPanel(null); }}
-              onCancel={() => setPanel(null)}
-              onDeleted={() => { load(); setPanel(null); }}
-            />
-          )}
         </div>
+
+        {/* ── Vue Équipe ── */}
+        {viewMode === 'equipe' && (
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+              {users.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, padding: '60px 0' }}>
+                  <I d={D.pkg} size={36}/><br/><br/>
+                  Aucun magazinier — cliquez sur <strong>Ajouter</strong> pour créer le premier compte.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
+                  {users.map(u => (
+                    <MagazinierCard
+                      key={u._id}
+                      user={u}
+                      selected={selectedId === u._id}
+                      onEdit={() => setPanel({ type: 'edit', user: u })}
+                      onDelete={() => setPanel({ type: 'edit', user: u })}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            {panel?.type === 'create' && (
+              <CreatePanel caisses={caisses} onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>
+            )}
+            {panel?.type === 'edit' && (
+              <EditPanel
+                user={panel.user}
+                caisses={caisses}
+                onSaved={() => { load(); setPanel(null); }}
+                onCancel={() => setPanel(null)}
+                onDeleted={() => { load(); setPanel(null); }}
+              />
+            )}
+          </div>
+        )}
+
+        {/* ── Vue Stock entrepôt ── */}
+        {viewMode === 'stock' && (
+          <StockEntrepotView products={magazinierProducts} demandes={demandes} onReload={reloadStock} onResetRequest={() => setResetConfirm(true)}/>
+        )}
       </main>
     </div>
   );

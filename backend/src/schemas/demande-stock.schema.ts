@@ -17,6 +17,9 @@ export class DemandeStock {
   @Prop({ enum: ['en_attente', 'envoyé', 'reçu'], default: 'en_attente' })
   statut: string;
 
+  @Prop({ enum: ['demande', 'envoi'], default: 'demande' })
+  type: string;  // 'demande' = gestionnaire demande | 'envoi' = magazinier envoie directement
+
   @Prop()
   dateEnvoi: Date;
 }

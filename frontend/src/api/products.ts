@@ -6,7 +6,8 @@ export interface Product {
   price:          number;
   costPrice:      number;
   stock:          number;         // ← stock caisse (point de vente)
-  stockMagazin?:  number;         // ← stock entrepôt magazinier (indépendant)
+  stockMagazin?:       number;         // ← stock entrepôt magazinier (indépendant)
+  stockMagazinAjuste?: boolean;        // ← true si dernière modif vient de l'admin
   alertThreshold: number;
   initialStock?:  number;
   category?:      string;

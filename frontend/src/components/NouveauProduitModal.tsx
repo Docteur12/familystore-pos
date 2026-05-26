@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { createProduct, updateProduct, Product } from '../api/products';
+import { createProduct, updateProduct, getProductByBarcode, Product } from '../api/products';
 import AutocompleteInput from './AutocompleteInput';
+import QRScanner from './QRScanner';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -68,7 +69,7 @@ const ICON_BTN: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap',
 };
 
-function BarcodeField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function BarcodeField({ value, onChange, onCameraScan }: { value: string; onChange: (v: string) => void; onCameraScan?: () => void }) {
   const [scanMode, setScanMode] = useState(false);
   const inputRef  = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -116,6 +117,11 @@ function BarcodeField({ value, onChange }: { value: string; onChange: (v: string
         <button type="button" onClick={generate} style={ICON_BTN} title="Générer un code interne">
           🎲 Générer
         </button>
+        {onCameraScan && (
+          <button type="button" onClick={onCameraScan} style={ICON_BTN} title="Scanner avec caméra">
+            📱 Caméra
+          </button>
+        )}
       </div>
 
       {value && (
@@ -221,6 +227,38 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
   const [newCatInput,     setNewCatInput]     = useState('');
   const [markupPct,       setMarkupPct]       = useState('');
   const [foundProduct,    setFoundProduct]    = useState<Product | null>(null);
+  const [showScanner,     setShowScanner]     = useState(false);
+
+  // Fallback API si non trouvé localement (gère les listes périmées)
+  useEffect(() => {
+    if (!form.barcode.trim() || product || foundProduct) return;
+    const localFound = existingProducts.find(p =>
+      p.barcode && p.barcode.toLowerCase() === form.barcode.trim().toLowerCase()
+    );
+    if (localFound) return;
+    const timer = setTimeout(async () => {
+      try {
+        const apiFound = await getProductByBarcode(form.barcode.trim());
+        setFoundProduct(apiFound);
+        setForm({
+          name:        apiFound.name,
+          localName:   apiFound.localName ?? '',
+          barcode:     apiFound.barcode ?? form.barcode,
+          category:    apiFound.category ?? '',
+          subCategory: apiFound.subCategory ?? '',
+          unit:        apiFound.unit,
+          valeur:      apiFound.valeur ?? '',
+          price:       String(apiFound.price),
+          costPrice:   String(apiFound.costPrice),
+          stock:       String(apiFound.stock),
+          discount:    String(apiFound.discount ?? 0),
+          expiryDate:  apiFound.expiryDate ? apiFound.expiryDate.slice(0, 10) : defaultExpiryDate(),
+        });
+        setMarkupPct('');
+      } catch { /* nouveau produit */ }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [form.barcode, product, foundProduct, existingProducts]);
 
   // Recherche produit existant par code-barres
   const lookupBarcode = (code: string) => {
@@ -329,6 +367,13 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
   };
 
   return (
+    <>
+    {showScanner && (
+      <QRScanner
+        onDetected={code => { setShowScanner(false); setField('barcode')(code); lookupBarcode(code); }}
+        onClose={() => setShowScanner(false)}
+      />
+    )}
     <div
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -382,7 +427,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
               </div>
             )}
           </div>
-          <BarcodeField value={form.barcode} onChange={v => { setField('barcode')(v); lookupBarcode(v); }}/>
+          <BarcodeField value={form.barcode} onChange={v => { setField('barcode')(v); lookupBarcode(v); }} onCameraScan={() => setShowScanner(true)}/>
           {foundProduct && (
             <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 18 }}>🔍</span>
@@ -539,5 +584,6 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
 
       </div>
     </div>
+    </>
   );
 }

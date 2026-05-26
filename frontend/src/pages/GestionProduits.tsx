@@ -9,7 +9,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  createProduct, updateProduct, getAllProducts, Product, ProductPayload,
+  createProduct, updateProduct, getAllProducts, getProductByBarcode, Product, ProductPayload,
 } from '../api/products';
 import QRScanner          from '../components/QRScanner';
 import AutocompleteInput  from '../components/AutocompleteInput';
@@ -72,6 +72,36 @@ function AddModal({ baseCategories, existingProducts, onSave, onSaveExisting, on
   const allSubCategories = [...new Set(existingProducts.map(p => p.subCategory).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'fr'));
   const [markupPct,    setMarkupPct]    = useState('');
   const [foundProduct, setFoundProduct] = useState<Product | null>(null);
+
+  // Fallback API si non trouvé localement (gère les listes périmées)
+  useEffect(() => {
+    if (!form.barcode.trim() || foundProduct) return;
+    const localFound = existingProducts.find(p =>
+      p.barcode && p.barcode.toLowerCase() === form.barcode.trim().toLowerCase()
+    );
+    if (localFound) return;
+    const timer = setTimeout(async () => {
+      try {
+        const apiFound = await getProductByBarcode(form.barcode.trim());
+        setFoundProduct(apiFound);
+        setForm({
+          barcode:     apiFound.barcode ?? form.barcode,
+          name:        apiFound.name,
+          localName:   apiFound.localName ?? '',
+          category:    apiFound.category ?? 'Alimentation',
+          subCategory: apiFound.subCategory ?? '',
+          unit:        apiFound.unit,
+          valeur:      apiFound.valeur ?? '',
+          price:       String(apiFound.price),
+          costPrice:   String(apiFound.costPrice),
+          stock:       String(apiFound.stock),
+          expiryDate:  apiFound.expiryDate ? apiFound.expiryDate.slice(0, 10) : defaultExpiryDate(),
+        });
+        setMarkupPct('');
+      } catch { /* nouveau produit */ }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [form.barcode, foundProduct, existingProducts]);
 
   const lookupBarcode = (code: string) => {
     if (!code.trim()) { setFoundProduct(null); return; }

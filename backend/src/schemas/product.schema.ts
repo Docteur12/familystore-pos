@@ -47,6 +47,9 @@ export class Product {
   @Prop({ default: 0 })
   stockMagazin: number;  // stock entrepôt (magazinier) — indépendant du stock caisse
 
+  @Prop({ default: false })
+  stockMagazinAjuste: boolean;  // true si la dernière modification vient de l'admin
+
   @Prop({ default: null })
   expiryDate: Date | null;
 
