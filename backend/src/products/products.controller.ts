@@ -93,10 +93,10 @@ export class ProductsController {
     return result;
   }
 
-  // DELETE /api/products/:id — patron only
+  // DELETE /api/products/:id — patron + gestionnaire
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles('patron')
+  @Roles('patron', 'gestionnaire')
   async remove(@Param('id') id: string, @Req() req: Request) {
     const actor = (req as any)['user'];
     const result = await this.productsService.remove(id);

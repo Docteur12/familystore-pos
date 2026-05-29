@@ -187,6 +187,49 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// Sélecteur de produit avec recherche (remplace un <select> de 100+ produits)
+function ProductSelect({ products, value, onChange, meta }: {
+  products: Product[];
+  value: string;
+  onChange: (id: string) => void;
+  meta?: (p: Product) => string;
+}) {
+  const selected = products.find(p => p._id === value) ?? null;
+  const [search, setSearch] = useState('');
+  const [open, setOpen]     = useState(false);
+
+  const filtered = products.filter(p =>
+    !search.trim() || p.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        value={open ? search : (selected?.name ?? '')}
+        onChange={e => { setSearch(e.target.value); setOpen(true); }}
+        onFocus={() => { setSearch(''); setOpen(true); }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Chercher / choisir un produit…"
+        style={{ ...INPUT, cursor: 'text' }}
+      />
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 8, boxShadow: 'var(--fs-shadow-md)', zIndex: 20, maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
+          {filtered.length === 0 && (
+            <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fs-ink-400)' }}>Aucun produit</div>
+          )}
+          {filtered.slice(0, 40).map(p => (
+            <button key={p._id} type="button" onMouseDown={() => { onChange(p._id); setOpen(false); }}
+              style={{ width: '100%', padding: '7px 12px', border: 'none', background: p._id === value ? 'var(--fs-ivory)' : '#fff', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--fs-line)', display: 'block' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
+              {meta && <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{meta(p)}</div>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Tab types ─────────────────────────────────────────────────────────────────
 
 type Tab = 'receptions' | 'envois' | 'demandes' | 'historique' | 'dashboard' | 'etiquettes';
@@ -755,10 +798,11 @@ export default function Magazinier() {
 
                         {/* Ligne 2 : dropdown + quantité + supprimer */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 36px', gap: 6 }}>
-                          <select value={row.productId} onChange={e => setRow(i, 'productId', e.target.value)} style={{ ...INPUT, cursor: 'pointer' }}>
-                            <option value="">— Choisir un produit —</option>
-                            {products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
-                          </select>
+                          <ProductSelect
+                            products={products}
+                            value={row.productId}
+                            onChange={id => setRow(i, 'productId', id)}
+                          />
                           <input type="number" min={0} value={row.quantity}
                             onChange={e => { const v = e.target.value; setRow(i, 'quantity', v === '' ? '' : (parseInt(v, 10) || 0)); }}
                             style={{ ...INPUT, textAlign: 'center' }} placeholder="Qté"/>
@@ -853,18 +897,12 @@ export default function Magazinier() {
                       return (
                         <div key={i} style={{ marginBottom: 10, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '10px 12px' }}>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 36px', gap: 6 }}>
-                            <select
+                            <ProductSelect
+                              products={warehouseProducts}
                               value={row.produitId}
-                              onChange={e => setEnvoiRow(i, 'produitId', e.target.value)}
-                              style={{ ...INPUT, cursor: 'pointer' }}
-                            >
-                              <option value="">— Choisir un produit —</option>
-                              {warehouseProducts.map(p => (
-                                <option key={p._id} value={p._id}>
-                                  {p.name} (entrepôt : {p.stockMagazin ?? 0})
-                                </option>
-                              ))}
-                            </select>
+                              onChange={id => setEnvoiRow(i, 'produitId', id)}
+                              meta={p => `Entrepôt : ${p.stockMagazin ?? 0}`}
+                            />
                             <input
                               type="number" min={1} max={maxQte}
                               value={row.quantite}

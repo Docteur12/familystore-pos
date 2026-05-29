@@ -160,7 +160,7 @@ export async function deleteProduct(id: string): Promise<void> {
     headers: authHeaders(),
   });
   if (res.status === 401) throw new Error('Non authentifié');
-  if (res.status === 403) throw new Error('Accès réservé au patron');
+  if (res.status === 403) throw new Error('Accès non autorisé pour ce rôle');
   if (!res.ok) throw new Error('Erreur suppression produit');
 }
 
