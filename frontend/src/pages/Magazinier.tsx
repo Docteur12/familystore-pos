@@ -806,8 +806,13 @@ export default function Magazinier() {
                           <input type="number" min={0} value={row.quantity}
                             onChange={e => { const v = e.target.value; setRow(i, 'quantity', v === '' ? '' : (parseInt(v, 10) || 0)); }}
                             style={{ ...INPUT, textAlign: 'center' }} placeholder="Qté"/>
-                          <button onClick={() => removeRow(i)} disabled={rows.length === 1}
-                            style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <button
+                            onClick={() => {
+                              if (rows.length === 1) { setRows([{ productId: '', quantity: 1 }]); setRowBarcodes(['']); }
+                              else removeRow(i);
+                            }}
+                            title={rows.length === 1 ? 'Vider la ligne' : 'Supprimer la ligne'}
+                            style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <I d={D.trash} size={13}/>
                           </button>
                         </div>
@@ -910,8 +915,13 @@ export default function Magazinier() {
                               style={{ ...INPUT, textAlign: 'center' }}
                               placeholder="Qté"
                             />
-                            <button onClick={() => removeEnvoiRow(i)} disabled={envoiRows.length === 1}
-                              style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: envoiRows.length === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <button
+                              onClick={() => {
+                                if (envoiRows.length === 1) setEnvoiRows([{ produitId: '', quantite: 1 }]);
+                                else removeEnvoiRow(i);
+                              }}
+                              title={envoiRows.length === 1 ? 'Vider la ligne' : 'Supprimer la ligne'}
+                              style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <I d={D.trash} size={13}/>
                             </button>
                           </div>

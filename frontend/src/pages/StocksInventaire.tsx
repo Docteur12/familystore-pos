@@ -284,7 +284,8 @@ export default function StocksInventaire() {
               {loading ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: 820, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       {['Produit', 'Catégorie', 'Unité', 'Théorique', 'Compté', 'Écart', 'Justification'].map((h, i) => (
@@ -323,6 +324,7 @@ export default function StocksInventaire() {
                     })}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </>
@@ -342,7 +344,8 @@ export default function StocksInventaire() {
                   </div>
                   <span style={{ fontSize: 12, color: 'var(--fs-ink-400)' }}>{s.rows.length} produit(s)</span>
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       {['Produit', 'Théorique', 'Compté', 'Écart', 'Justification'].map(h => (
@@ -366,6 +369,7 @@ export default function StocksInventaire() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             ))}
           </div>

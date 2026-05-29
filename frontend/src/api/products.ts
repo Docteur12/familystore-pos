@@ -137,7 +137,7 @@ export async function createProduct(data: ProductPayload): Promise<Product> {
     body: JSON.stringify(data),
   });
   if (res.status === 401) throw new Error('Non authentifié');
-  if (res.status === 403) throw new Error('Accès réservé au patron');
+  if (res.status === 403) throw new Error('Accès non autorisé pour ce rôle');
   if (!res.ok) throw new Error('Erreur création produit');
   return res.json();
 }

@@ -188,7 +188,8 @@ export default function StocksAlertes() {
                 <div style={{ fontSize: 15, fontWeight: 600 }}>Tous les stocks sont suffisants</div>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {['Produit', 'Catégorie', 'Stock actuel', 'Seuil (auto 10%)', 'Statut'].map((h, i) => (
@@ -222,6 +223,7 @@ export default function StocksAlertes() {
                   })}
                 </tbody>
               </table>
+              </div>
             )
           ) : tab === 'peremption' ? (
             expiryProducts.length === 0 ? (
@@ -230,7 +232,8 @@ export default function StocksAlertes() {
                 <div style={{ fontSize: 15, fontWeight: 600 }}>Aucune péremption dans les {maxDays} jours</div>
               </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {['Produit', 'Catégorie', 'Stock', 'Date péremption', 'Délai', 'Urgence'].map((h, i) => (
@@ -269,6 +272,7 @@ export default function StocksAlertes() {
                   })}
                 </tbody>
               </table>
+              </div>
             )
           ) : (
             // Suggestions tab
@@ -282,7 +286,8 @@ export default function StocksAlertes() {
                 <div style={{ background: '#fff', border: '1px solid rgba(122,29,46,0.15)', borderRadius: 10, padding: '12px 16px', marginBottom: 14, fontSize: 12, color: 'var(--fs-wine-800)', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <I d={D.zap} size={14}/> Ces suggestions sont calculées automatiquement : stock conseillé = 2× seuil d'alerte.
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       {['Produit', 'Catégorie', 'Stock actuel', 'Seuil', 'Qté recommandée', 'Urgence'].map((h, i) => (
@@ -314,6 +319,7 @@ export default function StocksAlertes() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </>
             )
           )}

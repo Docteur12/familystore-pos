@@ -6,6 +6,7 @@ import {
   FournisseurRecord, FournisseurInput,
 } from '../api/fournisseurs';
 import ToastContainer, { useToast } from '../components/Toast';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -174,6 +175,7 @@ export default function StocksFournisseurs() {
   const [showAdd, setShowAdd]   = useState(false);
   const [editing, setEditing]   = useState<FournisseurRecord | null>(null);
   const [loading, setLoading]   = useState(true);
+  const isMobile = useIsMobile();
   const { toasts, addToast, removeToast } = useToast();
 
   useEffect(() => { getAllProducts().then(setProducts).catch(() => {}); }, []);
@@ -243,27 +245,92 @@ export default function StocksFournisseurs() {
 
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 24px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '12px 16px 12px 56px' : '12px 24px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 10 : 0 }}>
             <div>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
               <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Fournisseurs</h1>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div style={{ position: 'relative' }}>
+            <div style={{ display: 'flex', gap: 10, flexDirection: isMobile ? 'column' : 'row' }}>
+              <div style={{ position: 'relative', flex: isMobile ? 1 : undefined }}>
                 <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-300)' }}><I d={D.search} size={13}/></span>
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…"
-                  style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: 'var(--fs-ivory)', width: 220 }}/>
+                  style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: 'var(--fs-ivory)', width: isMobile ? '100%' : 220, boxSizing: 'border-box' }}/>
               </div>
               <button onClick={() => setShowAdd(true)}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 <I d={D.plus} size={13}/> Nouveau fournisseur
               </button>
             </div>
           </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '14px' : '20px 24px' }}>
+          {isMobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {loading ? (
+                <div style={{ padding: '40px 14px', textAlign: 'center', fontSize: 13, color: 'var(--fs-ink-400)' }}>Chargement…</div>
+              ) : displayed.length === 0 ? (
+                <div style={{ padding: '40px 14px', textAlign: 'center', fontSize: 13, color: 'var(--fs-ink-400)' }}>
+                  {search ? 'Aucun fournisseur ne correspond à la recherche.' : 'Aucun fournisseur. Cliquez sur « Nouveau fournisseur » pour en ajouter un.'}
+                </div>
+              ) : displayed.map(f => (
+                <div key={f._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 14, boxShadow: 'var(--fs-shadow-sm)' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--fs-wine-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fs-wine-700)', flexShrink: 0 }}>
+                      <I d={D.truck} size={14}/>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{f.name}</div>
+                      {f.adresse && <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}><I d={D.map} size={10}/>{f.adresse}</div>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => setEditing(f)}
+                        style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fs-ink-500)' }}>
+                        <I d={D.edit} size={14}/>
+                      </button>
+                      <button onClick={() => handleDelete(f._id)}
+                        style={{ background: 'var(--fs-danger-100)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fs-danger-700)' }}>
+                        <I d={D.trash} size={14}/>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 10, fontSize: 12, color: 'var(--fs-ink-600)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600 }}>
+                      <I d={D.user} size={12}/> {f.contact}
+                    </div>
+                    {f.email !== '—' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 3 }}>
+                        <I d={D.mail} size={10}/> {f.email}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginTop: 10 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 10, background: f.conditionsPaiement === 'comptant' ? '#E8F0E5' : '#F7ECD4', color: f.conditionsPaiement === 'comptant' ? 'var(--fs-success-700)' : '#8B5A14' }}>
+                      {condLabel[f.conditionsPaiement] ?? '—'}
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: parseInt(f.remise) > 0 ? 'var(--fs-wine-700)' : 'var(--fs-ink-400)' }}>
+                      Remise {f.remise}%
+                    </span>
+                    <Stars value={f.note}/>
+                    <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>
+                      {productsFor(f)} produit{productsFor(f) !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  {f.categories.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+                      {f.categories.map(cat => (
+                        <span key={cat} style={{ background: CAT_COLORS[cat] ?? '#ddd', color: 'var(--fs-ink-700)', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 8 }}>{cat}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -347,6 +414,7 @@ export default function StocksFournisseurs() {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       </main>
     </div>

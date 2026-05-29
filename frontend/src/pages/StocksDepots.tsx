@@ -305,8 +305,8 @@ export default function StocksDepots() {
               {transferts.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Aucun transfert enregistré</div>
               ) : (
-                <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflowX: 'auto', boxShadow: 'var(--fs-shadow-sm)' }}>
+                  <table style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: 'var(--fs-ivory)' }}>
                         {['Date', 'Produit', 'Source', 'Destination', 'Quantité', 'Statut'].map(h => (

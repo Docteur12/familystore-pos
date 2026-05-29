@@ -45,10 +45,10 @@ export class ProductsController {
     return this.productsService.findById(id);
   }
 
-  // POST /api/products — patron + gestionnaire
+  // POST /api/products — patron + gestionnaire + magazinier
   @Post()
   @UseGuards(RolesGuard)
-  @Roles('patron', 'gestionnaire')
+  @Roles('patron', 'gestionnaire', 'magazinier')
   async create(@Body() dto: CreateProductDto, @Req() req: Request) {
     const actor = (req as any)['user'];
     const result = await this.productsService.create(dto);
