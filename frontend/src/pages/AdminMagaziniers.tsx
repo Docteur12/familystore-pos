@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import { createUser, deleteUser, getUsers, updateUser, UserRecord } from '../api/auth';
 import { getCaisses, CaisseRecord } from '../api/caisses';
-import { getAllProducts, Product } from '../api/products';
+import { getAllProducts, deleteProduct, Product } from '../api/products';
 import { getDemandes, DemandeStock, ajusterStockEntrepot, resetEntrepot, getAllReceptions, ReceptionFull } from '../api/magazinier';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -299,6 +299,19 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
   const [search, setSearch] = useState('');
   const [filtre, setFiltre] = useState<'tous' | 'bas'>('tous');
   const [adjusting, setAdjusting] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteProduct(deleteTarget._id);
+      setDeleteTarget(null);
+      onReload();
+    } catch { /* garder le modal ouvert si erreur */ }
+    finally { setDeleting(false); }
+  };
 
   // Métriques : seulement les produits avec stock > 0
   const avecStock = products.filter(p => (p.stockMagazin ?? 0) > 0);
@@ -325,6 +338,34 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Modal confirmation suppression produit */}
+      {deleteTarget && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '28px 32px', maxWidth: 420, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#dc2626' }}>
+                <I d={D.trash} size={20}/>
+              </div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)' }}>Supprimer ce produit ?</div>
+                <div style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginTop: 2 }}>Cette action est irréversible.</div>
+              </div>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 20 }}>
+              Le produit <strong>{deleteTarget.name}</strong> sera définitivement supprimé du catalogue. L'opération sera enregistrée dans le journal d'audit.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setDeleteTarget(null)} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
+                Annuler
+              </button>
+              <button onClick={handleDelete} disabled={deleting} style={{ flex: 1, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#dc2626', color: '#fff', opacity: deleting ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
+                {deleting ? 'Suppression…' : 'Oui, supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Métriques */}
       <div style={{ display: 'flex', gap: 12, padding: '16px 24px', flexShrink: 0 }}>
         {[
@@ -385,7 +426,7 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
           <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
             <thead>
               <tr style={{ background: 'var(--fs-ivory)' }}>
-                {['Produit', 'Catégorie', 'Stock entrepôt', 'Stock caisse', 'Seuil commande', 'État'].map((h, i) => (
+                {['Produit', 'Catégorie', 'Stock entrepôt', 'Stock caisse', 'Seuil commande', 'État', ''].map((h, i) => (
                   <th key={h} style={{
                     padding: '10px 14px', textAlign: i >= 2 ? 'center' : 'left',
                     fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)',
@@ -402,7 +443,7 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
             <tbody>
               {displayed.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: '48px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 14 }}>
+                  <td colSpan={7} style={{ padding: '48px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 14 }}>
                     Aucun produit trouvé
                   </td>
                 </tr>
@@ -466,6 +507,12 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
                           OK
                         </span>
                       )}
+                    </td>
+                    <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                      <button onClick={() => setDeleteTarget(p)} title="Supprimer le produit"
+                        style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex', alignItems: 'center' }}>
+                        <I d={D.trash} size={13}/>
+                      </button>
                     </td>
                   </tr>
                 );
