@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
-import { addStockWithMovement } from '../api/stock';
 import ToastContainer, { useToast } from '../components/Toast';
 import { getAllReceptions, ReceptionFull } from '../api/magazinier';
+import { getFournisseurs } from '../api/fournisseurs';
+import { getBonsLivraison, createBonLivraison, BonLivraisonRecord } from '../api/bons-livraison';
 
 const LS_RECEPTION_SEEN = 'receptions_last_seen';
 
@@ -20,24 +21,6 @@ interface BLLine {
   datePeremption: string;
   etatEmballage: 'bon' | 'endommage' | '';
 }
-
-interface BonLivraison {
-  id: string;
-  numeroBL: string;
-  fournisseur: string;
-  date: string;
-  lignes: BLLine[];
-  totalEcarts: number;
-  createdAt: string;
-}
-
-const LS_KEY = 'fs_receptions_bl';
-function loadBLs(): BonLivraison[] {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) ?? '[]'); } catch { return []; }
-}
-function saveBLs(list: BonLivraison[]) { localStorage.setItem(LS_KEY, JSON.stringify(list)); }
-
-const SUPPLIERS = ['Import Maroc', 'Soleco SA', 'Import France', 'Coop. Cameroun', 'Coop. Douala', 'SABC', 'Fournisseur Local', 'Coop. Locale'];
 
 function I({ d, size = 14 }: { d: string; size?: number }) {
   return (
@@ -223,11 +206,12 @@ type HistoFilter = 'tous' | 'moi' | 'magazinier';
 export default function StocksReceptions() {
   const { toasts, addToast, removeToast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
-  const [bls, setBls]           = useState<BonLivraison[]>(loadBLs);
+  const [bls, setBls]           = useState<BonLivraisonRecord[]>([]);
   const [view, setView]         = useState<ViewMode>('form');
   const [loading, setLoading]   = useState(false);
   const [magRecs, setMagRecs]   = useState<ReceptionFull[]>([]);
   const [histoFilter, setHistoFilter] = useState<HistoFilter>('tous');
+  const [suppliers, setSuppliers] = useState<string[]>([]);
 
   // BL header
   const [numeroBL, setNumeroBL]   = useState('');
@@ -238,6 +222,14 @@ export default function StocksReceptions() {
   const [lines, setLines] = useState<BLLine[]>([newLine()]);
 
   useEffect(() => { getAllProducts().then(setProducts).catch(() => {}); }, []);
+
+  useEffect(() => {
+    getFournisseurs().then(list => setSuppliers(list.map(f => f.name))).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    getBonsLivraison().then(setBls).catch(() => {});
+  }, []);
 
   // Charge les réceptions magazinier + marque comme vu
   useEffect(() => {
@@ -262,39 +254,30 @@ export default function StocksReceptions() {
       return;
     }
     setLoading(true);
-    let ok = 0;
-    for (const l of validLines) {
-      try {
-        await addStockWithMovement(l.productId, parseInt(l.qteRecue), `BL ${numeroBL || '—'}`);
-        ok++;
-      } catch { /* continue other lines */ }
+    try {
+      const bl = await createBonLivraison({
+        numeroBL: numeroBL || undefined,
+        fournisseur,
+        date,
+        lignes: validLines.map(l => ({
+          productId:      l.productId,
+          qteAttendue:    parseInt(l.qteAttendue) || 0,
+          qteRecue:       parseInt(l.qteRecue),
+          datePeremption: l.datePeremption,
+          etatEmballage:  l.etatEmballage,
+        })),
+      });
+      setBls(prev => [bl, ...prev]);
+      addToast(`${bl.lignes.length} produit(s) réceptionné(s) — ${bl.numeroBL}`, 'success');
+      setLines([newLine()]);
+      setNumeroBL('');
+      setFourn('');
+      setDate(new Date().toISOString().slice(0, 10));
+    } catch (e) {
+      addToast(e instanceof Error ? e.message : 'Erreur enregistrement', 'error');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-
-    const totalEcarts = validLines.reduce((s, l) => {
-      const att = parseInt(l.qteAttendue) || 0;
-      const rec = parseInt(l.qteRecue) || 0;
-      return s + (rec - att);
-    }, 0);
-
-    const bl: BonLivraison = {
-      id: Date.now().toString(),
-      numeroBL: numeroBL || `BL-${Date.now().toString().slice(-6)}`,
-      fournisseur,
-      date,
-      lignes: validLines,
-      totalEcarts,
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [bl, ...bls];
-    setBls(updated);
-    saveBLs(updated);
-
-    addToast(`${ok} produit(s) réceptionné(s) — ${bl.numeroBL}`, 'success');
-    setLines([newLine()]);
-    setNumeroBL('');
-    setFourn('');
-    setDate(new Date().toISOString().slice(0, 10));
   };
 
   return (
@@ -339,7 +322,7 @@ export default function StocksReceptions() {
                   <select value={fournisseur} onChange={e => setFourn(e.target.value)}
                     style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
                     <option value="">— Sélectionner —</option>
-                    {SUPPLIERS.map(s => <option key={s} value={s}>{s}</option>)}
+                    {suppliers.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div>
@@ -516,7 +499,7 @@ export default function StocksReceptions() {
               </div>
             )}
 
-            {/* Réceptions gestionnaire (localStorage) */}
+            {/* Réceptions gestionnaire (backend) */}
             {(histoFilter === 'tous' || histoFilter === 'moi') && (
               <div>
                 {histoFilter === 'tous' && bls.length > 0 && (
@@ -528,7 +511,7 @@ export default function StocksReceptions() {
                   <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Aucun BL enregistré</div>
                 )}
                 {bls.map(bl => (
-              <div key={bl.id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, marginBottom: 14, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+              <div key={bl._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, marginBottom: 14, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: '1px solid var(--fs-line)', background: 'var(--fs-ivory)' }}>
                   <div style={{ display: 'flex', gap: 14 }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-mono)' }}>{bl.numeroBL}</span>
@@ -553,9 +536,9 @@ export default function StocksReceptions() {
                   </thead>
                   <tbody>
                     {bl.lignes.map((l, i) => {
-                      const ecart = (parseInt(l.qteRecue) || 0) - (parseInt(l.qteAttendue) || 0);
+                      const ecart = l.qteRecue - l.qteAttendue;
                       return (
-                        <tr key={l.id} style={{ background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
+                        <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
                           <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{l.productName}</td>
                           <td style={{ padding: '9px 14px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-500)' }}>{l.qteAttendue || '—'}</td>
                           <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-success-700)' }}>+{l.qteRecue}</td>

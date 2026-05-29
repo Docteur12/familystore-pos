@@ -16,6 +16,7 @@ import { SessionsModule }  from './sessions/sessions.module';
 import { AdminModule }     from './admin/admin.module';
 import { EcartsModule }   from './ecarts/ecarts.module';
 import { FournisseursModule } from './fournisseurs/fournisseurs.module';
+import { BonsLivraisonModule } from './bons-livraison/bons-livraison.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { FournisseursModule } from './fournisseurs/fournisseurs.module';
     AdminModule,
     EcartsModule,
     FournisseursModule,
+    BonsLivraisonModule,
   ],
   controllers: [AppController],
   providers: [],
