@@ -191,7 +191,7 @@ type Tab = 'receptions' | 'envois' | 'demandes' | 'historique' | 'dashboard' | '
 
 // ── Reception form row ────────────────────────────────────────────────────────
 
-interface RecRow { productId: string; quantity: number }
+interface RecRow { productId: string; quantity: number | '' }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -287,6 +287,13 @@ export default function Magazinier() {
   const [rows,         setRows]         = useState<RecRow[]>([{ productId: '', quantity: 1 }]);
   const [recLoading,   setRecLoading]   = useState(false);
   const [rowBarcodes,  setRowBarcodes]  = useState<string[]>(['']);
+  const firstBarcodeRef = useRef<HTMLInputElement>(null);
+
+  // Focus auto sur le champ code-barres quand l'onglet Réceptions s'affiche
+  // (permet de scanner avec la douchette USB sans cliquer)
+  useEffect(() => {
+    if (tab === 'receptions') firstBarcodeRef.current?.focus();
+  }, [tab]);
 
   const addRow    = useCallback(() => { setRows(r => [...r, { productId: '', quantity: 1 }]); setRowBarcodes(b => [...b, '']); }, []);
   const removeRow = useCallback((i: number) => { setRows(r => r.filter((_, n) => n !== i)); setRowBarcodes(b => b.filter((_, n) => n !== i)); }, []);
@@ -342,7 +349,9 @@ export default function Magazinier() {
 
   const handleValidateReception = useCallback(async () => {
     if (!fournisseur.trim()) { addToast('Indiquez le nom du fournisseur', 'error'); return; }
-    const validRows = rows.filter(r => r.productId && r.quantity > 0);
+    const validRows = rows
+      .map(r => ({ productId: r.productId, quantity: Number(r.quantity) || 0 }))
+      .filter(r => r.productId && r.quantity > 0);
     if (validRows.length === 0) { addToast('Ajoutez au moins un produit', 'error'); return; }
     setRecLoading(true);
     try {
@@ -723,6 +732,7 @@ export default function Magazinier() {
                         {/* Ligne 1 : code-barres + scan */}
                         <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                           <input
+                            ref={i === 0 ? firstBarcodeRef : undefined}
                             type="text"
                             value={rowBarcodes[i] ?? ''}
                             onChange={e => setRowBarcode(i, e.target.value)}
@@ -743,8 +753,8 @@ export default function Magazinier() {
                             <option value="">— Choisir un produit —</option>
                             {products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
                           </select>
-                          <input type="number" min={1} value={row.quantity}
-                            onChange={e => setRow(i, 'quantity', parseInt(e.target.value) || 1)}
+                          <input type="number" min={0} value={row.quantity}
+                            onChange={e => { const v = e.target.value; setRow(i, 'quantity', v === '' ? '' : (parseInt(v, 10) || 0)); }}
                             style={{ ...INPUT, textAlign: 'center' }} placeholder="Qté"/>
                           <button onClick={() => removeRow(i)} disabled={rows.length === 1}
                             style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: rows.length === 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

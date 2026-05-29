@@ -1,7 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import { getUsers, UserRecord } from '../api/auth';
 import { getCaisses, CaisseRecord } from '../api/caisses';
+
+type EquipeSortKey = 'name' | 'role' | 'poste' | 'email' | 'phone';
+const EQUIPE_COLS: { key: EquipeSortKey; label: string }[] = [
+  { key: 'name',  label: 'Collaborateur'  },
+  { key: 'role',  label: 'Rôle'           },
+  { key: 'poste', label: 'Poste / Caisse' },
+  { key: 'email', label: 'Email'          },
+  { key: 'phone', label: 'Téléphone'      },
+];
 
 const AVATAR_COLORS = ['#C2566B','#7A9EC2','#7AB87A','#C2A07A','#9A7AC2','#7ABFBF'];
 const avatarColor = (name: string) => AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
@@ -22,6 +31,10 @@ export default function AdminEquipe() {
   const [users,   setUsers]   = useState<UserRecord[]>([]);
   const [caisses, setCaisses] = useState<CaisseRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sort,    setSort]    = useState<{ key: EquipeSortKey; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' });
+  const toggleSort = useCallback((key: EquipeSortKey) => {
+    setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -44,6 +57,21 @@ export default function AdminEquipe() {
   };
 
   const byRole = (role: string) => users.filter(u => u.role === role).length;
+
+  const sortedUsers = useMemo(() => {
+    const val = (u: UserRecord): string => {
+      switch (sort.key) {
+        case 'name':  return u.name.toLowerCase();
+        case 'role':  return (ROLE_LABEL[u.role] ?? u.role).toLowerCase();
+        case 'poste': return getCaisseName(u).toLowerCase();
+        case 'email': return (u.email ?? '').toLowerCase();
+        case 'phone': return ((u as any).phone ?? '').toLowerCase();
+      }
+    };
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return [...users].sort((a, b) => val(a).localeCompare(val(b)) * dir);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users, caisses, sort]);
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
@@ -86,18 +114,26 @@ export default function AdminEquipe() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    {['Collaborateur', 'Rôle', 'Poste / Caisse', 'Email', 'Téléphone'].map((h, i) => (
-                      <th key={h} style={{
-                        padding: '10px 14px', textAlign: 'left',
-                        fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)',
-                        textTransform: 'uppercase', letterSpacing: '0.1em',
-                        borderBottom: '1px solid var(--fs-line)', background: 'var(--fs-ivory)',
-                      }}>{h}</th>
-                    ))}
+                    {EQUIPE_COLS.map(col => {
+                      const active = sort.key === col.key;
+                      return (
+                        <th key={col.key} onClick={() => toggleSort(col.key)} style={{
+                          padding: '10px 14px', textAlign: 'left',
+                          fontSize: 10, fontWeight: 700,
+                          color: active ? 'var(--fs-wine-700)' : 'var(--fs-ink-400)',
+                          textTransform: 'uppercase', letterSpacing: '0.1em',
+                          borderBottom: '1px solid var(--fs-line)', background: 'var(--fs-ivory)',
+                          cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+                        }}>
+                          {col.label}
+                          {active && <span style={{ marginLeft: 4 }}>{sort.dir === 'asc' ? '▲' : '▼'}</span>}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((u, i) => {
+                  {sortedUsers.map((u, i) => {
                     const color    = avatarColor(u.name);
                     const rStyle   = ROLE_COLOR[u.role] ?? { bg: '#f5f5f5', color: '#666' };
                     const postName = getCaisseName(u);

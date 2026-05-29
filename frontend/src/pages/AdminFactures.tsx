@@ -41,6 +41,29 @@ const TH: React.CSSProperties = {
   position: 'sticky', top: 0, background: 'var(--fs-ivory)', zIndex: 1,
 };
 
+type FSortKey = 'numero' | 'date' | 'caissier' | 'pm' | 'articles' | 'montant';
+
+const FACTURE_COLS: { key: FSortKey | null; label: string; align: 'left' | 'right' }[] = [
+  { key: 'numero',   label: 'Ticket #', align: 'left' },
+  { key: 'date',     label: 'Date',     align: 'left' },
+  { key: 'caissier', label: 'Caissier', align: 'left' },
+  { key: 'pm',       label: 'Mode',     align: 'left' },
+  { key: 'articles', label: 'Articles', align: 'left' },
+  { key: 'montant',  label: 'Montant',  align: 'right' },
+  { key: null,       label: 'PDF',      align: 'right' },
+];
+
+const factureSortVal = (f: FactureRecord, key: FSortKey): string | number => {
+  switch (key) {
+    case 'numero':   return f.numero;
+    case 'date':     return new Date(f.date || f.createdAt).getTime();
+    case 'caissier': return f.caissier ?? '';
+    case 'pm':       return PM_LABELS[f.paymentMethod] ?? f.paymentMethod;
+    case 'articles': return f.items.reduce((s, it) => s + it.quantity, 0);
+    case 'montant':  return f.montant;
+  }
+};
+
 export default function AdminFactures() {
   const { toasts, addToast, removeToast } = useToast();
 
@@ -50,6 +73,10 @@ export default function AdminFactures() {
   const [loading,  setLoading]  = useState(true);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo,   setDateTo]   = useState('');
+  const [sort,     setSort]     = useState<{ key: FSortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'desc' });
+  const toggleSort = useCallback((key: FSortKey) => {
+    setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
+  }, []);
 
   const load = useCallback(async (p = 0) => {
     setLoading(true);
@@ -74,6 +101,14 @@ export default function AdminFactures() {
 
   const totalMontant = factures.reduce((s, f) => s + f.montant, 0);
   const pages        = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const sortDir = sort.dir === 'asc' ? 1 : -1;
+  const sortedFactures = [...factures].sort((a, b) => {
+    const va = factureSortVal(a, sort.key);
+    const vb = factureSortVal(b, sort.key);
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sortDir;
+    return String(va).localeCompare(String(vb), 'fr') * sortDir;
+  });
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
@@ -132,8 +167,17 @@ export default function AdminFactures() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
-                    {['Ticket #', 'Date', 'Caissier', 'Mode', 'Articles', 'Montant', 'PDF'].map((h, i) => (
-                      <th key={h} style={{ ...TH, textAlign: i >= 5 ? 'right' : 'left' }}>{h}</th>
+                    {FACTURE_COLS.map(col => (
+                      <th key={col.label}
+                        onClick={col.key ? () => toggleSort(col.key as FSortKey) : undefined}
+                        style={{ ...TH, textAlign: col.align, cursor: col.key ? 'pointer' : 'default', userSelect: 'none', color: col.key && sort.key === col.key ? 'var(--fs-wine-700)' : undefined }}>
+                        {col.label}
+                        {col.key && (
+                          <span style={{ marginLeft: 4, opacity: sort.key === col.key ? 1 : 0.25 }}>
+                            {sort.key === col.key ? (sort.dir === 'asc' ? '▲' : '▼') : '▲'}
+                          </span>
+                        )}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -144,7 +188,7 @@ export default function AdminFactures() {
                         Aucune facture enregistrée sur cette période.
                       </td>
                     </tr>
-                  ) : factures.map((f, i) => (
+                  ) : sortedFactures.map((f, i) => (
                     <tr key={f._id} style={{ background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
                       <td style={{ padding: '10px 12px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', fontWeight: 800, color: 'var(--fs-wine-700)' }}>
                         #{f.numero}

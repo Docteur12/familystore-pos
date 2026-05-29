@@ -15,6 +15,7 @@ import { FacturesModule }  from './factures/factures.module';
 import { SessionsModule }  from './sessions/sessions.module';
 import { AdminModule }     from './admin/admin.module';
 import { EcartsModule }   from './ecarts/ecarts.module';
+import { FournisseursModule } from './fournisseurs/fournisseurs.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { EcartsModule }   from './ecarts/ecarts.module';
     SessionsModule,
     AdminModule,
     EcartsModule,
+    FournisseursModule,
   ],
   controllers: [AppController],
   providers: [],

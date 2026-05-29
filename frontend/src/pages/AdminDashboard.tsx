@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
   PieChart, Pie, Cell, ReferenceLine,
@@ -14,6 +14,30 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { getAllProducts, Product } from '../api/products';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+type CatalogSortKey = 'name' | 'category' | 'subCategory' | 'price' | 'stock' | 'alertThreshold' | 'status';
+
+const CATALOG_COLS: { key: CatalogSortKey; label: string }[] = [
+  { key: 'name',           label: 'Produit' },
+  { key: 'category',       label: 'Catégorie' },
+  { key: 'subCategory',    label: 'Sous-catégorie' },
+  { key: 'price',          label: 'Prix vente' },
+  { key: 'stock',          label: 'Stock' },
+  { key: 'alertThreshold', label: 'Seuil' },
+  { key: 'status',         label: 'Statut' },
+];
+
+const catalogSortVal = (p: Product, key: CatalogSortKey): string | number => {
+  switch (key) {
+    case 'name':           return p.name;
+    case 'category':       return p.category ?? '';
+    case 'subCategory':    return p.subCategory ?? '';
+    case 'price':          return p.price;
+    case 'stock':          return p.stock;
+    case 'alertThreshold': return p.alertThreshold;
+    case 'status':         return p.stock === 0 ? 2 : p.stock <= p.alertThreshold ? 1 : 0;
+  }
+};
 
 const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
 const fmtK = (n: number) => n >= 1_000_000
@@ -151,6 +175,26 @@ export default function AdminDashboard() {
   const [prodLowCount,  setProdLowCount]  = useState(0);
   const [products,      setProducts]      = useState<Product[]>([]);
   const [prodSearch,    setProdSearch]    = useState('');
+  const [prodSort,      setProdSort]      = useState<{ key: CatalogSortKey; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' });
+
+  const toggleProdSort = useCallback((key: CatalogSortKey) => {
+    setProdSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
+  }, []);
+
+  const catalogRows = useMemo(() => {
+    const q = prodSearch.toLowerCase();
+    const filtered = products.filter(p => !q
+      || p.name.toLowerCase().includes(q)
+      || (p.category ?? '').toLowerCase().includes(q)
+      || (p.subCategory ?? '').toLowerCase().includes(q));
+    const dir = prodSort.dir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const va = catalogSortVal(a, prodSort.key);
+      const vb = catalogSortVal(b, prodSort.key);
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+      return String(va).localeCompare(String(vb), 'fr') * dir;
+    });
+  }, [products, prodSearch, prodSort]);
   const [prodPanel,     setProdPanel]     = useState<'low' | 'expiry' | null>(null);
   const [chartTab, setChartTab] = useState<ChartTab>('Mois');
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
@@ -517,26 +561,31 @@ export default function AdminDashboard() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ background: 'var(--fs-ivory)' }}>
-                      {['Produit', 'Catégorie', 'Prix vente', 'Stock', 'Seuil', 'Statut'].map((h, i) => (
-                        <th key={h} style={{ padding: '9px 14px', textAlign: i >= 2 ? 'right' : 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' }}>{h}</th>
+                      {CATALOG_COLS.map(col => (
+                        <th key={col.key}
+                          onClick={() => toggleProdSort(col.key)}
+                          style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: prodSort.key === col.key ? 'var(--fs-wine-700)' : 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}>
+                          {col.label}
+                          <span style={{ marginLeft: 4, opacity: prodSort.key === col.key ? 1 : 0.25 }}>
+                            {prodSort.key === col.key ? (prodSort.dir === 'asc' ? '▲' : '▼') : '▲'}
+                          </span>
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {products
-                      .filter(p => !prodSearch || p.name.toLowerCase().includes(prodSearch.toLowerCase()) || (p.category ?? '').toLowerCase().includes(prodSearch.toLowerCase()))
-                      .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
-                      .map((p, i) => {
+                    {catalogRows.map((p, i) => {
                         const low = p.stock <= p.alertThreshold;
                         const out = p.stock === 0;
                         return (
                           <tr key={p._id} style={{ borderBottom: '1px solid var(--fs-line)', background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
-                            <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</td>
-                            <td style={{ padding: '10px 14px', color: 'var(--fs-ink-500)' }}>{p.category ?? '—'}</td>
-                            <td style={{ padding: '10px 14px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}>{fmtN(p.price)} XAF</td>
-                            <td style={{ padding: '10px 14px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 800, color: out ? 'var(--fs-danger-700)' : low ? '#D1A660' : 'var(--fs-ink-900)' }}>{p.stock}</td>
-                            <td style={{ padding: '10px 14px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-400)' }}>{p.alertThreshold}</td>
-                            <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                            <td style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</td>
+                            <td style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--fs-ink-500)' }}>{p.category ?? '—'}</td>
+                            <td style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--fs-ink-500)' }}>{p.subCategory ?? '—'}</td>
+                            <td style={{ padding: '10px 14px', textAlign: 'left', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}>{fmtN(p.price)} XAF</td>
+                            <td style={{ padding: '10px 14px', textAlign: 'left', fontFamily: 'var(--fs-font-mono)', fontWeight: 800, color: out ? 'var(--fs-danger-700)' : low ? '#D1A660' : 'var(--fs-ink-900)' }}>{p.stock}</td>
+                            <td style={{ padding: '10px 14px', textAlign: 'left', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-400)' }}>{p.alertThreshold}</td>
+                            <td style={{ padding: '10px 14px', textAlign: 'left' }}>
                               <span style={{
                                 padding: '2px 10px', borderRadius: 8, fontSize: 10, fontWeight: 700,
                                 background: out ? 'var(--fs-danger-100)' : low ? '#FFF7ED' : '#F0FDF4',

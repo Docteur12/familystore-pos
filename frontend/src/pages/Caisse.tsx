@@ -150,7 +150,7 @@ export default function Caisse() {
   const [selectedCat,    setSelectedCat]    = useState<string | null>(null);
   const [searchQuery,    setSearchQuery]    = useState('');
   const [viewMode,       setViewMode]       = useState<'grid' | 'list'>('grid');
-  const [sortBy,         setSortBy]         = useState<'pop' | 'name' | 'price'>('pop');
+  const [sortBy,         setSortBy]         = useState<'pop' | 'name' | 'price' | 'subCategory'>('pop');
   const [showSortMenu,   setShowSortMenu]   = useState(false);
 
   const [cart,           setCart]           = useState<CartItem[]>([]);
@@ -286,6 +286,10 @@ export default function Caisse() {
     return [...list].sort((a, b) => {
       if (sortBy === 'name')  return a.name.localeCompare(b.name, 'fr');
       if (sortBy === 'price') return a.price - b.price;
+      if (sortBy === 'subCategory') {
+        const cmp = (a.subCategory ?? '').localeCompare(b.subCategory ?? '', 'fr');
+        return cmp !== 0 ? cmp : a.name.localeCompare(b.name, 'fr');
+      }
       return b.stock - a.stock; // popularity = most stocked
     });
   }, [allProducts, selectedCat, searchQuery, sortBy]);
@@ -589,7 +593,7 @@ export default function Caisse() {
 
   const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
 
-  const SORT_LABELS = { pop: 'Trier par popularité', name: 'Trier par nom', price: 'Trier par prix' };
+  const SORT_LABELS = { pop: 'Trier par popularité', name: 'Trier par nom', price: 'Trier par prix', subCategory: 'Trier par sous-catégorie' };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -1063,7 +1067,7 @@ export default function Caisse() {
                 minWidth: 180,
                 overflow: 'hidden',
               }}>
-                {(['pop', 'name', 'price'] as const).map(s => (
+                {(['pop', 'name', 'price', 'subCategory'] as const).map(s => (
                   <button key={s}
                     onClick={() => { setSortBy(s); setShowSortMenu(false); }}
                     style={{
@@ -1622,7 +1626,7 @@ const ProductCard = memo(function ProductCard({
           fontSize: 12, color: 'var(--fs-ink-500)', margin: '0 0 7px',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {product.category ?? 'Autre'}{product.subCategory ? ` › ${product.subCategory}` : ''} · {product.unit}{product.valeur ? ` · ${product.valeur}` : ''}
+          {product.category ?? 'Autre'}{product.subCategory ? ` › ${product.subCategory}` : ''} · {product.valeur ? `${product.valeur} ${product.unit}` : product.unit}
         </p>
         <p style={{ margin: 0, fontFamily: 'var(--fs-font-mono)' }}>
           {(product.discount ?? 0) > 0 && (
@@ -1667,7 +1671,7 @@ const ProductListRow = memo(function ProductListRow({
         {product.localName && (
           <p style={{ fontSize: 10, color: '#aaa', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.localName}</p>
         )}
-        <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: 0 }}>{product.category ?? 'Autre'} · {product.unit}{product.valeur ? ` · ${product.valeur}` : ''}</p>
+        <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: 0 }}>{product.category ?? 'Autre'} · {product.valeur ? `${product.valeur} ${product.unit}` : product.unit}</p>
       </div>
       {(product.discount ?? 0) > 0 && (
         <span style={{ fontSize: 9, fontWeight: 900, color: '#fff', background: '#c0392b', borderRadius: 3, padding: '1px 5px' }}>-{product.discount}%</span>

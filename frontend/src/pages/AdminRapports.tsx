@@ -791,6 +791,96 @@ export default function AdminRapports() {
             );
           })()}
 
+          {/* ── Graphique CA (MIN/MAX/MOY par période) ── */}
+          {(() => {
+            const tabs: TicketTab[] = ['Sem','Mois','T1','T2','T3','T4','An'];
+            const rows = ticketData.filter(r => r.nbVentes > 0);
+            const hasData = rows.length > 0;
+            const fmtXKey = (r: PeriodDay) => r.label ?? String(r.date);
+            const caVals = rows.map(r => r.totalCA);
+            const caTotal = caVals.reduce((s, v) => s + v, 0);
+            const caMin = hasData ? Math.min(...caVals) : 0;
+            const caMax = hasData ? Math.max(...caVals) : 0;
+            const caMoy = hasData ? caTotal / caVals.length : 0;
+            return (
+              <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Statistiques CA</div>
+                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>Chiffre d'affaires · MIN · MAX · MOY par période</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 3 }}>
+                    {tabs.map(t => (
+                      <button key={t} onClick={() => setTicketTab(t)} style={{
+                        padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
+                        background: ticketTab === t ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
+                        color: ticketTab === t ? '#fff' : 'var(--fs-ink-400)',
+                      }}>{t}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {!hasData ? (
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-300)', fontSize: 12 }}>Aucune donnée pour cette période</div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+
+                    {/* CA par période (barres) */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                        CA par période (XAF)
+                      </div>
+                      <div style={{ height: 160 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={ticketData} barSize={8} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--fs-line)" vertical={false}/>
+                            <XAxis dataKey={fmtXKey} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} interval={Math.max(0, Math.floor(ticketData.length / 8) - 1)}/>
+                            <YAxis tickFormatter={fmtK} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={36}/>
+                            <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`, 'CA']} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
+                            <Bar dataKey="totalCA" fill="#7A1D2E" radius={[2,2,0,0]}/>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Tendance CA (ligne) */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                        Tendance CA (XAF)
+                      </div>
+                      <div style={{ height: 160 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={ticketData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--fs-line)" vertical={false}/>
+                            <XAxis dataKey={fmtXKey} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} interval={Math.max(0, Math.floor(ticketData.length / 8) - 1)}/>
+                            <YAxis tickFormatter={fmtK} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={36}/>
+                            <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`, 'CA']} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
+                            <Line type="monotone" dataKey="totalCA" stroke="#7A1D2E" strokeWidth={2} dot={false} name="CA"/>
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* KPIs CA */}
+                    <div style={{ gridColumn: '1/-1', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 4 }}>
+                      {[
+                        { label: 'CA total', val: `${fmtN(caTotal)} XAF`,            color: 'var(--fs-wine-700)' },
+                        { label: 'CA MIN',   val: `${fmtN(caMin)} XAF`,              color: '#7AB87A' },
+                        { label: 'CA MAX',   val: `${fmtN(caMax)} XAF`,              color: '#D1A660' },
+                        { label: 'CA MOY',   val: `${fmtN(Math.round(caMoy))} XAF`,  color: 'var(--fs-ink-800)' },
+                      ].map(s => (
+                        <div key={s.label} style={{ background: 'var(--fs-ivory)', borderRadius: 8, padding: '10px 14px', textAlign: 'center', border: '1px solid var(--fs-line)' }}>
+                          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--fs-ink-400)', marginBottom: 5 }}>{s.label}</div>
+                          <div style={{ fontSize: 15, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: s.color }}>{s.val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* ── Journal par produit ── */}
           <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>

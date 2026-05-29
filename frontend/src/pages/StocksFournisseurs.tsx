@@ -1,39 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
-
-// ── Types ──────────────────────────────────────────────────────────────────────
-
-interface Fournisseur {
-  id: string;
-  name: string;
-  contact: string;
-  phone: string;
-  email: string;
-  adresse: string;
-  conditionsPaiement: 'comptant' | '30j' | '60j' | '';
-  remise: string;
-  note: number; // 1-5
-  categories: string[];
-}
-
-const LS_KEY = 'fs_fournisseurs_v2';
-
-const DEFAULT_FOURNISSEURS: Fournisseur[] = [
-  { id: '1', name: 'Import Maroc',      contact: 'Ahmed B.',    phone: '+212 6XX XXX XXX', email: 'import@maroc.ma',   adresse: 'Casablanca, Maroc',     conditionsPaiement: '30j',    remise: '5',  note: 4, categories: ['beauté', 'bien-être'] },
-  { id: '2', name: 'Soleco SA',         contact: 'Marie C.',    phone: '+237 6XX XXX XXX', email: 'soleco@cm.net',     adresse: 'Douala, Cameroun',      conditionsPaiement: 'comptant',remise: '3',  note: 5, categories: ['hygiène'] },
-  { id: '3', name: 'Import France',     contact: 'Pierre D.',   phone: '+33 6XX XXX XXX',  email: 'import@france.fr',  adresse: 'Paris, France',         conditionsPaiement: '60j',    remise: '8',  note: 3, categories: ['parfumerie'] },
-  { id: '4', name: 'Coop. Cameroun',    contact: 'Jean F.',     phone: '+237 6XX XXX XXX', email: 'coop@cameroun.cm',  adresse: 'Yaoundé, Cameroun',     conditionsPaiement: 'comptant',remise: '0',  note: 4, categories: ['épicerie'] },
-  { id: '5', name: 'Coop. Douala',      contact: 'Paul N.',     phone: '+237 6XX XXX XXX', email: 'coop@douala.cm',    adresse: 'Akwa, Douala',          conditionsPaiement: '30j',    remise: '2',  note: 4, categories: ['alimentation'] },
-  { id: '6', name: 'SABC',             contact: 'Responsable', phone: '+237 2XX XXX XXX', email: 'sabc@sabc.cm',      adresse: 'Bassa, Douala',         conditionsPaiement: '30j',    remise: '10', note: 5, categories: ['boissons'] },
-  { id: '7', name: 'Fournisseur Local', contact: 'N/A',         phone: '+237 6XX XXX XXX', email: '—',                 adresse: 'Douala, Cameroun',      conditionsPaiement: 'comptant',remise: '0',  note: 2, categories: ['maison'] },
-];
-
-function loadFournisseurs(): Fournisseur[] {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) ?? '') as Fournisseur[]; }
-  catch { return DEFAULT_FOURNISSEURS; }
-}
-function saveFournisseurs(f: Fournisseur[]) { localStorage.setItem(LS_KEY, JSON.stringify(f)); }
+import {
+  getFournisseurs, createFournisseur, updateFournisseur, deleteFournisseur,
+  FournisseurRecord, FournisseurInput,
+} from '../api/fournisseurs';
+import ToastContainer, { useToast } from '../components/Toast';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -89,14 +61,14 @@ function Stars({ value, onChange }: { value: number; onChange?: (n: number) => v
 
 // ── Form modal ─────────────────────────────────────────────────────────────────
 
-const EMPTY_FORM: Omit<Fournisseur, 'id'> = {
+const EMPTY_FORM: FournisseurInput = {
   name: '', contact: '', phone: '', email: '', adresse: '',
   conditionsPaiement: 'comptant', remise: '0', note: 3, categories: [],
 };
 
 function FournisseurForm({ initial, onSave, onClose }: {
-  initial: Omit<Fournisseur, 'id'>;
-  onSave: (f: Omit<Fournisseur, 'id'>) => void;
+  initial: FournisseurInput;
+  onSave: (f: FournisseurInput) => void;
   onClose: () => void;
 }) {
   const [form, setForm] = useState(initial);
@@ -147,7 +119,7 @@ function FournisseurForm({ initial, onSave, onClose }: {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Conditions de paiement</label>
-              <select value={form.conditionsPaiement} onChange={e => setForm(prev => ({ ...prev, conditionsPaiement: e.target.value as Fournisseur['conditionsPaiement'] }))}
+              <select value={form.conditionsPaiement} onChange={e => setForm(prev => ({ ...prev, conditionsPaiement: e.target.value as FournisseurRecord['conditionsPaiement'] }))}
                 style={{ ...inputStyle, background: '#fff' }}>
                 {CONDITIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
@@ -196,34 +168,51 @@ function FournisseurForm({ initial, onSave, onClose }: {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function StocksFournisseurs() {
-  const [fournisseurs, setF]    = useState<Fournisseur[]>(loadFournisseurs);
+  const [fournisseurs, setF]    = useState<FournisseurRecord[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch]     = useState('');
   const [showAdd, setShowAdd]   = useState(false);
-  const [editing, setEditing]   = useState<Fournisseur | null>(null);
+  const [editing, setEditing]   = useState<FournisseurRecord | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const { toasts, addToast, removeToast } = useToast();
 
   useEffect(() => { getAllProducts().then(setProducts).catch(() => {}); }, []);
+  useEffect(() => {
+    getFournisseurs()
+      .then(setF)
+      .catch(() => addToast('Erreur de chargement des fournisseurs', 'error'))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const productsFor = (f: Fournisseur) =>
+  const productsFor = (f: FournisseurRecord) =>
     products.filter(p => f.categories.includes(p.category?.toLowerCase() ?? '')).length;
 
-  const handleSave = (data: Omit<Fournisseur, 'id'>, id?: string) => {
-    let updated: Fournisseur[];
-    if (id) {
-      updated = fournisseurs.map(f => f.id === id ? { ...data, id } : f);
-    } else {
-      updated = [...fournisseurs, { ...data, id: Date.now().toString() }];
+  const handleSave = async (data: FournisseurInput, id?: string) => {
+    try {
+      if (id) {
+        const updated = await updateFournisseur(id, data);
+        setF(prev => prev.map(f => f._id === id ? updated : f));
+        addToast('Fournisseur modifié ✓', 'success');
+      } else {
+        const created = await createFournisseur(data);
+        setF(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, 'fr')));
+        addToast('Fournisseur ajouté ✓', 'success');
+      }
+      setShowAdd(false);
+      setEditing(null);
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
     }
-    setF(updated);
-    saveFournisseurs(updated);
-    setShowAdd(false);
-    setEditing(null);
   };
 
-  const handleDelete = (id: string) => {
-    const updated = fournisseurs.filter(f => f.id !== id);
-    setF(updated);
-    saveFournisseurs(updated);
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteFournisseur(id);
+      setF(prev => prev.filter(f => f._id !== id));
+      addToast('Fournisseur supprimé', 'success');
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+    }
   };
 
   const displayed = fournisseurs.filter(f =>
@@ -234,6 +223,7 @@ export default function StocksFournisseurs() {
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
       {showAdd && (
         <FournisseurForm
           initial={EMPTY_FORM}
@@ -244,7 +234,7 @@ export default function StocksFournisseurs() {
       {editing && (
         <FournisseurForm
           initial={{ name: editing.name, contact: editing.contact, phone: editing.phone, email: editing.email, adresse: editing.adresse, conditionsPaiement: editing.conditionsPaiement, remise: editing.remise, note: editing.note, categories: editing.categories }}
-          onSave={data => handleSave(data, editing.id)}
+          onSave={data => handleSave(data, editing._id)}
           onClose={() => setEditing(null)}
         />
       )}
@@ -284,8 +274,20 @@ export default function StocksFournisseurs() {
                 </tr>
               </thead>
               <tbody>
-                {displayed.map((f, idx) => (
-                  <tr key={f.id} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} style={{ padding: '40px 14px', textAlign: 'center', fontSize: 13, color: 'var(--fs-ink-400)' }}>
+                      Chargement…
+                    </td>
+                  </tr>
+                ) : displayed.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ padding: '40px 14px', textAlign: 'center', fontSize: 13, color: 'var(--fs-ink-400)' }}>
+                      {search ? 'Aucun fournisseur ne correspond à la recherche.' : 'Aucun fournisseur. Cliquez sur « Nouveau fournisseur » pour en ajouter un.'}
+                    </td>
+                  </tr>
+                ) : displayed.map((f, idx) => (
+                  <tr key={f._id} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
                     <td style={{ padding: '12px 14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--fs-wine-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fs-wine-700)', flexShrink: 0 }}>
@@ -334,7 +336,7 @@ export default function StocksFournisseurs() {
                           style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fs-ink-500)' }}>
                           <I d={D.edit} size={13}/>
                         </button>
-                        <button onClick={() => handleDelete(f.id)}
+                        <button onClick={() => handleDelete(f._id)}
                           style={{ background: 'var(--fs-danger-100)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fs-danger-700)' }}>
                           <I d={D.trash} size={13}/>
                         </button>

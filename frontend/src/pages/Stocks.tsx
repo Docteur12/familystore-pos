@@ -92,6 +92,31 @@ const EXPIRY_BADGE: Record<ExpiryStatus, { bg: string; color: string; label: (d:
   expired: { bg: '#FAE5DF', color: '#8B2C1A', label: _ => 'Expiré'                    },
 };
 
+// ── Tri colonnes ────────────────────────────────────────────────────────────────
+
+type StockSortKey = 'name' | 'sku' | 'location' | 'price' | 'stock' | 'alertThreshold' | 'expiry';
+const STOCK_COLS: { key: StockSortKey | null; label: string; align: 'left' | 'center' | 'right' }[] = [
+  { key: 'name',           label: 'Produit',    align: 'left'   },
+  { key: 'sku',            label: 'SKU',        align: 'left'   },
+  { key: 'location',       label: 'Emplac.',    align: 'left'   },
+  { key: 'price',          label: 'Prix',       align: 'center' },
+  { key: 'stock',          label: 'Stock',      align: 'center' },
+  { key: 'alertThreshold', label: 'Seuil',      align: 'center' },
+  { key: 'expiry',         label: 'Péremption', align: 'left'   },
+  { key: null,             label: '',           align: 'left'   },
+];
+function stockSortVal(p: Product, key: StockSortKey): string | number {
+  switch (key) {
+    case 'name':           return p.name.toLowerCase();
+    case 'sku':            return skuOf(p).toLowerCase();
+    case 'location':       return locationOf(p);
+    case 'price':          return p.price;
+    case 'stock':          return p.stock;
+    case 'alertThreshold': return p.alertThreshold;
+    case 'expiry':         { const d = expiryOf(p); return d ? d.getTime() : Infinity; }
+  }
+}
+
 // ── SVG icon ──────────────────────────────────────────────────────────────────
 
 function I({ d, size = 15 }: { d: string; size?: number }) {
@@ -600,6 +625,10 @@ export default function Stocks() {
   const [search,    setSearch]    = useState('');
   const [tab,       setTab]       = useState<TabMode>('all');
   const [selected,  setSelected]  = useState<Product | null>(null);
+  const [sort,      setSort]      = useState<{ key: StockSortKey; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' });
+  const toggleSort = useCallback((key: StockSortKey) => {
+    setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
+  }, []);
   const [reception,   setReception]   = useState<Product | null>(null);
   const [newProduct,  setNewProduct]  = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -670,7 +699,7 @@ export default function Stocks() {
 
   // ── Filtered products ──────────────────────────────────────────────────────
   const displayed = useMemo(() => {
-    return products.filter(p => {
+    const filtered = products.filter(p => {
       const q = search.toLowerCase().trim();
       const matchSearch = !q || p.name.toLowerCase().includes(q)
         || skuOf(p).toLowerCase().includes(q)
@@ -680,7 +709,14 @@ export default function Stocks() {
         : expiryStatus(expiryOf(p)) !== 'ok';
       return matchSearch && matchTab;
     });
-  }, [products, search, tab]);
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return filtered.sort((a, b) => {
+      const va = stockSortVal(a, sort.key);
+      const vb = stockSortVal(b, sort.key);
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
+      return String(va).localeCompare(String(vb)) * dir;
+    });
+  }, [products, search, tab, sort]);
 
   const handleExport = () => {
     const BOM = '\uFEFF';
@@ -909,17 +945,25 @@ export default function Stocks() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#fff' }}>
-                {['Produit', 'SKU', 'Emplac.', 'Prix', 'Stock', 'Seuil', 'Péremption', ''].map((h, i) => (
-                  <th key={h} style={{
-                    padding: '10px 12px', textAlign: i >= 3 && i <= 5 ? 'center' : 'left',
-                    fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)',
-                    textTransform: 'uppercase', letterSpacing: '0.1em',
-                    borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap',
-                    position: 'sticky', top: 0, background: '#fff', zIndex: 1,
-                  }}>
-                    {h}
-                  </th>
-                ))}
+                {STOCK_COLS.map((col, i) => {
+                  const active = col.key !== null && sort.key === col.key;
+                  return (
+                    <th key={col.label || `col-${i}`}
+                      onClick={col.key ? () => toggleSort(col.key!) : undefined}
+                      style={{
+                        padding: '10px 12px', textAlign: col.align,
+                        fontSize: 10, fontWeight: 700,
+                        color: active ? 'var(--fs-wine-600)' : 'var(--fs-ink-400)',
+                        textTransform: 'uppercase', letterSpacing: '0.1em',
+                        borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap',
+                        position: 'sticky', top: 0, background: '#fff', zIndex: 1,
+                        cursor: col.key ? 'pointer' : 'default', userSelect: 'none',
+                      }}>
+                      {col.label}
+                      {active && <span style={{ marginLeft: 4 }}>{sort.dir === 'asc' ? '▲' : '▼'}</span>}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>

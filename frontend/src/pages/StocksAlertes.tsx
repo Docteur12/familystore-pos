@@ -211,7 +211,7 @@ export default function StocksAlertes() {
                         </td>
                         <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                           <div style={{ fontSize: 14, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{p.alertThreshold}</div>
-                          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>= 10% de {p.initialStock ?? p.stock}</div>
+                          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>= 10% de {p.initialStock ?? p.alertThreshold * 10}</div>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
                           <span style={{ background: st.bg, color: st.color, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 10 }}>{st.label}</span>
@@ -301,7 +301,6 @@ export default function StocksAlertes() {
                         <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-400)' }}>{p.alertThreshold}</td>
                         <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                           <span style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>+{recommended}</span>
-                          <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginLeft: 4 }}>{p.unit}</span>
                         </td>
                         <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                           <span style={{

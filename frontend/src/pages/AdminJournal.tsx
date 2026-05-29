@@ -105,6 +105,30 @@ const PERIODS: Array<{ key: Period; label: string }> = [
   { key: 'all',    label: 'Tout' },
 ];
 
+type JSortKey = 'ticket' | 'date' | 'cashier' | 'articles' | 'pm' | 'paye' | 'total';
+
+const JOURNAL_COLS: { key: JSortKey; label: string; align: 'left' | 'right' }[] = [
+  { key: 'ticket',   label: 'Ticket #',      align: 'left' },
+  { key: 'date',     label: 'Date · Heure',  align: 'left' },
+  { key: 'cashier',  label: 'Caissière',     align: 'left' },
+  { key: 'articles', label: 'Articles',      align: 'left' },
+  { key: 'pm',       label: 'Mode paiement', align: 'left' },
+  { key: 'paye',     label: 'Montant payé',  align: 'right' },
+  { key: 'total',    label: 'Total',         align: 'right' },
+];
+
+const journalSortVal = (s: Sale, key: JSortKey): string | number => {
+  switch (key) {
+    case 'ticket':   return s._id;
+    case 'date':     return new Date(s.createdAt).getTime();
+    case 'cashier':  return s.cashierName ?? '';
+    case 'articles': return s.items.reduce((n, it) => n + it.quantity, 0);
+    case 'pm':       return PM_LABELS[s.paymentMethod] ?? s.paymentMethod;
+    case 'paye':     return s.amountPaid;
+    case 'total':    return s.total;
+  }
+};
+
 // ── Export CSV ────────────────────────────────────────────────────────────────
 
 function exportCSV(sales: Sale[]) {
@@ -198,7 +222,11 @@ export default function AdminJournal() {
   const [customFrom,   setCustomFrom]   = useState('');
   const [customTo,     setCustomTo]     = useState('');
   const [cashierFilter,setCashierFilter]= useState('');
-  const [sortKey,      setSortKey]      = useState<'date' | 'total_asc' | 'total_desc' | 'cashier'>('date');
+  const [sort,         setSort]         = useState<{ key: JSortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'desc' });
+  const toggleSort = useCallback((key: JSortKey) => {
+    setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
+    setPage(0);
+  }, []);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async (silent = false) => {
@@ -230,12 +258,13 @@ export default function AdminJournal() {
     !cf || (s.cashierName ?? '') === cf,
   );
 
-  // Tri
+  // Tri par colonne
+  const sortDir = sort.dir === 'asc' ? 1 : -1;
   const sortedFiltered = [...filtered].sort((a, b) => {
-    if (sortKey === 'total_asc')  return a.total - b.total;
-    if (sortKey === 'total_desc') return b.total - a.total;
-    if (sortKey === 'cashier')    return (a.cashierName ?? '').localeCompare(b.cashierName ?? '', 'fr');
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(); // date desc
+    const va = journalSortVal(a, sort.key);
+    const vb = journalSortVal(b, sort.key);
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sortDir;
+    return String(va).localeCompare(String(vb), 'fr') * sortDir;
   });
 
   // ── Liste caissières (depuis TOUTES les ventes, pas les filtrées) ──────────
@@ -334,15 +363,6 @@ export default function AdminJournal() {
                 {allCashiers.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
 
-              {/* Tri */}
-              <select value={sortKey} onChange={e => setSortKey(e.target.value as typeof sortKey)}
-                style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff', color: 'var(--fs-ink-500)' }}>
-                <option value="date">Date ↓</option>
-                <option value="total_desc">Montant ↓</option>
-                <option value="total_asc">Montant ↑</option>
-                <option value="cashier">Caissière A→Z</option>
-              </select>
-
               {/* Export CSV */}
               <button onClick={() => exportCSV(filtered)} disabled={filtered.length === 0}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: filtered.length === 0 ? 'not-allowed' : 'pointer', opacity: filtered.length === 0 ? 0.5 : 1 }}>
@@ -420,8 +440,14 @@ export default function AdminJournal() {
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
                     <th style={TH}/>
-                    {['Ticket #', 'Date · Heure', 'Caissière', 'Articles', 'Mode paiement', 'Montant payé', 'Total'].map((h, i) => (
-                      <th key={h} style={{ ...TH, textAlign: i >= 5 ? 'right' : 'left' }}>{h}</th>
+                    {JOURNAL_COLS.map(col => (
+                      <th key={col.key} onClick={() => toggleSort(col.key)}
+                        style={{ ...TH, textAlign: col.align, cursor: 'pointer', userSelect: 'none', color: sort.key === col.key ? 'var(--fs-wine-700)' : undefined }}>
+                        {col.label}
+                        <span style={{ marginLeft: 4, opacity: sort.key === col.key ? 1 : 0.25 }}>
+                          {sort.key === col.key ? (sort.dir === 'asc' ? '▲' : '▼') : '▲'}
+                        </span>
+                      </th>
                     ))}
                   </tr>
                 </thead>
