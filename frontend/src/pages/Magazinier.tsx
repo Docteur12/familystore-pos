@@ -9,6 +9,7 @@ import {
   createReception, getDemandes, marquerEnvoye, getHistorique, createEnvoi,
   DemandeStock, ReceptionRecord,
 } from '../api/magazinier';
+import { getFournisseurs } from '../api/fournisseurs';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -207,13 +208,17 @@ export default function Magazinier() {
   const loadProducts = useCallback(() => getAllProducts().then(setProducts).catch(() => {}), []);
   useEffect(() => { loadProducts(); }, [loadProducts]);
 
-  // ── Fournisseurs connus (depuis l'historique) ─────────────────────────────
+  // ── Fournisseurs (table centrale + historique des réceptions) ──────────────
   const [knownSuppliers, setKnownSuppliers] = useState<string[]>([]);
   useEffect(() => {
-    getHistorique().then(h => {
-      const unique = [...new Set(h.receptions.map((r: ReceptionRecord) => r.fournisseur).filter(Boolean))];
-      setKnownSuppliers(unique as string[]);
-    }).catch(() => {});
+    Promise.all([
+      getFournisseurs().then(list => list.map(f => f.name)).catch(() => [] as string[]),
+      getHistorique().then(h => h.receptions.map((r: ReceptionRecord) => r.fournisseur)).catch(() => [] as string[]),
+    ]).then(([base, histo]) => {
+      const unique = [...new Set([...base, ...histo].filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'fr'));
+      setKnownSuppliers(unique);
+    });
   }, []);
 
   // ── Nouveau produit inline ────────────────────────────────────────────────

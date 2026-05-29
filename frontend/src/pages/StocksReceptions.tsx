@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
+import AutocompleteInput from '../components/AutocompleteInput';
 import { getAllProducts, Product } from '../api/products';
 import ToastContainer, { useToast } from '../components/Toast';
 import { getAllReceptions, ReceptionFull } from '../api/magazinier';
@@ -268,6 +269,7 @@ export default function StocksReceptions() {
         })),
       });
       setBls(prev => [bl, ...prev]);
+      getFournisseurs().then(list => setSuppliers(list.map(f => f.name))).catch(() => {});
       addToast(`${bl.lignes.length} produit(s) réceptionné(s) — ${bl.numeroBL}`, 'success');
       setLines([newLine()]);
       setNumeroBL('');
@@ -319,11 +321,12 @@ export default function StocksReceptions() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Fournisseur *</label>
-                  <select value={fournisseur} onChange={e => setFourn(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-                    <option value="">— Sélectionner —</option>
-                    {suppliers.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+                  <AutocompleteInput
+                    value={fournisseur}
+                    onChange={setFourn}
+                    suggestions={suppliers}
+                    placeholder="Nom du fournisseur ou sélectionner…"
+                  />
                 </div>
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>N° BL</label>

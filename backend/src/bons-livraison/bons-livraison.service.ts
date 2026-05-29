@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Product, ProductDocument } from '../schemas/product.schema';
 import { StockMovement, StockMovementDocument } from '../schemas/stock-movement.schema';
 import { BonLivraison, BonLivraisonDocument } from '../schemas/bon-livraison.schema';
+import { Fournisseur, FournisseurDocument } from '../schemas/fournisseur.schema';
 
 interface BLLineInput {
   productId: string;
@@ -16,10 +17,22 @@ interface BLLineInput {
 @Injectable()
 export class BonsLivraisonService {
   constructor(
-    @InjectModel(Product.name)       private productModel:  Model<ProductDocument>,
-    @InjectModel(StockMovement.name) private movementModel: Model<StockMovementDocument>,
-    @InjectModel(BonLivraison.name)  private blModel:       Model<BonLivraisonDocument>,
+    @InjectModel(Product.name)       private productModel:     Model<ProductDocument>,
+    @InjectModel(StockMovement.name) private movementModel:    Model<StockMovementDocument>,
+    @InjectModel(BonLivraison.name)  private blModel:          Model<BonLivraisonDocument>,
+    @InjectModel(Fournisseur.name)   private fournisseurModel: Model<FournisseurDocument>,
   ) {}
+
+  // Crée le fournisseur dans la table centrale s'il n'existe pas déjà
+  // (comparaison insensible à la casse), pour qu'il apparaisse partout.
+  private async ensureFournisseur(nom: string) {
+    const name = nom.trim();
+    if (!name) return;
+    const exists = await this.fournisseurModel.exists({
+      name: { $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+    });
+    if (!exists) await this.fournisseurModel.create({ name });
+  }
 
   // ── POST /bons-livraison ──────────────────────────────────────────────────
   // Incrémente le stock caisse de chaque ligne reçue + trace le mouvement,
@@ -64,6 +77,8 @@ export class BonsLivraisonService {
         etatEmballage:  l.etatEmballage ?? '',
       });
     }
+
+    await this.ensureFournisseur(body.fournisseur);
 
     return this.blModel.create({
       numeroBL:    body.numeroBL || `BL-${Date.now().toString().slice(-6)}`,

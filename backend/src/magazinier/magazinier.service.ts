@@ -5,15 +5,28 @@ import { Product, ProductDocument } from '../schemas/product.schema';
 import { StockMovement, StockMovementDocument } from '../schemas/stock-movement.schema';
 import { DemandeStock, DemandeStockDocument } from '../schemas/demande-stock.schema';
 import { Reception, ReceptionDocument } from '../schemas/reception.schema';
+import { Fournisseur, FournisseurDocument } from '../schemas/fournisseur.schema';
 
 @Injectable()
 export class MagazinierService {
   constructor(
-    @InjectModel(Product.name)       private productModel:   Model<ProductDocument>,
-    @InjectModel(StockMovement.name) private movementModel:  Model<StockMovementDocument>,
-    @InjectModel(DemandeStock.name)  private demandeModel:   Model<DemandeStockDocument>,
-    @InjectModel(Reception.name)     private receptionModel: Model<ReceptionDocument>,
+    @InjectModel(Product.name)       private productModel:     Model<ProductDocument>,
+    @InjectModel(StockMovement.name) private movementModel:    Model<StockMovementDocument>,
+    @InjectModel(DemandeStock.name)  private demandeModel:     Model<DemandeStockDocument>,
+    @InjectModel(Reception.name)     private receptionModel:   Model<ReceptionDocument>,
+    @InjectModel(Fournisseur.name)   private fournisseurModel: Model<FournisseurDocument>,
   ) {}
+
+  // Crée le fournisseur dans la table centrale s'il n'existe pas déjà
+  // (comparaison insensible à la casse), pour qu'il apparaisse côté gestionnaire.
+  private async ensureFournisseur(nom: string) {
+    const name = nom.trim();
+    if (!name) return;
+    const exists = await this.fournisseurModel.exists({
+      name: { $regex: `^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+    });
+    if (!exists) await this.fournisseurModel.create({ name });
+  }
 
   // ── POST /magazinier/receptions ───────────────────────────────────────────
 
@@ -42,6 +55,8 @@ export class MagazinierService {
 
       enriched.push({ productId: new Types.ObjectId(item.productId), productName: product.name, quantity: item.quantity });
     }
+
+    await this.ensureFournisseur(body.fournisseur);
 
     return this.receptionModel.create({
       fournisseur: body.fournisseur,
