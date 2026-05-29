@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product, updateProduct } from '../api/products';
 import ToastContainer, { useToast } from '../components/Toast';
+import { qtyUnitLabel } from '../utils/units';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -172,8 +173,8 @@ export default function StocksInventaire() {
               const ecart = parseInt(r.counted) - r.product.stock;
               return `<tr>
                 <td>${r.product.name}</td>
-                <td>${r.product.stock} ${r.product.unit}</td>
-                <td><b>${r.counted} ${r.product.unit}</b></td>
+                <td>${r.product.stock}${qtyUnitLabel(r.product.unit) ? ' ' + qtyUnitLabel(r.product.unit) : ''}</td>
+                <td><b>${r.counted}${qtyUnitLabel(r.product.unit) ? ' ' + qtyUnitLabel(r.product.unit) : ''}</b></td>
                 <td class="${ecart > 0 ? 'diff-pos' : ecart < 0 ? 'diff-neg' : 'diff-0'}">${ecart > 0 ? '+' : ''}${ecart}</td>
                 <td>${r.justification || '—'}</td>
               </tr>`;
@@ -353,8 +354,8 @@ export default function StocksInventaire() {
                     {s.rows.map((r, i) => (
                       <tr key={r.productId} style={{ background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
                         <td style={{ padding: '8px 14px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{r.productName}</td>
-                        <td style={{ padding: '8px 14px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-500)' }}>{r.stockTheorique} {r.unit}</td>
-                        <td style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{r.stockCompte} {r.unit}</td>
+                        <td style={{ padding: '8px 14px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-500)' }}>{r.stockTheorique}{qtyUnitLabel(r.unit) && ` ${qtyUnitLabel(r.unit)}`}</td>
+                        <td style={{ padding: '8px 14px', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{r.stockCompte}{qtyUnitLabel(r.unit) && ` ${qtyUnitLabel(r.unit)}`}</td>
                         <td style={{ padding: '8px 14px', fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: r.ecart > 0 ? 'var(--fs-success-700)' : r.ecart < 0 ? 'var(--fs-danger-700)' : 'var(--fs-ink-400)' }}>
                           {r.ecart > 0 ? `+${r.ecart}` : r.ecart === 0 ? '=' : r.ecart}
                         </td>

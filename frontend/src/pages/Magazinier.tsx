@@ -10,6 +10,7 @@ import {
   DemandeStock, ReceptionRecord,
 } from '../api/magazinier';
 import { getFournisseurs } from '../api/fournisseurs';
+import { qtyUnitLabel } from '../utils/units';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -994,7 +995,7 @@ export default function Magazinier() {
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{e.produit?.name ?? '—'}</div>
                         <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
-                          {e.quantiteDemandee} {e.produit?.unit ?? 'u.'} · demandé par {e.demandePar?.name ?? '?'} · envoyé le {e.dateEnvoi ? fmtDate(e.dateEnvoi) : '—'}
+                          {e.quantiteDemandee}{qtyUnitLabel(e.produit?.unit) && ` ${qtyUnitLabel(e.produit?.unit)}`} · demandé par {e.demandePar?.name ?? '?'} · envoyé le {e.dateEnvoi ? fmtDate(e.dateEnvoi) : '—'}
                         </div>
                       </div>
                       <span style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', background: '#eff6ff', padding: '3px 10px', borderRadius: 20 }}>

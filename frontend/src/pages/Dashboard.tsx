@@ -20,6 +20,7 @@ import {
   PeriodDay,
 } from '../api/dashboard';
 import { getAllProducts, Product } from '../api/products';
+import { qtyUnitLabel } from '../utils/units';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -436,7 +437,7 @@ function TopProductRow({ product, rank }: { product: TopProduct; rank: number })
       </div>
       <div className="text-right shrink-0">
         <p className="font-bold text-sm text-bordeaux">
-          {product.totalQty} {product.unit}
+          {product.totalQty}{qtyUnitLabel(product.unit) && ` ${qtyUnitLabel(product.unit)}`}
         </p>
         <p className="text-xs text-gray-400">
           {product.totalRevenue.toLocaleString('fr-FR')} FCFA

@@ -6,6 +6,7 @@ import { getAllProducts, Product } from '../api/products';
 import { getStatsWeek, getTopProducts, PeriodDay, TopProduct } from '../api/dashboard';
 import { createDemande } from '../api/magazinier';
 import ToastContainer, { useToast } from '../components/Toast';
+import { qtyUnitLabel } from '../utils/units';
 
 function I({ d, size = 15 }: { d: string; size?: number }) {
   return (
@@ -301,7 +302,7 @@ export default function StocksDashboard() {
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: catColor(p.category), flexShrink: 0 }}/>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{p.totalQty} {p.unit} · {fmtN(p.totalRevenue)} XAF</div>
+                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{p.totalQty}{qtyUnitLabel(p.unit) && ` ${qtyUnitLabel(p.unit)}`} · {fmtN(p.totalRevenue)} XAF</div>
                   </div>
                 </div>
               ))}

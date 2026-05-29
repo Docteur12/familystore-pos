@@ -6,6 +6,7 @@ import ToastContainer, { useToast } from '../components/Toast';
 import { getAllReceptions, ReceptionFull } from '../api/magazinier';
 import { getFournisseurs } from '../api/fournisseurs';
 import { getBonsLivraison, createBonLivraison, BonLivraisonRecord } from '../api/bons-livraison';
+import { qtyUnitLabel } from '../utils/units';
 
 const LS_RECEPTION_SEEN = 'receptions_last_seen';
 
@@ -190,7 +191,7 @@ function ProductPicker({ products, value, onChange }: {
             <button key={p._id} onMouseDown={() => { onChange(p); setOpen(false); }}
               style={{ width: '100%', padding: '7px 12px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--fs-line)', display: 'block' }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
-              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Stock : {p.stock} {p.unit}</div>
+              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Stock : {p.stock}{qtyUnitLabel(p.unit) && ` ${qtyUnitLabel(p.unit)}`}</div>
             </button>
           ))}
         </div>

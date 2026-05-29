@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
 import ToastContainer, { useToast } from '../components/Toast';
+import { qtyUnitLabel } from '../utils/units';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -251,7 +252,7 @@ export default function StocksAlertes() {
                           {p.localName && <div style={{ fontSize: 11, color: '#999', marginTop: 1 }}>{p.localName}</div>}
                         </td>
                         <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{p.category ?? '—'}</td>
-                        <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{p.stock} {p.unit}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{p.stock}{qtyUnitLabel(p.unit) && ` ${qtyUnitLabel(p.unit)}`}</td>
                         <td style={{ padding: '10px 12px', textAlign: 'center', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-500)' }}>
                           {exp.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                         </td>
