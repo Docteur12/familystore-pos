@@ -44,6 +44,10 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsString()
+  fournisseur?: string;
+
+  @IsOptional()
+  @IsString()
   unit?: string;
 
   @IsOptional()

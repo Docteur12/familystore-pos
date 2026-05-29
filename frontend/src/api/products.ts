@@ -12,6 +12,7 @@ export interface Product {
   initialStock?:  number;
   category?:      string;
   subCategory?:   string;
+  fournisseur?:   string;
   unit:           string;
   valeur?:        string;
   discount?:      number;
@@ -121,6 +122,7 @@ export interface ProductPayload {
   stock:          number;
   category?:      string;
   subCategory?:   string;
+  fournisseur?:   string;
   unit:           string;
   valeur?:        string;
   discount?:      number;

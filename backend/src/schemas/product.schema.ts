@@ -32,6 +32,9 @@ export class Product {
   @Prop({ trim: true, default: '' })
   subCategory: string;
 
+  @Prop({ trim: true, default: '' })
+  fournisseur: string;
+
   @Prop({ default: 'pce', trim: true })
   unit: string;
 

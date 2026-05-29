@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createProduct, updateProduct, getProductByBarcode, Product } from '../api/products';
+import { getFournisseurs } from '../api/fournisseurs';
 import AutocompleteInput from './AutocompleteInput';
 import QRScanner from './QRScanner';
 
@@ -195,12 +196,12 @@ function defaultExpiryDate(): string {
 
 type FormState = {
   name: string; localName: string; barcode: string; category: string; subCategory: string;
-  unit: string; valeur: string; price: string; costPrice: string; stock: string;
+  fournisseur: string; unit: string; valeur: string; price: string; costPrice: string; stock: string;
   discount: string; expiryDate: string;
 };
 
 const INITIAL_FORM: FormState = {
-  name: '', localName: '', barcode: '', category: '', subCategory: '', unit: 'unité',
+  name: '', localName: '', barcode: '', category: '', subCategory: '', fournisseur: '', unit: 'unité',
   valeur: '', price: '', costPrice: '', stock: '', discount: '0', expiryDate: defaultExpiryDate(),
 };
 
@@ -220,7 +221,15 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     discount:    String(product.discount ?? 0),
     expiryDate:  product.expiryDate ? product.expiryDate.slice(0, 10) : defaultExpiryDate(),
     subCategory: product.subCategory ?? '',
+    fournisseur: product.fournisseur ?? '',
   } : INITIAL_FORM);
+  const [fournisseurs, setFournisseurs] = useState<string[]>([]);
+
+  useEffect(() => {
+    getFournisseurs()
+      .then(list => setFournisseurs(list.map(f => f.name)))
+      .catch(() => {});
+  }, []);
   const [loading,         setLoading]         = useState(false);
   const [error,           setError]           = useState('');
   const [extraCategories, setExtraCategories] = useState<string[]>([]);
@@ -246,6 +255,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
           barcode:     apiFound.barcode ?? form.barcode,
           category:    apiFound.category ?? '',
           subCategory: apiFound.subCategory ?? '',
+          fournisseur: apiFound.fournisseur ?? '',
           unit:        apiFound.unit,
           valeur:      apiFound.valeur ?? '',
           price:       String(apiFound.price),
@@ -274,6 +284,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
         barcode:     found.barcode ?? code,
         category:    found.category ?? '',
         subCategory: found.subCategory ?? '',
+        fournisseur: found.fournisseur ?? '',
         unit:        found.unit,
         valeur:      found.valeur ?? '',
         price:       String(found.price),
@@ -349,6 +360,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
       discount:    Math.min(100, Math.max(0, parseFloat(form.discount) || 0)),
       expiryDate:  form.expiryDate || null,
       subCategory: form.subCategory.trim() || undefined,
+      fournisseur: form.fournisseur.trim() || undefined,
     };
     try {
       if (product || foundProduct) {
@@ -475,6 +487,15 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
                 onChange={e => setField('valeur')(e.target.value)}
                 placeholder="ex: 50mL, 250g, 1L…"
                 style={INPUT_STYLE}
+              />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={LABEL_STYLE}>Fournisseur <span style={{ fontWeight: 400, textTransform: 'none' }}>(optionnel)</span></label>
+              <AutocompleteInput
+                value={form.fournisseur}
+                onChange={v => setField('fournisseur')(v)}
+                suggestions={fournisseurs}
+                placeholder="Choisir un fournisseur…"
               />
             </div>
           </div>

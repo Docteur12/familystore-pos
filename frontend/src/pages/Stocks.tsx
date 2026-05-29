@@ -50,13 +50,7 @@ function expiryOf(p: Product): Date | null {
 }
 
 function supplierOf(p: Product): string {
-  const suppliers: Record<string, string> = {
-    'beauté': 'Import Maroc', 'hygiène': 'Soleco SA',
-    'parfumerie': 'Import France', 'épicerie': 'Coop. Cameroun',
-    'alimentation': 'Coop. Douala', 'boissons': 'SABC',
-    'bien-être': 'Import Maroc', 'maison': 'Fournisseur Local',
-  };
-  return suppliers[p.category?.toLowerCase() ?? ''] ?? 'Coop. Locale';
+  return p.fournisseur?.trim() || '—';
 }
 
 function speedOf(p: Product): number {

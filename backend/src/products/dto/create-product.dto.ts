@@ -46,6 +46,10 @@ export class CreateProductDto {
 
   @IsOptional()
   @IsString()
+  fournisseur?: string;
+
+  @IsOptional()
+  @IsString()
   unit?: string;
 
   @IsOptional()
