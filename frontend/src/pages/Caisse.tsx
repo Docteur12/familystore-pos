@@ -443,13 +443,19 @@ export default function Caisse() {
     const pmLabel  = PAYMENT_METHODS.find(p => p.value === paymentMethod)?.label ?? paymentMethod;
     const effPaid  = paymentMethod === 'cash' ? paid : total;
 
+    // Clé d'idempotence : générée UNE fois pour cette vente et réutilisée sur
+    // tous les chemins (réessais, sauvegarde hors-ligne) → jamais de doublon.
+    const idempotencyKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
     setValidating(true);
     setEcartModal(null);
 
     // ── Offline path ───────────────────────────────────────────────────────
     if (!navigator.onLine) {
       try {
-        await savePendingSale({ items: cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: effectivePrice(i.product) })), total, paymentMethod, amountPaid: effPaid });
+        await savePendingSale({ items: cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: effectivePrice(i.product) })), total, paymentMethod, amountPaid: effPaid, idempotencyKey });
         for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
         const cached = await getCachedProducts(); setAllProducts(cached);
         setPendingCount(prev => prev + 1); setSessionSales(n => n + 1);
@@ -476,7 +482,7 @@ export default function Caisse() {
     for (let attempt = 0; attempt < MAX_RETRIES && !nonRetryable && !succeeded; attempt++) {
       if (attempt > 0) await new Promise<void>(r => setTimeout(r, 2000));
       try {
-        const result = await createSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid, sessionId: sessionId ?? undefined, forceVente: forceVente || undefined, ecarts: ecartsData });
+        const result = await createSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid, sessionId: sessionId ?? undefined, forceVente: forceVente || undefined, ecarts: ecartsData, idempotencyKey });
         succeeded = true;
         const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const idPart = String(result.sale._id).slice(-6).toUpperCase(); const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
         const newData: ReceiptData = {
@@ -495,7 +501,7 @@ export default function Caisse() {
         const msg  = err instanceof Error ? err.message : "Erreur d'enregistrement";
         if (kind === 'auth') {
           nonRetryable = true;
-          try { await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid }); addToast('Session expirée — ticket sauvegardé localement', 'warning'); } catch {}
+          try { await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid, idempotencyKey }); addToast('Session expirée — ticket sauvegardé localement', 'warning'); } catch {}
           setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 1800);
         } else if (kind === 'stock') {
           nonRetryable = true;
@@ -512,7 +518,7 @@ export default function Caisse() {
         } else {
           setRetryLabel('Sauvegarde locale…');
           try {
-            await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid });
+            await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid, idempotencyKey });
             for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
             const cached = await getCachedProducts(); setAllProducts(cached); setPendingCount(prev => prev + 1);
             const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));

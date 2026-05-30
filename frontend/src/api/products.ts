@@ -53,6 +53,7 @@ export interface SalePayload {
   sessionId?:    string;
   forceVente?:   boolean;
   ecarts?:       Array<{ produit: string; nomProduit: string; stockSysteme: number; quantiteVendue: number; ecart: number }>;
+  idempotencyKey?: string;
 }
 
 export interface StockAlert {

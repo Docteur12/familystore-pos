@@ -32,6 +32,15 @@ export class SalesService {
 
   async create(dto: CreateSaleDto, actor?: { name?: string; email?: string; caisse?: { nom?: string } }) {
 
+    // ── 0. Idempotence : si cette vente a déjà été enregistrée, on la renvoie ──
+    //      telle quelle (aucune nouvelle écriture, aucun re-décrément de stock).
+    if (dto.idempotencyKey) {
+      const existing = await this.saleModel.findOne({ idempotencyKey: dto.idempotencyKey }).lean();
+      if (existing) {
+        return { sale: existing, change: existing.change, alerts: [] };
+      }
+    }
+
     // ── 1. Vérification stock AVANT toute écriture ────────────────────────────
     const productIds = dto.items.map(i => new Types.ObjectId(i.product));
     const products   = await this.productModel
@@ -63,17 +72,30 @@ export class SalesService {
     const change = Math.max(0, dto.amountPaid - dto.total);
 
     // ── 3. Enregistrement de la vente ─────────────────────────────────────────
-    const sale = await this.saleModel.create({
-      items:         dto.items,
-      total:         dto.total,
-      paymentMethod: dto.paymentMethod,
-      amountPaid:    dto.amountPaid,
-      change,
-      cashierName:   actor?.name        ?? '',
-      cashierEmail:  actor?.email       ?? '',
-      caisseName:    actor?.caisse?.nom ?? '',
-      sessionId:     dto.sessionId      ?? '',
-    });
+    let sale: SaleDocument;
+    try {
+      sale = await this.saleModel.create({
+        items:         dto.items,
+        total:         dto.total,
+        paymentMethod: dto.paymentMethod,
+        amountPaid:    dto.amountPaid,
+        change,
+        cashierName:   actor?.name        ?? '',
+        cashierEmail:  actor?.email       ?? '',
+        caisseName:    actor?.caisse?.nom ?? '',
+        sessionId:     dto.sessionId      ?? '',
+        idempotencyKey: dto.idempotencyKey,
+      });
+    } catch (err: any) {
+      // Course entre deux requêtes simultanées portant la même clé : l'index
+      // unique rejette la 2e (code 11000). On renvoie la vente déjà créée
+      // sans re-décrémenter le stock.
+      if (dto.idempotencyKey && err?.code === 11000) {
+        const existing = await this.saleModel.findOne({ idempotencyKey: dto.idempotencyKey }).lean();
+        if (existing) return { sale: existing, change: existing.change, alerts: [] };
+      }
+      throw err;
+    }
 
     // ── 3b. Enregistrement des écarts si vente forcée ────────────────────────
     if (dto.forceVente && dto.ecarts?.length) {

@@ -73,6 +73,11 @@ export class Sale {
   @Prop({ default: '' })
   sessionId: string;
 
+  /** Clé d'idempotence : empêche l'enregistrement en double d'une même vente
+   *  (réessais réseau / synchro hors-ligne). Unique mais facultative (sparse). */
+  @Prop({ unique: true, sparse: true })
+  idempotencyKey?: string;
+
   @Prop({ default: Date.now })
   createdAt: Date;
 }

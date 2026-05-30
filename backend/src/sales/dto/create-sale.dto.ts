@@ -66,6 +66,11 @@ export class CreateSaleDto {
   @IsString()
   sessionId?: string;
 
+  /** Clé d'idempotence — empêche le doublon en cas de réessai réseau */
+  @IsOptional()
+  @IsString()
+  idempotencyKey?: string;
+
   /** Vente forcée malgré stock insuffisant */
   @IsOptional()
   forceVente?: boolean;

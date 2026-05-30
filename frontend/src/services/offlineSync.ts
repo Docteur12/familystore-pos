@@ -17,6 +17,7 @@ export interface PendingSale {
   paymentMethod: string;
   amountPaid: number;
   createdAt: string;
+  idempotencyKey?: string;
 }
 
 // ── Product cache ─────────────────────────────────────────────────────────────
@@ -95,6 +96,7 @@ export async function syncPendingSales(
           total: sale.total,
           paymentMethod: sale.paymentMethod,
           amountPaid: sale.amountPaid,
+          idempotencyKey: sale.idempotencyKey,
         }),
       });
       if (res.ok) {
