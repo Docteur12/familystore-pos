@@ -31,6 +31,7 @@ export default function Login() {
   const [error,    setError]    = useState<string | null>(null);
   const [loading,  setLoading]  = useState(false);
   const [showPwd,  setShowPwd]  = useState(false);
+  const [capsOn,   setCapsOn]   = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMsg, setForgotMsg] = useState<string | null>(null);
@@ -57,7 +58,7 @@ export default function Login() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
       if (res.status === 401) throw new Error('Email ou mot de passe incorrect');
       if (!res.ok)           throw new Error('Erreur serveur, réessayez');
@@ -254,6 +255,8 @@ export default function Login() {
                   type={showPwd ? 'text' : 'password'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
+                  onKeyUp={e => setCapsOn(e.getModifierState('CapsLock'))}
+                  onKeyDown={e => setCapsOn(e.getModifierState('CapsLock'))}
                   placeholder="••••••••"
                   required
                   style={{
@@ -304,6 +307,17 @@ export default function Login() {
                   )}
                 </button>
               </div>
+              {capsOn && (
+                <div style={{
+                  marginTop: 6, display: 'flex', alignItems: 'center', gap: 6,
+                  fontSize: 12, fontWeight: 600, color: 'var(--fs-danger-700)',
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/>
+                  </svg>
+                  Verr. Maj (Caps Lock) est activé
+                </div>
+              )}
             </div>
 
             {/* Error */}

@@ -83,6 +83,11 @@ html, body {
 ::-webkit-scrollbar-thumb { background: var(--fs-line-2); border-radius: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 
+/* ── Tableaux style « tableur » (quadrillage complet, type Excel) ──────────────── */
+.fs-grid { border-collapse: collapse; }
+.fs-grid th,
+.fs-grid td { border: 1px solid var(--fs-line); }
+
 /* ── Utility classes ─────────────────────────────────────────────────────────── */
 @layer components {
   .label-field {

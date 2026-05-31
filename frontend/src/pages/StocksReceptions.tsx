@@ -344,7 +344,7 @@ export default function StocksReceptions() {
 
             {/* Lines table */}
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)', marginBottom: 14 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
                     {['Produit', 'Qté attendue', 'Qté reçue', 'Date péremption', 'État emballage', 'Écart', ''].map(h => (
@@ -473,7 +473,7 @@ export default function StocksReceptions() {
                       </div>
                       <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{r.items.length} article(s)</span>
                     </div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr>
                           {['Produit', 'Qté reçue', 'Reçu par'].map(h => (
@@ -530,7 +530,7 @@ export default function StocksReceptions() {
                     Écart total : {bl.totalEcarts > 0 ? `+${bl.totalEcarts}` : bl.totalEcarts}
                   </span>
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       {['Produit', 'Qté attendue', 'Qté reçue', 'Date péremption', 'État', 'Écart'].map(h => (

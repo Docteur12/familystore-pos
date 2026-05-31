@@ -164,7 +164,7 @@ export default function AdminFactures() {
             <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
           ) : (
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', marginTop: 16 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
                     {FACTURE_COLS.map(col => (

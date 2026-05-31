@@ -580,7 +580,7 @@ export default function AdminRapports() {
                   <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Statistiques tickets — {curYear}</div>
                     <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>T1 · T2 · T3 · T4 · Annuel — MIN / MAX / MOYENNE par ticket</div>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead>
                         <tr style={{ background: 'var(--fs-ivory)' }}>
                           {['Période', 'Nb tickets', 'CA total', 'MIN', 'MAX', 'Moyenne'].map(h => (
@@ -904,7 +904,7 @@ export default function AdminRapports() {
               <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-400)', fontSize: 12 }}>Aucune donnée disponible</div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ background: 'var(--fs-ivory)' }}>
                       {['Produit', 'Qté vendue', 'CA généré', 'Nb transactions', 'Prix moy. vente'].map(h => (

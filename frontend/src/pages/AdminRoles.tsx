@@ -302,7 +302,7 @@ export default function AdminRoles() {
             </div>
 
             {/* Table */}
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'var(--fs-ivory)' }}>
                   <th style={{ padding: '10px 20px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid var(--fs-line)', width: '37%' }}>Action</th>

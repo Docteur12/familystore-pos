@@ -332,7 +332,7 @@ export default function StocksFournisseurs() {
             </div>
           ) : (
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'var(--fs-ivory)' }}>
                   {['Fournisseur', 'Contact', 'Conditions', 'Remise', 'Note', 'Catégories', 'Produits', ''].map(h => (

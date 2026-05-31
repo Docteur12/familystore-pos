@@ -95,7 +95,7 @@ export default function StocksEcarts() {
             <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
           ) : (
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflowX: 'auto', marginTop: 8 }}>
-              <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 12 }}>
+              <table className="fs-grid" style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
                     {['Date', 'Produit', 'Stock système', 'Qté vendue', 'Écart', 'Caissière', 'Statut', 'Action'].map(h => (

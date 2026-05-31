@@ -210,7 +210,7 @@ export default function Produits() {
             </span>
           </div>
         ) : (
-          <table className="w-full text-sm border-collapse">
+          <table className="w-full text-sm border-collapse fs-grid">
             <thead>
               <tr>
                 {['Produit', 'Code-barres', 'Catégorie', 'Prix vente',

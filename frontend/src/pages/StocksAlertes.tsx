@@ -189,7 +189,7 @@ export default function StocksAlertes() {
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
+              <table className="fs-grid" style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {['Produit', 'Catégorie', 'Stock actuel', 'Seuil (auto 10%)', 'Statut'].map((h, i) => (
@@ -233,7 +233,7 @@ export default function StocksAlertes() {
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
+              <table className="fs-grid" style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {['Produit', 'Catégorie', 'Stock', 'Date péremption', 'Délai', 'Urgence'].map((h, i) => (
@@ -287,7 +287,7 @@ export default function StocksAlertes() {
                   <I d={D.zap} size={14}/> Ces suggestions sont calculées automatiquement : stock conseillé = 2× seuil d'alerte.
                 </div>
                 <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
+                <table className="fs-grid" style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       {['Produit', 'Catégorie', 'Stock actuel', 'Seuil', 'Qté recommandée', 'Urgence'].map((h, i) => (

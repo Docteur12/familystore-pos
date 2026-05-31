@@ -251,7 +251,7 @@ export default function AdminAudit() {
             <div style={{ textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13, padding: '60px 0' }}>Chargement…</div>
           ) : (
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
                     {['Date / Heure', 'Utilisateur', 'Type', 'Module', 'Détail'].map((h, i) => (

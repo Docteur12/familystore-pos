@@ -423,7 +423,7 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
             Aucun produit — le magazinier n'a pas encore enregistré de réception.
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+          <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
             <thead>
               <tr style={{ background: 'var(--fs-ivory)' }}>
                 {['Produit', 'Catégorie', 'Stock entrepôt', 'Stock caisse', 'Seuil commande', 'État', ''].map((h, i) => (
@@ -535,7 +535,7 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
               Aucun produit encore envoyé au gestionnaire
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--fs-ivory)' }}>
                   {['Produit', 'Qté envoyée', 'Demandé par', 'Statut', 'Date envoi'].map((h, i) => (

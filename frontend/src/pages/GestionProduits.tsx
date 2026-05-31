@@ -585,7 +585,7 @@ export default function GestionProduits() {
                 </p>
               </div>
             ) : (
-              <table className="w-full text-sm border-collapse">
+              <table className="w-full text-sm border-collapse fs-grid">
                 <thead>
                   <tr className="border-b border-gray-100 bg-cream/40">
                     <th className="text-left px-5 py-3 text-xs font-semibold

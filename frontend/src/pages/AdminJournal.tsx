@@ -168,7 +168,7 @@ function TicketDetail({ sale }: { sale: Sale }) {
     <tr>
       <td colSpan={8} style={{ background: 'var(--fs-ivory)', padding: '0 0 2px' }}>
         <div style={{ margin: '0 48px 10px', border: '1px solid var(--fs-line)', borderRadius: 8, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--fs-wine-50)' }}>
                 {['Article', 'Qté', 'Prix unit.', 'Sous-total'].map((h, i) => (
@@ -436,7 +436,7 @@ export default function AdminJournal() {
             <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
           ) : (
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', marginTop: 16 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
                     <th style={TH}/>

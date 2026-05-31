@@ -936,7 +936,7 @@ export default function Stocks() {
 
         {/* Table */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px', minHeight: 0 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#fff' }}>
                 {STOCK_COLS.map((col, i) => {

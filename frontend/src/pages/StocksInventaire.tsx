@@ -157,8 +157,8 @@ export default function StocksInventaire() {
         h2 { margin-bottom: 4px; }
         .sub { color: #666; font-size: 13px; margin-bottom: 20px; }
         table { width: 100%; border-collapse: collapse; }
-        th { padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 2px solid #000; }
-        td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #ddd; }
+        th { padding: 8px 10px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid #000; background: #f0f0f0; }
+        td { padding: 8px 10px; font-size: 13px; border: 1px solid #999; }
         .diff-pos { color: green; font-weight: bold; }
         .diff-neg { color: red; font-weight: bold; }
         .diff-0   { color: #666; }
@@ -285,7 +285,7 @@ export default function StocksInventaire() {
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', minWidth: 820, borderCollapse: 'collapse' }}>
+                <table className="fs-grid" style={{ width: '100%', minWidth: 820, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       {['Produit', 'Catégorie', 'Unité', 'Théorique', 'Compté', 'Écart', 'Justification'].map((h, i) => (
@@ -345,7 +345,7 @@ export default function StocksInventaire() {
                   <span style={{ fontSize: 12, color: 'var(--fs-ink-400)' }}>{s.rows.length} produit(s)</span>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse' }}>
+                <table className="fs-grid" style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       {['Produit', 'Théorique', 'Compté', 'Écart', 'Justification'].map(h => (

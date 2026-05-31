@@ -1071,7 +1071,7 @@ export default function Magazinier() {
                   </p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--fs-ink-400)' }}>Produits que vous avez déjà réceptionnés</p>
                 </div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--fs-ivory)' }}>
                       {['Produit', 'Quantité', 'Seuil commande'].map((h, i) => (
@@ -1151,7 +1151,7 @@ export default function Magazinier() {
                       Aucun produit encore envoyé au gestionnaire
                     </div>
                   ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                       <thead>
                         <tr style={{ background: 'var(--fs-ivory)' }}>
                           {['Produit', 'Qté envoyée', 'Stock entrepôt', 'Statut', 'Date'].map((h, i) => (

@@ -111,7 +111,7 @@ export default function AdminEquipe() {
             </div>
           ) : (
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {EQUIPE_COLS.map(col => {
