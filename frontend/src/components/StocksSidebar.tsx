@@ -28,6 +28,7 @@ const D = {
   etiquettes:  'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
   depots:      'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z',
   fournisseurs:'M1 3h15v13H1zM16 8h4l3 3v5h-7V8z',
+  divers:      'M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07',
   logout:      'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h12',
 };
 
@@ -41,6 +42,7 @@ const NAV_ITEMS = [
   { id: 'depots',      label: 'Dépôts',             icon: D.depots,       path: '/stocks/depots'       },
   { id: 'fournisseurs',label: 'Fournisseurs',        icon: D.fournisseurs, path: '/stocks/fournisseurs' },
   { id: 'ecarts',      label: 'Écarts de stock',     icon: D.alertes,      path: '/stocks/ecarts'       },
+  { id: 'divers',      label: 'Articles divers',     icon: D.divers,       path: '/stocks/divers'       },
 ];
 
 export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number }) {

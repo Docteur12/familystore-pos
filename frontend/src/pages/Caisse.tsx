@@ -126,6 +126,16 @@ function genTicketNo() {
 
 interface CartItem { product: Product; quantity: number }
 
+// Un article « divers » est un produit synthétique non enregistré en base.
+const isDiversProduct = (p: Product) => !!p.divers || p._id.startsWith('divers-');
+
+// Construit une ligne de vente : sans productId (avec flag divers) pour un
+// article non référencé, sinon avec le vrai productId.
+function toSaleItem(i: CartItem) {
+  const base = { name: i.product.name, quantity: i.quantity, unitPrice: effectivePrice(i.product) };
+  return isDiversProduct(i.product) ? { ...base, divers: true } : { ...base, product: i.product._id };
+}
+
 interface HeldTicket {
   id: string;
   ticketNo: string;
@@ -167,6 +177,9 @@ export default function Caisse() {
   const [paymentMethod,  setPaymentMethod]  = useState<PaymentMethod>('cash');
   const [amountPaid,     setAmountPaid]     = useState('');
   const [showQR,         setShowQR]         = useState(false);
+  const [showDivers,     setShowDivers]     = useState(false);
+  const [diversName,     setDiversName]     = useState('');
+  const [diversPrice,    setDiversPrice]    = useState('');
   const [receiptData,    setReceiptData]    = useState<ReceiptData | null>(null);
   const [ticketNo]                          = useState(genTicketNo);
   const [ticketTime]                        = useState(() =>
@@ -316,6 +329,21 @@ export default function Caisse() {
     flashAdded(product._id);
   }, [flashAdded]);
 
+  // Ajoute un article « divers » (non référencé en base) : produit synthétique
+  // avec un stock élevé pour ne déclencher aucune alerte/écart.
+  const addDivers = useCallback(() => {
+    const prix = Math.round(Number(diversPrice));
+    if (!prix || prix <= 0) { addToast('Saisissez un prix valide', 'error'); return; }
+    const item: Product = {
+      _id: `divers-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      name: diversName.trim() || 'Article divers',
+      price: prix, costPrice: 0, stock: 999999, alertThreshold: 0,
+      unit: '', divers: true,
+    };
+    addToCart(item);
+    setShowDivers(false); setDiversName(''); setDiversPrice('');
+  }, [diversPrice, diversName, addToCart, addToast]);
+
   const changeQty = useCallback((id: string, delta: number) =>
     setCart(prev =>
       prev.map(i => i.product._id === id ? { ...i, quantity: i.quantity + delta } : i)
@@ -459,7 +487,7 @@ export default function Caisse() {
     // ── Offline path ───────────────────────────────────────────────────────
     if (!navigator.onLine) {
       try {
-        await savePendingSale({ items: cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: effectivePrice(i.product) })), total, paymentMethod, amountPaid: effPaid, idempotencyKey });
+        await savePendingSale({ items: cart.map(toSaleItem), total, paymentMethod, amountPaid: effPaid, idempotencyKey });
         for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
         const cached = await getCachedProducts(); setAllProducts(cached);
         setPendingCount(prev => prev + 1); setSessionSales(n => n + 1);
@@ -480,7 +508,7 @@ export default function Caisse() {
     }
 
     const MAX_RETRIES = 3;
-    const saleItems = cart.map(i => ({ product: i.product._id, name: i.product.name, quantity: i.quantity, unitPrice: effectivePrice(i.product) }));
+    const saleItems = cart.map(toSaleItem);
     let succeeded = false; let nonRetryable = false;
 
     for (let attempt = 0; attempt < MAX_RETRIES && !nonRetryable && !succeeded; attempt++) {
@@ -550,7 +578,7 @@ export default function Caisse() {
     }
 
     // Détecter les écarts de stock
-    const ecarts = cart.filter(i => i.quantity > i.product.stock).map(i => ({
+    const ecarts = cart.filter(i => !isDiversProduct(i.product) && i.quantity > i.product.stock).map(i => ({
       product: i.product,
       stockSysteme:   i.product.stock,
       quantiteVendue: i.quantity,
@@ -759,6 +787,49 @@ export default function Caisse() {
           onDetected={code => { setShowQR(false); handleQRDetected(code); }}
           onClose={() => { setShowQR(false); focusScan(); }}
         />
+      )}
+
+      {/* Modal Article divers (produit non référencé) */}
+      {showDivers && (
+        <div onClick={e => { if (e.target === e.currentTarget) { setShowDivers(false); focusScan(); } }}
+          style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '24px 26px', maxWidth: 380, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', marginBottom: 4 }}>Article divers</div>
+            <div style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginBottom: 18 }}>
+              Produit non enregistré. Saisissez le prix affiché en rayon pour servir le client tout de suite.
+            </div>
+
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Désignation (optionnel)</label>
+            <input
+              value={diversName}
+              onChange={e => setDiversName(e.target.value)}
+              placeholder="Ex : Article en rayon"
+              style={{ width: '100%', padding: '10px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', marginBottom: 14 }}
+            />
+
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Prix (XAF) *</label>
+            <input
+              type="text" inputMode="numeric"
+              value={diversPrice}
+              onChange={e => setDiversPrice(e.target.value.replace(/[^0-9]/g, ''))}
+              onKeyDown={e => { if (e.key === 'Enter') addDivers(); }}
+              placeholder="0"
+              autoFocus
+              style={{ width: '100%', padding: '10px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 18, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', outline: 'none', boxSizing: 'border-box', marginBottom: 20 }}
+            />
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => { setShowDivers(false); focusScan(); }}
+                style={{ flex: 1, padding: '11px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
+                Annuler
+              </button>
+              <button onClick={addDivers}
+                style={{ flex: 1, padding: '11px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-wine-700)', color: '#fff', fontFamily: 'var(--fs-font-sans)' }}>
+                Ajouter au ticket
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {receiptData && (
@@ -994,6 +1065,25 @@ export default function Caisse() {
             }}
           >
             📷
+          </button>
+
+          {/* Article divers — produit non référencé */}
+          <button
+            onClick={() => { setDiversName(''); setDiversPrice(''); setShowDivers(true); }}
+            title="Vendre un article non enregistré dans le système"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: isMobile ? '6px 8px' : '6px 12px',
+              border: '1.5px solid var(--fs-wine-700)',
+              borderRadius: 'var(--fs-r-md)',
+              background: 'var(--fs-paper)',
+              color: 'var(--fs-wine-700)',
+              fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', cursor: 'pointer',
+              fontFamily: 'var(--fs-font-sans)',
+            }}
+          >
+            <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>
+            {!isMobile && 'Article divers'}
           </button>
 
           {/* Connection indicator */}

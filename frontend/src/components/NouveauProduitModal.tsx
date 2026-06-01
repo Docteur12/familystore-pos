@@ -186,6 +186,8 @@ interface Props {
   product?:         Product;
   knownCategories?: string[];
   existingProducts?: Product[];
+  /** Pré-remplissage en mode création (ex: régularisation d'un article divers) */
+  prefill?:         { name?: string; price?: string };
 }
 
 function defaultExpiryDate(): string {
@@ -207,7 +209,7 @@ const INITIAL_FORM: FormState = {
 
 // ── Modal component ───────────────────────────────────────────────────────────
 
-export default function NouveauProduitModal({ onClose, onCreated, onUpdated, product, knownCategories, existingProducts = [] }: Props) {
+export default function NouveauProduitModal({ onClose, onCreated, onUpdated, product, knownCategories, existingProducts = [], prefill }: Props) {
   const [form, setForm] = useState<FormState>(() => product ? {
     name:        product.name,
     localName:   product.localName ?? '',
@@ -222,7 +224,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     expiryDate:  product.expiryDate ? product.expiryDate.slice(0, 10) : defaultExpiryDate(),
     subCategory: product.subCategory ?? '',
     fournisseur: product.fournisseur ?? '',
-  } : INITIAL_FORM);
+  } : { ...INITIAL_FORM, name: prefill?.name ?? '', price: prefill?.price ?? '' });
   const [fournisseurs, setFournisseurs] = useState<string[]>([]);
 
   useEffect(() => {

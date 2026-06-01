@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { forgotPassword } from '../api/auth';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -35,6 +35,15 @@ export default function Login() {
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMsg, setForgotMsg] = useState<string | null>(null);
+  const [expiredNotice, setExpiredNotice] = useState(false);
+
+  // Affiche un message si on a été redirigé suite à une session expirée (401).
+  useEffect(() => {
+    if (sessionStorage.getItem('session_expired')) {
+      setExpiredNotice(true);
+      sessionStorage.removeItem('session_expired');
+    }
+  }, []);
   const [forgotLoading, setForgotLoading] = useState(false);
 
   const handleForgot = async (e: React.FormEvent) => {
@@ -175,6 +184,20 @@ export default function Login() {
             </form>
           ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+            {expiredNotice && (
+              <div style={{
+                background: '#FEF7E6', border: '1px solid #F0D080',
+                color: '#8B5A14', borderRadius: 'var(--fs-r-md)',
+                padding: '10px 14px', fontSize: 13, fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+                </svg>
+                Session expirée — veuillez vous reconnecter.
+              </div>
+            )}
 
             {/* Email */}
             <div>

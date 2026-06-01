@@ -8,8 +8,11 @@ export type SaleDocument = HydratedDocument<Sale>;
  * `name` est un snapshot du nom au moment de la vente (le produit peut changer).
  */
 class SaleItem {
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Product', required: true })
-  product: Types.ObjectId;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Product', required: false })
+  product?: Types.ObjectId;
+
+  @Prop({ default: false })
+  divers?: boolean;
 
   @Prop({ required: true, trim: true })
   name: string;
@@ -31,12 +34,13 @@ class SaleItem {
 export class Sale {
   @Prop({
     type: [{
-      product:       { type: MongooseSchema.Types.ObjectId, ref: 'Product', required: true },
+      product:       { type: MongooseSchema.Types.ObjectId, ref: 'Product', required: false },
       name:          { type: String, required: true },
       quantity:      { type: Number, required: true, min: 1 },
       unitPrice:     { type: Number, required: true, min: 0 },
       discount:      { type: Number, default: 0, min: 0, max: 100 },
       originalPrice: { type: Number, default: 0, min: 0 },
+      divers:        { type: Boolean, default: false },
     }],
     required: true,
   })

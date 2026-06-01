@@ -42,7 +42,9 @@ export class SalesService {
     }
 
     // ── 1. Vérification stock AVANT toute écriture ────────────────────────────
-    const productIds = dto.items.map(i => new Types.ObjectId(i.product));
+    // Les articles « divers » (non référencés) n'ont pas de produit → on les ignore.
+    const realItems = dto.items.filter(i => !i.divers && i.product);
+    const productIds = realItems.map(i => new Types.ObjectId(i.product!));
     const products   = await this.productModel
       .find({ _id: { $in: productIds } })
       .lean();
@@ -50,8 +52,8 @@ export class SalesService {
     const productMap = new Map(products.map(p => [String(p._id), p]));
     const stockErrors: string[] = [];
 
-    for (const item of dto.items) {
-      const p = productMap.get(item.product);
+    for (const item of realItems) {
+      const p = productMap.get(item.product!);
       if (!p) {
         stockErrors.push(`Produit introuvable : ${item.name}`);
         continue;
@@ -116,22 +118,25 @@ export class SalesService {
     }
 
     // ── 4. Décrémentation stock + création mouvements (parallèle) ─────────────
+    //      (uniquement pour les articles référencés — pas les « divers »)
     const updateResults = await Promise.all(
-      dto.items.map(item =>
+      realItems.map(item =>
         this.productModel
-          .findByIdAndUpdate(item.product, { $inc: { stock: -item.quantity } }, { new: true })
+          .findByIdAndUpdate(item.product!, { $inc: { stock: -item.quantity } }, { new: true })
           .then(updated => ({ item, updated })),
       ),
     );
 
-    await this.movementModel.insertMany(
-      dto.items.map(item => ({
-        productId: new Types.ObjectId(item.product),
-        type:      'OUT',
-        quantity:  item.quantity,
-        reason:    'sale',
-      })),
-    );
+    if (realItems.length > 0) {
+      await this.movementModel.insertMany(
+        realItems.map(item => ({
+          productId: new Types.ObjectId(item.product!),
+          type:      'OUT',
+          quantity:  item.quantity,
+          reason:    'sale',
+        })),
+      );
+    }
 
     const stockAlerts: StockAlert[] = [];
 
@@ -176,6 +181,40 @@ export class SalesService {
       .populate('items.product', 'name barcode unit costPrice')
       .sort({ createdAt: -1 })
       .lean();
+  }
+
+  // ── GET /api/sales/divers ─────────────────────────────────────────────────
+  // Liste à plat les articles « divers » vendus (non référencés), à régulariser.
+
+  async getDiversSales(limit = 300) {
+    const sales = await this.saleModel
+      .find({ 'items.divers': true })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    const rows: Array<{
+      saleId: string; name: string; unitPrice: number; quantity: number;
+      total: number; cashierName: string; caisseName: string; createdAt: Date;
+    }> = [];
+
+    for (const s of sales) {
+      for (const it of (s.items ?? [])) {
+        if ((it as any).divers) {
+          rows.push({
+            saleId:      String(s._id),
+            name:        it.name,
+            unitPrice:   it.unitPrice,
+            quantity:    it.quantity,
+            total:       it.unitPrice * it.quantity,
+            cashierName: s.cashierName ?? '',
+            caisseName:  s.caisseName ?? '',
+            createdAt:   (s as any).createdAt,
+          });
+        }
+      }
+    }
+    return rows;
   }
 
   // ── GET /api/sales/:id ──────────────────────────────────────────────────────

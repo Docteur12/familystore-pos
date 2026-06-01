@@ -1,6 +1,7 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsMongoId,
   IsNumber,
@@ -14,8 +15,15 @@ import {
 import { Type } from 'class-transformer';
 
 export class SaleItemDto {
+  /** Absent pour un article « divers » non référencé */
+  @IsOptional()
   @IsMongoId()
-  product: string;
+  product?: string;
+
+  /** true = article divers saisi à la volée (pas de stock à décrémenter) */
+  @IsOptional()
+  @IsBoolean()
+  divers?: boolean;
 
   /** Snapshot du nom (stocké tel quel dans la vente) */
   @IsString()

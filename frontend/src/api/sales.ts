@@ -42,3 +42,21 @@ export async function getSales(params?: {
   if (!res.ok) throw new Error('Erreur chargement des ventes');
   return res.json();
 }
+
+// Articles « divers » (non référencés) vendus en caisse, à régulariser.
+export interface DiversSaleRow {
+  saleId:      string;
+  name:        string;
+  unitPrice:   number;
+  quantity:    number;
+  total:       number;
+  cashierName: string;
+  caisseName:  string;
+  createdAt:   string;
+}
+
+export async function getDiversSales(): Promise<DiversSaleRow[]> {
+  const res = await fetch('/api/sales/divers', { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement des articles divers');
+  return res.json();
+}

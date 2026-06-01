@@ -12,7 +12,7 @@ const KEY_LAST_SYNC = 'last_sync_time';
 
 export interface PendingSale {
   id: string;
-  items: { product: string; name: string; quantity: number; unitPrice: number }[];
+  items: { product?: string; name: string; quantity: number; unitPrice: number; divers?: boolean }[];
   total: number;
   paymentMethod: string;
   amountPaid: number;

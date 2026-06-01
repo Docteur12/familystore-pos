@@ -17,7 +17,7 @@ import { AuditLog, AuditLogSchema } from '../schemas/audit-log.schema';
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET ?? 'fallback_secret',
-      signOptions: { expiresIn: process.env.JWT_EXPIRES_IN ?? '7d' },
+      signOptions: { expiresIn: process.env.JWT_EXPIRES_IN ?? '30d' },
     }),
   ],
   controllers: [AuthController],

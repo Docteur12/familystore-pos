@@ -122,6 +122,15 @@ export class SalesController {
     return this.salesService.multiYear(years ? parseInt(years) : 5);
   }
 
+  // GET /api/sales/divers — articles divers vendus, à régulariser (gestionnaire + patron)
+  // Déclaré AVANT :id pour ne pas être capté par la route paramétrée.
+  @Get('divers')
+  @UseGuards(RolesGuard)
+  @Roles('gestionnaire', 'patron')
+  diversSales() {
+    return this.salesService.getDiversSales();
+  }
+
   // GET /api/sales — historique complet (patron)
   @Get()
   @UseGuards(RolesGuard)

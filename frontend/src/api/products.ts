@@ -18,6 +18,7 @@ export interface Product {
   discount?:      number;
   expiryDate?:           string | null;
   magazinierThreshold?:  number;
+  divers?:        boolean;   // article « divers » synthétique (non référencé)
 }
 
 export function effectivePrice(p: Product): number {
@@ -46,7 +47,7 @@ export async function getAllProducts(): Promise<Product[]> {
 }
 
 export interface SalePayload {
-  items: Array<{ product: string; name: string; quantity: number; unitPrice: number }>;
+  items: Array<{ product?: string; name: string; quantity: number; unitPrice: number; divers?: boolean }>;
   total:         number;
   paymentMethod: string;
   amountPaid:    number;
