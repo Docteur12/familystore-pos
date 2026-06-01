@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -54,18 +55,26 @@ export class ProductsService {
     return product;
   }
 
-  create(dto: CreateProductDto) {
+  async create(dto: CreateProductDto) {
     const initialStock = dto.stock ?? 0;
     const alertThreshold = Math.max(1, Math.ceil(initialStock * 0.10));
     const oneYearFromNow = new Date();
     oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
     const expiryDate = dto.expiryDate ?? oneYearFromNow.toISOString().slice(0, 10);
-    return this.productModel.create({
-      ...dto,
-      initialStock,
-      alertThreshold,
-      expiryDate,
-    });
+    try {
+      return await this.productModel.create({
+        ...dto,
+        initialStock,
+        alertThreshold,
+        expiryDate,
+      });
+    } catch (err: any) {
+      // Doublon de code-barres (index unique) → message clair au lieu d'un 500.
+      if (err?.code === 11000) {
+        throw new ConflictException('Ce code-barres est déjà utilisé par un autre produit');
+      }
+      throw err;
+    }
   }
 
   async update(id: string, dto: UpdateProductDto) {

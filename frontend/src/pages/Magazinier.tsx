@@ -187,6 +187,13 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// Date + heure de création (pour l'historique)
+function fmtDateTime(d: string) {
+  const dt = new Date(d);
+  return dt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+    + ' à ' + dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
 // Sélecteur de produit avec recherche (remplace un <select> de 100+ produits)
 function ProductSelect({ products, value, onChange, meta }: {
   products: Product[];
@@ -541,6 +548,8 @@ export default function Magazinier() {
   // ── Historique ────────────────────────────────────────────────────────────
   const [histo,    setHisto]    = useState<{ receptions: ReceptionRecord[]; envois: DemandeStock[] } | null>(null);
   const [hLoading, setHLoading] = useState(false);
+  const [histoSearch, setHistoSearch] = useState('');
+  const [dashSearch,  setDashSearch]  = useState('');
 
   useEffect(() => {
     if ((tab !== 'historique' && tab !== 'dashboard') || histo) return;
@@ -994,19 +1003,32 @@ export default function Magazinier() {
           {/* ════════════════════════════════════════════════════════════════
               ONGLET 3 — HISTORIQUE
           ════════════════════════════════════════════════════════════════ */}
-          {tab === 'historique' && (
+          {tab === 'historique' && (() => {
+            const q = histoSearch.trim().toLowerCase();
+            const recs = (histo?.receptions ?? []).filter(r => !q
+              || r.fournisseur.toLowerCase().includes(q)
+              || r.items.some(it => it.productName.toLowerCase().includes(q)));
+            const envs = (histo?.envois ?? []).filter(e => !q
+              || (e.produit?.name ?? '').toLowerCase().includes(q));
+            return (
             <div style={{ maxWidth: 740 }}>
               {hLoading ? (
                 <div style={{ color: 'var(--fs-ink-400)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>Chargement…</div>
               ) : (
                 <>
+                  <input
+                    value={histoSearch}
+                    onChange={e => setHistoSearch(e.target.value)}
+                    placeholder="Rechercher un produit, un fournisseur…"
+                    style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', marginBottom: 14 }}
+                  />
                   {/* Réceptions */}
                   <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
                     Mes réceptions
                   </p>
-                  {(histo?.receptions ?? []).length === 0 ? (
+                  {recs.length === 0 ? (
                     <div style={{ color: 'var(--fs-ink-300)', fontSize: 13, marginBottom: 24 }}>Aucune réception enregistrée</div>
-                  ) : (histo?.receptions ?? []).map(r => (
+                  ) : recs.map(r => (
                     <div key={r._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '14px 18px', marginBottom: 8, boxShadow: 'var(--fs-shadow-sm)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
@@ -1014,7 +1036,7 @@ export default function Magazinier() {
                             <I d={D.truck} size={13}/> {r.fournisseur}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
-                            {r.items.length} article(s) · {fmtDate(r.createdAt)}
+                            {r.items.length} article(s) · {fmtDateTime(r.createdAt)}
                           </div>
                         </div>
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '3px 10px', borderRadius: 20 }}>
@@ -1037,14 +1059,14 @@ export default function Magazinier() {
                   <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '24px 0 10px' }}>
                     Mes envois
                   </p>
-                  {(histo?.envois ?? []).length === 0 ? (
+                  {envs.length === 0 ? (
                     <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucun envoi enregistré</div>
-                  ) : (histo?.envois ?? []).map(e => (
+                  ) : envs.map(e => (
                     <div key={e._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '14px 18px', marginBottom: 8, boxShadow: 'var(--fs-shadow-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{e.produit?.name ?? '—'}</div>
                         <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
-                          {e.quantiteDemandee}{qtyUnitLabel(e.produit?.unit) && ` ${qtyUnitLabel(e.produit?.unit)}`} · demandé par {e.demandePar?.name ?? '?'} · envoyé le {e.dateEnvoi ? fmtDate(e.dateEnvoi) : '—'}
+                          {e.quantiteDemandee}{qtyUnitLabel(e.produit?.unit) && ` ${qtyUnitLabel(e.produit?.unit)}`} · demandé par {e.demandePar?.name ?? '?'} · envoyé le {e.dateEnvoi ? fmtDateTime(e.dateEnvoi) : '—'}
                         </div>
                       </div>
                       <span style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', background: '#eff6ff', padding: '3px 10px', borderRadius: 20 }}>
@@ -1055,14 +1077,19 @@ export default function Magazinier() {
                 </>
               )}
             </div>
-          )}
+            );
+          })()}
 
           {/* ════════════════════════════════════════════════════════════════
               ONGLET 4 — TABLEAU DE BORD MAGAZINIER
           ════════════════════════════════════════════════════════════════ */}
           {tab === 'dashboard' && (() => {
-            // Uniquement les produits que le magazinier a déjà reçus
-            const mesProduits = products.filter(p => lastRecByProd[p._id]);
+            // Uniquement les produits que le magazinier a déjà reçus (+ filtre recherche)
+            const mesProduits = products
+              .filter(p => lastRecByProd[p._id])
+              .filter(p => !dashSearch.trim()
+                || p.name.toLowerCase().includes(dashSearch.toLowerCase())
+                || (p.category ?? '').toLowerCase().includes(dashSearch.toLowerCase()));
             return (
             <div style={{ maxWidth: 600 }}>
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
@@ -1071,6 +1098,12 @@ export default function Magazinier() {
                     Mes produits — {mesProduits.length} référence{mesProduits.length !== 1 ? 's' : ''}
                   </p>
                   <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--fs-ink-400)' }}>Produits que vous avez déjà réceptionnés</p>
+                  <input
+                    value={dashSearch}
+                    onChange={e => setDashSearch(e.target.value)}
+                    placeholder="Rechercher un produit…"
+                    style={{ marginTop: 10, width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}
+                  />
                 </div>
                 <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>

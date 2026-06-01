@@ -140,7 +140,11 @@ export async function createProduct(data: ProductPayload): Promise<Product> {
   });
   if (res.status === 401) throw new Error('Non authentifié');
   if (res.status === 403) throw new Error('Accès non autorisé pour ce rôle');
-  if (!res.ok) throw new Error('Erreur création produit');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const msg = Array.isArray(body?.message) ? body.message.join(' · ') : body?.message;
+    throw new Error(msg || 'Erreur création produit');
+  }
   return res.json();
 }
 
