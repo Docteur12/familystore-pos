@@ -295,7 +295,7 @@ export default function Magazinier() {
     if (!newProd.name.trim()) { addToast('Le nom du produit est requis', 'error'); return; }
     setNewProdLoading(true);
     try {
-      await createProduct({
+      const created = await createProduct({
         name:                newProd.name.trim().charAt(0).toUpperCase() + newProd.name.trim().slice(1),
         barcode:             newProd.barcode.trim() || undefined,
         category:            newProd.category || undefined,
@@ -308,9 +308,19 @@ export default function Magazinier() {
         magazinierThreshold: parseInt(newProd.seuilCommande) || 0,
       });
       await loadProducts();
-      setShowNewProd(false);
+
+      // Ajoute automatiquement le produit créé à la réception en cours
+      // (remplit la 1re ligne vide, sinon ajoute une ligne) → pas besoin de re-scanner.
+      const qte = Math.max(1, parseInt(newProd.qty) || 1);
+      const bc  = created.barcode ?? '';
+      const emptyIdx = rows.findIndex(r => !r.productId);
+      const line = { productId: created._id, quantity: qte };
+      setRows(prev => emptyIdx !== -1 ? prev.map((r, n) => n === emptyIdx ? line : r) : [...prev, line]);
+      setRowBarcodes(prev => emptyIdx !== -1 ? prev.map((b, n) => n === emptyIdx ? bc : b) : [...prev, bc]);
+
+      // Réinitialise le formulaire (reste vierge), prêt pour un autre produit
       setNewProd({ ...NP_EMPTY });
-      addToast('Produit créé ✓', 'success');
+      addToast('Produit créé et ajouté à la réception ✓', 'success');
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
     finally { setNewProdLoading(false); }
   };
