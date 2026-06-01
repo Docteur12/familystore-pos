@@ -163,11 +163,11 @@ export default function Sidebar() {
 
   const sidebarStyle: React.CSSProperties = isMobile ? {
     position: 'fixed', top: 0, left: isOpen ? 0 : -(SIDEBAR_W + 16),
-    zIndex: 200, height: '100vh', width: SIDEBAR_W,
+    zIndex: 200, width: SIDEBAR_W,
     background: 'var(--fs-wine-900)', display: 'flex', flexDirection: 'column',
     boxShadow: isOpen ? '4px 0 24px rgba(0,0,0,0.4)' : 'none',
   } : {
-    width: SIDEBAR_W, background: 'var(--fs-wine-900)', height: '100vh',
+    width: SIDEBAR_W, background: 'var(--fs-wine-900)',
     display: 'flex', flexDirection: 'column', flexShrink: 0,
     boxShadow: '2px 0 12px rgba(0,0,0,0.18)', zIndex: 10,
   };

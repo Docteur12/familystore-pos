@@ -337,8 +337,11 @@ export default function Caisse() {
   }, [focusScan]);
 
   // ── Scan ──────────────────────────────────────────────────────────────────
-  const handleScan = useCallback(async () => {
-    const code = searchQuery.trim();
+  const handleScan = useCallback(async (codeArg?: string) => {
+    // On lit le code passé en argument (valeur réelle du champ au moment du
+    // scan) plutôt que l'état React, qui peut être en retard d'un caractère
+    // avec un scanner physique rapide → évite les « produit introuvable ».
+    const code = (codeArg ?? searchQuery).trim();
     if (!code || scanning) return;
     setScanError(null);
     setScanning(true);
@@ -355,6 +358,7 @@ export default function Caisse() {
       }
     } catch (err: unknown) {
       setScanError(err instanceof Error ? err.message : 'Produit non trouvé');
+      setSearchQuery(''); // vide le champ pour ne pas concaténer le scan suivant
       playBeep(false); vibrate(150);
     } finally {
       setScanning(false); focusScan();
@@ -922,13 +926,17 @@ export default function Caisse() {
               ref={scanInputRef}
               autoFocus
               type="text"
+              inputMode="numeric"
               value={searchQuery}
               onChange={e => { setSearchQuery(e.target.value); setScanError(null); }}
               onKeyDown={e => {
-                if (e.key === 'Enter') {
-                  if (searchQuery.trim() && filteredProducts.length === 0) handleScan();
-                  else if (searchQuery.trim() && !searchQuery.includes(' ')) handleScan();
-                  else if (!searchQuery.trim() && canValidate) handleValidate();
+                if (e.key !== 'Enter') return;
+                // Valeur réelle saisie (complète même si l'état React est en retard)
+                const code = e.currentTarget.value.trim();
+                if (code) {
+                  if (!code.includes(' ') || filteredProducts.length === 0) handleScan(code);
+                } else if (canValidate) {
+                  handleValidate();
                 }
               }}
               placeholder="Rechercher un produit, scanner un code-barres..."

@@ -96,9 +96,10 @@ function BLProductCell({ products, line, onChange }: {
   };
 
   const handleBarcode = (raw: string) => {
-    const match = products.find(p => p.barcode === raw);
+    const code = raw.trim();
+    const match = products.find(p => (p.barcode ?? '').trim() === code);
     if (match) {
-      onChange({ barcode: raw, productId: match._id, productName: match.name, unit: match.unit });
+      onChange({ barcode: code, productId: match._id, productName: match.name, unit: match.unit });
       setScanMode(false);
     } else {
       onChange({ barcode: raw });
@@ -113,6 +114,7 @@ function BLProductCell({ products, line, onChange }: {
           <input
             ref={scanRef}
             type="text"
+            inputMode="numeric"
             value={line.barcode}
             onChange={e => handleBarcode(e.target.value)}
             onBlur={() => { if (!line.barcode) setScanMode(false); }}

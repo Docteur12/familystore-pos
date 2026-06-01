@@ -597,8 +597,8 @@ export default function Magazinier() {
       )}
 
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-      <aside style={{
-        width: 200, height: '100vh', background: 'var(--fs-wine-900)',
+      <aside className="fs-sidebar-drawer" style={{
+        width: 200, background: 'var(--fs-wine-900)',
         display: 'flex', flexDirection: 'column', flexShrink: 0,
         ...(isMobile ? {
           position: 'fixed', top: 0, left: sideOpen ? 0 : -216,
@@ -611,7 +611,7 @@ export default function Magazinier() {
           <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Magazinier</div>
         </div>
 
-        <nav style={{ flex: 1, padding: '10px 8px' }}>
+        <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
           {TABS.map(t => (
             <button key={t.key} onClick={() => { setTab(t.key); setSideOpen(false); }} style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 9,
@@ -783,10 +783,11 @@ export default function Magazinier() {
                           <input
                             ref={i === 0 ? firstBarcodeRef : undefined}
                             type="text"
+                            inputMode="numeric"
                             value={rowBarcodes[i] ?? ''}
                             onChange={e => setRowBarcode(i, e.target.value)}
-                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleRowBarcodeSearch(i, rowBarcodes[i] ?? ''); } }}
-                            onBlur={() => { if ((rowBarcodes[i] ?? '').trim()) handleRowBarcodeSearch(i, rowBarcodes[i]!); }}
+                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleRowBarcodeSearch(i, e.currentTarget.value); } }}
+                            onBlur={e => { if (e.currentTarget.value.trim()) handleRowBarcodeSearch(i, e.currentTarget.value); }}
                             placeholder="Scanner ou saisir le code-barres…"
                             style={{ ...INPUT, fontFamily: 'var(--fs-font-mono)', fontSize: 12, flex: 1 }}
                           />

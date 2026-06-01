@@ -75,11 +75,11 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
 
   const sidebarStyle: React.CSSProperties = isMobile ? {
     position: 'fixed', top: 0, left: isOpen ? 0 : -(SIDEBAR_W + 16),
-    zIndex: 200, height: '100vh', width: SIDEBAR_W,
+    zIndex: 200, width: SIDEBAR_W,
     background: SIDEBAR_BG, display: 'flex', flexDirection: 'column', overflow: 'hidden',
     boxShadow: isOpen ? '4px 0 24px rgba(0,0,0,0.4)' : 'none',
   } : {
-    width: SIDEBAR_W, height: '100vh', background: SIDEBAR_BG,
+    width: SIDEBAR_W, background: SIDEBAR_BG,
     display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden',
   };
 

@@ -117,8 +117,12 @@ html, body {
 
 /* ── Mobile / responsive ─────────────────────────────────────────────────────── */
 
-/* Sidebar drawer transition */
+/* Sidebar drawer transition + hauteur fiable sur mobile.
+   100dvh tient compte de la barre d'adresse du navigateur mobile pour que
+   le bas du menu (déconnexion) reste visible ; 100vh sert de repli. */
 .fs-sidebar-drawer {
+  height: 100vh;
+  height: 100dvh;
   transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
               box-shadow 0.25s ease;
 }
