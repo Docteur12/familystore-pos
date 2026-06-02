@@ -6,7 +6,6 @@ export interface StoreSettings {
   ville: string;
   telephone: string;
   email: string;
-  tva: number;
   devise: string;
   logoUrl: string;
   horaires: { ouverture: string; fermeture: string };
@@ -21,7 +20,6 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   ville: 'Douala',
   telephone: '',
   email: '',
-  tva: 19.25,
   devise: 'XAF',
   logoUrl: '',
   horaires: { ouverture: '08:00', fermeture: '20:00' },

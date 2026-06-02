@@ -14,9 +14,6 @@ export class Facture {
   @Prop({ required: true, min: 0 })
   montant: number;
 
-  @Prop({ required: true, default: 0, min: 0 })
-  tva: number;
-
   @Prop({ required: true })
   paymentMethod: string;
 

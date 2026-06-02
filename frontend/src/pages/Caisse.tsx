@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import { getAllProducts, createSale, getProductByBarcode, Product, SalePayload, SaleError, effectivePrice } from '../api/products';
 import { openSession, closeSession, getActiveSession } from '../api/sessions';
+import { getCaisseAudit, AuditLogEntry } from '../api/audit';
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
 import {
@@ -23,7 +24,6 @@ import { useInactivityTimer } from '../hooks/useInactivityTimer';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const TVA_RATE = 0.1925;
 const fmtN = (n: number) => n.toLocaleString('fr-FR');
 
 const PAYMENT_METHODS = [
@@ -189,6 +189,9 @@ export default function Caisse() {
   const [pendingCount,   setPendingCount]   = useState(0);
   const [offrePct,       setOffrePct]       = useState(0);
   const [showLogoutModal,setShowLogoutModal]= useState(false);
+  const [showAudit,      setShowAudit]      = useState(false);
+  const [auditRows,      setAuditRows]      = useState<AuditLogEntry[]>([]);
+  const [auditLoading,   setAuditLoading]   = useState(false);
   const [sessionId,      setSessionId]      = useState<string | null>(null);
   const [sessionStart,   setSessionStart]   = useState<Date | null>(null);
   const [sessionSales,   setSessionSales]   = useState(0);
@@ -425,7 +428,6 @@ export default function Caisse() {
   const offreAmt   = offrePct > 0 ? Math.round(subtotal * offrePct / 100) : 0;
   const total      = subtotal - offreAmt;
   const itemCount  = useMemo(() => cart.reduce((s, i) => s + i.quantity, 0), [cart]);
-  const tva        = Math.round(total * TVA_RATE / (1 + TVA_RATE));
   const paid       = parseFloat(amountPaid) || 0;
   const change     = Math.max(0, paid - total);
   const notEnough  = paymentMethod === 'cash' && paid > 0 && paid < total;
@@ -492,16 +494,15 @@ export default function Caisse() {
         const cached = await getCachedProducts(); setAllProducts(cached);
         setPendingCount(prev => prev + 1); setSessionSales(n => n + 1);
         addToast('Mode hors ligne — vente sauvegardée, à synchroniser', 'warning');
-        const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
-        const offlineData: ReceiptData = {
+        const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,'');        const offlineData: ReceiptData = {
           receiptNo: `OFF-${dateP}-${Math.random().toString(36).slice(2,8).toUpperCase()}`, date: d,
           cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
           items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
-          subtotal, total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
+          subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
           ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
         };
         setReceiptData(offlineData); setCart([]); setAmountPaid(''); setPaymentMethod('cash');
-        const ps = getPrintSettings(); if (ps.auto) doPrint(buildReceiptHTML(offlineData, ps.showTva), ps.copies);
+        const ps = getPrintSettings(); if (ps.auto) doPrint(buildReceiptHTML(offlineData), ps.copies);
       } catch { addToast('Erreur sauvegarde locale', 'error'); }
       finally { setValidating(false); focusScan(); }
       return;
@@ -516,17 +517,16 @@ export default function Caisse() {
       try {
         const result = await createSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid, sessionId: sessionId ?? undefined, forceVente: forceVente || undefined, ecarts: ecartsData, idempotencyKey });
         succeeded = true;
-        const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const idPart = String(result.sale._id).slice(-6).toUpperCase(); const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
-        const newData: ReceiptData = {
+        const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const idPart = String(result.sale._id).slice(-6).toUpperCase();        const newData: ReceiptData = {
           receiptNo: `FSV-${dateP}-${idPart}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
           items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
-          subtotal, total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
+          subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
           ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
         };
         setReceiptData(newData); setCart([]); setAmountPaid(''); setPaymentMethod('cash'); setOffrePct(0);
         setSessionSales(n => n + 1);
         if (attempt > 0) addToast('Vente enregistrée ✅', 'success');
-        const ps = getPrintSettings(); if (ps.auto) { doPrint(buildReceiptHTML(newData, ps.showTva), ps.copies); if (paymentMethod === 'cash') openCashDrawer(); }
+        const ps = getPrintSettings(); if (ps.auto) { doPrint(buildReceiptHTML(newData), ps.copies); if (paymentMethod === 'cash') openCashDrawer(); }
         for (const a of result.alerts) addToast(a.stock === 0 ? `Rupture — ${a.productName}` : `Stock bas — ${a.productName} : ${a.stock} restant(s)`, 'warning');
       } catch (err: unknown) {
         const kind = err instanceof SaleError ? err.kind : 'unknown';
@@ -553,16 +553,15 @@ export default function Caisse() {
             await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid, idempotencyKey });
             for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
             const cached = await getCachedProducts(); setAllProducts(cached); setPendingCount(prev => prev + 1);
-            const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const tvaAmt = Math.round(total * TVA_RATE / (1 + TVA_RATE));
-            const offlineData: ReceiptData = {
+            const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,'');            const offlineData: ReceiptData = {
               receiptNo: `OFF-${dateP}-${Math.random().toString(36).slice(2,8).toUpperCase()}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
               items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
-              subtotal, total, tva: tvaAmt, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
+              subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
               ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
             };
             setReceiptData(offlineData); setCart([]); setAmountPaid(''); setPaymentMethod('cash');
             addToast('Vente sauvegardée localement — synchronisation dès que possible', 'warning');
-            const ps = getPrintSettings(); if (ps.auto) doPrint(buildReceiptHTML(offlineData, ps.showTva), ps.copies);
+            const ps = getPrintSettings(); if (ps.auto) doPrint(buildReceiptHTML(offlineData), ps.copies);
           } catch { addToast("Échec définitif — impossible d'enregistrer la vente", 'error'); }
         }
       }
@@ -832,6 +831,41 @@ export default function Caisse() {
         </div>
       )}
 
+      {/* Panneau Audit admin — actions de l'administrateur sur la caisse */}
+      {showAudit && (
+        <div onClick={e => { if (e.target === e.currentTarget) setShowAudit(false); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 540, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--fs-ink-900)' }}>Audit admin</div>
+                <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>Actions de l'administrateur sur la caisse (suppressions de vente…)</div>
+              </div>
+              <button onClick={() => setShowAudit(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', fontSize: 20, lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '8px 0' }}>
+              {auditLoading ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13 }}>Chargement…</div>
+              ) : auditRows.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune action enregistrée</div>
+              ) : auditRows.map(a => (
+                <div key={a._id} style={{ padding: '10px 20px', borderBottom: '1px solid var(--fs-line)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#FAE5DF', color: '#8B2C1A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Suppression</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{a.actorName}</span>
+                    <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>({a.actorRole})</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--fs-ink-700)' }}>{a.detail}</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
+                    {new Date(a.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })} à {new Date(a.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {receiptData && (
         <Receipt
           data={receiptData}
@@ -922,6 +956,18 @@ export default function Caisse() {
             );
           })}
         </nav>
+
+        {/* Audit admin */}
+        <div style={{ padding: '6px 12px 0' }}>
+          <button
+            onClick={() => { setShowAudit(true); setAuditLoading(true); getCaisseAudit().then(setAuditRows).catch(() => {}).finally(() => setAuditLoading(false)); }}
+            style={{ width: '100%', background: 'none', border: '1px solid rgba(245,235,217,0.15)', borderRadius: 7, color: 'rgba(245,235,217,0.6)', cursor: 'pointer', padding: '7px 10px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600 }}
+            title="Voir les actions de l'administrateur (suppressions de vente…)"
+          >
+            <Ico d="M9 12l2 2 4-4M12 3a9 9 0 100 18 9 9 0 000-18z" size={13}/>
+            Audit admin
+          </button>
+        </div>
 
         {/* Logout */}
         <div style={{
@@ -1085,6 +1131,22 @@ export default function Caisse() {
             <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>
             {!isMobile && 'Article divers'}
           </button>
+
+          {/* Audit admin — mobile uniquement (desktop l'a dans la barre latérale) */}
+          {isMobile && (
+            <button
+              onClick={() => { setShowAudit(true); setAuditLoading(true); getCaisseAudit().then(setAuditRows).catch(() => {}).finally(() => setAuditLoading(false)); }}
+              title="Audit admin — actions de l'administrateur"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '6px 8px', border: '1.5px solid var(--fs-line-2)',
+                borderRadius: 'var(--fs-r-md)', background: 'var(--fs-paper)',
+                color: 'var(--fs-ink-500)', cursor: 'pointer',
+              }}
+            >
+              <Ico d="M9 12l2 2 4-4M12 3a9 9 0 100 18 9 9 0 000-18z" size={15}/>
+            </button>
+          )}
 
           {/* Connection indicator */}
           <div style={{
@@ -1461,7 +1523,6 @@ export default function Caisse() {
           <div style={{ flexShrink: 0, borderTop: '1px solid var(--fs-line)' }}>
             <div style={{ padding: '10px 14px 0' }}>
               <Row label={`Sous-total (${itemCount} art.)`} value={fmtN(subtotal)} />
-              <Row label={`TVA incluse (${(TVA_RATE * 100).toFixed(2).replace('.', ',')}%)`} value={fmtN(tva)} />
               {/* Offre globale sur facture */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                 <span style={{ fontSize: 13, color: 'var(--fs-ink-400)' }}>Offre sur facture</span>

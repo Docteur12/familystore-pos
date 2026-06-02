@@ -4,7 +4,6 @@ export interface FacturePayload {
   numero:        string;
   caissier:      string;
   montant:       number;
-  tva:           number;
   paymentMethod: string;
   items:         { name: string; quantity: number; unitPrice: number }[];
   pdfBase64:     string;

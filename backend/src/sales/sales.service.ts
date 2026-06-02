@@ -228,6 +228,29 @@ export class SalesService {
     return sale;
   }
 
+  // ── DELETE /api/sales/:id ─────────────────────────────────────────────────
+  // Supprime une vente (ex. vente de test) : restaure le stock des articles
+  // référencés, trace un mouvement d'annulation, puis efface la vente.
+  async remove(id: string) {
+    const sale = await this.saleModel.findById(id);
+    if (!sale) throw new NotFoundException('Vente introuvable');
+
+    for (const item of sale.items) {
+      if (item.divers || !item.product) continue; // les articles divers n'ont pas de stock
+      await this.productModel.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } });
+      await this.movementModel.create({
+        productId: item.product,
+        type:      'IN',
+        quantity:  item.quantity,
+        reason:    'annulation_vente',
+        note:      `Annulation vente ${String(sale._id).slice(-6).toUpperCase()}`,
+      });
+    }
+
+    await this.saleModel.findByIdAndDelete(id);
+    return { ok: true, total: sale.total, caisseName: sale.caisseName ?? '' };
+  }
+
   // ── GET /api/sales/stats/today ─────────────────────────────────────────────
 
   async statsToday() {

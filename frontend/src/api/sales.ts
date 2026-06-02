@@ -60,3 +60,9 @@ export async function getDiversSales(): Promise<DiversSaleRow[]> {
   if (!res.ok) throw new Error('Erreur chargement des articles divers');
   return res.json();
 }
+
+export async function deleteSale(id: string): Promise<void> {
+  const res = await fetch(`/api/sales/${id}`, { method: 'DELETE', headers: authHeaders() });
+  if (res.status === 403) throw new Error('Suppression réservée à l\'administrateur');
+  if (!res.ok) throw new Error('Erreur suppression de la vente');
+}

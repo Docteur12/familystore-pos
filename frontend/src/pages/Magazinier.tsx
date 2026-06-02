@@ -423,7 +423,7 @@ export default function Magazinier() {
     try {
       await createReception({ fournisseur: fournisseur.trim(), items: validRows, note });
       addToast(`Réception validée — ${validRows.length} produit(s) mis à jour`, 'success');
-      setFournisseur(''); setNote(''); setRows([{ productId: '', quantity: 1 }]);
+      setFournisseur(''); setNote(''); setRows([{ productId: '', quantity: 1 }]); setRowBarcodes(['']);
     } catch (e: unknown) {
       addToast(e instanceof Error ? e.message : 'Erreur', 'error');
     } finally { setRecLoading(false); }

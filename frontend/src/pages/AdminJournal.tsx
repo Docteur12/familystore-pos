@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
-import { getSales, Sale, PM_LABELS } from '../api/sales';
+import { getSales, deleteSale, Sale, PM_LABELS } from '../api/sales';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -166,7 +166,7 @@ function TicketDetail({ sale }: { sale: Sale }) {
 
   return (
     <tr>
-      <td colSpan={8} style={{ background: 'var(--fs-ivory)', padding: '0 0 2px' }}>
+      <td colSpan={9} style={{ background: 'var(--fs-ivory)', padding: '0 0 2px' }}>
         <div style={{ margin: '0 48px 10px', border: '1px solid var(--fs-line)', borderRadius: 8, overflow: 'hidden' }}>
           <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
@@ -223,6 +223,8 @@ export default function AdminJournal() {
   const [customTo,     setCustomTo]     = useState('');
   const [cashierFilter,setCashierFilter]= useState('');
   const [sort,         setSort]         = useState<{ key: JSortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'desc' });
+  const [deleteTarget, setDeleteTarget] = useState<Sale | null>(null);
+  const [deleting,     setDeleting]     = useState(false);
   const toggleSort = useCallback((key: JSortKey) => {
     setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
     setPage(0);
@@ -250,6 +252,21 @@ export default function AdminJournal() {
     timerRef.current = setInterval(() => load(true), 30_000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [load]);
+
+  const handleDeleteSale = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteSale(deleteTarget._id);
+      setSales(prev => prev.filter(s => s._id !== deleteTarget._id));
+      setDeleteTarget(null);
+      addToast('Vente supprimée — stock restauré ✓', 'success');
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // ── Filtrage local (recherche + caissière) ───────────────────────────────
 
@@ -314,6 +331,30 @@ export default function AdminJournal() {
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <AdminSidebar />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* Modal confirmation suppression de vente */}
+      {deleteTarget && (
+        <div onClick={e => { if (e.target === e.currentTarget) setDeleteTarget(null); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '26px 30px', maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', marginBottom: 6 }}>Supprimer cette vente ?</div>
+            <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 18 }}>
+              Vente <strong>#{deleteTarget._id.slice(-6).toUpperCase()}</strong> de <strong>{fmtN(deleteTarget.total)} XAF</strong>.<br/>
+              Le <strong>stock sera restauré</strong> et la vente retirée de la comptabilité. Action irréversible, tracée dans le journal d'audit.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setDeleteTarget(null)}
+                style={{ flex: 1, padding: '11px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
+                Annuler
+              </button>
+              <button onClick={handleDeleteSale} disabled={deleting}
+                style={{ flex: 1, padding: '11px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#dc2626', color: '#fff', opacity: deleting ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
+                {deleting ? 'Suppression…' : 'Oui, supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
 
@@ -449,12 +490,13 @@ export default function AdminJournal() {
                         </span>
                       </th>
                     ))}
+                    <th style={TH}/>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={8} style={{ padding: '48px', textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13 }}>
+                      <td colSpan={9} style={{ padding: '48px', textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13 }}>
                         {sales.length === 0
                           ? 'Aucune vente enregistrée sur cette période.'
                           : 'Aucune vente correspond à la recherche.'}
@@ -521,6 +563,13 @@ export default function AdminJournal() {
                           {/* Total */}
                           <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)', whiteSpace: 'nowrap' }}>
                             {fmtN(s.total)} XAF
+                          </td>
+                          {/* Supprimer */}
+                          <td style={{ padding: '10px 12px', textAlign: 'center', width: 40 }}>
+                            <button onClick={e => { e.stopPropagation(); setDeleteTarget(s); }} title="Supprimer cette vente"
+                              style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, padding: '5px 8px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex', alignItems: 'center' }}>
+                              <I d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2" size={13}/>
+                            </button>
                           </td>
                         </tr>
                         {isExp && <TicketDetail sale={s} />}

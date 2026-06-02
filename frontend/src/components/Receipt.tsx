@@ -15,16 +15,15 @@ export default function Receipt({ data, onNewSale }: Props) {
   const ps = getPrintSettings();
 
   const handlePrint = () => {
-    const html = buildReceiptHTML(data, ps.showTva);
+    const html = buildReceiptHTML(data);
     doPrint(html, ps.copies);
     // Archive PDF en arrière-plan (silencieux)
     try {
-      const pdfBase64 = buildReceiptPDF(data, ps.showTva);
+      const pdfBase64 = buildReceiptPDF(data);
       saveFacture({
         numero:        data.receiptNo,
         caissier:      data.cashierName,
         montant:       data.total,
-        tva:           data.tva,
         paymentMethod: data.paymentLabel,
         items:         data.items.map(i => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })),
         pdfBase64,
@@ -33,7 +32,6 @@ export default function Receipt({ data, onNewSale }: Props) {
     } catch { /* silently ignore */ }
   };
 
-  const tvaDisplay     = Math.round(data.total * 0.1925 / (1 + 0.1925));
   const subDisplay     = data.subtotal ?? data.total;
   const totalDiscount  = data.items.reduce((s, item) => {
     if ((item.discount ?? 0) > 0 && item.originalPrice) {
@@ -137,12 +135,6 @@ export default function Receipt({ data, onNewSale }: Props) {
               <span>Sous-total</span>
               <span>{subDisplay.toLocaleString('fr-FR')} XAF</span>
             </div>
-            {ps.showTva && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--fs-ink-500)' }}>
-                <span>TVA incluse (19.25%)</span>
-                <span>{(data.tva ?? tvaDisplay).toLocaleString('fr-FR')} XAF</span>
-              </div>
-            )}
             {totalDiscount > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#c0392b', fontWeight: 600 }}>
                 <span>Réduction produits</span>

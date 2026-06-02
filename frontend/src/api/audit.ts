@@ -42,3 +42,10 @@ export async function getAuditStats(): Promise<AuditStats> {
   if (!res.ok) throw new Error('Erreur stats audit');
   return res.json();
 }
+
+// Actions admin sur la caisse (ex. suppression de vente) — accessible au caissier.
+export async function getCaisseAudit(): Promise<AuditLogEntry[]> {
+  const res = await fetch('/api/audit/caisse', { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement audit caisse');
+  return res.json();
+}

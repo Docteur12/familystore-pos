@@ -43,6 +43,18 @@ export class AuditService {
       .lean();
   }
 
+  // Actions de l'administrateur sur la caisse (ex. suppression de vente),
+  // consultables depuis la page caisse pour la traçabilité.
+  async findCaisseAdminActions(caisseName?: string, limit = 100) {
+    const q: Record<string, any> = { module: 'ventes', type: 'suppression' };
+    if (caisseName) q['meta.caisseName'] = caisseName; // chaque caisse ne voit que ses ventes
+    return this.model
+      .find(q)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+  }
+
   async getStats() {
     const types = ['vente', 'connexion', 'creation', 'modification', 'suppression'];
     const counts: Record<string, number> = {};

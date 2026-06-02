@@ -19,7 +19,6 @@ export interface ReceiptData {
   items:          ReceiptItem[];
   subtotal:       number;  // avant réduction facture
   total:          number;  // après réduction facture
-  tva:            number;
   paymentLabel:   string;
   amountPaid:     number;
   change:         number;
@@ -30,13 +29,11 @@ export interface ReceiptData {
 export interface PrintSettings {
   auto:    boolean;
   copies:  number;
-  showTva: boolean;
 }
 
 export const PRINT_DEFAULTS: PrintSettings = {
   auto:    false,
   copies:  1,
-  showTva: true,
 };
 
 const LS_KEY = 'fs_print_settings';
@@ -55,7 +52,10 @@ export function savePrintSettings(s: PrintSettings) {
   localStorage.setItem(LS_KEY, JSON.stringify(s));
 }
 
-export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
+// Tronque un nom de produit trop long (> 40 caractères) avec une ellipse.
+const truncName = (n: string) => (n.length > 40 ? n.slice(0, 40).trimEnd() + '…' : n);
+
+export function buildReceiptHTML(data: ReceiptData): string {
   const dateStr = data.date.toLocaleDateString('fr-FR');
   const timeStr = data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
@@ -80,7 +80,7 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
       : '';
     return `
     <div class="item">
-      <div class="iname">${item.name}${badge}</div>
+      <div class="iname">${truncName(item.name)}${badge}</div>
       ${localNameRow}
       <div class="irow">
         <span>${item.quantity} &times; ${prixLigne}</span>
@@ -88,10 +88,6 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
       </div>
     </div>`;
   }).join('');
-
-  const tvaRow = showTva
-    ? `<div class="row"><span>TVA incluse (19.25%)</span><span>${data.tva.toLocaleString('fr-FR')} XAF</span></div>`
-    : '';
 
   const monnaieRow = data.change > 0
     ? `<div class="row bold"><span>Monnaie</span><span>${data.change.toLocaleString('fr-FR')} XAF</span></div>`
@@ -125,8 +121,8 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
     body { padding: 8px 10px 16px; }
     .center{ text-align: center; }
     .bold  { font-weight: bold; }
-    .solid { border-top: 2px solid #000; margin: 7px 0; }
-    .dash  { border-top: 1px dashed #000; margin: 6px 0; }
+    .solid { border-top: 2px solid #000; margin: 7px 0 13px; }
+    .dash  { border-top: 1px dashed #000; margin: 6px 0 12px; }
     .store { font-size: 19px; font-weight: 900; letter-spacing: 3px; }
     .sub   { font-size: 11px; margin: 2px 0; }
     .meta  { font-size: 12px; margin: 2px 0; }
@@ -156,7 +152,6 @@ export function buildReceiptHTML(data: ReceiptData, showTva = true): string {
   ${itemRows}
   <div class="dash"></div>
   <div class="row"><span>Sous-total</span><span>${data.subtotal.toLocaleString('fr-FR')} XAF</span></div>
-  ${tvaRow}
   ${totalDiscount > 0 ? `<div class="row" style="color:#c0392b !important;font-weight:bold;"><span>R&eacute;duction produits</span><span>-${totalDiscount.toLocaleString('fr-FR')} XAF</span></div>` : ''}
   ${(data.offrePct ?? 0) > 0 ? `<div class="row" style="color:#c0392b !important;font-weight:bold;"><span>R&eacute;duction facture (-${data.offrePct}%)</span><span>-${(data.offreAmt ?? 0).toLocaleString('fr-FR')} XAF</span></div>` : ''}
   <div class="solid"></div>
@@ -193,7 +188,7 @@ export function doPrint(html: string, copies = 1) {
 
 // Génération PDF reçu (base64) pour archivage ─────────────────────────────────
 
-export function buildReceiptPDF(data: ReceiptData, showTva = true): string {
+export function buildReceiptPDF(data: ReceiptData): string {
   const doc  = new jsPDF({ unit: 'mm', format: [80, 220], orientation: 'portrait' });
   const W    = 76; // largeur utile
   let   y    = 6;
@@ -212,8 +207,8 @@ export function buildReceiptPDF(data: ReceiptData, showTva = true): string {
     doc.text(right, W + 2,  y, { align: 'right' });
     y += size * 0.42;
   };
-  const dash  = () => { doc.setLineWidth(0.2); (doc as any).setLineDash([1, 1]); doc.line(2, y, W + 2, y); y += 2; };
-  const solid = () => { doc.setLineWidth(0.4); (doc as any).setLineDash([]);    doc.line(2, y, W + 2, y); y += 2.5; };
+  const dash  = () => { doc.setLineWidth(0.2); (doc as any).setLineDash([1, 1]); doc.line(2, y, W + 2, y); y += 4; };
+  const solid = () => { doc.setLineWidth(0.4); (doc as any).setLineDash([]);    doc.line(2, y, W + 2, y); y += 4.5; };
 
   const dateStr = data.date.toLocaleDateString('fr-FR');
   const timeStr = data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
@@ -238,7 +233,7 @@ export function buildReceiptPDF(data: ReceiptData, showTva = true): string {
 
   // Articles
   for (const item of data.items) {
-    line(item.name, 9, true);
+    line(truncName(item.name), 9, true);
     if (item.localName) line(item.localName, 7, false);
     row(
       `  ${item.quantity} x ${fmt(item.unitPrice)}`,
@@ -257,7 +252,6 @@ export function buildReceiptPDF(data: ReceiptData, showTva = true): string {
     return s;
   }, 0);
   row('Sous-total', `${fmt(data.total)} XAF`, 8);
-  if (showTva) row('TVA incluse (19.25%)', `${fmt(data.tva)} XAF`, 8);
   if (pdfDiscount > 0) row(`Reduction appliquee`, `-${fmt(pdfDiscount)} XAF`, 8);
   solid();
   row('TOTAL', `${fmt(data.total)} XAF`, 12, true);

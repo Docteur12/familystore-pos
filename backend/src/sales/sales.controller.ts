@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -146,5 +147,21 @@ export class SalesController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.salesService.findOne(id);
+  }
+
+  // DELETE /api/sales/:id — suppression d'une vente (patron uniquement)
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('patron')
+  async remove(@Param('id') id: string, @Req() req: Request) {
+    const actor = (req as any)['user'];
+    const result = await this.salesService.remove(id);
+    this.auditService.log({
+      type: 'suppression', module: 'ventes',
+      actorName: actor.name, actorRole: actor.role,
+      detail: `Vente supprimée #${id.slice(-6).toUpperCase()} · ${result.total.toLocaleString('fr-FR')} XAF`,
+      meta: { saleId: id, total: result.total, caisseName: result.caisseName },
+    });
+    return result;
   }
 }

@@ -83,7 +83,7 @@ const PERMS: PermSection[] = [
     actions: [
       { label: 'Voir le tableau de bord',  desc: "KPIs, chiffre d'affaires, statistiques",    patron: true,  gestionnaire: false, caissier: false, magazinier: false },
       { label: 'Consulter les rapports',   desc: 'Rapports mensuels et comparaisons',          patron: true,  gestionnaire: false, caissier: false, magazinier: false },
-      { label: 'Voir la comptabilité',     desc: 'Compte de résultat, TVA, charges',           patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: 'Voir la comptabilité',     desc: 'Compte de résultat, charges, bénéfice',      patron: true,  gestionnaire: false, caissier: false, magazinier: false },
       { label: 'Exporter les données',     desc: 'Export Excel / PDF des rapports',            patron: true,  gestionnaire: false, caissier: false, magazinier: false },
       { label: "Consulter l'audit",        desc: 'Journal des actions sensibles',              patron: true,  gestionnaire: false, caissier: false, magazinier: false },
     ],
@@ -91,7 +91,7 @@ const PERMS: PermSection[] = [
   {
     section: 'Système',
     actions: [
-      { label: 'Modifier les paramètres',  desc: 'Infos magasin, TVA, devise, imprimantes',   patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: 'Modifier les paramètres',  desc: 'Infos magasin, devise, imprimantes',        patron: true,  gestionnaire: false, caissier: false, magazinier: false },
       { label: 'Gérer les rôles',          desc: 'Modifier les permissions de chaque rôle',   patron: true,  gestionnaire: false, caissier: false, magazinier: false },
     ],
   },

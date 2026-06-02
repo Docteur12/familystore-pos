@@ -82,7 +82,6 @@ interface SForm {
   ville: string;
   telephone: string;
   email: string;
-  tva: string;
   devise: string;
   logoUrl: string;
   ouverture: string;
@@ -100,7 +99,6 @@ function toSForm(s: StoreSettings): SForm {
     ville:             s.ville,
     telephone:         s.telephone,
     email:             s.email,
-    tva:               String(s.tva),
     devise:            s.devise,
     logoUrl:           s.logoUrl,
     ouverture:         s.horaires?.ouverture ?? '08:00',
@@ -119,7 +117,6 @@ function fromSForm(f: SForm): Partial<StoreSettings> {
     ville:      f.ville.trim(),
     telephone:  f.telephone.trim(),
     email:      f.email.trim(),
-    tva:        parseFloat(f.tva) || 0,
     devise:     f.devise.trim() || 'XAF',
     logoUrl:    f.logoUrl,
     horaires:   { ouverture: f.ouverture, fermeture: f.fermeture },
@@ -390,11 +387,8 @@ export default function AdminParametres() {
 
           {/* ── Fiscal & Monnaie ─────────────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
-            <p style={SECTION_TITLE}>Fiscal & Monnaie</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <Field label="Taux TVA (%)" value={form.tva}    onChange={mkChange('tva')}    type="number" placeholder="19.25"/>
-              <Field label="Devise"        value={form.devise} onChange={mkChange('devise')} placeholder="XAF"/>
-            </div>
+            <p style={SECTION_TITLE}>Monnaie</p>
+            <Field label="Devise" value={form.devise} onChange={mkChange('devise')} placeholder="XAF"/>
           </div>
 
           {/* ── Langue ───────────────────────────────────────────────────── */}
@@ -466,28 +460,6 @@ export default function AdminParametres() {
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* Toggle afficher TVA */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>Afficher la TVA sur le reçu</div>
-                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>Affiche le montant TVA incluse (19.25%)</div>
-                </div>
-                <button
-                  onClick={() => updatePrint('showTva', !printSettings.showTva)}
-                  style={{
-                    width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
-                    background: printSettings.showTva ? 'var(--fs-wine-700)' : 'var(--fs-line-2)',
-                    position: 'relative', flexShrink: 0, transition: 'background 0.2s',
-                  }}
-                >
-                  <span style={{
-                    position: 'absolute', top: 3, left: printSettings.showTva ? 22 : 3,
-                    width: 18, height: 18, borderRadius: '50%', background: '#fff',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)', transition: 'left 0.2s',
-                  }}/>
-                </button>
               </div>
 
             </div>

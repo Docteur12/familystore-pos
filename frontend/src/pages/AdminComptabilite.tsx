@@ -6,8 +6,6 @@ import { authHeaders } from '../api/http';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
-const TVA_RATE = 0.1925;
-
 const PM_LABELS: Record<string, string> = {
   cash:         'Espèces',
   mtn_momo:     'MTN MoMo',
@@ -185,11 +183,7 @@ export default function AdminComptabilite() {
   // ── Valeurs dérivées ────────────────────────────────────────────────────────
 
   const d = displayData;
-  const tvaCollectee  = d ? Math.round(d.ca         * TVA_RATE / (1 + TVA_RATE)) : 0;
-  const tvaDeductible = d ? Math.round(d.coutAchats * TVA_RATE / (1 + TVA_RATE)) : 0;
-  const tvaDue        = tvaCollectee - tvaDeductible;
   const margePct      = d && d.ca > 0 ? (d.beneficeNet / d.ca) * 100 : 0;
-  const caHT          = d ? Math.round(d.ca / (1 + TVA_RATE)) : 0;
 
   // ── Exports ─────────────────────────────────────────────────────────────────
 
@@ -358,22 +352,11 @@ export default function AdminComptabilite() {
 
               {/* Colonne droite */}
               <div>
-                {/* TVA */}
-                <Card title="TVA (Taux 19,25% — Cameroun)">
-                  <Row label="TVA collectée" value={tvaCollectee} sub="Sur les ventes HT" />
-                  <Row label="TVA déductible" value={tvaDeductible} accent="neg" sub="Sur les coûts d'achat HT" />
-                  <div style={{ marginTop: 8, background: 'var(--fs-wine-50)', borderRadius: 8, padding: '12px 14px', display: 'flex', justifyContent: 'space-between' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-wine-700)' }}>TVA à reverser</div>
-                    <div style={{ fontSize: 18, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>{fmtN(tvaDue)} XAF</div>
-                  </div>
-                </Card>
-
                 {/* Synthèse financière */}
                 <Card title="Synthèse financière">
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                     {[
-                      { label: 'CA HT',        value: caHT,          color: 'var(--fs-ink-800)' },
-                      { label: 'CA TTC',        value: d.ca,          color: 'var(--fs-ink-800)' },
+                      { label: 'Chiffre d\'affaires', value: d.ca,          color: 'var(--fs-ink-800)' },
                       { label: 'Marge brute',   value: d.margesBrute, color: 'var(--fs-success-700)' },
                       { label: 'Bénéfice net',  value: d.beneficeNet, color: d.beneficeNet >= 0 ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' },
                     ].map(item => (

@@ -1,4 +1,5 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
 import { AuditService } from './audit.service';
 import { AuthGuard }   from '../auth/auth.guard';
 import { RolesGuard }  from '../auth/roles.guard';
@@ -23,5 +24,14 @@ export class AuditController {
   @Get('stats')
   stats() {
     return this.service.getStats();
+  }
+
+  // Actions admin sur la caisse (ex. suppression de vente) — visible par la caisse.
+  // @Roles au niveau méthode pour autoriser au-delà du patron (override la classe).
+  @Get('caisse')
+  @Roles('caissier', 'gestionnaire', 'magazinier', 'patron')
+  caisseActions(@Req() req: Request, @Query('limit') limit?: string) {
+    const caisse = (req as any).user?.caisse?.nom; // filtre selon la caisse de l'utilisateur
+    return this.service.findCaisseAdminActions(caisse, limit ? Number(limit) : 100);
   }
 }

@@ -20,9 +20,6 @@ export class Settings {
   @Prop({ default: '' })
   email: string;
 
-  @Prop({ default: 19.25 })
-  tva: number;
-
   @Prop({ default: 'XAF' })
   devise: string;
 
