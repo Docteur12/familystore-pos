@@ -47,3 +47,9 @@ export async function getFacture(id: string): Promise<FactureRecord> {
   if (!res.ok) throw new Error('Facture introuvable');
   return res.json();
 }
+
+export async function deleteFacture(id: string): Promise<void> {
+  const res = await fetch(`/api/factures/${id}`, { method: 'DELETE', headers: authHeaders() });
+  if (res.status === 403) throw new Error('Suppression réservée à l\'administrateur');
+  if (!res.ok) throw new Error('Erreur suppression de la facture');
+}

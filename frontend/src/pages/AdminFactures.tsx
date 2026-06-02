@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
-import { getFactures, FactureRecord } from '../api/factures';
+import { getFactures, deleteFacture, FactureRecord } from '../api/factures';
 import { PM_LABELS } from '../api/sales';
 
 const PAGE_SIZE = 50;
@@ -74,9 +74,27 @@ export default function AdminFactures() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo,   setDateTo]   = useState('');
   const [sort,     setSort]     = useState<{ key: FSortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'desc' });
+  const [deleteTarget, setDeleteTarget] = useState<FactureRecord | null>(null);
+  const [deleting,     setDeleting]     = useState(false);
   const toggleSort = useCallback((key: FSortKey) => {
     setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
   }, []);
+
+  const handleDeleteFacture = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteFacture(deleteTarget._id);
+      setFactures(prev => prev.filter(f => f._id !== deleteTarget._id));
+      setTotal(t => Math.max(0, t - 1));
+      setDeleteTarget(null);
+      addToast('Facture supprimée ✓', 'success');
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const load = useCallback(async (p = 0) => {
     setLoading(true);
@@ -114,6 +132,30 @@ export default function AdminFactures() {
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <AdminSidebar />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* Modal confirmation suppression facture */}
+      {deleteTarget && (
+        <div onClick={e => { if (e.target === e.currentTarget) setDeleteTarget(null); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '26px 30px', maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', marginBottom: 6 }}>Supprimer cette facture ?</div>
+            <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 18 }}>
+              Facture <strong>#{deleteTarget.numero}</strong> · {fmtN(deleteTarget.montant)} XAF.<br/>
+              L'archive PDF sera retirée de l'historique. Cela n'affecte pas le journal des ventes ni le stock.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setDeleteTarget(null)}
+                style={{ flex: 1, padding: '11px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
+                Annuler
+              </button>
+              <button onClick={handleDeleteFacture} disabled={deleting}
+                style={{ flex: 1, padding: '11px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#dc2626', color: '#fff', opacity: deleting ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
+                {deleting ? 'Suppression…' : 'Oui, supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
 
@@ -209,11 +251,17 @@ export default function AdminFactures() {
                         {fmtN(f.montant)} XAF
                       </td>
                       <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                        <button onClick={() => downloadPDF(f)}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: 'var(--fs-wine-50)', color: 'var(--fs-wine-700)', border: '1px solid var(--fs-wine-200)', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                          <I d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" size={11} />
-                          PDF
-                        </button>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <button onClick={() => downloadPDF(f)}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: 'var(--fs-wine-50)', color: 'var(--fs-wine-700)', border: '1px solid var(--fs-wine-200)', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                            <I d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" size={11} />
+                            PDF
+                          </button>
+                          <button onClick={() => setDeleteTarget(f)} title="Supprimer cette facture"
+                            style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', background: '#fef2f2', color: 'var(--fs-danger-700)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 6, cursor: 'pointer' }}>
+                            <I d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2" size={12} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

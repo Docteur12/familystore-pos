@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Get, Param, Post, Query, UseGuards, HttpCode, HttpStatus,
+  Body, Controller, Delete, Get, Param, Post, Query, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { FacturesService, CreateFactureDto } from './factures.service';
 import { AuthGuard }  from '../auth/auth.guard';
@@ -37,5 +37,13 @@ export class FacturesController {
   @Roles('patron')
   findOne(@Param('id') id: string) {
     return this.facturesService.findOne(id);
+  }
+
+  // DELETE /api/factures/:id — patron only
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('patron')
+  remove(@Param('id') id: string) {
+    return this.facturesService.remove(id);
   }
 }

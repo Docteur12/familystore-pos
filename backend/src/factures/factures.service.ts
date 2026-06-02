@@ -49,4 +49,9 @@ export class FacturesService {
   async findOne(id: string): Promise<FactureDocument | null> {
     return this.factureModel.findById(id).exec();
   }
+
+  async remove(id: string): Promise<{ ok: boolean }> {
+    await this.factureModel.findByIdAndDelete(id).exec();
+    return { ok: true };
+  }
 }
