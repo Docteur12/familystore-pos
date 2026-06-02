@@ -669,6 +669,14 @@ export default function Magazinier() {
           ))}
         </nav>
 
+        {/* Retour admin (patron uniquement) */}
+        {payload?.role === 'patron' && (
+          <button onClick={() => { window.location.href = '/admin/dashboard'; }}
+            style={{ margin: '0 12px 8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'var(--fs-gold-400)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)' }}>
+            <I d="M15 18l-6-6 6-6" size={13}/> Retour admin
+          </button>
+        )}
+
         <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--fs-gold-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
             {initials}

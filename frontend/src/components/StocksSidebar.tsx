@@ -177,6 +177,14 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
           })}
         </div>
 
+        {/* Retour admin (patron uniquement) */}
+        {payload?.role === 'patron' && (
+          <Link to="/admin/dashboard"
+            style={{ margin: '0 10px 8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'var(--fs-gold-400)', fontSize: 12, fontWeight: 700 }}>
+            <I d="M15 18l-6-6 6-6" size={13}/> Retour admin
+          </Link>
+        )}
+
         {/* Dépôt */}
         <div style={{ margin: '0 10px 10px', padding: '10px 12px', background: 'rgba(255,255,255,0.07)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--fs-gold-400)', marginBottom: 4 }}>

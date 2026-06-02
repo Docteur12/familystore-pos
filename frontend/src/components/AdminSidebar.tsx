@@ -36,6 +36,9 @@ const D = {
   logout:       'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h12',
   menu:         'M3 6h18M3 12h18M3 18h18',
   close:        'M18 6L6 18M6 6l12 12',
+  caisseSpace:  'M2 7h20v10H2zM2 11h20M6 15h4',
+  stockSpace:   'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10',
+  magSpace:     'M1 3h15v13H1zM16 8h4l3 3v5h-7V8z',
 };
 
 const SECTIONS = [
@@ -67,6 +70,14 @@ const SECTIONS = [
       { id: 'parametres',   label: 'Paramètres magasin', icon: D.parametres,   path: '/admin/parametres' },
       { id: 'audit',        label: 'Audit & logs',       icon: D.audit,        path: '/admin/audit'      },
       { id: 'exports',      label: 'Exports',            icon: D.exports,      path: '/admin/exports'    },
+    ],
+  },
+  {
+    title: "Changer d'espace",
+    items: [
+      { id: 'go-caisse',     label: 'Caisse',           icon: D.caisseSpace, path: '/caisse'     },
+      { id: 'go-stock',      label: 'Gestion de stock', icon: D.stockSpace,  path: '/stocks'     },
+      { id: 'go-magazinier', label: 'Magazinier',       icon: D.magSpace,    path: '/magazinier' },
     ],
   },
 ];

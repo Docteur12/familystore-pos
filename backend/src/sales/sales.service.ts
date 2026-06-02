@@ -30,7 +30,7 @@ export class SalesService {
 
   // ── POST /api/sales ─────────────────────────────────────────────────────────
 
-  async create(dto: CreateSaleDto, actor?: { name?: string; email?: string; caisse?: { nom?: string } }) {
+  async create(dto: CreateSaleDto, actor?: { name?: string; email?: string; role?: string; caisse?: { nom?: string } }) {
 
     // ── 0. Idempotence : si cette vente a déjà été enregistrée, on la renvoie ──
     //      telle quelle (aucune nouvelle écriture, aucun re-décrément de stock).
@@ -84,7 +84,9 @@ export class SalesService {
         change,
         cashierName:   actor?.name        ?? '',
         cashierEmail:  actor?.email       ?? '',
-        caisseName:    actor?.caisse?.nom ?? '',
+        // Le patron n'a pas de caisse assignée : ses ventes (dépannage) sont
+        // attribuées clairement plutôt que laissées sans caisse.
+        caisseName:    actor?.caisse?.nom || (actor?.role === 'patron' ? `Dépannage — ${actor?.name ?? 'Admin'}` : ''),
         sessionId:     dto.sessionId      ?? '',
         idempotencyKey: dto.idempotencyKey,
       });

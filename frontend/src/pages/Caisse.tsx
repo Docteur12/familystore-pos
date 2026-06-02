@@ -892,7 +892,7 @@ export default function Caisse() {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
-            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.caisse?.nom ?? '—'}</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.caisse?.nom ?? (payload?.role === 'patron' ? 'Mode dépannage' : '—')}</div>
             <div style={{ fontSize: 10, color: 'rgba(245,235,217,0.45)', marginTop: 1 }}>
               {sessionStart ? sessionStart.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'} · {sessionSales} vente{sessionSales !== 1 ? 's' : ''}
             </div>
@@ -968,6 +968,18 @@ export default function Caisse() {
             Audit admin
           </button>
         </div>
+
+        {/* Retour admin (patron uniquement) */}
+        {payload?.role === 'patron' && (
+          <div style={{ padding: '6px 12px 0' }}>
+            <button
+              onClick={() => { window.location.href = '/admin/dashboard'; }}
+              style={{ width: '100%', background: 'rgba(245,235,217,0.06)', border: '1px solid rgba(245,235,217,0.2)', borderRadius: 7, color: 'var(--fs-gold-400)', cursor: 'pointer', padding: '7px 10px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700 }}
+            >
+              <Ico d="M15 18l-6-6 6-6" size={13}/> Retour admin
+            </button>
+          </div>
+        )}
 
         {/* Logout */}
         <div style={{
