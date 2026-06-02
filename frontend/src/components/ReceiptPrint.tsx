@@ -93,15 +93,11 @@ export function buildReceiptHTML(data: ReceiptData): string {
     ? `<div class="row bold"><span>Monnaie</span><span>${data.change.toLocaleString('fr-FR')} XAF</span></div>`
     : '';
 
-  // Si aucune réduction sur ce ticket → offre 5% sur le prochain achat ;
-  // sinon (réduction appliquée) → message de remerciement habituel.
-  const hasReduction = totalDiscount > 0 || (data.offrePct ?? 0) > 0;
-  const footMessage = hasReduction
-    ? `<p class="foot" style="font-weight:bold;">Merci de votre visite !</p>
-       <p class="foot">Revenez nous voir — Family Store</p>`
-    : `<p class="foot" style="font-weight:bold;">Merci pour votre achat</p>
-       <p class="foot">Comme remerciement, <b>Family Store vous offre 5 % de r&eacute;duction</b> sur votre prochain achat.</p>
-       <p class="foot">Pr&eacute;sentez juste cette facture &agrave; la caisse pour en b&eacute;n&eacute;ficier.</p>`;
+  // Message d'offre fidélité affiché sur TOUS les tickets.
+  const footMessage =
+    `<p class="foot" style="font-weight:bold;">Merci pour votre achat</p>
+     <p class="foot">Comme remerciement, <b>Family Store vous offre 5 % de r&eacute;duction</b> sur votre prochain achat.</p>
+     <p class="foot">Pr&eacute;sentez juste cette facture &agrave; la caisse pour en b&eacute;n&eacute;ficier.</p>`;
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -274,16 +270,11 @@ export function buildReceiptPDF(data: ReceiptData): string {
 
   // Pied
   y += 1;
-  if (pdfDiscount > 0 || (data.offrePct ?? 0) > 0) {
-    line('Merci de votre visite !', 9, true, 'center');
-    line('Revenez nous voir — Family Store', 8, false, 'center');
-  } else {
-    line('Merci pour votre achat', 9, true, 'center');
-    line('Family Store vous offre 5% de reduction', 8, true, 'center');
-    line('sur votre prochain achat.', 8, false, 'center');
-    line('Presentez cette facture a la caisse', 7, false, 'center');
-    line('pour en beneficier.', 7, false, 'center');
-  }
+  line('Merci pour votre achat', 9, true, 'center');
+  line('Family Store vous offre 5% de reduction', 8, true, 'center');
+  line('sur votre prochain achat.', 8, false, 'center');
+  line('Presentez cette facture a la caisse', 7, false, 'center');
+  line('pour en beneficier.', 7, false, 'center');
   line('Bonamoussadi · Douala', 7, false, 'center');
   line('Tel: 682 263 435', 7, false, 'center');
 
