@@ -93,6 +93,16 @@ export function buildReceiptHTML(data: ReceiptData): string {
     ? `<div class="row bold"><span>Monnaie</span><span>${data.change.toLocaleString('fr-FR')} XAF</span></div>`
     : '';
 
+  // Si aucune réduction sur ce ticket → offre 5% sur le prochain achat ;
+  // sinon (réduction appliquée) → message de remerciement habituel.
+  const hasReduction = totalDiscount > 0 || (data.offrePct ?? 0) > 0;
+  const footMessage = hasReduction
+    ? `<p class="foot" style="font-weight:bold;">Merci de votre visite !</p>
+       <p class="foot">Revenez nous voir — Family Store</p>`
+    : `<p class="foot" style="font-weight:bold;">Merci pour votre achat</p>
+       <p class="foot">Comme remerciement, <b>Family Store vous offre 5 % de r&eacute;duction</b> sur votre prochain achat.</p>
+       <p class="foot">Pr&eacute;sentez juste cette facture &agrave; la caisse pour en b&eacute;n&eacute;ficier.</p>`;
+
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -141,7 +151,7 @@ export function buildReceiptHTML(data: ReceiptData): string {
     <div class="sub">by RDCT</div>
     <div class="sub">Beaut&eacute; &middot; Saveurs &middot; Bien-&ecirc;tre</div>
     <div class="sub" style="margin-top:3px;font-weight:bold;">Point de Vente</div>
-    <div class="sub" style="font-weight:bold;">March&eacute; Bonamoussadi &middot; Douala</div>
+    <div class="sub" style="font-weight:bold;">Bonamoussadi &middot; Douala</div>
     <div class="sub" style="font-weight:bold;">Tel: ${data.storePhone || '682 263 435'}</div>
   </div>
   <div class="solid"></div>
@@ -162,9 +172,8 @@ export function buildReceiptHTML(data: ReceiptData): string {
   ${monnaieRow}
   <div class="dash"></div>
   <div class="center">
-    <p class="foot" style="font-weight:bold;">Merci de votre visite !</p>
-    <p class="foot">Revenez nous voir — Family Store</p>
-    <p class="foot" style="margin-top:5px;">March&eacute; Bonamoussadi &middot; Douala</p>
+    ${footMessage}
+    <p class="foot" style="margin-top:5px;">Bonamoussadi &middot; Douala</p>
     <p class="foot">Tel: 682 263 435</p>
     <p class="foot" style="margin-top:4px;font-size:9px;">Family Store POS &copy; ${new Date().getFullYear()}</p>
   </div>
@@ -219,7 +228,7 @@ export function buildReceiptPDF(data: ReceiptData): string {
   line('by RDCT', 8, false, 'center');
   line('Beaute · Saveurs · Bien-etre', 7, false, 'center');
   line('Point de Vente', 8, true, 'center');
-  line('Marche Bonamoussadi · Douala', 8, true, 'center');
+  line('Bonamoussadi · Douala', 8, true, 'center');
   line(`Tel: ${data.storePhone || '682 263 435'}`, 8, true, 'center');
   y += 1;
   solid();
@@ -265,9 +274,17 @@ export function buildReceiptPDF(data: ReceiptData): string {
 
   // Pied
   y += 1;
-  line('Merci de votre visite !', 9, true, 'center');
-  line('Revenez nous voir — Family Store', 8, false, 'center');
-  line('Marche Bonamoussadi · Douala', 7, false, 'center');
+  if (pdfDiscount > 0 || (data.offrePct ?? 0) > 0) {
+    line('Merci de votre visite !', 9, true, 'center');
+    line('Revenez nous voir — Family Store', 8, false, 'center');
+  } else {
+    line('Merci pour votre achat', 9, true, 'center');
+    line('Family Store vous offre 5% de reduction', 8, true, 'center');
+    line('sur votre prochain achat.', 8, false, 'center');
+    line('Presentez cette facture a la caisse', 7, false, 'center');
+    line('pour en beneficier.', 7, false, 'center');
+  }
+  line('Bonamoussadi · Douala', 7, false, 'center');
   line('Tel: 682 263 435', 7, false, 'center');
 
   return doc.output('datauristring').split(',')[1] ?? '';

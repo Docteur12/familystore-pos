@@ -49,3 +49,14 @@ export async function getCaisseAudit(): Promise<AuditLogEntry[]> {
   if (!res.ok) throw new Error('Erreur chargement audit caisse');
   return res.json();
 }
+
+// Trace le passage du patron dans un autre espace (fire-and-forget).
+export function logAccesEspace(espace: string): void {
+  try {
+    fetch('/api/audit/acces', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ espace }),
+    }).catch(() => {});
+  } catch { /* ne bloque jamais la navigation */ }
+}

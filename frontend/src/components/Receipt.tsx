@@ -67,7 +67,7 @@ export default function Receipt({ data, onNewSale }: Props) {
             Point de Vente
           </p>
           <p style={{ color: 'rgba(245,235,217,0.45)', fontSize: 10, margin: 0 }}>
-            Marché Bonamoussadi · Douala &nbsp;|&nbsp; {data.storePhone || '682 263 435'}
+            Bonamoussadi · Douala &nbsp;|&nbsp; {data.storePhone || '682 263 435'}
           </p>
         </div>
 
@@ -174,9 +174,17 @@ export default function Receipt({ data, onNewSale }: Props) {
 
           <div style={{ borderTop: '1px dashed var(--fs-line-2)', margin: '10px 0 6px' }} />
 
-          <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--fs-ink-400)' }}>
-            Merci de votre visite — Revenez nous voir !
-          </p>
+          {(totalDiscount > 0 || (data.offrePct ?? 0) > 0) ? (
+            <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--fs-ink-400)' }}>
+              Merci de votre visite — Revenez nous voir !
+            </p>
+          ) : (
+            <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--fs-ink-500)', lineHeight: 1.5 }}>
+              <div style={{ fontWeight: 700, color: 'var(--fs-ink-700)' }}>Merci pour votre achat</div>
+              <div>Comme remerciement, <strong>Family Store vous offre 5 % de réduction</strong> sur votre prochain achat.</div>
+              <div>Présentez juste cette facture à la caisse pour en bénéficier.</div>
+            </div>
+          )}
         </div>
 
         {/* Actions */}

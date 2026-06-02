@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
 import { updateUser } from '../api/auth';
+import { logAccesEspace } from '../api/audit';
 import { useSettings } from '../contexts/SettingsContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 
@@ -271,7 +272,7 @@ export default function AdminSidebar() {
                 const isActive = item.id === activeId;
                 return (
                   <Link key={item.id} to={item.path}
-                    onClick={() => isMobile && setIsOpen(false)}
+                    onClick={() => { if (item.id.startsWith('go-')) logAccesEspace(item.label); if (isMobile) setIsOpen(false); }}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 9,
                       padding: '7px 14px', textDecoration: 'none',

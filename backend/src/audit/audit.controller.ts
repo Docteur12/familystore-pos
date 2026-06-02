@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { AuditService } from './audit.service';
 import { AuthGuard }   from '../auth/auth.guard';
@@ -24,6 +24,18 @@ export class AuditController {
   @Get('stats')
   stats() {
     return this.service.getStats();
+  }
+
+  // POST /api/audit/acces — trace le passage du patron dans un autre espace
+  @Post('acces')
+  logAcces(@Body('espace') espace: string, @Req() req: Request) {
+    const actor = (req as any).user;
+    this.service.log({
+      type: 'connexion', module: 'navigation',
+      actorName: actor?.name ?? '', actorRole: actor?.role ?? '',
+      detail: `Accès à l'espace ${espace || '—'}`,
+    });
+    return { ok: true };
   }
 
   // Actions admin sur la caisse (ex. suppression de vente) — visible par la caisse.
