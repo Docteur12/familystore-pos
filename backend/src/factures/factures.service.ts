@@ -20,7 +20,14 @@ export class FacturesService {
   ) {}
 
   async create(dto: CreateFactureDto): Promise<FactureDocument> {
-    return this.factureModel.create(dto);
+    // Déduplication par numéro : réimprimer un reçu ne crée pas de doublon.
+    // $setOnInsert n'écrit qu'à la création ; si le numéro existe déjà, on
+    // renvoie la facture existante telle quelle.
+    return this.factureModel.findOneAndUpdate(
+      { numero: dto.numero },
+      { $setOnInsert: dto },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    ).exec();
   }
 
   async findAll(query: {
