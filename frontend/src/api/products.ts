@@ -19,6 +19,7 @@ export interface Product {
   expiryDate?:           string | null;
   magazinierThreshold?:  number;
   divers?:        boolean;   // article « divers » synthétique (non référencé)
+  prixVerrouille?: boolean;  // prix fixé par le magazinier → non modifiable par le gestionnaire
 }
 
 export function effectivePrice(p: Product): number {
@@ -130,6 +131,7 @@ export interface ProductPayload {
   discount?:      number;
   expiryDate?:    string | null;
   magazinierThreshold?:  number;
+  prixVerrouille?: boolean;
 }
 
 export async function createProduct(data: ProductPayload): Promise<Product> {
@@ -157,6 +159,18 @@ export async function updateProduct(id: string, data: Partial<ProductPayload>): 
   if (res.status === 401) throw new Error('Non authentifié');
   if (res.status === 403) throw new Error('Accès réservé au patron');
   if (!res.ok) throw new Error('Erreur modification produit');
+  return res.json();
+}
+
+// Fixe les prix d'un produit (magazinier/gestionnaire/patron) et les verrouille.
+export async function setProductPrix(id: string, price: number, costPrice: number): Promise<Product> {
+  const res = await fetch(`/api/products/${id}/prix`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify({ price, costPrice }),
+  });
+  if (res.status === 403) throw new Error('Accès non autorisé pour ce rôle');
+  if (!res.ok) throw new Error('Erreur mise à jour du prix');
   return res.json();
 }
 

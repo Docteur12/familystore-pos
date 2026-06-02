@@ -237,6 +237,8 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
   const [extraCategories, setExtraCategories] = useState<string[]>([]);
   const [newCatInput,     setNewCatInput]     = useState('');
   const [markupPct,       setMarkupPct]       = useState('');
+  // Prix fixé par le magazinier → non modifiable par le gestionnaire
+  const priceLocked = !!product?.prixVerrouille;
   const [foundProduct,    setFoundProduct]    = useState<Product | null>(null);
   const [showScanner,     setShowScanner]     = useState(false);
 
@@ -503,6 +505,11 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
           </div>
 
           {/* Prix achat + marge → prix vente */}
+          {priceLocked && (
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-wine-700)', background: 'var(--fs-wine-50)', border: '1px solid rgba(122,29,46,0.15)', borderRadius: 8, padding: '8px 12px', marginBottom: 4 }}>
+              🔒 Prix fixés par le magazinier — non modifiables.
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'end' }}>
             <div>
               <label style={LABEL_STYLE}>Prix d'achat (XAF)</label>
@@ -510,7 +517,8 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
                 type="number" min={0} value={form.costPrice}
                 onChange={e => { setField('costPrice')(e.target.value); applyMarkup(e.target.value, markupPct); }}
                 placeholder="ex: 300"
-                style={INPUT_STYLE}
+                disabled={priceLocked}
+                style={{ ...INPUT_STYLE, ...(priceLocked ? { background: 'var(--fs-ivory)', color: 'var(--fs-ink-500)', cursor: 'not-allowed' } : {}) }}
               />
             </div>
             <div style={{ textAlign: 'center' }}>
@@ -521,7 +529,8 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
                   value={markupPct}
                   onChange={e => { setMarkupPct(e.target.value); applyMarkup(form.costPrice, e.target.value); }}
                   placeholder="0"
-                  style={{ ...INPUT_STYLE, width: 60, textAlign: 'center' }}
+                  disabled={priceLocked}
+                  style={{ ...INPUT_STYLE, width: 60, textAlign: 'center', ...(priceLocked ? { background: 'var(--fs-ivory)', cursor: 'not-allowed' } : {}) }}
                 />
                 <span style={{ fontSize: 13, color: 'var(--fs-ink-400)', flexShrink: 0 }}>%</span>
               </div>
@@ -532,7 +541,8 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
                 type="number" min={0} value={form.price}
                 onChange={e => { setField('price')(e.target.value); setMarkupPct(''); }}
                 placeholder="ex: 500"
-                style={{ ...INPUT_STYLE, background: markupPct ? '#f0fdf4' : '#fff', borderColor: markupPct ? '#86efac' : undefined }}
+                disabled={priceLocked}
+                style={{ ...INPUT_STYLE, background: priceLocked ? 'var(--fs-ivory)' : (markupPct ? '#f0fdf4' : '#fff'), color: priceLocked ? 'var(--fs-ink-500)' : undefined, cursor: priceLocked ? 'not-allowed' : undefined, borderColor: markupPct && !priceLocked ? '#86efac' : undefined }}
               />
             </div>
           </div>

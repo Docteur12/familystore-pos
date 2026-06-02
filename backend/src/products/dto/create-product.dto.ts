@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsNumber,
   IsOptional,
@@ -70,4 +71,8 @@ export class CreateProductDto {
   @IsNumber()
   @Min(0)
   magazinierThreshold?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  prixVerrouille?: boolean;
 }

@@ -93,6 +93,28 @@ export class ProductsController {
     return result;
   }
 
+  // PATCH /api/products/:id/prix — magazinier + gestionnaire + patron
+  // Fixe les prix et les verrouille (le gestionnaire ne pourra plus les changer)
+  @Patch(':id/prix')
+  @UseGuards(RolesGuard)
+  @Roles('magazinier', 'gestionnaire', 'patron')
+  async setPrix(
+    @Param('id') id: string,
+    @Body('price') price: number,
+    @Body('costPrice') costPrice: number,
+    @Req() req: Request,
+  ) {
+    const actor = (req as any)['user'];
+    const result = await this.productsService.setPrix(id, Number(price) || 0, Number(costPrice) || 0);
+    this.auditService.log({
+      type: 'modification', module: 'produits',
+      actorName: actor.name, actorRole: actor.role,
+      detail: `Prix fixé : ${result.name} — achat ${result.costPrice} / vente ${result.price} XAF`,
+      meta: { productId: id, price: result.price, costPrice: result.costPrice },
+    });
+    return result;
+  }
+
   // DELETE /api/products/:id — patron + gestionnaire
   @Delete(':id')
   @UseGuards(RolesGuard)

@@ -335,6 +335,8 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
   });
 
   const totalEntrepot = avecStock.reduce((s, p) => s + (p.stockMagazin ?? 0), 0);
+  // Valeur approximative de l'entrepôt (quantité entrepôt × prix d'achat)
+  const valeurEntrepot = avecStock.reduce((s, p) => s + (p.stockMagazin ?? 0) * (p.costPrice ?? 0), 0);
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -370,6 +372,7 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
       <div style={{ display: 'flex', gap: 12, padding: '16px 24px', flexShrink: 0 }}>
         {[
           { label: 'Total unités entrepôt', value: fmtN(totalEntrepot), color: 'var(--fs-wine-700)', sub: `${avecStock.length} référence${avecStock.length !== 1 ? 's' : ''} avec stock` },
+          { label: 'Valeur entrepôt (≈)', value: `${fmtN(valeurEntrepot)} XAF`, color: 'var(--fs-ink-900)', sub: "Sur la base du prix d'achat" },
           { label: 'Références en stock', value: avecStock.length, color: '#15803d', sub: `sur ${products.length} produits au total` },
           { label: 'Stock bas / critique', value: basCount, color: basCount > 0 ? '#dc2626' : '#15803d', sub: basCount > 0 ? 'sous le seuil commande' : 'tout est OK' },
           { label: 'Envois au gestionnaire', value: demandes.length, color: '#2563eb', sub: `${demandes.filter(d => d.statut === 'reçu').length} reçu${demandes.filter(d => d.statut === 'reçu').length !== 1 ? 's' : ''} · ${demandes.filter(d => d.statut === 'envoyé').length} en transit` },
@@ -426,7 +429,7 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
           <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
             <thead>
               <tr style={{ background: 'var(--fs-ivory)' }}>
-                {['Produit', 'Catégorie', 'Stock entrepôt', 'Stock caisse', 'Seuil commande', 'État', ''].map((h, i) => (
+                {['Produit', 'Catégorie', 'Stock entrepôt', 'Stock caisse', 'Seuil commande', 'Valeur (≈)', 'État', ''].map((h, i) => (
                   <th key={h} style={{
                     padding: '10px 14px', textAlign: i >= 2 ? 'center' : 'left',
                     fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)',
@@ -443,7 +446,7 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
             <tbody>
               {displayed.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '48px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 14 }}>
+                  <td colSpan={8} style={{ padding: '48px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 14 }}>
                     Aucun produit trouvé
                   </td>
                 </tr>
@@ -495,6 +498,11 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
                     <td style={{ padding: '11px 14px', textAlign: 'center' }}>
                       <span style={{ fontSize: 13, fontFamily: 'var(--fs-font-mono)', color: seuil > 0 ? 'var(--fs-ink-600)' : 'var(--fs-ink-300)', fontWeight: seuil > 0 ? 700 : 400 }}>
                         {seuil > 0 ? seuil : '—'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '11px 14px', textAlign: 'center' }}>
+                      <span style={{ fontSize: 13, fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: (p.costPrice ?? 0) > 0 ? 'var(--fs-ink-800)' : 'var(--fs-ink-300)' }}>
+                        {(p.costPrice ?? 0) > 0 ? `${fmtN(mag * (p.costPrice ?? 0))} XAF` : '—'}
                       </span>
                     </td>
                     <td style={{ padding: '11px 14px', textAlign: 'center' }}>

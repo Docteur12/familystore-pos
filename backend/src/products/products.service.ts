@@ -85,6 +85,18 @@ export class ProductsService {
     return product;
   }
 
+  // Le magazinier (ou patron) fixe les prix d'un produit existant.
+  // Verrouille le prix → le gestionnaire ne peut plus le modifier.
+  async setPrix(id: string, price: number, costPrice: number) {
+    const product = await this.productModel.findByIdAndUpdate(
+      id,
+      { $set: { price: Math.max(0, price), costPrice: Math.max(0, costPrice), prixVerrouille: true } },
+      { new: true },
+    );
+    if (!product) throw new NotFoundException('Produit introuvable');
+    return product;
+  }
+
   async remove(id: string) {
     const product = await this.productModel.findByIdAndDelete(id);
     if (!product) {

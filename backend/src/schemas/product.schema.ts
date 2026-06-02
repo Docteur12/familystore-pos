@@ -58,6 +58,9 @@ export class Product {
 
   @Prop({ default: 0, min: 0 })
   magazinierThreshold: number;
+
+  @Prop({ default: false })
+  prixVerrouille: boolean;  // prix fixé par le magazinier → non modifiable par le gestionnaire
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

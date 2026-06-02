@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { getAllProducts, createProduct, updateProduct, getProductByBarcode, Product } from '../api/products';
+import { getAllProducts, createProduct, updateProduct, setProductPrix, getProductByBarcode, Product } from '../api/products';
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
 import QRScanner from '../components/QRScanner';
@@ -273,7 +273,7 @@ export default function Magazinier() {
   }, []);
 
   // ── Nouveau produit inline ────────────────────────────────────────────────
-  const NP_EMPTY = { name: '', barcode: '', category: '', subCategory: '', unit: 'unité', qty: '', seuilCommande: '', seuilAlerte: '5', expiryDate: '' };
+  const NP_EMPTY = { name: '', barcode: '', category: '', subCategory: '', unit: 'unité', qty: '', seuilCommande: '', seuilAlerte: '5', expiryDate: '', prixAchat: '', prixVente: '' };
   const [showNewProd,    setShowNewProd]    = useState(false);
   const [newProd,        setNewProd]        = useState({ ...NP_EMPTY });
   const [newProdLoading, setNewProdLoading] = useState(false);
@@ -301,11 +301,13 @@ export default function Magazinier() {
         category:            newProd.category || undefined,
         subCategory:         newProd.subCategory.trim() || undefined,
         unit:                newProd.unit || 'unité',
-        price:               0,
-        costPrice:           0,
+        price:               parseInt(newProd.prixVente) || 0,
+        costPrice:           parseInt(newProd.prixAchat) || 0,
         stock:               0,
         expiryDate:          newProd.expiryDate || null,
         magazinierThreshold: parseInt(newProd.seuilCommande) || 0,
+        // Si le magazinier a fixé le prix de vente, il est verrouillé pour le gestionnaire
+        prixVerrouille:      (parseInt(newProd.prixVente) || 0) > 0,
       });
       await loadProducts();
 
@@ -396,6 +398,8 @@ export default function Magazinier() {
           seuilCommande: String(found.magazinierThreshold ?? 0),
           seuilAlerte:   String(found.alertThreshold ?? 5),
           expiryDate:    found.expiryDate ? found.expiryDate.slice(0, 10) : '',
+          prixAchat:     found.costPrice ? String(found.costPrice) : '',
+          prixVente:     found.price ? String(found.price) : '',
         });
         addToast(`✓ Produit existant trouvé : ${found.name} — vérifiez et complétez`, 'success');
       } catch {
@@ -560,6 +564,22 @@ export default function Magazinier() {
   const [hLoading, setHLoading] = useState(false);
   const [histoSearch, setHistoSearch] = useState('');
   const [dashSearch,  setDashSearch]  = useState('');
+  // Édition des prix par produit (tableau de bord magazinier)
+  const [prixEdits, setPrixEdits] = useState<Record<string, { achat: string; vente: string }>>({});
+  const savePrix = useCallback(async (p: Product) => {
+    const e = prixEdits[p._id];
+    if (!e) return;
+    const achat = parseInt(e.achat) || 0;
+    const vente = parseInt(e.vente) || 0;
+    if (achat === (p.costPrice ?? 0) && vente === (p.price ?? 0)) return;
+    try {
+      await setProductPrix(p._id, vente, achat);
+      await loadProducts();
+      addToast('Prix mis à jour et verrouillé ✓', 'success');
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Erreur prix', 'error');
+    }
+  }, [prixEdits, loadProducts, addToast]);
 
   useEffect(() => {
     if ((tab !== 'historique' && tab !== 'dashboard') || histo) return;
@@ -783,6 +803,16 @@ export default function Magazinier() {
                         <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.seuilCommande} onChange={e => setNP('seuilCommande', e.target.value)} placeholder="Seuil commande" title="Seuil pour déclencher une commande"/>
                         <input style={INPUT} type="date" value={newProd.expiryDate} onChange={e => setNP('expiryDate', e.target.value)} title="Date de péremption"/>
                       </div>
+
+                      {/* Prix (optionnels) — si renseignés, ils seront verrouillés chez le gestionnaire */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 }}>
+                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.prixAchat} onChange={e => setNP('prixAchat', e.target.value)} placeholder="Prix d'achat (optionnel)" title="Prix d'achat — optionnel"/>
+                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.prixVente} onChange={e => setNP('prixVente', e.target.value)} placeholder="Prix de vente (optionnel)" title="Prix de vente — optionnel"/>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginBottom: 10 }}>
+                        Si vous renseignez le prix de vente, il sera <strong>verrouillé</strong> pour le gestionnaire.
+                      </div>
+
                       <button onClick={handleCreateProd} disabled={newProdLoading}
                         style={{ ...BTN_PRIMARY, fontSize: 12, padding: '8px 16px', opacity: newProdLoading ? 0.7 : 1 }}>
                         {newProdLoading ? 'Création…' : '✓ Créer le produit'}
@@ -1101,7 +1131,7 @@ export default function Magazinier() {
                 || p.name.toLowerCase().includes(dashSearch.toLowerCase())
                 || (p.category ?? '').toLowerCase().includes(dashSearch.toLowerCase()));
             return (
-            <div style={{ maxWidth: 600 }}>
+            <div style={{ maxWidth: 880 }}>
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                 <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--fs-line)' }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>
@@ -1118,10 +1148,10 @@ export default function Magazinier() {
                 <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--fs-ivory)' }}>
-                      {['Produit', 'Quantité', 'Seuil commande'].map((h, i) => (
+                      {['Produit', 'Quantité', 'Seuil commande', 'Prix achat', 'Prix vente'].map((h, i) => (
                         <th key={h} style={{ padding: '10px 16px', textAlign: i === 0 ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' }}>
                           {h}
-                          {h === 'Seuil commande' && <div style={{ fontWeight: 400, textTransform: 'none', fontSize: 9, letterSpacing: 0, marginTop: 1 }}>Cliquer pour modifier</div>}
+                          {(h === 'Seuil commande' || h === 'Prix achat' || h === 'Prix vente') && <div style={{ fontWeight: 400, textTransform: 'none', fontSize: 9, letterSpacing: 0, marginTop: 1 }}>Cliquer pour modifier</div>}
                         </th>
                       ))}
                     </tr>
@@ -1129,7 +1159,7 @@ export default function Magazinier() {
                   <tbody>
                     {mesProduits.length === 0 ? (
                       <tr>
-                        <td colSpan={3} style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontStyle: 'italic' }}>
+                        <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontStyle: 'italic' }}>
                           Aucune réception enregistrée — validez une réception pour voir vos produits ici
                         </td>
                       </tr>
@@ -1171,6 +1201,29 @@ export default function Magazinier() {
                               style={{ width: 64, padding: '5px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, fontSize: 13, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: seuil > 0 ? 'var(--fs-ink-800)' : 'var(--fs-ink-300)', background: seuil > 0 ? '#fff' : 'var(--fs-ivory)' }}
                             />
                           </td>
+                          {(() => {
+                            const ed = prixEdits[p._id] ?? { achat: p.costPrice ? String(p.costPrice) : '', vente: p.price ? String(p.price) : '' };
+                            return (
+                              <>
+                                <td style={{ padding: '8px 16px', textAlign: 'center' }}>
+                                  <input
+                                    type="number" min={0} value={ed.achat} placeholder="0"
+                                    onChange={e => setPrixEdits(m => ({ ...m, [p._id]: { ...ed, achat: e.target.value } }))}
+                                    onBlur={() => savePrix(p)}
+                                    style={{ width: 80, padding: '5px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, fontSize: 13, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-ink-800)' }}
+                                  />
+                                </td>
+                                <td style={{ padding: '8px 16px', textAlign: 'center' }}>
+                                  <input
+                                    type="number" min={0} value={ed.vente} placeholder="0"
+                                    onChange={e => setPrixEdits(m => ({ ...m, [p._id]: { ...ed, vente: e.target.value } }))}
+                                    onBlur={() => savePrix(p)}
+                                    style={{ width: 80, padding: '5px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, fontSize: 13, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}
+                                  />
+                                </td>
+                              </>
+                            );
+                          })()}
                         </tr>
                       );
                     })}
