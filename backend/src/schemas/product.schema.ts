@@ -61,6 +61,15 @@ export class Product {
 
   @Prop({ default: false })
   prixVerrouille: boolean;  // prix fixé par le magazinier → non modifiable par le gestionnaire
+
+  @Prop({ default: '' })
+  prixModifiePar: string;   // nom de la personne qui a fixé le prix
+
+  @Prop({ default: '' })
+  prixModifieParRole: string;
+
+  @Prop({ default: null })
+  prixModifieLe: Date | null;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

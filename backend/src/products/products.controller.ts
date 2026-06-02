@@ -51,7 +51,7 @@ export class ProductsController {
   @Roles('patron', 'gestionnaire', 'magazinier')
   async create(@Body() dto: CreateProductDto, @Req() req: Request) {
     const actor = (req as any)['user'];
-    const result = await this.productsService.create(dto);
+    const result = await this.productsService.create(dto, actor);
     this.auditService.log({
       type: 'creation', module: 'produits',
       actorName: actor.name, actorRole: actor.role,
@@ -105,7 +105,7 @@ export class ProductsController {
     @Req() req: Request,
   ) {
     const actor = (req as any)['user'];
-    const result = await this.productsService.setPrix(id, Number(price) || 0, Number(costPrice) || 0);
+    const result = await this.productsService.setPrix(id, Number(price) || 0, Number(costPrice) || 0, actor?.name, actor?.role);
     this.auditService.log({
       type: 'modification', module: 'produits',
       actorName: actor.name, actorRole: actor.role,

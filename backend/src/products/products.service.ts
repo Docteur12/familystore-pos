@@ -55,18 +55,23 @@ export class ProductsService {
     return product;
   }
 
-  async create(dto: CreateProductDto) {
+  async create(dto: CreateProductDto, actor?: { name?: string; role?: string }) {
     const initialStock = dto.stock ?? 0;
     const alertThreshold = Math.max(1, Math.ceil(initialStock * 0.10));
     const oneYearFromNow = new Date();
     oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
     const expiryDate = dto.expiryDate ?? oneYearFromNow.toISOString().slice(0, 10);
+    // Si le prix est verrouillé (fixé par le magazinier à la création), on trace l'auteur.
+    const trace = dto.prixVerrouille
+      ? { prixModifiePar: actor?.name ?? '', prixModifieParRole: actor?.role ?? '', prixModifieLe: new Date() }
+      : {};
     try {
       return await this.productModel.create({
         ...dto,
         initialStock,
         alertThreshold,
         expiryDate,
+        ...trace,
       });
     } catch (err: any) {
       // Doublon de code-barres (index unique) → message clair au lieu d'un 500.
@@ -87,10 +92,13 @@ export class ProductsService {
 
   // Le magazinier (ou patron) fixe les prix d'un produit existant.
   // Verrouille le prix → le gestionnaire ne peut plus le modifier.
-  async setPrix(id: string, price: number, costPrice: number) {
+  async setPrix(id: string, price: number, costPrice: number, actorName = '', actorRole = '') {
     const product = await this.productModel.findByIdAndUpdate(
       id,
-      { $set: { price: Math.max(0, price), costPrice: Math.max(0, costPrice), prixVerrouille: true } },
+      { $set: {
+        price: Math.max(0, price), costPrice: Math.max(0, costPrice), prixVerrouille: true,
+        prixModifiePar: actorName, prixModifieParRole: actorRole, prixModifieLe: new Date(),
+      } },
       { new: true },
     );
     if (!product) throw new NotFoundException('Produit introuvable');

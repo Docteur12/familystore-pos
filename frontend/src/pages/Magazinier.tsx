@@ -894,6 +894,25 @@ export default function Magazinier() {
                                 &nbsp;·&nbsp; Caisse : <strong style={{ color: 'var(--fs-ink-600)' }}>{prod.stock}</strong>
                                 {seuil > 0 && <>&nbsp;·&nbsp; Seuil commande : <strong>{seuil}</strong></>}
                               </div>
+                              {/* Prix (optionnel) — verrouille le prix pour le gestionnaire */}
+                              {(() => {
+                                const ed = prixEdits[prod._id] ?? { achat: prod.costPrice ? String(prod.costPrice) : '', vente: prod.price ? String(prod.price) : '' };
+                                return (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                                    <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Prix achat</label>
+                                    <input type="number" min={0} value={ed.achat} placeholder="0"
+                                      onChange={e => setPrixEdits(m => ({ ...m, [prod._id]: { ...ed, achat: e.target.value } }))}
+                                      onBlur={() => savePrix(prod)}
+                                      style={{ width: 74, padding: '4px 6px', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, fontSize: 12, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700 }}/>
+                                    <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Prix vente</label>
+                                    <input type="number" min={0} value={ed.vente} placeholder="0"
+                                      onChange={e => setPrixEdits(m => ({ ...m, [prod._id]: { ...ed, vente: e.target.value } }))}
+                                      onBlur={() => savePrix(prod)}
+                                      style={{ width: 74, padding: '4px 6px', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, fontSize: 12, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}/>
+                                    {prod.prixVerrouille && <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 700 }}>🔒 verrouillé</span>}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         )}

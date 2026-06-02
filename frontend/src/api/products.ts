@@ -20,6 +20,9 @@ export interface Product {
   magazinierThreshold?:  number;
   divers?:        boolean;   // article « divers » synthétique (non référencé)
   prixVerrouille?: boolean;  // prix fixé par le magazinier → non modifiable par le gestionnaire
+  prixModifiePar?: string;
+  prixModifieParRole?: string;
+  prixModifieLe?: string | null;
 }
 
 export function effectivePrice(p: Product): number {

@@ -507,7 +507,10 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
           {/* Prix achat + marge → prix vente */}
           {priceLocked && (
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-wine-700)', background: 'var(--fs-wine-50)', border: '1px solid rgba(122,29,46,0.15)', borderRadius: 8, padding: '8px 12px', marginBottom: 4 }}>
-              🔒 Prix fixés par le magazinier — non modifiables.
+              🔒 Prix {product?.prixModifiePar ? `ajouté/modifié par ${product.prixModifiePar}` : 'fixé par le magazinier'}
+              {product?.prixModifieParRole ? ` (${product.prixModifieParRole})` : ''}
+              {product?.prixModifieLe ? ` le ${new Date(product.prixModifieLe).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })} à ${new Date(product.prixModifieLe).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+              {' '}— non modifiable.
             </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'end' }}>
