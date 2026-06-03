@@ -77,10 +77,11 @@ function drawCode39(canvas: HTMLCanvasElement, text: string, barW = 1.0, h = 26)
 
 // ── BLProductCell — sélecteur produit avec scan code-barres ───────────────────
 
-function BLProductCell({ products, line, onChange }: {
+function BLProductCell({ products, line, onChange, onScanned }: {
   products: Product[];
   line: BLLine;
   onChange: (patch: Partial<BLLine>) => void;
+  onScanned?: (name: string) => void;
 }) {
   const [scanMode, setScanMode] = useState(false);
   const scanRef   = useRef<HTMLInputElement>(null);
@@ -101,6 +102,7 @@ function BLProductCell({ products, line, onChange }: {
     if (match) {
       onChange({ barcode: code, productId: match._id, productName: match.name, unit: match.unit });
       setScanMode(false);
+      onScanned?.(match.name); // garde-fou : confirme le produit reconnu
     } else {
       onChange({ barcode: raw });
     }
@@ -366,6 +368,7 @@ export default function StocksReceptions() {
                             products={products}
                             line={line}
                             onChange={patch => setLine(line.id, patch)}
+                            onScanned={name => addToast(`✓ ${name} reconnu`, 'success')}
                           />
                         </td>
                         <td style={{ padding: '8px 12px', minWidth: 100 }}>

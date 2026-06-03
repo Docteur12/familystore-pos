@@ -376,7 +376,10 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
       }
       onClose();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erreur');
+      const msg = e instanceof Error ? e.message : '';
+      // Échec réseau → l'enregistrement n'a PAS abouti : message explicite.
+      const reseau = !msg || /fetch|network|réseau|Failed/i.test(msg);
+      setError(reseau ? 'Échec — enregistrement NON effectué. Vérifiez votre connexion et réessayez.' : msg);
     } finally {
       setLoading(false);
     }

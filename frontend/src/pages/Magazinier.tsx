@@ -323,7 +323,12 @@ export default function Magazinier() {
       // Réinitialise le formulaire (reste vierge), prêt pour un autre produit
       setNewProd({ ...NP_EMPTY });
       addToast('Produit créé et ajouté à la réception ✓', 'success');
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '';
+      // Échec réseau → le produit n'a PAS été enregistré : on le dit clairement.
+      const reseau = !msg || /fetch|network|réseau|Failed/i.test(msg);
+      addToast(reseau ? '❌ Échec — produit NON enregistré. Vérifiez la connexion et réessayez.' : `❌ ${msg}`, 'error');
+    }
     finally { setNewProdLoading(false); }
   };
 
@@ -375,6 +380,8 @@ export default function Magazinier() {
     try {
       const found = await getProductByBarcode(barcode.trim());
       setRow(i, 'productId', found._id);
+      // Garde-fou : confirme le produit reconnu (détecte un code-barres mal attribué)
+      addToast(`✓ ${found.name} reconnu`, 'success');
     } catch {
       addToast('Produit introuvable pour ce code-barres', 'error');
     }

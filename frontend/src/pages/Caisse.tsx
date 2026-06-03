@@ -381,12 +381,11 @@ export default function Caisse() {
       const local = allProducts.find(
         p => p.barcode && p.barcode.toLowerCase() === code.toLowerCase()
       );
-      if (local) {
-        addToCart(local);
-      } else {
-        // Fallback API si la liste locale ne contient pas le produit
-        addToCart(await getProductByBarcode(code));
-      }
+      const prod = local ?? await getProductByBarcode(code);
+      addToCart(prod);
+      // Garde-fou : confirme à voix haute le produit ajouté (nom + prix) pour
+      // que le caissier détecte tout de suite un code-barres mal attribué.
+      addToast(`✓ ${prod.name} — ${fmtN(effectivePrice(prod))} XAF`, 'success');
     } catch (err: unknown) {
       setScanError(err instanceof Error ? err.message : 'Produit non trouvé');
       setSearchQuery(''); // vide le champ pour ne pas concaténer le scan suivant
@@ -394,15 +393,15 @@ export default function Caisse() {
     } finally {
       setScanning(false); focusScan();
     }
-  }, [searchQuery, scanning, allProducts, addToCart, focusScan]);
+  }, [searchQuery, scanning, allProducts, addToCart, focusScan, addToast]);
 
   const handleQRDetected = useCallback((code: string) => {
     setScanError(null); setScanning(true);
     getProductByBarcode(code)
-      .then(addToCart)
+      .then(prod => { addToCart(prod); addToast(`✓ ${prod.name} — ${fmtN(effectivePrice(prod))} XAF`, 'success'); })
       .catch(err => { setScanError(err instanceof Error ? err.message : 'Non trouvé'); playBeep(false); vibrate(150); })
       .finally(() => { setScanning(false); focusScan(); });
-  }, [addToCart, focusScan]);
+  }, [addToCart, focusScan, addToast]);
 
   // ── Dynamic card row height ───────────────────────────────────────────────
   const gridContainerRef = useRef<HTMLDivElement>(null);
