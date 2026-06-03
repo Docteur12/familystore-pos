@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createProduct, updateProduct, getProductByBarcode, Product } from '../api/products';
 import { getFournisseurs } from '../api/fournisseurs';
+import { getTokenPayload } from '../api/dashboard';
 import AutocompleteInput from './AutocompleteInput';
 import QRScanner from './QRScanner';
 
@@ -237,8 +238,9 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
   const [extraCategories, setExtraCategories] = useState<string[]>([]);
   const [newCatInput,     setNewCatInput]     = useState('');
   const [markupPct,       setMarkupPct]       = useState('');
-  // Prix fixé par le magazinier → non modifiable par le gestionnaire
-  const priceLocked = !!product?.prixVerrouille;
+  // Prix fixé par le magazinier → non modifiable par le gestionnaire.
+  // L'administrateur (patron) peut tout modifier, le verrou ne s'applique pas à lui.
+  const priceLocked = !!product?.prixVerrouille && getTokenPayload()?.role !== 'patron';
   const [foundProduct,    setFoundProduct]    = useState<Product | null>(null);
   const [showScanner,     setShowScanner]     = useState(false);
 

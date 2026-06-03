@@ -3,6 +3,7 @@ import AdminSidebar from '../components/AdminSidebar';
 import { createUser, deleteUser, getUsers, updateUser, UserRecord } from '../api/auth';
 import { getCaisses, CaisseRecord } from '../api/caisses';
 import { getAllProducts, deleteProduct, Product } from '../api/products';
+import NouveauProduitModal from '../components/NouveauProduitModal';
 import { getDemandes, DemandeStock, ajusterStockEntrepot, resetEntrepot, getAllReceptions, ReceptionFull } from '../api/magazinier';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -301,6 +302,8 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
   const [adjusting, setAdjusting] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const knownCategories = [...new Set(products.map(p => p.category).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'fr'));
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -340,6 +343,17 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Modal édition complète du produit (admin : tout modifiable) */}
+      {editProduct && (
+        <NouveauProduitModal
+          product={editProduct}
+          knownCategories={knownCategories}
+          existingProducts={products}
+          onClose={() => setEditProduct(null)}
+          onUpdated={() => { setEditProduct(null); onReload(); }}
+        />
+      )}
+
       {/* Modal confirmation suppression produit */}
       {deleteTarget && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -517,10 +531,16 @@ function StockEntrepotView({ products, demandes, onReload, onResetRequest }: {
                       )}
                     </td>
                     <td style={{ padding: '11px 14px', textAlign: 'center' }}>
-                      <button onClick={() => setDeleteTarget(p)} title="Supprimer le produit"
-                        style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex', alignItems: 'center' }}>
-                        <I d={D.trash} size={13}/>
-                      </button>
+                      <div style={{ display: 'inline-flex', gap: 6 }}>
+                        <button onClick={() => setEditProduct(p)} title="Modifier le produit"
+                          style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex', alignItems: 'center' }}>
+                          <I d={D.edit} size={13}/>
+                        </button>
+                        <button onClick={() => setDeleteTarget(p)} title="Supprimer le produit"
+                          style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex', alignItems: 'center' }}>
+                          <I d={D.trash} size={13}/>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
