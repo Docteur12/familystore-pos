@@ -1158,9 +1158,11 @@ export default function Magazinier() {
               ONGLET 4 — TABLEAU DE BORD MAGAZINIER
           ════════════════════════════════════════════════════════════════ */}
           {tab === 'dashboard' && (() => {
-            // Uniquement les produits que le magazinier a déjà reçus (+ filtre recherche)
+            // Magazinier : ses produits réceptionnés. Patron (en supervision) :
+            // tout l'entrepôt (produits avec stock entrepôt), pas ses propres réceptions.
+            const isPatron = payload?.role === 'patron';
             const mesProduits = products
-              .filter(p => lastRecByProd[p._id])
+              .filter(p => isPatron ? (p.stockMagazin ?? 0) > 0 : lastRecByProd[p._id])
               .filter(p => !dashSearch.trim()
                 || p.name.toLowerCase().includes(dashSearch.toLowerCase())
                 || (p.category ?? '').toLowerCase().includes(dashSearch.toLowerCase()));

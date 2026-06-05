@@ -884,6 +884,12 @@ export default function Caisse() {
         flexShrink: 0,
         overflow: 'hidden',
       }}>
+        {/* Marque / espace courant */}
+        <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 2 }}>Family Store</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Caisse</div>
+        </div>
+
         {/* Identity panel */}
         <div style={{ padding: '12px 12px 10px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: 9 }}>
           <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--fs-gold-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 700, flexShrink: 0 }}>
