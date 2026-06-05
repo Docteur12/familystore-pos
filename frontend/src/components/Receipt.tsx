@@ -53,131 +53,105 @@ export default function Receipt({ data, onNewSale }: Props) {
       }}>
 
         {/* Header */}
-        <div style={{ background: 'var(--fs-wine-900)', padding: '16px 24px', textAlign: 'center' }}>
-          <p style={{ color: 'var(--fs-gold-400)', fontWeight: 900, fontSize: 18, letterSpacing: '0.15em', margin: '0 0 2px', fontFamily: 'var(--fs-font-mono)' }}>
-            FAMILY STORE
-          </p>
-          <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 11, margin: '0 0 1px' }}>
-            by RDCT
-          </p>
-          <p style={{ color: 'rgba(245,235,217,0.5)', fontSize: 10, margin: '0 0 1px' }}>
-            Beauté · Saveurs · Bien-être
-          </p>
-          <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 11, fontWeight: 700, margin: '0 0 1px' }}>
-            Point de Vente
-          </p>
-          <p style={{ color: 'rgba(245,235,217,0.45)', fontSize: 10, margin: 0 }}>
-            Bonamoussadi · Douala &nbsp;|&nbsp; {data.storePhone || '682 263 435'}
-          </p>
+        <div style={{ padding: '18px 24px 8px', textAlign: 'center', color: '#111' }}>
+          <p style={{ fontWeight: 700, fontSize: 26, margin: 0 }}>Family Store</p>
+          <p style={{ fontSize: 9, letterSpacing: '0.2em', color: '#555', margin: '2px 0' }}>BY RDCT</p>
+          <p style={{ fontSize: 12, color: '#333', margin: 0 }}>Beauté . Saveur . Bien-etre</p>
         </div>
 
         {/* Corps */}
-        <div style={{ padding: '16px 24px', fontFamily: 'var(--fs-font-mono)', fontSize: 13 }}>
+        <div style={{ padding: '0 24px 16px', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 12, color: '#111' }}>
 
-          {/* Meta */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 4 }}>
-            <span>{data.date.toLocaleDateString('fr-FR')}</span>
-            <span>{data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 2 }}>
-            <span>N° {data.receiptNo}</span>
-            <span>{data.cashierName}</span>
+          <div style={{ borderTop: '2px solid #000', margin: '8px 0' }} />
+
+          {/* Infos : meta (gauche) + contacts (droite) */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, lineHeight: 1.5 }}>
+            <div>
+              <div>Ticket: #{data.receiptNo}</div>
+              <div>Date: {data.date.toLocaleDateString('fr-FR')} {data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+              <div>Caissier: {data.cashierName}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div>Bonamoussadi – Douala</div>
+              <div>Tel: +237 670792691</div>
+              <div>Tel: +237 682263435</div>
+            </div>
           </div>
 
-          <div style={{ borderTop: '1px dashed var(--fs-line-2)', margin: '10px 0' }} />
+          <div style={{ borderTop: '2px solid #000', margin: '8px 0' }} />
 
           {/* Articles */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 4 }}>
             {data.items.map((item, i) => {
               const hasDiscount = (item.discount ?? 0) > 0 && item.originalPrice;
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 1 }}>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <p style={{ fontWeight: 600, color: 'var(--fs-ink-900)', fontSize: 12, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.name}
-                          {hasDiscount && (
-                            <span style={{ background: '#c0392b', color: '#fff', fontSize: 8, fontWeight: 900, padding: '1px 5px', borderRadius: 3, marginLeft: 4 }}>
-                              -{item.discount}%
-                            </span>
-                          )}
-                        </p>
-                        {item.localName && (
-                          <p style={{ fontSize: 10, color: '#999', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.localName}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: 0 }}>
-                      {hasDiscount && (
-                        <span style={{ textDecoration: 'line-through', marginRight: 4 }}>
-                          {item.originalPrice!.toLocaleString('fr-FR')}
-                        </span>
-                      )}
-                      {item.quantity} × {item.unitPrice.toLocaleString('fr-FR')} XAF
-                    </p>
+                <div key={i}>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>
+                    {item.name}
+                    {hasDiscount && (
+                      <span style={{ background: '#c0392b', color: '#fff', fontSize: 8, fontWeight: 900, padding: '1px 5px', borderRadius: 3, marginLeft: 4 }}>-{item.discount}%</span>
+                    )}
                   </div>
-                  <span style={{ fontWeight: 700, fontSize: 12, color: hasDiscount ? '#c0392b' : 'var(--fs-wine-700)', flexShrink: 0 }}>
-                    {(item.quantity * item.unitPrice).toLocaleString('fr-FR')}
-                  </span>
+                  {item.localName && <div style={{ fontSize: 10, color: '#999' }}>{item.localName}</div>}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#555', marginTop: 3 }}>
+                    <span>
+                      {hasDiscount && <span style={{ textDecoration: 'line-through', marginRight: 4 }}>{item.originalPrice!.toLocaleString('fr-FR')}</span>}
+                      {item.quantity} x {item.unitPrice.toLocaleString('fr-FR')}
+                    </span>
+                    <span>{(item.quantity * item.unitPrice).toLocaleString('fr-FR')}</span>
+                  </div>
                 </div>
               );
             })}
           </div>
 
-          <div style={{ borderTop: '1px dashed var(--fs-line-2)', margin: '10px 0' }} />
+          <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
-          {/* Totaux */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--fs-ink-500)' }}>
-              <span>Sous-total</span>
-              <span>{subDisplay.toLocaleString('fr-FR')} XAF</span>
-            </div>
-            {totalDiscount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#c0392b', fontWeight: 600 }}>
-                <span>Réduction produits</span>
-                <span>-{totalDiscount.toLocaleString('fr-FR')} XAF</span>
+          {/* Totaux (sous-total + réductions uniquement si réduction) */}
+          {(totalDiscount > 0 || (data.offrePct ?? 0) > 0) && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 4 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#555' }}>
+                <span>Sous-total</span>
+                <span>{subDisplay.toLocaleString('fr-FR')}</span>
               </div>
-            )}
-            {(data.offrePct ?? 0) > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#c0392b', fontWeight: 700 }}>
-                <span>Réduction facture -{data.offrePct}%</span>
-                <span>-{(data.offreAmt ?? 0).toLocaleString('fr-FR')} XAF</span>
-              </div>
-            )}
-          </div>
-
-          {/* Total */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <span style={{ fontWeight: 900, fontSize: 14, color: 'var(--fs-ink-800)', letterSpacing: '0.05em' }}>TOTAL</span>
-            <span style={{ fontWeight: 900, fontSize: 22, color: 'var(--fs-wine-700)' }}>
-              {data.total.toLocaleString('fr-FR')} <span style={{ fontSize: 13, fontWeight: 600 }}>XAF</span>
-            </span>
-          </div>
-
-          {/* Paiement */}
-          <div style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginBottom: 2 }}>
-            Paiement : {data.paymentLabel}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--fs-ink-500)' }}>
-            <span>Reçu</span>
-            <span>{data.amountPaid.toLocaleString('fr-FR')} XAF</span>
-          </div>
-          {data.change > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: '#16a34a', marginTop: 2 }}>
-              <span>Monnaie</span>
-              <span>{data.change.toLocaleString('fr-FR')} XAF</span>
+              {totalDiscount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 600 }}>
+                  <span>Réduction produits</span>
+                  <span>-{totalDiscount.toLocaleString('fr-FR')}</span>
+                </div>
+              )}
+              {(data.offrePct ?? 0) > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700 }}>
+                  <span>Réduction facture -{data.offrePct}%</span>
+                  <span>-{(data.offreAmt ?? 0).toLocaleString('fr-FR')}</span>
+                </div>
+              )}
             </div>
           )}
 
-          <div style={{ borderTop: '1px dashed var(--fs-line-2)', margin: '10px 0 6px' }} />
+          <div style={{ borderTop: '2px solid #000', margin: '8px 0' }} />
 
-          <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--fs-ink-500)', lineHeight: 1.5 }}>
-            <div style={{ fontWeight: 700, color: 'var(--fs-ink-700)' }}>Merci pour votre achat</div>
-            <div>Comme remerciement, <strong>Family Store vous offre 5 % de réduction</strong> sur votre prochain achat.</div>
-            <div>Présentez juste cette facture à la caisse pour en bénéficier.</div>
+          {/* Total */}
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <span style={{ fontWeight: 700, fontSize: 20, color: '#111' }}>Total:</span>
+            <span style={{ fontWeight: 700, fontSize: 20, color: '#111' }}>{data.total.toLocaleString('fr-FR')} XFCA</span>
+          </div>
+
+          <div style={{ borderTop: '2px solid #000', margin: '8px 0' }} />
+
+          {/* Paiement */}
+          <div style={{ fontSize: 11, color: '#333', lineHeight: 1.6 }}>
+            <div>Moyen de paiement: {data.paymentLabel}</div>
+            <div>Montant reçu: {data.amountPaid.toLocaleString('fr-FR')} Francs CFA</div>
+            {data.change > 0 && <div>Montant remboursé: {data.change.toLocaleString('fr-FR')} Francs CFA</div>}
+          </div>
+
+          {/* Pied */}
+          <div style={{ textAlign: 'center', marginTop: 14, color: '#111' }}>
+            <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '0.15em' }}>Merci de votre visite !</div>
+            <div style={{ fontSize: 11, lineHeight: 1.5, marginTop: 4, color: '#333' }}>
+              Comme remerciement, <strong>Family Store vous offre 5 %</strong> de réduction sur votre prochain achat. Présentez juste cette facture à la caisse pour bénéficier de cette offre.
+            </div>
           </div>
         </div>
 

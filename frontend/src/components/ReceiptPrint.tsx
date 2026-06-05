@@ -83,21 +83,13 @@ export function buildReceiptHTML(data: ReceiptData): string {
       <div class="iname">${truncName(item.name)}${badge}</div>
       ${localNameRow}
       <div class="irow">
-        <span>${item.quantity} &times; ${prixLigne}</span>
-        <span class="bold">${sub} XAF</span>
+        <span>${item.quantity} x ${prixLigne}</span>
+        <span>${sub}</span>
       </div>
     </div>`;
   }).join('');
 
-  const monnaieRow = data.change > 0
-    ? `<div class="row bold"><span>Monnaie</span><span>${data.change.toLocaleString('fr-FR')} XAF</span></div>`
-    : '';
-
-  // Message d'offre fidélité affiché sur TOUS les tickets.
-  const footMessage =
-    `<p class="foot" style="font-weight:bold;">Merci pour votre achat</p>
-     <p class="foot">Comme remerciement, <b>Family Store vous offre 5 % de r&eacute;duction</b> sur votre prochain achat.</p>
-     <p class="foot">Pr&eacute;sentez juste cette facture &agrave; la caisse pour en b&eacute;n&eacute;ficier.</p>`;
+  const aReduction = totalDiscount > 0 || (data.offrePct ?? 0) > 0;
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -105,73 +97,71 @@ export function buildReceiptHTML(data: ReceiptData): string {
   <meta charset="utf-8">
   <title>Recu ${data.receiptNo}</title>
   <style>
-    @page {
-      size: 80mm auto;
-      margin: 0;
-    }
-    @media print {
-      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    }
+    @page { size: 80mm auto; margin: 0; }
+    @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     * {
       margin: 0; padding: 0; box-sizing: border-box;
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 13px;
-      color: #000 !important;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 12px; color: #000 !important;
     }
-    html, body {
-      width: 80mm;
-      margin: 0;
-      padding: 0;
-      background: #fff;
-    }
-    body { padding: 8px 10px 16px; }
+    html, body { width: 80mm; margin: 0; padding: 0; background: #fff; }
+    body { padding: 10px 10px 16px; }
     .center{ text-align: center; }
-    .bold  { font-weight: bold; }
-    .solid { border-top: 2px solid #000; margin: 7px 0 13px; }
-    .dash  { border-top: 1px dashed #000; margin: 6px 0 12px; }
-    .store { font-size: 19px; font-weight: 900; letter-spacing: 3px; }
-    .sub   { font-size: 11px; margin: 2px 0; }
-    .meta  { font-size: 12px; margin: 2px 0; }
-    .item  { margin: 5px 0; }
-    .iname { font-size: 13px; font-weight: 600; }
+    .solid { border-top: 2px solid #000; margin: 8px 0; }
+    .dash  { border-top: 1px dashed #000; margin: 8px 0; }
+    .store { font-size: 26px; font-weight: 700; }
+    .rdct  { font-size: 9px; letter-spacing: 2px; margin-top: 1px; }
+    .tag   { font-size: 11px; margin-top: 2px; }
+    .info  { display: flex; justify-content: space-between; font-size: 11px; line-height: 1.5; }
+    .info .r { text-align: right; }
+    .item  { margin: 6px 0; }
+    .iname { font-size: 15px; font-weight: 700; }
     .ilocal{ font-size: 10px; color: #666; margin-top: 1px; }
-    .irow  { display: flex; justify-content: space-between; font-size: 12px; padding-left: 4px; }
-    .row   { display: flex; justify-content: space-between; font-size: 13px; margin: 3px 0; }
-    .total { font-size: 16px; font-weight: 900; margin: 5px 0; }
-    .foot  { font-size: 11px; margin: 2px 0; }
+    .irow  { display: flex; justify-content: space-between; font-size: 13px; color: #555; margin-top: 3px; }
+    .row   { display: flex; justify-content: space-between; font-size: 12px; margin: 2px 0; }
+    .total { display: flex; justify-content: space-between; align-items: baseline; font-size: 20px; font-weight: 700; margin: 4px 0; }
+    .pay   { font-size: 11px; line-height: 1.6; }
+    .merci { font-size: 15px; font-weight: 700; letter-spacing: 3px; margin: 4px 0; }
+    .offer { font-size: 11px; line-height: 1.5; }
   </style>
 </head>
 <body>
   <div class="center">
-    <div class="store">FAMILY STORE</div>
-    <div class="sub">by RDCT</div>
-    <div class="sub">Beaut&eacute; &middot; Saveurs &middot; Bien-&ecirc;tre</div>
-    <div class="sub" style="margin-top:3px;font-weight:bold;">Point de Vente</div>
-    <div class="sub" style="font-weight:bold;">Bonamoussadi &middot; Douala</div>
-    <div class="sub" style="font-weight:bold;">Tel: ${data.storePhone || '682 263 435'}</div>
+    <div class="store">Family Store</div>
+    <div class="rdct">BY RDCT</div>
+    <div class="tag">Beaut&eacute; . Saveur . Bien-etre</div>
   </div>
   <div class="solid"></div>
-  <p class="meta">Ticket   : #${data.receiptNo}</p>
-  <p class="meta">Date     : ${dateStr}  ${timeStr}</p>
-  <p class="meta">Caissier : ${data.cashierName}</p>
-  <div class="dash"></div>
+  <div class="info">
+    <div class="l">
+      <div>Ticket: #${data.receiptNo}</div>
+      <div>Date: ${dateStr}&nbsp;&nbsp;${timeStr}</div>
+      <div>Caissier: ${data.cashierName}</div>
+    </div>
+    <div class="r">
+      <div>Bonamoussadi &ndash; Douala</div>
+      <div>Tel: +237 670792691</div>
+      <div>Tel: +237 682263435</div>
+    </div>
+  </div>
+  <div class="solid"></div>
   ${itemRows}
   <div class="dash"></div>
-  <div class="row"><span>Sous-total</span><span>${data.subtotal.toLocaleString('fr-FR')} XAF</span></div>
-  ${totalDiscount > 0 ? `<div class="row" style="color:#c0392b !important;font-weight:bold;"><span>R&eacute;duction produits</span><span>-${totalDiscount.toLocaleString('fr-FR')} XAF</span></div>` : ''}
-  ${(data.offrePct ?? 0) > 0 ? `<div class="row" style="color:#c0392b !important;font-weight:bold;"><span>R&eacute;duction facture (-${data.offrePct}%)</span><span>-${(data.offreAmt ?? 0).toLocaleString('fr-FR')} XAF</span></div>` : ''}
+  ${aReduction ? `
+  <div class="row"><span>Sous-total</span><span>${data.subtotal.toLocaleString('fr-FR')}</span></div>
+  ${totalDiscount > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction produits</span><span>-${totalDiscount.toLocaleString('fr-FR')}</span></div>` : ''}
+  ${(data.offrePct ?? 0) > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction facture (-${data.offrePct}%)</span><span>-${(data.offreAmt ?? 0).toLocaleString('fr-FR')}</span></div>` : ''}
+  ` : ''}
   <div class="solid"></div>
-  <div class="row total"><span>TOTAL</span><span>${data.total.toLocaleString('fr-FR')} XAF</span></div>
+  <div class="total"><span>Total:</span><span>${data.total.toLocaleString('fr-FR')} XFCA</span></div>
   <div class="solid"></div>
-  <p class="meta">Paiement : ${data.paymentLabel}</p>
-  <div class="row"><span>Re&ccedil;u</span><span>${data.amountPaid.toLocaleString('fr-FR')} XAF</span></div>
-  ${monnaieRow}
-  <div class="dash"></div>
+  <div class="pay">Moyen de paiement: ${data.paymentLabel}</div>
+  <div class="pay">Montant re&ccedil;u: ${data.amountPaid.toLocaleString('fr-FR')} Francs CFA</div>
+  ${data.change > 0 ? `<div class="pay">Montant rembours&eacute;: ${data.change.toLocaleString('fr-FR')} Francs CFA</div>` : ''}
+  <div style="height:10px"></div>
   <div class="center">
-    ${footMessage}
-    <p class="foot" style="margin-top:5px;">Bonamoussadi &middot; Douala</p>
-    <p class="foot">Tel: 682 263 435</p>
-    <p class="foot" style="margin-top:4px;font-size:9px;">Family Store POS &copy; ${new Date().getFullYear()}</p>
+    <div class="merci">Merci de votre visite !</div>
+    <div class="offer">Comme remerciement, <b>Family Store vous offre 5 %</b> de r&eacute;duction sur votre prochain achat. Pr&eacute;sentez juste cette facture &agrave; la caisse pour b&eacute;n&eacute;ficier de cette offre.</div>
   </div>
 </body>
 </html>`;
@@ -200,14 +190,14 @@ export function buildReceiptPDF(data: ReceiptData): string {
 
   const line  = (text: string, size = 9, bold = false, align: 'left' | 'center' | 'right' = 'left') => {
     doc.setFontSize(size);
-    doc.setFont('courier', bold ? 'bold' : 'normal');
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
     const x = align === 'center' ? W / 2 + 2 : align === 'right' ? W + 2 : 2;
     doc.text(text, x, y, { align });
     y += size * 0.42;
   };
   const row = (left: string, right: string, size = 9, bold = false) => {
     doc.setFontSize(size);
-    doc.setFont('courier', bold ? 'bold' : 'normal');
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
     doc.text(left,  2,      y);
     doc.text(right, W + 2,  y, { align: 'right' });
     y += size * 0.42;
@@ -220,31 +210,33 @@ export function buildReceiptPDF(data: ReceiptData): string {
   const fmt = (n: number) => n.toLocaleString('fr-FR');
 
   // En-tête
-  line('FAMILY STORE', 14, true, 'center'); y += 1;
-  line('by RDCT', 8, false, 'center');
-  line('Beaute · Saveurs · Bien-etre', 7, false, 'center');
-  line('Point de Vente', 8, true, 'center');
-  line('Bonamoussadi · Douala', 8, true, 'center');
-  line(`Tel: ${data.storePhone || '682 263 435'}`, 8, true, 'center');
+  line('Family Store', 18, true, 'center');
+  line('BY RDCT', 7, false, 'center');
+  line('Beaute . Saveur . Bien-etre', 8, false, 'center');
   y += 1;
   solid();
 
-  // Méta
-  line(`Ticket   : #${data.receiptNo}`, 8);
-  line(`Date     : ${dateStr}  ${timeStr}`, 8);
-  line(`Caissier : ${data.cashierName}`, 8);
+  // Infos : meta (gauche) + adresse/contacts (droite)
+  const infoL = [
+    `Ticket: #${data.receiptNo}`,
+    `Date: ${dateStr}  ${timeStr}`,
+    `Caissier: ${data.cashierName}`,
+  ];
+  const infoR = ['Bonamoussadi - Douala', 'Tel: +237 670792691', 'Tel: +237 682263435'];
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+  for (let i = 0; i < 3; i++) {
+    doc.text(infoL[i], 2, y);
+    doc.text(infoR[i], W + 2, y, { align: 'right' });
+    y += 8 * 0.46;
+  }
   y += 1;
-  dash();
+  solid();
 
   // Articles
   for (const item of data.items) {
-    line(truncName(item.name), 9, true);
+    line(truncName(item.name), 11, true);
     if (item.localName) line(item.localName, 7, false);
-    row(
-      `  ${item.quantity} x ${fmt(item.unitPrice)}`,
-      `${fmt(item.quantity * item.unitPrice)} XAF`,
-      8,
-    );
+    row(`  ${item.quantity} x ${fmt(item.unitPrice)}`, `${fmt(item.quantity * item.unitPrice)}`, 9);
     y += 0.5;
   }
   dash();
@@ -256,27 +248,27 @@ export function buildReceiptPDF(data: ReceiptData): string {
     }
     return s;
   }, 0);
-  row('Sous-total', `${fmt(data.total)} XAF`, 8);
-  if (pdfDiscount > 0) row(`Reduction appliquee`, `-${fmt(pdfDiscount)} XAF`, 8);
+  if (pdfDiscount > 0 || (data.offrePct ?? 0) > 0) {
+    row('Sous-total', `${fmt(data.subtotal)}`, 8);
+    if (pdfDiscount > 0) row('Reduction produits', `-${fmt(pdfDiscount)}`, 8);
+    if ((data.offrePct ?? 0) > 0) row(`Reduction facture (-${data.offrePct}%)`, `-${fmt(data.offreAmt ?? 0)}`, 8);
+  }
   solid();
-  row('TOTAL', `${fmt(data.total)} XAF`, 12, true);
+  row('Total:', `${fmt(data.total)} XFCA`, 14, true);
   solid();
 
   // Paiement
-  line(`Paiement : ${data.paymentLabel}`, 8);
-  row('Recu', `${fmt(data.amountPaid)} XAF`, 8);
-  if (data.change > 0) row('Monnaie', `${fmt(data.change)} XAF`, 9, true);
-  dash();
+  line(`Moyen de paiement: ${data.paymentLabel}`, 8);
+  line(`Montant recu: ${fmt(data.amountPaid)} Francs CFA`, 8);
+  if (data.change > 0) line(`Montant rembourse: ${fmt(data.change)} Francs CFA`, 8);
+  y += 3;
 
   // Pied
-  y += 1;
-  line('Merci pour votre achat', 9, true, 'center');
-  line('Family Store vous offre 5% de reduction', 8, true, 'center');
-  line('sur votre prochain achat.', 8, false, 'center');
-  line('Presentez cette facture a la caisse', 7, false, 'center');
-  line('pour en beneficier.', 7, false, 'center');
-  line('Bonamoussadi · Douala', 7, false, 'center');
-  line('Tel: 682 263 435', 7, false, 'center');
+  line('Merci de votre visite !', 11, true, 'center');
+  line('Comme remerciement, Family Store vous offre 5%', 8, false, 'center');
+  line('de reduction sur votre prochain achat.', 8, false, 'center');
+  line('Presentez juste cette facture a la caisse', 7, false, 'center');
+  line('pour beneficier de cette offre.', 7, false, 'center');
 
   return doc.output('datauristring').split(',')[1] ?? '';
 }
