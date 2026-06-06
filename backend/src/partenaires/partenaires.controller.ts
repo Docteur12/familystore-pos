@@ -54,4 +54,20 @@ export class PartenairesController {
     const actor = (req as any).user;
     return this.service.createLivraison(id, body, actor?.sub);
   }
+
+  // ── Paiements & relevé ─────────────────────────────────────────────────────
+  @Get(':id/compte')
+  compte(@Param('id') id: string) {
+    return this.service.getCompte(id);
+  }
+
+  @Post(':id/paiements')
+  createPaiement(
+    @Param('id') id: string,
+    @Body() body: { montant: number; note?: string; date?: string },
+    @Req() req: Request,
+  ) {
+    const actor = (req as any).user;
+    return this.service.createPaiement(id, body, actor?.sub);
+  }
 }

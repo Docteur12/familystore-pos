@@ -5,6 +5,7 @@ import { Product, ProductDocument } from '../schemas/product.schema';
 import { StockMovement, StockMovementDocument } from '../schemas/stock-movement.schema';
 import { Partenaire, PartenaireDocument } from '../schemas/partenaire.schema';
 import { LivraisonPartenaire, LivraisonPartenaireDocument } from '../schemas/livraison-partenaire.schema';
+import { PaiementPartenaire, PaiementPartenaireDocument } from '../schemas/paiement-partenaire.schema';
 
 interface LigneInput {
   productId: string;
@@ -19,6 +20,7 @@ export class PartenairesService {
     @InjectModel(StockMovement.name)       private movementModel:  Model<StockMovementDocument>,
     @InjectModel(Partenaire.name)          private partModel:      Model<PartenaireDocument>,
     @InjectModel(LivraisonPartenaire.name) private livModel:       Model<LivraisonPartenaireDocument>,
+    @InjectModel(PaiementPartenaire.name)  private paiementModel:  Model<PaiementPartenaireDocument>,
   ) {}
 
   // ── Partenaires ────────────────────────────────────────────────────────────
@@ -126,5 +128,36 @@ export class PartenairesService {
       date:        body.date ?? '',
       creePar:     new Types.ObjectId(userId),
     });
+  }
+
+  // ── Paiements & relevé de compte ───────────────────────────────────────────
+  async createPaiement(partenaireId: string, body: { montant: number; note?: string; date?: string }, userId: string) {
+    const partenaire = await this.partModel.findById(partenaireId).lean();
+    if (!partenaire) throw new NotFoundException('Partenaire introuvable');
+    return this.paiementModel.create({
+      partenaire: new Types.ObjectId(partenaireId),
+      montant:    Math.max(0, Math.round(Number(body.montant) || 0)),
+      note:       body.note ?? '',
+      date:       body.date ?? '',
+      creePar:    new Types.ObjectId(userId),
+    });
+  }
+
+  // Relevé d'un partenaire : livraisons + paiements + solde dû.
+  async getCompte(partenaireId: string) {
+    const partenaire = await this.partModel.findById(partenaireId).lean();
+    if (!partenaire) throw new NotFoundException('Partenaire introuvable');
+
+    const [livraisons, paiements] = await Promise.all([
+      this.livModel.find({ partenaire: new Types.ObjectId(partenaireId) }).sort({ createdAt: -1 }).lean(),
+      this.paiementModel.find({ partenaire: new Types.ObjectId(partenaireId) }).populate('creePar', 'name role').sort({ createdAt: -1 }).lean(),
+    ]);
+
+    const totalLivre     = livraisons.reduce((s, l) => s + (l.total ?? 0), 0);
+    const payeLivraison  = livraisons.reduce((s, l) => s + (l.montantPaye ?? 0), 0);
+    const totalPaiements = paiements.reduce((s, p) => s + (p.montant ?? 0), 0);
+    const solde          = Math.max(0, totalLivre - payeLivraison - totalPaiements);
+
+    return { partenaire, livraisons, paiements, totalLivre, payeLivraison, totalPaiements, solde };
   }
 }

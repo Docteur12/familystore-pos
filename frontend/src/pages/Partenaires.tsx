@@ -5,7 +5,8 @@ import { getAllProducts, Product } from '../api/products';
 import {
   getPartenaires, createPartenaire, updatePartenaire, deletePartenaire,
   getLivraisons, createLivraison, getDernierPrix,
-  Partenaire, LivraisonPartenaire,
+  getCompte, createPaiement,
+  Partenaire, LivraisonPartenaire, ComptePartenaire,
 } from '../api/partenaires';
 import ToastContainer, { useToast } from '../components/Toast';
 
@@ -25,6 +26,8 @@ function I({ d, size = 15 }: { d: string; size?: number }) {
 const D = {
   livraison: 'M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
   clients:   'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+  compte:    'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
+  print:     'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
   back:      'M19 12H5M12 19l-7-7 7-7',
   logout:    'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h12',
   plus:      'M12 5v14M5 12h14',
@@ -80,7 +83,7 @@ function ProductSelect({ products, value, onChange }: {
   );
 }
 
-type Tab = 'livraisons' | 'partenaires';
+type Tab = 'livraisons' | 'partenaires' | 'comptes';
 interface Row { productId: string; quantite: string; prix: string }
 
 export default function Partenaires() {
@@ -104,6 +107,60 @@ export default function Partenaires() {
   // Formulaire partenaire
   const [pForm, setPForm] = useState({ name: '', phone: '', lieu: '', note: '' });
   const [editing, setEditing] = useState<string | null>(null);
+
+  // Comptes (relevé)
+  const [compteId, setCompteId] = useState('');
+  const [compte, setCompte] = useState<ComptePartenaire | null>(null);
+  const [paieMontant, setPaieMontant] = useState('');
+  const [paieNote, setPaieNote] = useState('');
+
+  const loadCompte = (id: string) => {
+    if (!id) { setCompte(null); return; }
+    getCompte(id).then(setCompte).catch(() => setCompte(null));
+  };
+  useEffect(() => { loadCompte(compteId); }, [compteId]);
+
+  const enregistrerPaiement = async () => {
+    const montant = parseInt(paieMontant) || 0;
+    if (!compteId || montant <= 0) { addToast('Saisissez un montant', 'error'); return; }
+    try {
+      await createPaiement(compteId, { montant, note: paieNote.trim() || undefined });
+      addToast('Paiement enregistré ✓', 'success');
+      setPaieMontant(''); setPaieNote('');
+      loadCompte(compteId);
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+  };
+
+  const imprimerReleve = () => {
+    if (!compte) return;
+    const c = compte;
+    const lignesHtml = [
+      ...c.livraisons.map(l => `<tr><td>${fmtDateTime(l.createdAt)}</td><td>Livraison ${l.numeroBL}</td><td style="text-align:right">${fmtN(l.total)}</td><td style="text-align:right">${fmtN(l.montantPaye)}</td></tr>`),
+      ...c.paiements.map(p => `<tr><td>${fmtDateTime(p.createdAt)}</td><td>Paiement${p.note ? ' — ' + p.note : ''}</td><td></td><td style="text-align:right">${fmtN(p.montant)}</td></tr>`),
+    ].join('');
+    const win = window.open('', '_blank', 'width=800,height=900');
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>Relevé — ${c.partenaire.name}</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:24px;color:#111}
+        h2{margin:0 0 2px} .sub{color:#666;font-size:13px;margin-bottom:16px}
+        table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+        th,td{border:1px solid #999;padding:6px 8px} th{background:#f0f0f0;text-align:left}
+        .tot{margin-top:16px;font-size:15px} .solde{font-size:20px;font-weight:bold;color:#7A1D2E}
+      </style></head><body>
+        <h2>Relevé de compte — ${c.partenaire.name}</h2>
+        <div class="sub">${[c.partenaire.lieu, c.partenaire.phone].filter(Boolean).join(' · ')} &middot; Édité le ${new Date().toLocaleDateString('fr-FR')}</div>
+        <table>
+          <thead><tr><th>Date</th><th>Opération</th><th style="text-align:right">Montant livré</th><th style="text-align:right">Payé</th></tr></thead>
+          <tbody>${lignesHtml || '<tr><td colspan="4" style="text-align:center;color:#888">Aucune opération</td></tr>'}</tbody>
+        </table>
+        <div class="tot">Total livré : <b>${fmtN(c.totalLivre)} XAF</b> &nbsp;·&nbsp; Total payé : <b>${fmtN(c.payeLivraison + c.totalPaiements)} XAF</b></div>
+        <div class="tot solde">Solde dû : ${fmtN(c.solde)} XAF</div>
+        <script>window.onload=()=>window.print()<\/script>
+      </body></html>`);
+    win.document.close();
+  };
 
   const warehouse = useMemo(() => products.filter(p => (p.stockMagazin ?? 0) > 0), [products]);
 
@@ -163,7 +220,6 @@ export default function Partenaires() {
   };
 
   const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
-  const livForPart = (id: string | { _id: string }) => typeof id === 'string' ? id : id._id;
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
@@ -179,6 +235,7 @@ export default function Partenaires() {
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
           {([
             { key: 'livraisons', label: 'Livraisons', icon: D.livraison },
+            { key: 'comptes', label: 'Comptes & créances', icon: D.compte },
             { key: 'partenaires', label: 'Partenaires', icon: D.clients },
           ] as { key: Tab; label: string; icon: string }[]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
@@ -221,7 +278,7 @@ export default function Partenaires() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
           <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Partenaires</p>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{tab === 'livraisons' ? 'Bon de livraison' : 'Partenaires'}</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{tab === 'livraisons' ? 'Bon de livraison' : tab === 'comptes' ? 'Comptes & créances' : 'Partenaires'}</h1>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
@@ -305,6 +362,87 @@ export default function Partenaires() {
             </div>
           )}
 
+          {/* ── Onglet Comptes & créances ── */}
+          {tab === 'comptes' && (
+            <div style={{ maxWidth: 820 }}>
+              <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
+                <label style={LABEL}>Partenaire</label>
+                <select value={compteId} onChange={e => setCompteId(e.target.value)} style={{ ...INPUT, cursor: 'pointer' }}>
+                  <option value="">— Choisir un partenaire —</option>
+                  {partenaires.map(p => <option key={p._id} value={p._id}>{p.name}{p.lieu ? ` · ${p.lieu}` : ''}</option>)}
+                </select>
+              </div>
+
+              {compte && (
+                <>
+                  {/* Solde + actions */}
+                  <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
+                      <div style={{ flex: 1, minWidth: 200 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{compte.partenaire.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{[compte.partenaire.lieu, compte.partenaire.phone].filter(Boolean).join(' · ') || '—'}</div>
+                        <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 12, color: 'var(--fs-ink-500)' }}>
+                          <span>Livré : <strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(compte.totalLivre)}</strong></span>
+                          <span>Payé : <strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(compte.payeLivraison + compte.totalPaiements)}</strong></span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Solde dû (créance)</div>
+                        <div style={{ fontSize: 26, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: compte.solde > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(compte.solde)} XAF</div>
+                      </div>
+                      <button onClick={imprimerReleve} style={{ padding: '9px 16px', background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <I d={D.print} size={14}/> Imprimer le relevé
+                      </button>
+                    </div>
+
+                    {/* Enregistrer un paiement */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--fs-line)' }}>
+                      <div style={{ width: 150 }}>
+                        <label style={LABEL}>Paiement reçu (XAF)</label>
+                        <input type="number" min={0} value={paieMontant} onChange={e => setPaieMontant(e.target.value)} placeholder="0" style={{ ...INPUT, textAlign: 'center' }}/>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 160 }}>
+                        <label style={LABEL}>Note (optionnel)</label>
+                        <input value={paieNote} onChange={e => setPaieNote(e.target.value)} placeholder="ex : espèces, MoMo…" style={INPUT}/>
+                      </div>
+                      <button onClick={enregistrerPaiement} style={BTN_PRIMARY}>Enregistrer le paiement</button>
+                    </div>
+                  </div>
+
+                  {/* Relevé : livraisons + paiements */}
+                  <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Relevé des opérations</p>
+                  {(compte.livraisons.length === 0 && compte.paiements.length === 0) ? (
+                    <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune opération</div>
+                  ) : (
+                    <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+                      {compte.livraisons.map(l => (
+                        <div key={l._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--fs-line)', gap: 10 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Livraison {l.numeroBL}</div>
+                            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{fmtDateTime(l.createdAt)} · {l.lignes.length} article(s)</div>
+                          </div>
+                          <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-800)' }}>+{fmtN(l.total)}</div>
+                            <div style={{ fontSize: 10, color: 'var(--fs-success-700)' }}>payé {fmtN(l.montantPaye)}</div>
+                          </div>
+                        </div>
+                      ))}
+                      {compte.paiements.map(p => (
+                        <div key={p._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--fs-line)', background: '#f0fdf4', gap: 10 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#15803d' }}>Paiement{p.note ? ` — ${p.note}` : ''}</div>
+                            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{fmtDateTime(p.createdAt)}</div>
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: '#15803d', whiteSpace: 'nowrap' }}>−{fmtN(p.montant)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {/* ── Onglet Partenaires ── */}
           {tab === 'partenaires' && (
             <div style={{ maxWidth: 720 }}>
@@ -327,18 +465,16 @@ export default function Partenaires() {
               ) : (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                   {partenaires.map((p, i) => {
-                    const livs = livraisons.filter(l => livForPart(l.partenaire) === p._id);
-                    const solde = livs.reduce((s, l) => s + Math.max(0, l.total - l.montantPaye), 0);
                     return (
                       <div key={p._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: i < partenaires.length - 1 ? '1px solid var(--fs-line)' : 'none', background: i % 2 ? 'var(--fs-ivory)' : '#fff' }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{p.name}</div>
                           <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{[p.lieu, p.phone].filter(Boolean).join(' · ') || '—'}</div>
                         </div>
-                        <div style={{ textAlign: 'right', marginRight: 6 }}>
-                          <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Créance</div>
-                          <div style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: solde > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(solde)}</div>
-                        </div>
+                        <button onClick={() => { setCompteId(p._id); setTab('comptes'); }} title="Voir le compte / créance"
+                          style={{ background: 'var(--fs-wine-50)', border: '1px solid var(--fs-wine-200)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--fs-wine-700)', fontSize: 12, fontWeight: 700, marginRight: 4 }}>
+                          Compte
+                        </button>
                         <button onClick={() => { setEditing(p._id); setPForm({ name: p.name, phone: p.phone, lieu: p.lieu, note: p.note }); }} title="Modifier"
                           style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex' }}><I d={D.edit} size={13}/></button>
                         <button onClick={() => removePartenaire(p._id)} title="Supprimer"

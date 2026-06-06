@@ -80,6 +80,41 @@ export async function createLivraison(partenaireId: string, data: LivraisonInput
   return res.json();
 }
 
+// ── Paiements & relevé de compte ──────────────────────────────────────────────
+export interface PaiementPartenaire {
+  _id: string;
+  partenaire: string;
+  montant: number;
+  note: string;
+  date: string;
+  creePar?: { name: string; role: string } | string;
+  createdAt: string;
+}
+
+export interface ComptePartenaire {
+  partenaire: Partenaire;
+  livraisons: LivraisonPartenaire[];
+  paiements: PaiementPartenaire[];
+  totalLivre: number;
+  payeLivraison: number;
+  totalPaiements: number;
+  solde: number;
+}
+
+export async function getCompte(partenaireId: string): Promise<ComptePartenaire> {
+  const res = await fetch(`/api/partenaires/${partenaireId}/compte`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement du compte');
+  return res.json();
+}
+
+export async function createPaiement(partenaireId: string, data: { montant: number; note?: string }): Promise<PaiementPartenaire> {
+  const res = await fetch(`/api/partenaires/${partenaireId}/paiements`, {
+    method: 'POST', headers: authHeaders(), body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Erreur enregistrement du paiement');
+  return res.json();
+}
+
 // Dernier prix pratiqué par produit pour ce partenaire (map productId -> prix)
 export async function getDernierPrix(partenaireId: string): Promise<Record<string, number>> {
   const res = await fetch(`/api/partenaires/${partenaireId}/dernier-prix`, { headers: authHeaders() });
