@@ -79,6 +79,7 @@ const SECTIONS = [
       { id: 'go-caisse',     label: 'Caisse',           icon: D.caisseSpace, path: '/caisse'     },
       { id: 'go-stock',      label: 'Gestion de stock', icon: D.stockSpace,  path: '/stocks'     },
       { id: 'go-magazinier', label: 'Magazinier',       icon: D.magSpace,    path: '/magazinier' },
+      { id: 'go-partenaires',label: 'Partenaires',      icon: D.equipe,      path: '/partenaires' },
     ],
   },
 ];

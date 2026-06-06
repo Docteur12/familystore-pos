@@ -38,6 +38,7 @@ import AdminCaisses      from './pages/AdminCaisses';
 import Magazinier        from './pages/Magazinier';
 import StocksEcarts      from './pages/StocksEcarts';
 import StocksDivers      from './pages/StocksDivers';
+import Partenaires       from './pages/Partenaires';
 import { getTokenPayload } from './api/dashboard';
 
 const INACTIVITY_MS = 10 * 60 * 1000;
@@ -149,6 +150,7 @@ export default function App() {
         <Route path="/admin/magaziniers"   element={<RequireAuthBare><AdminMagaziniers /></RequireAuthBare>} />
         <Route path="/admin/caisses"       element={<RequireAuthBare><AdminCaisses /></RequireAuthBare>} />
         <Route path="/magazinier"          element={<RequireRole role={['magazinier','patron']}><Magazinier /></RequireRole>} />
+        <Route path="/partenaires"         element={<RequireRole role={['magazinier','patron']}><Partenaires /></RequireRole>} />
       </Routes>
     </BrowserRouter>
     </SettingsProvider>

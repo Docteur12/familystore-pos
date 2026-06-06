@@ -674,6 +674,20 @@ export default function Magazinier() {
               {t.label}
             </button>
           ))}
+
+          {/* Lien vers l'espace Partenaires (grossistes) */}
+          <button onClick={() => { window.location.href = '/partenaires'; }} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 9,
+            padding: '9px 10px', marginTop: 8, borderRadius: 8, border: 'none',
+            background: 'transparent', borderLeft: '2px solid transparent',
+            color: 'rgba(245,235,217,0.65)', cursor: 'pointer', textAlign: 'left', fontSize: 13,
+            fontFamily: 'var(--fs-font-sans)',
+          }}>
+            <span style={{ color: 'var(--fs-gold-500)', flexShrink: 0 }}>
+              <I d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" size={15}/>
+            </span>
+            Partenaires
+          </button>
         </nav>
 
         {/* Retour admin (patron uniquement) */}

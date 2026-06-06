@@ -17,6 +17,7 @@ import { AdminModule }     from './admin/admin.module';
 import { EcartsModule }   from './ecarts/ecarts.module';
 import { FournisseursModule } from './fournisseurs/fournisseurs.module';
 import { BonsLivraisonModule } from './bons-livraison/bons-livraison.module';
+import { PartenairesModule } from './partenaires/partenaires.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { BonsLivraisonModule } from './bons-livraison/bons-livraison.module';
     EcartsModule,
     FournisseursModule,
     BonsLivraisonModule,
+    PartenairesModule,
   ],
   controllers: [AppController],
   providers: [],
