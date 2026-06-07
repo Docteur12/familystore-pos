@@ -1,12 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { getTokenPayload } from '../api/dashboard';
 import { getAllProducts, Product } from '../api/products';
 import {
   getPartenaires, createPartenaire, updatePartenaire, deletePartenaire,
   getLivraisons, createLivraison, getDernierPrix,
-  getCompte, createPaiement,
-  Partenaire, LivraisonPartenaire, ComptePartenaire,
+  getCompte, createPaiement, getPartenairesStats,
+  getCommandes, createCommande, deleteCommande, livrerCommande, createRetour,
+  Partenaire, LivraisonPartenaire, ComptePartenaire, PartenairesStats,
+  CommandePartenaire, ModePaiement, MODE_LABELS,
 } from '../api/partenaires';
 import ToastContainer, { useToast } from '../components/Toast';
 
@@ -24,6 +27,8 @@ function I({ d, size = 15 }: { d: string; size?: number }) {
   );
 }
 const D = {
+  dashboard: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+  cart:      'M9 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM20 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6',
   livraison: 'M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
   clients:   'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   compte:    'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
@@ -74,7 +79,7 @@ function ProductSelect({ products, value, onChange }: {
             <button key={p._id} type="button" onMouseDown={() => { onChange(p._id); setOpen(false); }}
               style={{ width: '100%', padding: '7px 12px', border: 'none', background: p._id === value ? 'var(--fs-ivory)' : '#fff', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--fs-line)', display: 'block' }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
-              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Entrepôt : {p.stockMagazin ?? 0}</div>
+              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Entrepôt : {p.stockMagazin ?? 0} · Boutique : {p.stock}</div>
             </button>
           ))}
         </div>
@@ -83,7 +88,7 @@ function ProductSelect({ products, value, onChange }: {
   );
 }
 
-type Tab = 'livraisons' | 'partenaires' | 'comptes';
+type Tab = 'dashboard' | 'commandes' | 'livraisons' | 'comptes' | 'partenaires';
 interface Row { productId: string; quantite: string; prix: string }
 
 export default function Partenaires() {
@@ -92,7 +97,8 @@ export default function Partenaires() {
   const isPatron = payload?.role === 'patron';
   const { toasts, addToast, removeToast } = useToast();
 
-  const [tab, setTab] = useState<Tab>('livraisons');
+  const [tab, setTab] = useState<Tab>('dashboard');
+  const [stats, setStats] = useState<PartenairesStats | null>(null);
   const [partenaires, setPartenaires] = useState<Partenaire[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [livraisons, setLivraisons] = useState<LivraisonPartenaire[]>([]);
@@ -101,8 +107,21 @@ export default function Partenaires() {
   const [partId, setPartId] = useState('');
   const [rows, setRows] = useState<Row[]>([{ productId: '', quantite: '1', prix: '' }]);
   const [montantPaye, setMontantPaye] = useState('');
+  const [livMode, setLivMode] = useState<ModePaiement>('credit');
   const [dernierPrix, setDernierPrix] = useState<Record<string, number>>({});
   const [loadingLiv, setLoadingLiv] = useState(false);
+
+  // Formulaire commande
+  const [commandes, setCommandes] = useState<CommandePartenaire[]>([]);
+  const [cmdPartId, setCmdPartId] = useState('');
+  const [cmdRows, setCmdRows] = useState<Row[]>([{ productId: '', quantite: '1', prix: '' }]);
+  const [cmdMode, setCmdMode] = useState<ModePaiement>('credit');
+  const [cmdDelai, setCmdDelai] = useState('');
+  const [cmdDernierPrix, setCmdDernierPrix] = useState<Record<string, number>>({});
+
+  // Retour d'invendus (comptes)
+  const [retourRows, setRetourRows] = useState<Row[]>([{ productId: '', quantite: '1', prix: '' }]);
+  const [showRetour, setShowRetour] = useState(false);
 
   // Formulaire partenaire
   const [pForm, setPForm] = useState({ name: '', phone: '', lieu: '', note: '' });
@@ -164,12 +183,70 @@ export default function Partenaires() {
 
   const warehouse = useMemo(() => products.filter(p => (p.stockMagazin ?? 0) > 0), [products]);
 
+  const loadStats = () => { getPartenairesStats().then(setStats).catch(() => {}); };
+  const loadCommandes = () => { getCommandes().then(setCommandes).catch(() => {}); };
   const loadAll = () => {
     getPartenaires().then(setPartenaires).catch(() => {});
     getAllProducts().then(setProducts).catch(() => {});
     getLivraisons().then(setLivraisons).catch(() => {});
+    loadCommandes();
+    loadStats();
   };
   useEffect(() => { loadAll(); }, []);
+  useEffect(() => { if (tab === 'dashboard') loadStats(); }, [tab]);
+
+  // Rappel des derniers prix pour la commande
+  useEffect(() => {
+    if (cmdPartId) getDernierPrix(cmdPartId).then(setCmdDernierPrix).catch(() => setCmdDernierPrix({}));
+    else setCmdDernierPrix({});
+  }, [cmdPartId]);
+
+  const setCmdRow = (i: number, patch: Partial<Row>) => setCmdRows(r => r.map((row, n) => n === i ? { ...row, ...patch } : row));
+  const addCmdRow = () => setCmdRows(r => [...r, { productId: '', quantite: '1', prix: '' }]);
+  const removeCmdRow = (i: number) => setCmdRows(r => r.length === 1 ? [{ productId: '', quantite: '1', prix: '' }] : r.filter((_, n) => n !== i));
+  const cmdTotal = cmdRows.reduce((s, r) => s + (parseInt(r.quantite) || 0) * (parseInt(r.prix) || 0), 0);
+
+  const validerCommande = async () => {
+    if (!cmdPartId) { addToast('Choisissez un partenaire', 'error'); return; }
+    const lignes = cmdRows.filter(r => r.productId && (parseInt(r.quantite) || 0) > 0)
+      .map(r => ({ productId: r.productId, quantite: parseInt(r.quantite) || 0, prixUnitaire: parseInt(r.prix) || 0 }));
+    if (lignes.length === 0) { addToast('Ajoutez au moins un produit', 'error'); return; }
+    try {
+      await createCommande({ partenaireId: cmdPartId, modePaiement: cmdMode, delai: parseInt(cmdDelai) || 0, lignes });
+      addToast('Commande enregistrée ✓', 'success');
+      setCmdRows([{ productId: '', quantite: '1', prix: '' }]); setCmdDelai('');
+      loadCommandes();
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+  };
+
+  const genererBL = async (id: string) => {
+    try {
+      await livrerCommande(id, 0);
+      addToast('Bon de livraison généré ✓ — stock entrepôt mis à jour', 'success');
+      loadCommandes(); getAllProducts().then(setProducts).catch(() => {}); getLivraisons().then(setLivraisons).catch(() => {});
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+  };
+
+  const supprimerCommande = async (id: string) => {
+    try { await deleteCommande(id); setCommandes(prev => prev.filter(c => c._id !== id)); addToast('Commande supprimée', 'success'); }
+    catch { addToast('Erreur suppression', 'error'); }
+  };
+
+  // Retour d'invendus
+  const setRetourRow = (i: number, patch: Partial<Row>) => setRetourRows(r => r.map((row, n) => n === i ? { ...row, ...patch } : row));
+  const addRetourRow = () => setRetourRows(r => [...r, { productId: '', quantite: '1', prix: '' }]);
+  const removeRetourRow = (i: number) => setRetourRows(r => r.length === 1 ? [{ productId: '', quantite: '1', prix: '' }] : r.filter((_, n) => n !== i));
+  const enregistrerRetour = async () => {
+    const lignes = retourRows.filter(r => r.productId && (parseInt(r.quantite) || 0) > 0)
+      .map(r => ({ productId: r.productId, quantite: parseInt(r.quantite) || 0, prixUnitaire: parseInt(r.prix) || 0 }));
+    if (!compteId || lignes.length === 0) { addToast('Ajoutez au moins un produit', 'error'); return; }
+    try {
+      await createRetour(compteId, { lignes });
+      addToast('Retour enregistré ✓ — remis en entrepôt', 'success');
+      setRetourRows([{ productId: '', quantite: '1', prix: '' }]); setShowRetour(false);
+      loadCompte(compteId); getAllProducts().then(setProducts).catch(() => {});
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+  };
 
   // Rappel des derniers prix quand on change de partenaire
   useEffect(() => {
@@ -192,7 +269,7 @@ export default function Partenaires() {
     if (lignes.length === 0) { addToast('Ajoutez au moins un produit', 'error'); return; }
     setLoadingLiv(true);
     try {
-      await createLivraison(partId, { lignes, montantPaye: parseInt(montantPaye) || 0 });
+      await createLivraison(partId, { lignes, montantPaye: parseInt(montantPaye) || 0, modePaiement: livMode });
       addToast('Bon de livraison validé ✓ — stock entrepôt mis à jour', 'success');
       setRows([{ productId: '', quantite: '1', prix: '' }]);
       setMontantPaye('');
@@ -234,6 +311,8 @@ export default function Partenaires() {
 
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
           {([
+            { key: 'dashboard', label: 'Tableau de bord', icon: D.dashboard },
+            { key: 'commandes', label: 'Commandes', icon: D.cart },
             { key: 'livraisons', label: 'Livraisons', icon: D.livraison },
             { key: 'comptes', label: 'Comptes & créances', icon: D.compte },
             { key: 'partenaires', label: 'Partenaires', icon: D.clients },
@@ -278,10 +357,158 @@ export default function Partenaires() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
           <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Partenaires</p>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{tab === 'livraisons' ? 'Bon de livraison' : tab === 'comptes' ? 'Comptes & créances' : 'Partenaires'}</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{tab === 'dashboard' ? 'Tableau de bord' : tab === 'commandes' ? 'Commandes grossistes' : tab === 'livraisons' ? 'Bon de livraison' : tab === 'comptes' ? 'Comptes & créances' : 'Partenaires'}</h1>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
+
+          {/* ── Onglet Tableau de bord ── */}
+          {tab === 'dashboard' && (
+            <div style={{ maxWidth: 980 }}>
+              {/* Métriques */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 20 }}>
+                {[
+                  { label: 'Créances totales', val: `${fmtN(stats?.totalCreances ?? 0)} XAF`, color: 'var(--fs-danger-700)', sub: 'Reste dû par les partenaires' },
+                  { label: 'Total livré', val: `${fmtN(stats?.totalLivre ?? 0)} XAF`, color: 'var(--fs-ink-900)', sub: 'Cumul des bons de livraison' },
+                  { label: 'Total encaissé', val: `${fmtN(stats?.totalEncaisse ?? 0)} XAF`, color: 'var(--fs-success-700)', sub: 'Paiements reçus' },
+                  { label: 'Partenaires', val: `${stats?.nbPartenaires ?? 0}`, color: 'var(--fs-wine-700)', sub: 'Revendeurs enregistrés' },
+                ].map(m => (
+                  <div key={m.label} style={{ flex: '1 1 200px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 18px', boxShadow: 'var(--fs-shadow-sm)' }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{m.label}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: m.color, fontFamily: 'var(--fs-font-mono)' }}>{m.val}</div>
+                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 3 }}>{m.sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>
+                {/* Évolution */}
+                <div style={{ flex: '2 1 460px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
+                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Évolution (6 mois) — livré vs encaissé</p>
+                  <div style={{ height: 260 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={stats?.evolution ?? []} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--fs-line)" vertical={false}/>
+                        <XAxis dataKey="mois" tick={{ fontSize: 11, fill: 'var(--fs-ink-500)' }} axisLine={false} tickLine={false}/>
+                        <YAxis tick={{ fontSize: 10, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={48} tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)}/>
+                        <Tooltip formatter={(v: number) => `${fmtN(v)} XAF`}/>
+                        <Legend wrapperStyle={{ fontSize: 11 }}/>
+                        <Bar dataKey="livre" name="Livré" fill="#7A1D2E" radius={[3, 3, 0, 0]}/>
+                        <Bar dataKey="encaisse" name="Encaissé" fill="#15803d" radius={[3, 3, 0, 0]}/>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* Top débiteurs */}
+                <div style={{ flex: '1 1 280px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
+                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Top débiteurs (créances)</p>
+                  {(stats?.topDebiteurs ?? []).length === 0 ? (
+                    <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune créance — tout est réglé ✓</div>
+                  ) : (stats?.topDebiteurs ?? []).map((d, i) => (
+                    <div key={d.partenaireId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--fs-line)', cursor: 'pointer' }}
+                      onClick={() => { setCompteId(d.partenaireId); setTab('comptes'); }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                        <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-500)', flexShrink: 0 }}>{i + 1}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-danger-700)', flexShrink: 0 }}>{fmtN(d.solde)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Onglet Commandes ── */}
+          {tab === 'commandes' && (
+            <div style={{ maxWidth: 880 }}>
+              <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
+                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Nouvelle commande du grossiste</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px', gap: 10, marginBottom: 14 }}>
+                  <div>
+                    <label style={LABEL}>Partenaire</label>
+                    <select value={cmdPartId} onChange={e => setCmdPartId(e.target.value)} style={{ ...INPUT, cursor: 'pointer' }}>
+                      <option value="">— Choisir —</option>
+                      {partenaires.map(p => <option key={p._id} value={p._id}>{p.name}{p.lieu ? ` · ${p.lieu}` : ''}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={LABEL}>Mode de paiement</label>
+                    <select value={cmdMode} onChange={e => setCmdMode(e.target.value as ModePaiement)} style={{ ...INPUT, cursor: 'pointer' }}>
+                      <option value="comptant">Comptant</option>
+                      <option value="credit">Crédit</option>
+                      <option value="depot_vente">Dépôt-vente</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={LABEL}>Délai (jours)</label>
+                    <input type="number" min={0} value={cmdDelai} onChange={e => setCmdDelai(e.target.value)} placeholder="7" style={{ ...INPUT, textAlign: 'center' }}/>
+                  </div>
+                </div>
+
+                <label style={LABEL}>Produits demandés (préparation : stock boutique + entrepôt)</label>
+                {cmdRows.map((row, i) => {
+                  const prod = products.find(p => p._id === row.productId);
+                  const dp = row.productId ? cmdDernierPrix[row.productId] : undefined;
+                  return (
+                    <div key={i} style={{ marginBottom: 6 }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 110px 36px', gap: 6, alignItems: 'start' }}>
+                        <ProductSelect products={products} value={row.productId} onChange={id => setCmdRow(i, { productId: id, prix: row.prix || (cmdDernierPrix[id] ? String(cmdDernierPrix[id]) : '') })}/>
+                        <input type="number" min={1} value={row.quantite} onChange={e => setCmdRow(i, { quantite: e.target.value })} placeholder="Qté" style={{ ...INPUT, textAlign: 'center' }}/>
+                        <div>
+                          <input type="number" min={0} value={row.prix} onChange={e => setCmdRow(i, { prix: e.target.value })} placeholder="Prix" style={{ ...INPUT, textAlign: 'center' }}/>
+                          {dp !== undefined && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', textAlign: 'center', marginTop: 2 }}>dernier : {fmtN(dp)}</div>}
+                        </div>
+                        <button onClick={() => removeCmdRow(i)} title="Retirer" style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><I d={D.trash} size={13}/></button>
+                      </div>
+                      {prod && <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 2, paddingLeft: 2 }}>Boutique : <strong>{prod.stock}</strong> · Entrepôt : <strong>{prod.stockMagazin ?? 0}</strong></div>}
+                    </div>
+                  );
+                })}
+                <button onClick={addCmdRow} style={{ background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <I d={D.plus} size={13}/> Ajouter une ligne
+                </button>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--fs-line)' }}>
+                  <div style={{ fontSize: 13, color: 'var(--fs-ink-500)' }}>Total estimé : <strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(cmdTotal)} XAF</strong></div>
+                  <button onClick={validerCommande} style={BTN_PRIMARY}>Enregistrer la commande</button>
+                </div>
+              </div>
+
+              {/* Liste des commandes */}
+              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Commandes</p>
+              {commandes.length === 0 ? (
+                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune commande</div>
+              ) : commandes.map(c => {
+                const tot = c.lignes.reduce((s, l) => s + l.quantite * l.prixUnitaire, 0);
+                const statutCfg = c.statut === 'livree' ? { bg: '#f0fdf4', col: '#16a34a', txt: 'Livrée' } : c.statut === 'preparee' ? { bg: '#eff6ff', col: '#2563eb', txt: 'Préparée' } : { bg: '#fef9e7', col: '#a16207', txt: 'Reçue' };
+                return (
+                  <div key={c._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 8, boxShadow: 'var(--fs-shadow-sm)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{typeof c.partenaire === 'object' ? c.partenaire.name : '—'}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: statutCfg.bg, color: statutCfg.col }}>{statutCfg.txt}</span>
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'var(--fs-ivory)', color: 'var(--fs-ink-500)' }}>{MODE_LABELS[c.modePaiement]}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{c.numero} · {fmtN(tot)} XAF{c.delai ? ` · délai ${c.delai}j` : ''}</div>
+                    </div>
+                    <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {c.lignes.map((lg, i) => <span key={i} style={{ fontSize: 11, background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 6, padding: '3px 8px', color: 'var(--fs-ink-700)' }}>{lg.productName} × {lg.quantite}</span>)}
+                    </div>
+                    <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                      {c.statut !== 'livree' ? (
+                        <button onClick={() => genererBL(c._id)} style={{ padding: '6px 14px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Générer le bon de livraison</button>
+                      ) : (
+                        <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, alignSelf: 'center' }}>✓ Bon de livraison généré</span>
+                      )}
+                      <button onClick={() => supprimerCommande(c._id)} title="Supprimer" style={{ padding: '6px 9px', background: '#fef2f2', color: 'var(--fs-danger-700)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.trash} size={13}/></button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* ── Onglet Livraisons ── */}
           {tab === 'livraisons' && (
@@ -321,7 +548,15 @@ export default function Partenaires() {
                 </button>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-end', marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--fs-line)' }}>
-                  <div style={{ width: 160 }}>
+                  <div style={{ width: 150 }}>
+                    <label style={LABEL}>Mode de paiement</label>
+                    <select value={livMode} onChange={e => setLivMode(e.target.value as ModePaiement)} style={{ ...INPUT, cursor: 'pointer' }}>
+                      <option value="comptant">Comptant</option>
+                      <option value="credit">Crédit</option>
+                      <option value="depot_vente">Dépôt-vente</option>
+                    </select>
+                  </div>
+                  <div style={{ width: 150 }}>
                     <label style={LABEL}>Montant payé (XAF)</label>
                     <input type="number" min={0} value={montantPaye} onChange={e => setMontantPaye(e.target.value)} placeholder="0" style={{ ...INPUT, textAlign: 'center' }}/>
                   </div>
@@ -390,9 +625,14 @@ export default function Partenaires() {
                         <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Solde dû (créance)</div>
                         <div style={{ fontSize: 26, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: compte.solde > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(compte.solde)} XAF</div>
                       </div>
-                      <button onClick={imprimerReleve} style={{ padding: '9px 16px', background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <I d={D.print} size={14}/> Imprimer le relevé
-                      </button>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => setShowRetour(s => !s)} style={{ padding: '9px 14px', background: '#fff', color: 'var(--fs-ink-600)', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                          Retour d'invendus
+                        </button>
+                        <button onClick={imprimerReleve} style={{ padding: '9px 16px', background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <I d={D.print} size={14}/> Imprimer le relevé
+                        </button>
+                      </div>
                     </div>
 
                     {/* Enregistrer un paiement */}
@@ -407,18 +647,37 @@ export default function Partenaires() {
                       </div>
                       <button onClick={enregistrerPaiement} style={BTN_PRIMARY}>Enregistrer le paiement</button>
                     </div>
+
+                    {/* Formulaire retour d'invendus (dépôt-vente) */}
+                    {showRetour && (
+                      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed var(--fs-line-2)' }}>
+                        <label style={LABEL}>Retour d'invendus (remis en entrepôt)</label>
+                        {retourRows.map((row, i) => (
+                          <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 110px 36px', gap: 6, marginBottom: 6, alignItems: 'start' }}>
+                            <ProductSelect products={products} value={row.productId} onChange={id => setRetourRow(i, { productId: id, prix: row.prix || (dernierPrix[id] ? String(dernierPrix[id]) : '') })}/>
+                            <input type="number" min={1} value={row.quantite} onChange={e => setRetourRow(i, { quantite: e.target.value })} placeholder="Qté" style={{ ...INPUT, textAlign: 'center' }}/>
+                            <input type="number" min={0} value={row.prix} onChange={e => setRetourRow(i, { prix: e.target.value })} placeholder="Prix" style={{ ...INPUT, textAlign: 'center' }}/>
+                            <button onClick={() => removeRetourRow(i)} title="Retirer" style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><I d={D.trash} size={13}/></button>
+                          </div>
+                        ))}
+                        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                          <button onClick={addRetourRow} style={{ background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '7px 14px' }}>+ Ligne</button>
+                          <button onClick={enregistrerRetour} style={BTN_PRIMARY}>Enregistrer le retour</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Relevé : livraisons + paiements */}
                   <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Relevé des opérations</p>
-                  {(compte.livraisons.length === 0 && compte.paiements.length === 0) ? (
+                  {(compte.livraisons.length === 0 && compte.paiements.length === 0 && compte.retours.length === 0) ? (
                     <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune opération</div>
                   ) : (
                     <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                       {compte.livraisons.map(l => (
                         <div key={l._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--fs-line)', gap: 10 }}>
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Livraison {l.numeroBL}</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Livraison {l.numeroBL} <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-500)' }}>· {MODE_LABELS[l.modePaiement] ?? l.modePaiement}</span></div>
                             <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{fmtDateTime(l.createdAt)} · {l.lignes.length} article(s)</div>
                           </div>
                           <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -434,6 +693,15 @@ export default function Partenaires() {
                             <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{fmtDateTime(p.createdAt)}</div>
                           </div>
                           <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: '#15803d', whiteSpace: 'nowrap' }}>−{fmtN(p.montant)}</div>
+                        </div>
+                      ))}
+                      {compte.retours.map(r => (
+                        <div key={r._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--fs-line)', background: '#eff6ff', gap: 10 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#2563eb' }}>Retour d'invendus</div>
+                            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{fmtDateTime(r.createdAt)} · {r.lignes.length} article(s)</div>
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: '#2563eb', whiteSpace: 'nowrap' }}>−{fmtN(r.total)}</div>
                         </div>
                       ))}
                     </div>

@@ -36,6 +36,9 @@ export class LivraisonPartenaire {
   @Prop({ default: 0, min: 0 })
   montantPaye: number;   // payé à la livraison (le reste = créance)
 
+  @Prop({ enum: ['comptant', 'credit', 'depot_vente'], default: 'credit' })
+  modePaiement: string;
+
   @Prop({ trim: true, default: '' })
   date: string;
 

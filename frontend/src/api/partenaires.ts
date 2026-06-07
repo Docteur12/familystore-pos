@@ -17,6 +17,11 @@ export interface LivraisonLigne {
   prixUnitaire: number;
 }
 
+export type ModePaiement = 'comptant' | 'credit' | 'depot_vente';
+export const MODE_LABELS: Record<string, string> = {
+  comptant: 'Comptant', credit: 'Crédit', depot_vente: 'Dépôt-vente',
+};
+
 export interface LivraisonPartenaire {
   _id: string;
   numeroBL: string;
@@ -24,6 +29,7 @@ export interface LivraisonPartenaire {
   lignes: LivraisonLigne[];
   total: number;
   montantPaye: number;
+  modePaiement: ModePaiement;
   date: string;
   creePar?: { name: string; role: string } | string;
   createdAt: string;
@@ -33,7 +39,58 @@ export interface LivraisonInput {
   numeroBL?: string;
   date?: string;
   montantPaye?: number;
+  modePaiement?: ModePaiement;
   lignes: { productId: string; quantite: number; prixUnitaire: number }[];
+}
+
+// ── Commandes (demande du grossiste) ──────────────────────────────────────────
+export interface CommandePartenaire {
+  _id: string;
+  numero: string;
+  partenaire: { _id: string; name: string; lieu?: string } | string;
+  lignes: { productId: string; productName: string; unit: string; quantite: number; prixUnitaire: number }[];
+  modePaiement: ModePaiement;
+  delai: number;
+  statut: 'recue' | 'preparee' | 'livree';
+  note: string;
+  livraison: string | null;
+  createdAt: string;
+}
+
+export async function getCommandes(statut?: string): Promise<CommandePartenaire[]> {
+  const res = await fetch(`/api/partenaires/commandes${statut ? `?statut=${statut}` : ''}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement commandes');
+  return res.json();
+}
+
+export async function createCommande(data: { partenaireId: string; modePaiement?: ModePaiement; delai?: number; note?: string; lignes: { productId: string; quantite: number; prixUnitaire: number }[] }): Promise<CommandePartenaire> {
+  const res = await fetch('/api/partenaires/commandes', { method: 'POST', headers: authHeaders(), body: JSON.stringify(data) });
+  if (!res.ok) throw new Error('Erreur création commande');
+  return res.json();
+}
+
+export async function updateCommande(id: string, dto: Partial<{ statut: string; note: string; delai: number }>): Promise<CommandePartenaire> {
+  const res = await fetch(`/api/partenaires/commandes/${id}`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error('Erreur modification commande');
+  return res.json();
+}
+
+export async function deleteCommande(id: string): Promise<void> {
+  const res = await fetch(`/api/partenaires/commandes/${id}`, { method: 'DELETE', headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur suppression commande');
+}
+
+export async function livrerCommande(id: string, montantPaye = 0): Promise<LivraisonPartenaire> {
+  const res = await fetch(`/api/partenaires/commandes/${id}/livrer`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ montantPaye }) });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur génération du bon de livraison');
+  return res.json();
+}
+
+// ── Retours d'invendus (dépôt-vente) ──────────────────────────────────────────
+export async function createRetour(partenaireId: string, data: { note?: string; lignes: { productId: string; quantite: number; prixUnitaire: number }[] }): Promise<unknown> {
+  const res = await fetch(`/api/partenaires/${partenaireId}/retours`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(data) });
+  if (!res.ok) throw new Error('Erreur enregistrement du retour');
+  return res.json();
 }
 
 // ── Partenaires ───────────────────────────────────────────────────────────────
@@ -91,19 +148,45 @@ export interface PaiementPartenaire {
   createdAt: string;
 }
 
+export interface RetourPartenaire {
+  _id: string;
+  partenaire: string;
+  lignes: { productId: string; productName: string; quantite: number; prixUnitaire: number }[];
+  total: number;
+  note: string;
+  createdAt: string;
+}
+
 export interface ComptePartenaire {
   partenaire: Partenaire;
   livraisons: LivraisonPartenaire[];
   paiements: PaiementPartenaire[];
+  retours: RetourPartenaire[];
   totalLivre: number;
   payeLivraison: number;
   totalPaiements: number;
+  totalRetours: number;
   solde: number;
 }
 
 export async function getCompte(partenaireId: string): Promise<ComptePartenaire> {
   const res = await fetch(`/api/partenaires/${partenaireId}/compte`, { headers: authHeaders() });
   if (!res.ok) throw new Error('Erreur chargement du compte');
+  return res.json();
+}
+
+export interface PartenairesStats {
+  nbPartenaires: number;
+  totalLivre: number;
+  totalEncaisse: number;
+  totalCreances: number;
+  topDebiteurs: { partenaireId: string; name: string; livre: number; paye: number; solde: number }[];
+  evolution: { mois: string; livre: number; encaisse: number }[];
+}
+
+export async function getPartenairesStats(): Promise<PartenairesStats> {
+  const res = await fetch('/api/partenaires/stats', { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement statistiques');
   return res.json();
 }
 

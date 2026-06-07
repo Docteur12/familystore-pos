@@ -5,6 +5,8 @@ import { StockMovement, StockMovementSchema } from '../schemas/stock-movement.sc
 import { Partenaire, PartenaireSchema } from '../schemas/partenaire.schema';
 import { LivraisonPartenaire, LivraisonPartenaireSchema } from '../schemas/livraison-partenaire.schema';
 import { PaiementPartenaire, PaiementPartenaireSchema } from '../schemas/paiement-partenaire.schema';
+import { CommandePartenaire, CommandePartenaireSchema } from '../schemas/commande-partenaire.schema';
+import { RetourPartenaire, RetourPartenaireSchema } from '../schemas/retour-partenaire.schema';
 import { PartenairesService } from './partenaires.service';
 import { PartenairesController } from './partenaires.controller';
 import { AuthModule } from '../auth/auth.module';
@@ -15,6 +17,8 @@ import { AuthModule } from '../auth/auth.module';
       { name: Partenaire.name, schema: PartenaireSchema },
       { name: LivraisonPartenaire.name, schema: LivraisonPartenaireSchema },
       { name: PaiementPartenaire.name, schema: PaiementPartenaireSchema },
+      { name: CommandePartenaire.name, schema: CommandePartenaireSchema },
+      { name: RetourPartenaire.name, schema: RetourPartenaireSchema },
       { name: Product.name, schema: ProductSchema },
       { name: StockMovement.name, schema: StockMovementSchema },
     ]),

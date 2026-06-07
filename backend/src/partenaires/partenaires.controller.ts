@@ -24,10 +24,46 @@ export class PartenairesController {
     return this.service.createPartenaire(dto);
   }
 
-  // ── Livraisons (déclaré avant :id pour éviter le conflit de route) ─────────
+  // ── Routes littérales (avant :id pour éviter le conflit de route) ──────────
+  @Get('stats')
+  stats() {
+    return this.service.getStats();
+  }
+
   @Get('livraisons')
   livraisons(@Query('partenaireId') partenaireId?: string) {
     return this.service.getLivraisons(partenaireId);
+  }
+
+  // ── Commandes (demande du grossiste) ───────────────────────────────────────
+  @Get('commandes')
+  commandes(@Query('statut') statut?: string) {
+    return this.service.getCommandes(statut);
+  }
+
+  @Post('commandes')
+  createCommande(
+    @Body() body: { partenaireId: string; modePaiement?: string; delai?: number; note?: string; lignes: { productId: string; quantite: number; prixUnitaire: number }[] },
+    @Req() req: Request,
+  ) {
+    const actor = (req as any).user;
+    return this.service.createCommande(body, actor?.sub);
+  }
+
+  @Patch('commandes/:cid')
+  updateCommande(@Param('cid') cid: string, @Body() dto: Partial<{ statut: string; note: string; delai: number }>) {
+    return this.service.updateCommande(cid, dto);
+  }
+
+  @Delete('commandes/:cid')
+  deleteCommande(@Param('cid') cid: string) {
+    return this.service.deleteCommande(cid);
+  }
+
+  @Post('commandes/:cid/livrer')
+  livrerCommande(@Param('cid') cid: string, @Body() body: { montantPaye?: number }, @Req() req: Request) {
+    const actor = (req as any).user;
+    return this.service.genererLivraison(cid, actor?.sub, Number(body?.montantPaye) || 0);
   }
 
   @Patch(':id')
@@ -48,11 +84,21 @@ export class PartenairesController {
   @Post(':id/livraisons')
   createLivraison(
     @Param('id') id: string,
-    @Body() body: { numeroBL?: string; date?: string; montantPaye?: number; lignes: { productId: string; quantite: number; prixUnitaire: number }[] },
+    @Body() body: { numeroBL?: string; date?: string; montantPaye?: number; modePaiement?: string; lignes: { productId: string; quantite: number; prixUnitaire: number }[] },
     @Req() req: Request,
   ) {
     const actor = (req as any).user;
     return this.service.createLivraison(id, body, actor?.sub);
+  }
+
+  @Post(':id/retours')
+  createRetour(
+    @Param('id') id: string,
+    @Body() body: { note?: string; lignes: { productId: string; quantite: number; prixUnitaire: number }[] },
+    @Req() req: Request,
+  ) {
+    const actor = (req as any).user;
+    return this.service.createRetour(id, body, actor?.sub);
   }
 
   // ── Paiements & relevé ─────────────────────────────────────────────────────

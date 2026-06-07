@@ -6,6 +6,8 @@ import { StockMovement, StockMovementDocument } from '../schemas/stock-movement.
 import { Partenaire, PartenaireDocument } from '../schemas/partenaire.schema';
 import { LivraisonPartenaire, LivraisonPartenaireDocument } from '../schemas/livraison-partenaire.schema';
 import { PaiementPartenaire, PaiementPartenaireDocument } from '../schemas/paiement-partenaire.schema';
+import { CommandePartenaire, CommandePartenaireDocument } from '../schemas/commande-partenaire.schema';
+import { RetourPartenaire, RetourPartenaireDocument } from '../schemas/retour-partenaire.schema';
 
 interface LigneInput {
   productId: string;
@@ -21,6 +23,8 @@ export class PartenairesService {
     @InjectModel(Partenaire.name)          private partModel:      Model<PartenaireDocument>,
     @InjectModel(LivraisonPartenaire.name) private livModel:       Model<LivraisonPartenaireDocument>,
     @InjectModel(PaiementPartenaire.name)  private paiementModel:  Model<PaiementPartenaireDocument>,
+    @InjectModel(CommandePartenaire.name)  private cmdModel:       Model<CommandePartenaireDocument>,
+    @InjectModel(RetourPartenaire.name)    private retourModel:    Model<RetourPartenaireDocument>,
   ) {}
 
   // ── Partenaires ────────────────────────────────────────────────────────────
@@ -79,7 +83,7 @@ export class PartenairesService {
 
   async createLivraison(
     partenaireId: string,
-    body: { numeroBL?: string; date?: string; montantPaye?: number; lignes: LigneInput[] },
+    body: { numeroBL?: string; date?: string; montantPaye?: number; modePaiement?: string; lignes: LigneInput[] },
     userId: string,
   ) {
     const partenaire = await this.partModel.findById(partenaireId).lean();
@@ -120,13 +124,125 @@ export class PartenairesService {
     }
 
     return this.livModel.create({
-      numeroBL:    body.numeroBL || `BLP-${Date.now().toString().slice(-6)}`,
-      partenaire:  new Types.ObjectId(partenaireId),
+      numeroBL:     body.numeroBL || `BLP-${Date.now().toString().slice(-6)}`,
+      partenaire:   new Types.ObjectId(partenaireId),
       lignes,
       total,
-      montantPaye: Math.max(0, Math.round(Number(body.montantPaye) || 0)),
-      date:        body.date ?? '',
-      creePar:     new Types.ObjectId(userId),
+      montantPaye:  Math.max(0, Math.round(Number(body.montantPaye) || 0)),
+      modePaiement: body.modePaiement || 'credit',
+      date:         body.date ?? '',
+      creePar:      new Types.ObjectId(userId),
+    });
+  }
+
+  // ── Commandes (demande du grossiste) ───────────────────────────────────────
+  getCommandes(statut?: string) {
+    const filter = statut ? { statut } : {};
+    return this.cmdModel
+      .find(filter)
+      .populate('partenaire', 'name phone lieu')
+      .populate('creePar', 'name role')
+      .sort({ createdAt: -1 })
+      .limit(300)
+      .lean();
+  }
+
+  async createCommande(
+    body: { partenaireId: string; modePaiement?: string; delai?: number; note?: string; lignes: LigneInput[] },
+    userId: string,
+  ) {
+    const partenaire = await this.partModel.findById(body.partenaireId).lean();
+    if (!partenaire) throw new NotFoundException('Partenaire introuvable');
+
+    const lignes = [];
+    for (const l of (body.lignes ?? []).filter(x => x.productId && Number(x.quantite) > 0)) {
+      const product = await this.productModel.findById(l.productId).lean();
+      if (!product) continue;
+      lignes.push({
+        productId:    new Types.ObjectId(l.productId),
+        productName:  product.name,
+        unit:         product.unit,
+        quantite:     Math.floor(Number(l.quantite)),
+        prixUnitaire: Math.max(0, Math.round(Number(l.prixUnitaire) || 0)),
+      });
+    }
+
+    return this.cmdModel.create({
+      numero:       `CMD-${Date.now().toString().slice(-6)}`,
+      partenaire:   new Types.ObjectId(body.partenaireId),
+      lignes,
+      modePaiement: body.modePaiement || 'credit',
+      delai:        Math.max(0, Math.floor(Number(body.delai) || 0)),
+      note:         body.note ?? '',
+      statut:       'recue',
+      creePar:      new Types.ObjectId(userId),
+    });
+  }
+
+  async updateCommande(id: string, dto: Partial<{ statut: string; note: string; delai: number }>) {
+    const c = await this.cmdModel.findByIdAndUpdate(id, dto, { new: true });
+    if (!c) throw new NotFoundException('Commande introuvable');
+    return c;
+  }
+
+  async deleteCommande(id: string) {
+    await this.cmdModel.findByIdAndDelete(id);
+    return { ok: true };
+  }
+
+  // Génère le bon de livraison à partir d'une commande (sortie d'entrepôt).
+  async genererLivraison(commandeId: string, userId: string, montantPaye = 0) {
+    const cmd = await this.cmdModel.findById(commandeId);
+    if (!cmd) throw new NotFoundException('Commande introuvable');
+    if (cmd.livraison) throw new NotFoundException('Bon de livraison déjà généré pour cette commande');
+
+    const livraison = await this.createLivraison(
+      String(cmd.partenaire),
+      {
+        montantPaye,
+        modePaiement: cmd.modePaiement,
+        lignes: cmd.lignes.map(l => ({ productId: String(l.productId), quantite: l.quantite, prixUnitaire: l.prixUnitaire })),
+      },
+      userId,
+    );
+
+    cmd.statut = 'livree';
+    cmd.livraison = livraison._id as any;
+    await cmd.save();
+    return livraison;
+  }
+
+  // ── Retours d'invendus (dépôt-vente) → remis en stock entrepôt ──────────────
+  async createRetour(partenaireId: string, body: { note?: string; lignes: LigneInput[] }, userId: string) {
+    const partenaire = await this.partModel.findById(partenaireId).lean();
+    if (!partenaire) throw new NotFoundException('Partenaire introuvable');
+
+    const lignes = [];
+    let total = 0;
+    for (const l of (body.lignes ?? []).filter(x => x.productId && Number(x.quantite) > 0)) {
+      const q = Math.floor(Number(l.quantite));
+      const prix = Math.max(0, Math.round(Number(l.prixUnitaire) || 0));
+      const product = await this.productModel.findByIdAndUpdate(
+        l.productId,
+        { $inc: { stockMagazin: q } },   // remis en entrepôt
+        { new: true },
+      );
+      if (!product) continue;
+      await this.movementModel.create({
+        productId: new Types.ObjectId(l.productId),
+        type:      'IN',
+        quantity:  q,
+        reason:    'retour_partenaire',
+        note:      `Retour invendus · ${partenaire.name}`,
+      });
+      total += q * prix;
+      lignes.push({ productId: new Types.ObjectId(l.productId), productName: product.name, quantite: q, prixUnitaire: prix });
+    }
+
+    return this.retourModel.create({
+      partenaire: new Types.ObjectId(partenaireId),
+      lignes, total, note: body.note ?? '',
+      creePar: new Types.ObjectId(userId),
     });
   }
 
@@ -148,16 +264,83 @@ export class PartenairesService {
     const partenaire = await this.partModel.findById(partenaireId).lean();
     if (!partenaire) throw new NotFoundException('Partenaire introuvable');
 
-    const [livraisons, paiements] = await Promise.all([
+    const [livraisons, paiements, retours] = await Promise.all([
       this.livModel.find({ partenaire: new Types.ObjectId(partenaireId) }).sort({ createdAt: -1 }).lean(),
       this.paiementModel.find({ partenaire: new Types.ObjectId(partenaireId) }).populate('creePar', 'name role').sort({ createdAt: -1 }).lean(),
+      this.retourModel.find({ partenaire: new Types.ObjectId(partenaireId) }).sort({ createdAt: -1 }).lean(),
     ]);
 
     const totalLivre     = livraisons.reduce((s, l) => s + (l.total ?? 0), 0);
     const payeLivraison  = livraisons.reduce((s, l) => s + (l.montantPaye ?? 0), 0);
     const totalPaiements = paiements.reduce((s, p) => s + (p.montant ?? 0), 0);
-    const solde          = Math.max(0, totalLivre - payeLivraison - totalPaiements);
+    const totalRetours   = retours.reduce((s, r) => s + (r.total ?? 0), 0);
+    const solde          = Math.max(0, totalLivre - payeLivraison - totalPaiements - totalRetours);
 
-    return { partenaire, livraisons, paiements, totalLivre, payeLivraison, totalPaiements, solde };
+    return { partenaire, livraisons, paiements, retours, totalLivre, payeLivraison, totalPaiements, totalRetours, solde };
+  }
+
+  // ── Tableau de bord ─────────────────────────────────────────────────────────
+  async getStats() {
+    const [partenaires, livraisons, paiements, retours] = await Promise.all([
+      this.partModel.find().lean(),
+      this.livModel.find().lean(),
+      this.paiementModel.find().lean(),
+      this.retourModel.find().lean(),
+    ]);
+
+    // Solde par partenaire (paye = payé à la livraison + paiements + retours d'invendus)
+    const byPart = new Map<string, { name: string; livre: number; paye: number }>();
+    for (const p of partenaires) byPart.set(String(p._id), { name: p.name, livre: 0, paye: 0 });
+    for (const l of livraisons) {
+      const e = byPart.get(String(l.partenaire));
+      if (e) { e.livre += l.total ?? 0; e.paye += l.montantPaye ?? 0; }
+    }
+    for (const pa of paiements) {
+      const e = byPart.get(String(pa.partenaire));
+      if (e) e.paye += pa.montant ?? 0;
+    }
+    for (const r of retours) {
+      const e = byPart.get(String(r.partenaire));
+      if (e) e.paye += r.total ?? 0;
+    }
+
+    const soldes = [...byPart.entries()].map(([id, e]) => ({
+      partenaireId: id, name: e.name, livre: e.livre, paye: e.paye, solde: Math.max(0, e.livre - e.paye),
+    }));
+
+    const totalLivre    = soldes.reduce((s, p) => s + p.livre, 0);
+    const totalEncaisse = soldes.reduce((s, p) => s + p.paye, 0);
+    const totalCreances = soldes.reduce((s, p) => s + p.solde, 0);
+    const topDebiteurs  = [...soldes].filter(p => p.solde > 0).sort((a, b) => b.solde - a.solde).slice(0, 10);
+
+    // Évolution sur 6 mois : livré vs encaissé
+    const ym = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const moisMap = new Map<string, { livre: number; encaisse: number }>();
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      moisMap.set(ym(d), { livre: 0, encaisse: 0 });
+    }
+    for (const l of livraisons) {
+      const k = ym(new Date((l as any).createdAt));
+      const m = moisMap.get(k);
+      if (m) { m.livre += l.total ?? 0; m.encaisse += l.montantPaye ?? 0; }
+    }
+    for (const pa of paiements) {
+      const k = ym(new Date((pa as any).createdAt));
+      const m = moisMap.get(k);
+      if (m) m.encaisse += pa.montant ?? 0;
+    }
+    const MOIS = ['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'];
+    const evolution = [...moisMap.entries()].map(([k, v]) => {
+      const [, mm] = k.split('-');
+      return { mois: MOIS[parseInt(mm) - 1], livre: v.livre, encaisse: v.encaisse };
+    });
+
+    return {
+      nbPartenaires: partenaires.length,
+      totalLivre, totalEncaisse, totalCreances,
+      topDebiteurs, evolution,
+    };
   }
 }
