@@ -11,6 +11,7 @@ import {
   Partenaire, LivraisonPartenaire, ComptePartenaire, PartenairesStats,
   CommandePartenaire, ModePaiement, MODE_LABELS,
 } from '../api/partenaires';
+import { getUsers, createUser, updateUser, deleteUser, UserRecord } from '../api/auth';
 import ToastContainer, { useToast } from '../components/Toast';
 
 const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
@@ -29,6 +30,7 @@ function I({ d, size = 15 }: { d: string; size?: number }) {
 const D = {
   dashboard: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
   cart:      'M9 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM20 22a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6',
+  key:       'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3',
   livraison: 'M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
   clients:   'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   compte:    'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6',
@@ -88,7 +90,7 @@ function ProductSelect({ products, value, onChange }: {
   );
 }
 
-type Tab = 'dashboard' | 'commandes' | 'livraisons' | 'comptes' | 'partenaires';
+type Tab = 'dashboard' | 'commandes' | 'livraisons' | 'comptes' | 'partenaires' | 'acces';
 interface Row { productId: string; quantite: string; prix: string }
 
 export default function Partenaires() {
@@ -122,6 +124,35 @@ export default function Partenaires() {
   // Retour d'invendus (comptes)
   const [retourRows, setRetourRows] = useState<Row[]>([{ productId: '', quantite: '1', prix: '' }]);
   const [showRetour, setShowRetour] = useState(false);
+
+  // Comptes commerciaux (accès — patron uniquement)
+  const [commerciaux, setCommerciaux] = useState<UserRecord[]>([]);
+  const [accForm, setAccForm] = useState({ name: '', email: '', password: '' });
+  const loadCommerciaux = () => { getUsers().then(us => setCommerciaux(us.filter(u => u.role === 'commercial'))).catch(() => {}); };
+
+  const creerCommercial = async () => {
+    if (!accForm.name.trim() || !accForm.email.trim() || accForm.password.length < 4) {
+      addToast('Nom, email et mot de passe (≥ 4 caractères) requis', 'error'); return;
+    }
+    try {
+      await createUser({ name: accForm.name.trim(), email: accForm.email.trim().toLowerCase(), password: accForm.password, role: 'commercial' });
+      addToast('Compte commercial créé ✓', 'success');
+      setAccForm({ name: '', email: '', password: '' });
+      loadCommerciaux();
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+  };
+
+  const resetPassword = async (id: string) => {
+    const np = window.prompt('Nouveau mot de passe (≥ 4 caractères) :');
+    if (!np || np.length < 4) { if (np !== null) addToast('Mot de passe trop court', 'error'); return; }
+    try { await updateUser(id, { password: np }); addToast('Mot de passe réinitialisé ✓', 'success'); }
+    catch { addToast('Erreur', 'error'); }
+  };
+
+  const supprimerCommercial = async (id: string) => {
+    try { await deleteUser(id); setCommerciaux(prev => prev.filter(u => u._id !== id)); addToast('Compte supprimé', 'success'); }
+    catch { addToast('Erreur suppression', 'error'); }
+  };
 
   // Formulaire partenaire
   const [pForm, setPForm] = useState({ name: '', phone: '', lieu: '', note: '' });
@@ -193,7 +224,7 @@ export default function Partenaires() {
     loadStats();
   };
   useEffect(() => { loadAll(); }, []);
-  useEffect(() => { if (tab === 'dashboard') loadStats(); }, [tab]);
+  useEffect(() => { if (tab === 'dashboard') loadStats(); if (tab === 'acces') loadCommerciaux(); }, [tab]);
 
   // Rappel des derniers prix pour la commande
   useEffect(() => {
@@ -316,6 +347,7 @@ export default function Partenaires() {
             { key: 'livraisons', label: 'Livraisons', icon: D.livraison },
             { key: 'comptes', label: 'Comptes & créances', icon: D.compte },
             { key: 'partenaires', label: 'Partenaires', icon: D.clients },
+            ...(isPatron ? [{ key: 'acces' as Tab, label: 'Accès commerciaux', icon: D.key }] : []),
           ] as { key: Tab; label: string; icon: string }[]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '9px 10px', marginBottom: 2,
@@ -344,7 +376,7 @@ export default function Partenaires() {
           <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--fs-gold-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{initials}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
-            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>{isPatron ? 'Administrateur' : 'Magazinier'}</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>{isPatron ? 'Administrateur' : payload?.role === 'commercial' ? 'Commercial' : 'Magazinier'}</div>
           </div>
           <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
             style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', padding: 2 }} title="Déconnexion">
@@ -357,7 +389,7 @@ export default function Partenaires() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
           <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Partenaires</p>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{tab === 'dashboard' ? 'Tableau de bord' : tab === 'commandes' ? 'Commandes grossistes' : tab === 'livraisons' ? 'Bon de livraison' : tab === 'comptes' ? 'Comptes & créances' : 'Partenaires'}</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{tab === 'dashboard' ? 'Tableau de bord' : tab === 'commandes' ? 'Commandes grossistes' : tab === 'livraisons' ? 'Bon de livraison' : tab === 'comptes' ? 'Comptes & créances' : tab === 'acces' ? 'Accès commerciaux' : 'Partenaires'}</h1>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
@@ -707,6 +739,44 @@ export default function Partenaires() {
                     </div>
                   )}
                 </>
+              )}
+            </div>
+          )}
+
+          {/* ── Onglet Accès commerciaux (patron) ── */}
+          {tab === 'acces' && isPatron && (
+            <div style={{ maxWidth: 680 }}>
+              <div style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 18, fontSize: 12, color: 'var(--fs-ink-600)' }}>
+                Un compte <strong>Commercial</strong> ouvre <strong>directement cet espace Partenaires</strong> à la connexion (il ne voit ni la caisse, ni l'admin, ni les autres espaces).
+              </div>
+
+              <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
+                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Nouveau compte commercial</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                  <div><label style={LABEL}>Nom</label><input value={accForm.name} onChange={e => setAccForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder="ex : Commercial 1"/></div>
+                  <div><label style={LABEL}>Email (identifiant)</label><input value={accForm.email} onChange={e => setAccForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="commercial@familystore.cm"/></div>
+                  <div><label style={LABEL}>Mot de passe</label><input value={accForm.password} onChange={e => setAccForm(f => ({ ...f, password: e.target.value }))} style={INPUT} placeholder="≥ 4 caractères"/></div>
+                </div>
+                <button onClick={creerCommercial} style={BTN_PRIMARY}>Créer le compte</button>
+              </div>
+
+              {commerciaux.length === 0 ? (
+                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucun compte commercial</div>
+              ) : (
+                <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+                  {commerciaux.map((u, i) => (
+                    <div key={u._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: i < commerciaux.length - 1 ? '1px solid var(--fs-line)' : 'none', background: i % 2 ? 'var(--fs-ivory)' : '#fff' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{u.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{u.email}</div>
+                      </div>
+                      <button onClick={() => resetPassword(u._id)} title="Réinitialiser le mot de passe"
+                        style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--fs-ink-600)', fontSize: 12, fontWeight: 600 }}>Mot de passe</button>
+                      <button onClick={() => supprimerCommercial(u._id)} title="Supprimer"
+                        style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex' }}><I d={D.trash} size={13}/></button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}

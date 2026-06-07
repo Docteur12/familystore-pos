@@ -45,7 +45,7 @@ export class AuthController {
   @Roles('patron')
   async register(
     @Body()
-    body: { name: string; email: string; password: string; role: 'caissier' | 'patron' | 'gestionnaire'; phone?: string; caisseId?: string; assignedLocation?: string },
+    body: { name: string; email: string; password: string; role: 'caissier' | 'patron' | 'gestionnaire' | 'magazinier' | 'commercial'; phone?: string; caisseId?: string; assignedLocation?: string },
     @Req() req: Request,
   ) {
     const actor = (req as any)['user'];

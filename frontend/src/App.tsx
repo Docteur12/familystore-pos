@@ -104,6 +104,7 @@ function HomeRedirect() {
   if (role === 'patron')       return <Navigate to="/admin/dashboard" replace />;
   if (role === 'gestionnaire') return <Navigate to="/stocks/dashboard" replace />;
   if (role === 'magazinier')   return <Navigate to="/magazinier" replace />;
+  if (role === 'commercial')   return <Navigate to="/partenaires" replace />;
   return <Navigate to="/caisse-pin" replace />;
 }
 
@@ -150,7 +151,7 @@ export default function App() {
         <Route path="/admin/magaziniers"   element={<RequireAuthBare><AdminMagaziniers /></RequireAuthBare>} />
         <Route path="/admin/caisses"       element={<RequireAuthBare><AdminCaisses /></RequireAuthBare>} />
         <Route path="/magazinier"          element={<RequireRole role={['magazinier','patron']}><Magazinier /></RequireRole>} />
-        <Route path="/partenaires"         element={<RequireRole role={['magazinier','patron']}><Partenaires /></RequireRole>} />
+        <Route path="/partenaires"         element={<RequireRole role={['magazinier','patron','commercial']}><Partenaires /></RequireRole>} />
       </Routes>
     </BrowserRouter>
     </SettingsProvider>

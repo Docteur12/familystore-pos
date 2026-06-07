@@ -9,7 +9,7 @@ import { Roles }      from '../auth/roles.decorator';
 
 @Controller('partenaires')
 @UseGuards(AuthGuard, RolesGuard)
-@Roles('magazinier', 'patron')
+@Roles('magazinier', 'patron', 'commercial')
 export class PartenairesController {
   constructor(private readonly service: PartenairesService) {}
 

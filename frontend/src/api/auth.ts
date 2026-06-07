@@ -4,7 +4,7 @@ export interface UserRecord {
   _id:              string;
   name:             string;
   email:            string;
-  role:             'patron' | 'caissier' | 'gestionnaire' | 'magazinier';
+  role:             'patron' | 'caissier' | 'gestionnaire' | 'magazinier' | 'commercial';
   phone?:           string;
   caisseId?:        string | null;
   assignedLocation?: string;
@@ -30,7 +30,7 @@ export async function getUserActivity(): Promise<UserActivity[]> {
 
 export async function createUser(data: {
   name: string; email: string; password: string;
-  role: 'caissier' | 'gestionnaire' | 'magazinier'; phone?: string; caisseId?: string; assignedLocation?: string;
+  role: 'caissier' | 'gestionnaire' | 'magazinier' | 'commercial'; phone?: string; caisseId?: string; assignedLocation?: string;
 }): Promise<UserRecord> {
   const res = await fetch('/api/auth/register', {
     method: 'POST',
