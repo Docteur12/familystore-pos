@@ -77,6 +77,7 @@ export default function Login() {
       if (pl.role === 'patron')            navigate('/admin/dashboard');
       else if (pl.role === 'gestionnaire') navigate('/stocks/dashboard');
       else if (pl.role === 'magazinier')   navigate('/magazinier');
+      else if (pl.role === 'commercial')   navigate('/partenaires');
       else                                 navigate('/caisse-pin');
     } catch (err: any) {
       setError(err.message ?? 'Erreur inconnue');
