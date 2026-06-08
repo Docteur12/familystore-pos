@@ -58,6 +58,9 @@ const truncName = (n: string) => (n.length > 40 ? n.slice(0, 40).trimEnd() + '�
 export function buildReceiptHTML(data: ReceiptData): string {
   const dateStr = data.date.toLocaleDateString('fr-FR');
   const timeStr = data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  // Pas de séparateur de milliers : l'imprimante thermique affiche l'espace
+  // insécable de toLocaleString comme un "/" (ex. 2/500). On reste comme la maquette.
+  const f = (n: number) => String(Math.round(Number(n) || 0));
 
   const totalDiscount = data.items.reduce((s, item) => {
     if ((item.discount ?? 0) > 0 && item.originalPrice) {
@@ -67,11 +70,11 @@ export function buildReceiptHTML(data: ReceiptData): string {
   }, 0);
 
   const itemRows = data.items.map(item => {
-    const sub        = (item.quantity * item.unitPrice).toLocaleString('fr-FR');
+    const sub        = f(item.quantity * item.unitPrice);
     const hasDiscount = item.discount && item.discount > 0 && item.originalPrice;
     const prixLigne  = hasDiscount
-      ? `<span style="text-decoration:line-through;color:#999;font-size:10px;margin-right:4px">${item.originalPrice!.toLocaleString('fr-FR')}</span>${item.unitPrice.toLocaleString('fr-FR')}`
-      : item.unitPrice.toLocaleString('fr-FR');
+      ? `<span style="text-decoration:line-through;color:#999;font-size:10px;margin-right:4px">${f(item.originalPrice!)}</span>${f(item.unitPrice)}`
+      : f(item.unitPrice);
     const badge      = hasDiscount
       ? `<span style="background:#c0392b;color:#fff;font-size:8px;font-weight:900;padding:1px 4px;border-radius:2px;margin-left:4px">-${item.discount}%</span>`
       : '';
@@ -148,16 +151,16 @@ export function buildReceiptHTML(data: ReceiptData): string {
   ${itemRows}
   <div class="dash"></div>
   ${aReduction ? `
-  <div class="row"><span>Sous-total</span><span>${data.subtotal.toLocaleString('fr-FR')}</span></div>
-  ${totalDiscount > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction produits</span><span>-${totalDiscount.toLocaleString('fr-FR')}</span></div>` : ''}
-  ${(data.offrePct ?? 0) > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction facture (-${data.offrePct}%)</span><span>-${(data.offreAmt ?? 0).toLocaleString('fr-FR')}</span></div>` : ''}
+  <div class="row"><span>Sous-total</span><span>${f(data.subtotal)}</span></div>
+  ${totalDiscount > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction produits</span><span>-${f(totalDiscount)}</span></div>` : ''}
+  ${(data.offrePct ?? 0) > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction facture (-${data.offrePct}%)</span><span>-${f(data.offreAmt ?? 0)}</span></div>` : ''}
   ` : ''}
   <div class="solid"></div>
-  <div class="total"><span>Total:</span><span>${data.total.toLocaleString('fr-FR')} XFCA</span></div>
+  <div class="total"><span>Total:</span><span>${f(data.total)} XFCA</span></div>
   <div class="solid"></div>
   <div class="pay">Moyen de paiement: ${data.paymentLabel}</div>
-  <div class="pay">Montant re&ccedil;u: ${data.amountPaid.toLocaleString('fr-FR')} Francs CFA</div>
-  ${data.change > 0 ? `<div class="pay">Montant rembours&eacute;: ${data.change.toLocaleString('fr-FR')} Francs CFA</div>` : ''}
+  <div class="pay">Montant re&ccedil;u: ${f(data.amountPaid)} Francs CFA</div>
+  ${data.change > 0 ? `<div class="pay">Montant rembours&eacute;: ${f(data.change)} Francs CFA</div>` : ''}
   <div style="height:10px"></div>
   <div class="center">
     <div class="merci">Merci de votre visite !</div>
@@ -207,7 +210,7 @@ export function buildReceiptPDF(data: ReceiptData): string {
 
   const dateStr = data.date.toLocaleDateString('fr-FR');
   const timeStr = data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  const fmt = (n: number) => n.toLocaleString('fr-FR');
+  const fmt = (n: number) => String(Math.round(Number(n) || 0));
 
   // En-tête
   line('Family Store', 18, true, 'center');

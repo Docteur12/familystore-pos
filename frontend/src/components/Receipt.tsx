@@ -6,6 +6,9 @@ import { saveFacture } from '../api/factures';
 
 export type { ReceiptData } from './ReceiptPrint';
 
+// Nombres sans séparateur de milliers (cohérent avec le ticket imprimé / la maquette).
+const f = (n: number) => String(Math.round(Number(n) || 0));
+
 interface Props {
   data:      ReceiptData;
   onNewSale: () => void;
@@ -95,10 +98,10 @@ export default function Receipt({ data, onNewSale }: Props) {
                   {item.localName && <div style={{ fontSize: 10, color: '#999' }}>{item.localName}</div>}
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#555', marginTop: 3 }}>
                     <span>
-                      {hasDiscount && <span style={{ textDecoration: 'line-through', marginRight: 4 }}>{item.originalPrice!.toLocaleString('fr-FR')}</span>}
-                      {item.quantity} x {item.unitPrice.toLocaleString('fr-FR')}
+                      {hasDiscount && <span style={{ textDecoration: 'line-through', marginRight: 4 }}>{f(item.originalPrice!)}</span>}
+                      {item.quantity} x {f(item.unitPrice)}
                     </span>
-                    <span>{(item.quantity * item.unitPrice).toLocaleString('fr-FR')}</span>
+                    <span>{f(item.quantity * item.unitPrice)}</span>
                   </div>
                 </div>
               );
@@ -112,18 +115,18 @@ export default function Receipt({ data, onNewSale }: Props) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 4 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#555' }}>
                 <span>Sous-total</span>
-                <span>{subDisplay.toLocaleString('fr-FR')}</span>
+                <span>{f(subDisplay)}</span>
               </div>
               {totalDiscount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 600 }}>
                   <span>Réduction produits</span>
-                  <span>-{totalDiscount.toLocaleString('fr-FR')}</span>
+                  <span>-{f(totalDiscount)}</span>
                 </div>
               )}
               {(data.offrePct ?? 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700 }}>
                   <span>Réduction facture -{data.offrePct}%</span>
-                  <span>-{(data.offreAmt ?? 0).toLocaleString('fr-FR')}</span>
+                  <span>-{f(data.offreAmt ?? 0)}</span>
                 </div>
               )}
             </div>
@@ -134,7 +137,7 @@ export default function Receipt({ data, onNewSale }: Props) {
           {/* Total */}
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
             <span style={{ fontWeight: 700, fontSize: 20, color: '#111' }}>Total:</span>
-            <span style={{ fontWeight: 700, fontSize: 20, color: '#111' }}>{data.total.toLocaleString('fr-FR')} XFCA</span>
+            <span style={{ fontWeight: 700, fontSize: 20, color: '#111' }}>{f(data.total)} XFCA</span>
           </div>
 
           <div style={{ borderTop: '2px solid #000', margin: '8px 0' }} />
@@ -142,8 +145,8 @@ export default function Receipt({ data, onNewSale }: Props) {
           {/* Paiement */}
           <div style={{ fontSize: 11, color: '#333', lineHeight: 1.6 }}>
             <div>Moyen de paiement: {data.paymentLabel}</div>
-            <div>Montant reçu: {data.amountPaid.toLocaleString('fr-FR')} Francs CFA</div>
-            {data.change > 0 && <div>Montant remboursé: {data.change.toLocaleString('fr-FR')} Francs CFA</div>}
+            <div>Montant reçu: {f(data.amountPaid)} Francs CFA</div>
+            {data.change > 0 && <div>Montant remboursé: {f(data.change)} Francs CFA</div>}
           </div>
 
           {/* Pied */}
