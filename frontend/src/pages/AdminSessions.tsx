@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
-import { forceCloseSession, getSessions, SessionRecord } from '../api/sessions';
+import { forceCloseSession, getSessions, corrigerDureesSessions, SessionRecord } from '../api/sessions';
 
 const PAGE_SIZE = 50;
 const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
@@ -101,6 +101,21 @@ export default function AdminSessions() {
     }
   };
 
+  const [correction, setCorrection] = useState(false);
+  const handleCorriger = async () => {
+    if (!window.confirm('Recaler les durées anciennes manifestement gonflées (> 16 h) à l’heure de la dernière vente ? Action unique et sans risque.')) return;
+    setCorrection(true);
+    try {
+      const { corrected } = await corrigerDureesSessions();
+      addToast(corrected > 0 ? `${corrected} durée(s) corrigée(s)` : 'Aucune durée à corriger', 'success');
+      load(page);
+    } catch {
+      addToast('Erreur lors de la correction', 'error');
+    } finally {
+      setCorrection(false);
+    }
+  };
+
   useEffect(() => { load(0); }, [load]);
 
   const pages           = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -141,6 +156,10 @@ export default function AdminSessions() {
               <button onClick={() => { setDateFrom(''); setDateTo(''); setCashier(''); setActiveOnly(false); }}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
                 Réinitialiser
+              </button>
+              <button onClick={handleCorriger} disabled={correction} title="Recale les durées anciennes gonflées (> 16 h)"
+                style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, cursor: correction ? 'default' : 'pointer', color: 'var(--fs-ink-500)', opacity: correction ? 0.6 : 1 }}>
+                {correction ? 'Correction…' : 'Corriger les durées'}
               </button>
             </div>
           </div>

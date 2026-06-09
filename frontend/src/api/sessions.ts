@@ -38,6 +38,16 @@ export async function closeSession(id: string): Promise<void> {
   }).catch(() => { /* silently ignore on logout */ });
 }
 
+// Correction unique de l'historique (patron) : recale les durées gonflées.
+export async function corrigerDureesSessions(): Promise<{ corrected: number }> {
+  const res = await fetch('/api/sessions/corriger-durees', {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error('Erreur lors de la correction des durées');
+  return res.json();
+}
+
 export async function forceCloseSession(id: string): Promise<SessionRecord | null> {
   const res = await fetch(`/api/sessions/${id}/close`, {
     method: 'PATCH',

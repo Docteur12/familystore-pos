@@ -48,6 +48,14 @@ export class SessionsController {
     return this.sessionsService.close(id);
   }
 
+  // POST /api/sessions/corriger-durees — corrige l'historique (patron seulement)
+  @Post('corriger-durees')
+  @UseGuards(RolesGuard)
+  @Roles('patron')
+  corrigerDurees() {
+    return this.sessionsService.corrigerDureesAnciennes();
+  }
+
   // GET /api/sessions — historique (patron seulement)
   @Get()
   @UseGuards(RolesGuard)
