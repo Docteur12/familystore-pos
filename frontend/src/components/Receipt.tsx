@@ -6,8 +6,8 @@ import { saveFacture } from '../api/factures';
 
 export type { ReceiptData } from './ReceiptPrint';
 
-// Nombres sans séparateur de milliers (cohérent avec le ticket imprimé / la maquette).
-const f = (n: number) => String(Math.round(Number(n) || 0));
+// Séparateur de milliers en espace ASCII (cohérent avec le ticket imprimé).
+const f = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
 interface Props {
   data:      ReceiptData;
@@ -57,9 +57,9 @@ export default function Receipt({ data, onNewSale }: Props) {
 
         {/* Header */}
         <div style={{ padding: '18px 24px 8px', textAlign: 'center', color: '#111' }}>
-          <p style={{ fontWeight: 700, fontSize: 26, margin: 0 }}>Family Store</p>
-          <p style={{ fontSize: 9, letterSpacing: '0.2em', color: '#555', margin: '2px 0' }}>BY RDCT</p>
-          <p style={{ fontSize: 12, color: '#333', margin: 0 }}>Beauté . Saveur . Bien-etre</p>
+          <p style={{ fontWeight: 700, fontSize: 32, margin: 0, lineHeight: 1.05 }}>Family Store</p>
+          <p style={{ fontSize: 12, letterSpacing: '0.12em', color: '#555', margin: '3px 0' }}>BY RDCT</p>
+          <p style={{ fontSize: 13, color: '#333', margin: 0 }}>Beauté • Saveur • Bien-être</p>
         </div>
 
         {/* Corps */}
@@ -68,16 +68,16 @@ export default function Receipt({ data, onNewSale }: Props) {
           <div style={{ borderTop: '2px solid #000', margin: '8px 0' }} />
 
           {/* Infos : meta (gauche) + contacts (droite) */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, lineHeight: 1.5 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, lineHeight: 1.6 }}>
             <div>
-              <div>Ticket: #{data.receiptNo}</div>
-              <div>Date: {data.date.toLocaleDateString('fr-FR')} {data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
-              <div>Caissier: {data.cashierName}</div>
+              <div>Ticket : #{data.receiptNo}</div>
+              <div>Date : {data.date.toLocaleDateString('fr-FR')} {data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+              <div>Caissier : {data.cashierName}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
               <div>Bonamoussadi – Douala</div>
-              <div>Tel: +237 670792691</div>
-              <div>Tel: +237 682263435</div>
+              <div>Tél. : +237 670792691</div>
+              <div>Tél. : +237 682263435</div>
             </div>
           </div>
 
@@ -89,7 +89,7 @@ export default function Receipt({ data, onNewSale }: Props) {
               const hasDiscount = (item.discount ?? 0) > 0 && item.originalPrice;
               return (
                 <div key={i}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: '#111' }}>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: '#111' }}>
                     {item.name}
                     {hasDiscount && (
                       <span style={{ background: '#c0392b', color: '#fff', fontSize: 8, fontWeight: 900, padding: '1px 5px', borderRadius: 3, marginLeft: 4 }}>-{item.discount}%</span>
@@ -136,24 +136,24 @@ export default function Receipt({ data, onNewSale }: Props) {
 
           {/* Total */}
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <span style={{ fontWeight: 700, fontSize: 20, color: '#111' }}>Total:</span>
-            <span style={{ fontWeight: 700, fontSize: 20, color: '#111' }}>{f(data.total)} XFCA</span>
+            <span style={{ fontWeight: 700, fontSize: 26, color: '#111' }}>Total :</span>
+            <span style={{ fontWeight: 700, fontSize: 26, color: '#111' }}>{f(data.total)} FCFA</span>
           </div>
 
           <div style={{ borderTop: '2px solid #000', margin: '8px 0' }} />
 
           {/* Paiement */}
-          <div style={{ fontSize: 11, color: '#333', lineHeight: 1.6 }}>
-            <div>Moyen de paiement: {data.paymentLabel}</div>
-            <div>Montant reçu: {f(data.amountPaid)} Francs CFA</div>
-            {data.change > 0 && <div>Montant remboursé: {f(data.change)} Francs CFA</div>}
+          <div style={{ fontSize: 13, color: '#333', lineHeight: 1.7 }}>
+            <div>Mode de paiement : {data.paymentLabel}</div>
+            <div>Montant reçu : {f(data.amountPaid)} FCFA</div>
+            {data.change > 0 && <div>Montant remboursé : {f(data.change)} FCFA</div>}
           </div>
 
           {/* Pied */}
           <div style={{ textAlign: 'center', marginTop: 14, color: '#111' }}>
-            <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: '0.15em' }}>Merci de votre visite !</div>
-            <div style={{ fontSize: 11, lineHeight: 1.5, marginTop: 4, color: '#333' }}>
-              Comme remerciement, <strong>Family Store vous offre 5 %</strong> de réduction sur votre prochain achat. Présentez juste cette facture à la caisse pour bénéficier de cette offre.
+            <div style={{ fontWeight: 700, fontSize: 17, letterSpacing: '0.04em' }}>Merci de votre visite !</div>
+            <div style={{ fontSize: 11, lineHeight: 1.45, marginTop: 4, color: '#333' }}>
+              Pour vous remercier, <strong>Family Store vous offre 5 %</strong> de réduction sur votre prochain achat. Présentez simplement cette facture à la caisse pour bénéficier de cette offre.
             </div>
           </div>
         </div>

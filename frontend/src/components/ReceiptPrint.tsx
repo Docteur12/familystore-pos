@@ -58,9 +58,9 @@ const truncName = (n: string) => (n.length > 40 ? n.slice(0, 40).trimEnd() + '�
 export function buildReceiptHTML(data: ReceiptData): string {
   const dateStr = data.date.toLocaleDateString('fr-FR');
   const timeStr = data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  // Pas de séparateur de milliers : l'imprimante thermique affiche l'espace
-  // insécable de toLocaleString comme un "/" (ex. 2/500). On reste comme la maquette.
-  const f = (n: number) => String(Math.round(Number(n) || 0));
+  // Séparateur de milliers = espace ASCII normale (pas l'espace insécable
+  // U+202F de toLocaleString, que l'imprimante thermique rend comme un "/").
+  const f = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
   const totalDiscount = data.items.reduce((s, item) => {
     if ((item.discount ?? 0) > 0 && item.originalPrice) {
@@ -112,39 +112,39 @@ export function buildReceiptHTML(data: ReceiptData): string {
     .center{ text-align: center; }
     .solid { border-top: 2px solid #000; margin: 8px 0; }
     .dash  { border-top: 1px dashed #000; margin: 8px 0; }
-    .store { font-size: 26px; font-weight: 700; }
-    .rdct  { font-size: 9px; letter-spacing: 2px; margin-top: 1px; }
-    .tag   { font-size: 11px; margin-top: 2px; }
-    .info  { display: flex; justify-content: space-between; font-size: 11px; line-height: 1.5; }
+    .store { font-size: 32px; font-weight: 700; line-height: 1.05; }
+    .rdct  { font-size: 13px; letter-spacing: 1px; margin-top: 3px; }
+    .tag   { font-size: 13px; margin-top: 2px; }
+    .info  { display: flex; justify-content: space-between; font-size: 12px; line-height: 1.6; }
     .info .r { text-align: right; }
-    .item  { margin: 6px 0; }
-    .iname { font-size: 15px; font-weight: 700; }
-    .ilocal{ font-size: 10px; color: #666; margin-top: 1px; }
-    .irow  { display: flex; justify-content: space-between; font-size: 13px; color: #555; margin-top: 3px; }
+    .item  { margin: 7px 0; }
+    .iname { font-size: 16px; font-weight: 700; }
+    .ilocal{ font-size: 11px; color: #666; margin-top: 1px; }
+    .irow  { display: flex; justify-content: space-between; font-size: 13px; color: #333; margin-top: 3px; }
     .row   { display: flex; justify-content: space-between; font-size: 12px; margin: 2px 0; }
-    .total { display: flex; justify-content: space-between; align-items: baseline; font-size: 20px; font-weight: 700; margin: 4px 0; }
-    .pay   { font-size: 11px; line-height: 1.6; }
-    .merci { font-size: 15px; font-weight: 700; letter-spacing: 3px; margin: 4px 0; }
-    .offer { font-size: 11px; line-height: 1.5; }
+    .total { display: flex; justify-content: space-between; align-items: baseline; font-size: 26px; font-weight: 700; margin: 4px 0; }
+    .pay   { font-size: 13px; line-height: 1.7; }
+    .merci { font-size: 17px; font-weight: 700; letter-spacing: 1px; margin: 4px 0; }
+    .offer { font-size: 11px; line-height: 1.45; }
   </style>
 </head>
 <body>
   <div class="center">
     <div class="store">Family Store</div>
     <div class="rdct">BY RDCT</div>
-    <div class="tag">Beaut&eacute; . Saveur . Bien-etre</div>
+    <div class="tag">Beaut&eacute; &bull; Saveur &bull; Bien-&ecirc;tre</div>
   </div>
   <div class="solid"></div>
   <div class="info">
     <div class="l">
-      <div>Ticket: #${data.receiptNo}</div>
-      <div>Date: ${dateStr}&nbsp;&nbsp;${timeStr}</div>
-      <div>Caissier: ${data.cashierName}</div>
+      <div>Ticket : #${data.receiptNo}</div>
+      <div>Date : ${dateStr}&nbsp;&nbsp;${timeStr}</div>
+      <div>Caissier : ${data.cashierName}</div>
     </div>
     <div class="r">
       <div>Bonamoussadi &ndash; Douala</div>
-      <div>Tel: +237 670792691</div>
-      <div>Tel: +237 682263435</div>
+      <div>T&eacute;l. : +237 670792691</div>
+      <div>T&eacute;l. : +237 682263435</div>
     </div>
   </div>
   <div class="solid"></div>
@@ -156,15 +156,15 @@ export function buildReceiptHTML(data: ReceiptData): string {
   ${(data.offrePct ?? 0) > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction facture (-${data.offrePct}%)</span><span>-${f(data.offreAmt ?? 0)}</span></div>` : ''}
   ` : ''}
   <div class="solid"></div>
-  <div class="total"><span>Total:</span><span>${f(data.total)} XFCA</span></div>
+  <div class="total"><span>Total :</span><span>${f(data.total)} FCFA</span></div>
   <div class="solid"></div>
-  <div class="pay">Moyen de paiement: ${data.paymentLabel}</div>
-  <div class="pay">Montant re&ccedil;u: ${f(data.amountPaid)} Francs CFA</div>
-  ${data.change > 0 ? `<div class="pay">Montant rembours&eacute;: ${f(data.change)} Francs CFA</div>` : ''}
+  <div class="pay">Mode de paiement : ${data.paymentLabel}</div>
+  <div class="pay">Montant re&ccedil;u : ${f(data.amountPaid)} FCFA</div>
+  ${data.change > 0 ? `<div class="pay">Montant rembours&eacute; : ${f(data.change)} FCFA</div>` : ''}
   <div style="height:10px"></div>
   <div class="center">
     <div class="merci">Merci de votre visite !</div>
-    <div class="offer">Comme remerciement, <b>Family Store vous offre 5 %</b> de r&eacute;duction sur votre prochain achat. Pr&eacute;sentez juste cette facture &agrave; la caisse pour b&eacute;n&eacute;ficier de cette offre.</div>
+    <div class="offer">Pour vous remercier, <b>Family Store vous offre 5 %</b> de r&eacute;duction sur votre prochain achat. Pr&eacute;sentez simplement cette facture &agrave; la caisse pour b&eacute;n&eacute;ficier de cette offre.</div>
   </div>
 </body>
 </html>`;
@@ -210,36 +210,36 @@ export function buildReceiptPDF(data: ReceiptData): string {
 
   const dateStr = data.date.toLocaleDateString('fr-FR');
   const timeStr = data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  const fmt = (n: number) => String(Math.round(Number(n) || 0));
+  const fmt = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
   // En-tête
-  line('Family Store', 18, true, 'center');
-  line('BY RDCT', 7, false, 'center');
-  line('Beaute . Saveur . Bien-etre', 8, false, 'center');
+  line('Family Store', 22, true, 'center');
+  line('BY RDCT', 8, false, 'center');
+  line('Beaute - Saveur - Bien-etre', 9, false, 'center');
   y += 1;
   solid();
 
   // Infos : meta (gauche) + adresse/contacts (droite)
   const infoL = [
-    `Ticket: #${data.receiptNo}`,
-    `Date: ${dateStr}  ${timeStr}`,
-    `Caissier: ${data.cashierName}`,
+    `Ticket : #${data.receiptNo}`,
+    `Date : ${dateStr}  ${timeStr}`,
+    `Caissier : ${data.cashierName}`,
   ];
-  const infoR = ['Bonamoussadi - Douala', 'Tel: +237 670792691', 'Tel: +237 682263435'];
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+  const infoR = ['Bonamoussadi - Douala', 'Tel : +237 670792691', 'Tel : +237 682263435'];
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
   for (let i = 0; i < 3; i++) {
     doc.text(infoL[i], 2, y);
     doc.text(infoR[i], W + 2, y, { align: 'right' });
-    y += 8 * 0.46;
+    y += 9 * 0.46;
   }
   y += 1;
   solid();
 
   // Articles
   for (const item of data.items) {
-    line(truncName(item.name), 11, true);
-    if (item.localName) line(item.localName, 7, false);
-    row(`  ${item.quantity} x ${fmt(item.unitPrice)}`, `${fmt(item.quantity * item.unitPrice)}`, 9);
+    line(truncName(item.name), 12, true);
+    if (item.localName) line(item.localName, 8, false);
+    row(`  ${item.quantity} x ${fmt(item.unitPrice)}`, `${fmt(item.quantity * item.unitPrice)}`, 10);
     y += 0.5;
   }
   dash();
@@ -252,25 +252,25 @@ export function buildReceiptPDF(data: ReceiptData): string {
     return s;
   }, 0);
   if (pdfDiscount > 0 || (data.offrePct ?? 0) > 0) {
-    row('Sous-total', `${fmt(data.subtotal)}`, 8);
-    if (pdfDiscount > 0) row('Reduction produits', `-${fmt(pdfDiscount)}`, 8);
-    if ((data.offrePct ?? 0) > 0) row(`Reduction facture (-${data.offrePct}%)`, `-${fmt(data.offreAmt ?? 0)}`, 8);
+    row('Sous-total', `${fmt(data.subtotal)}`, 9);
+    if (pdfDiscount > 0) row('Reduction produits', `-${fmt(pdfDiscount)}`, 9);
+    if ((data.offrePct ?? 0) > 0) row(`Reduction facture (-${data.offrePct}%)`, `-${fmt(data.offreAmt ?? 0)}`, 9);
   }
   solid();
-  row('Total:', `${fmt(data.total)} XFCA`, 14, true);
+  row('Total :', `${fmt(data.total)} FCFA`, 18, true);
   solid();
 
   // Paiement
-  line(`Moyen de paiement: ${data.paymentLabel}`, 8);
-  line(`Montant recu: ${fmt(data.amountPaid)} Francs CFA`, 8);
-  if (data.change > 0) line(`Montant rembourse: ${fmt(data.change)} Francs CFA`, 8);
+  line(`Mode de paiement : ${data.paymentLabel}`, 9);
+  line(`Montant recu : ${fmt(data.amountPaid)} FCFA`, 9);
+  if (data.change > 0) line(`Montant rembourse : ${fmt(data.change)} FCFA`, 9);
   y += 3;
 
   // Pied
-  line('Merci de votre visite !', 11, true, 'center');
-  line('Comme remerciement, Family Store vous offre 5%', 8, false, 'center');
+  line('Merci de votre visite !', 12, true, 'center');
+  line('Pour vous remercier, Family Store vous offre 5%', 8, false, 'center');
   line('de reduction sur votre prochain achat.', 8, false, 'center');
-  line('Presentez juste cette facture a la caisse', 7, false, 'center');
+  line('Presentez simplement cette facture a la caisse', 7, false, 'center');
   line('pour beneficier de cette offre.', 7, false, 'center');
 
   return doc.output('datauristring').split(',')[1] ?? '';
