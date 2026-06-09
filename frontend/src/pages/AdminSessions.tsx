@@ -9,9 +9,20 @@ const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
 function duration(debut: string, fin: string | null): string {
   if (!fin) return 'En cours';
   const ms = new Date(fin).getTime() - new Date(debut).getTime();
-  const h  = Math.floor(ms / 3_600_000);
-  const m  = Math.floor((ms % 3_600_000) / 60_000);
+  if (ms < 0) return '—';
+  const totalMin = Math.floor(ms / 60_000);
+  const days = Math.floor(totalMin / 1440);
+  const h    = Math.floor((totalMin % 1440) / 60);
+  const m    = totalMin % 60;
+  // Au-delà de 24 h, on affiche les jours (sinon « 53h49 » paraît faux).
+  if (days > 0) return `${days}j ${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}`;
   return `${h}h${String(m).padStart(2, '0')}`;
+}
+
+// Même jour calendaire ?
+function sameDay(a: string, b: string): boolean {
+  const da = new Date(a), db = new Date(b);
+  return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
 }
 
 function fmtTime(iso: string) {
@@ -204,7 +215,14 @@ export default function AdminSessions() {
                         {fmtTime(s.dateDebut)}
                       </td>
                       <td style={{ padding: '10px 12px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)', whiteSpace: 'nowrap' }}>
-                        {s.dateFin ? fmtTime(s.dateFin) : '—'}
+                        {s.dateFin ? (
+                          <>
+                            {fmtTime(s.dateFin)}
+                            {!sameDay(s.dateDebut, s.dateFin) && (
+                              <div style={{ fontSize: 10, color: 'var(--fs-danger-600)', fontWeight: 700 }}>{fmtDate(s.dateFin)}</div>
+                            )}
+                          </>
+                        ) : '—'}
                       </td>
                       <td style={{ padding: '10px 12px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-600)', whiteSpace: 'nowrap' }}>
                         {duration(s.dateDebut, s.dateFin)}
