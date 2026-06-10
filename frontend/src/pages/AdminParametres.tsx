@@ -106,7 +106,7 @@ function toSForm(s: StoreSettings): SForm {
     facebook:          s.reseauxSociaux?.facebook ?? '',
     whatsapp:          s.reseauxSociaux?.whatsapp ?? '',
     langue:            s.langue ?? 'fr',
-    couleurPrincipale: s.couleurPrincipale ?? '#7A1D2E',
+    couleurPrincipale: s.couleurPrincipale ?? '#FF0000',
   };
 }
 
@@ -122,7 +122,7 @@ function fromSForm(f: SForm): Partial<StoreSettings> {
     horaires:   { ouverture: f.ouverture, fermeture: f.fermeture },
     reseauxSociaux:    { facebook: f.facebook.trim(), whatsapp: f.whatsapp.trim() },
     langue:            f.langue,
-    couleurPrincipale: f.couleurPrincipale || '#7A1D2E',
+    couleurPrincipale: f.couleurPrincipale || '#FF0000',
   };
 }
 
@@ -327,7 +327,7 @@ export default function AdminParametres() {
                 <div style={{ width: 52, height: 52, borderRadius: 10, background: form.couleurPrincipale || 'var(--fs-wine-700)', border: '2px solid var(--fs-line-2)', overflow: 'hidden', cursor: 'pointer' }}>
                   <input
                     type="color"
-                    value={form.couleurPrincipale || '#7A1D2E'}
+                    value={form.couleurPrincipale || '#FF0000'}
                     onChange={e => {
                       mkChange('couleurPrincipale')(e.target.value);
                       if (typeof applyPrimaryColor === 'function') applyPrimaryColor(e.target.value);
@@ -340,19 +340,19 @@ export default function AdminParametres() {
                 <label style={LABEL_STYLE}>Code couleur hex</label>
                 <input
                   type="text"
-                  value={form.couleurPrincipale || '#7A1D2E'}
+                  value={form.couleurPrincipale || '#FF0000'}
                   onChange={e => {
                     mkChange('couleurPrincipale')(e.target.value);
                     if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value) && typeof applyPrimaryColor === 'function') applyPrimaryColor(e.target.value);
                   }}
-                  placeholder="#7A1D2E"
+                  placeholder="#FF0000"
                   style={{ ...INPUT_STYLE, fontFamily: 'var(--fs-font-mono)', width: 130 }}
                 />
                 <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '6px 0 0' }}>
                   S'applique sur toute l'interface — boutons, sidebar, en-têtes.
                 </p>
               </div>
-              <button onClick={() => { mkChange('couleurPrincipale')('#7A1D2E'); if (typeof applyPrimaryColor === 'function') applyPrimaryColor('#7A1D2E'); }}
+              <button onClick={() => { mkChange('couleurPrincipale')('#FF0000'); if (typeof applyPrimaryColor === 'function') applyPrimaryColor('#FF0000'); }}
                 style={{ padding: '7px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)' }}>
                 Défaut
               </button>

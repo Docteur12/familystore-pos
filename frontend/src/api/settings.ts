@@ -25,21 +25,29 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   horaires: { ouverture: '08:00', fermeture: '20:00' },
   reseauxSociaux: { facebook: '', whatsapp: '' },
   langue: 'fr',
-  couleurPrincipale: '#7A1D2E',
+  couleurPrincipale: '#FF0000',
 };
 
-// Applique la couleur principale sur toutes les CSS variables
+// Applique la couleur principale sur TOUTE la palette (50 → 900) afin que
+// chaque élément qui utilise var(--fs-wine-*) suive la couleur de la boutique.
 export function applyPrimaryColor(hex: string) {
   if (!hex || !/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  const darken = (f: number) => `rgb(${Math.round(r*f)},${Math.round(g*f)},${Math.round(b*f)})`;
-  document.documentElement.style.setProperty('--fs-wine-700', hex);
-  document.documentElement.style.setProperty('--fs-wine-800', darken(0.8));
-  document.documentElement.style.setProperty('--fs-wine-900', darken(0.62));
-  document.documentElement.style.setProperty('--fs-wine-100', `rgba(${r},${g},${b},0.1)`);
-  document.documentElement.style.setProperty('--fs-wine-50',  `rgba(${r},${g},${b},0.05)`);
+  const shade = (f: number) => `rgb(${Math.round(r * f)},${Math.round(g * f)},${Math.round(b * f)})`;            // plus sombre
+  const tint  = (p: number) => `rgb(${Math.round(r + (255 - r) * p)},${Math.round(g + (255 - g) * p)},${Math.round(b + (255 - b) * p)})`; // plus clair
+  const set = (k: string, v: string) => document.documentElement.style.setProperty(k, v);
+  set('--fs-wine-900', shade(0.62));
+  set('--fs-wine-800', shade(0.80));
+  set('--fs-wine-700', hex);
+  set('--fs-wine-600', tint(0.15));
+  set('--fs-wine-500', tint(0.30));
+  set('--fs-wine-400', tint(0.45));
+  set('--fs-wine-300', tint(0.62));
+  set('--fs-wine-200', tint(0.78));
+  set('--fs-wine-100', tint(0.90));
+  set('--fs-wine-50',  tint(0.95));
 }
 
 export async function getSettings(): Promise<StoreSettings> {

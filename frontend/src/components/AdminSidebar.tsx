@@ -6,8 +6,8 @@ import { logAccesEspace } from '../api/audit';
 import { useSettings } from '../contexts/SettingsContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 
-const BG       = '#6B1221';
-const ACT      = '#4A0E1C';
+const BG       = 'var(--fs-wine-900)';
+const ACT      = 'var(--fs-wine-700)';
 const SIDEBAR_W = 200;
 
 function I({ d, size = 14 }: { d: string; size?: number }) {
@@ -138,7 +138,7 @@ function MonCompteModal({ onClose }: { onClose: () => void }) {
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-      <div style={{ background: '#4A0E1C', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, width: '100%', maxWidth: 400, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
+      <div style={{ background: 'var(--fs-wine-900)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, width: '100%', maxWidth: 400, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
             <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>Mon compte</p>

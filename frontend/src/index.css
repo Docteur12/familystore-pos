@@ -7,11 +7,18 @@
 
 /* ── Design tokens (CSS vars) ────────────────────────────────────────────────── */
 :root {
-  --fs-wine-900: #4A0E1C;
-  --fs-wine-800: #5E1324;
-  --fs-wine-700: #7A1D2E;
-  --fs-wine-100: #F6E6E9;
-  --fs-wine-50:  #FBF3F4;
+  /* Couleur de la boutique (défaut rouge #FF0000) — surchargée au démarrage
+     par applyPrimaryColor() selon le réglage. Palette complète 50 → 900. */
+  --fs-wine-900: #9E0000;
+  --fs-wine-800: #CC0000;
+  --fs-wine-700: #FF0000;
+  --fs-wine-600: #FF2626;
+  --fs-wine-500: #FF4D4D;
+  --fs-wine-400: #FF7373;
+  --fs-wine-300: #FF9E9E;
+  --fs-wine-200: #FFC7C7;
+  --fs-wine-100: #FFE6E6;
+  --fs-wine-50:  #FFF2F2;
 
   --fs-gold-700: #8A6329;
   --fs-gold-600: #A37937;
