@@ -100,6 +100,8 @@ export function buildReceiptHTML(data: ReceiptData): string {
   <meta charset="utf-8">
   <title>Recu ${data.receiptNo}</title>
   <style>
+    /* Papier 80mm, mais la zone imprimable réelle ≈ 72mm : on limite le
+       contenu à 72mm (aligné à gauche) pour ne RIEN couper à droite. */
     @page { size: 80mm auto; margin: 0; }
     @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     * {
@@ -107,25 +109,25 @@ export function buildReceiptHTML(data: ReceiptData): string {
       font-family: Arial, Helvetica, sans-serif;
       font-size: 12px; color: #000 !important;
     }
-    html, body { width: 80mm; margin: 0; padding: 0; background: #fff; }
-    body { padding: 10px 10px 16px; }
+    html, body { width: 72mm; margin: 0; padding: 0; background: #fff; }
+    body { padding: 8px 6px 14px; }
     .center{ text-align: center; }
-    .solid { border-top: 2px solid #000; margin: 8px 0; }
-    .dash  { border-top: 1px dashed #000; margin: 8px 0; }
-    .store { font-size: 32px; font-weight: 700; line-height: 1.05; }
-    .rdct  { font-size: 13px; letter-spacing: 1px; margin-top: 3px; }
-    .tag   { font-size: 13px; margin-top: 2px; }
-    .info  { display: flex; justify-content: space-between; font-size: 12px; line-height: 1.6; }
-    .info .r { text-align: right; }
+    .solid { border-top: 2px solid #000; margin: 7px 0; }
+    .dash  { border-top: 1px dashed #000; margin: 7px 0; }
+    .store { font-size: 28px; font-weight: 700; line-height: 1.05; }
+    .rdct  { font-size: 11px; letter-spacing: 1px; margin-top: 3px; }
+    .tag   { font-size: 12px; margin-top: 2px; }
+    .info  { display: flex; justify-content: space-between; gap: 6px; font-size: 10px; line-height: 1.55; }
+    .info .r { text-align: right; white-space: nowrap; }
     .item  { margin: 7px 0; }
-    .iname { font-size: 16px; font-weight: 700; }
-    .ilocal{ font-size: 11px; color: #666; margin-top: 1px; }
-    .irow  { display: flex; justify-content: space-between; font-size: 13px; color: #333; margin-top: 3px; }
-    .row   { display: flex; justify-content: space-between; font-size: 12px; margin: 2px 0; }
-    .total { display: flex; justify-content: space-between; align-items: baseline; font-size: 26px; font-weight: 700; margin: 4px 0; }
-    .pay   { font-size: 13px; line-height: 1.7; }
-    .merci { font-size: 17px; font-weight: 700; letter-spacing: 1px; margin: 4px 0; }
-    .offer { font-size: 11px; line-height: 1.45; }
+    .iname { font-size: 15px; font-weight: 700; }
+    .ilocal{ font-size: 10px; color: #666; margin-top: 1px; }
+    .irow  { display: flex; justify-content: space-between; font-size: 12px; color: #333; margin-top: 3px; }
+    .row   { display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; }
+    .total { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 22px; font-weight: 700; margin: 4px 0; }
+    .pay   { font-size: 12px; line-height: 1.7; }
+    .merci { font-size: 16px; font-weight: 700; letter-spacing: 1px; margin: 4px 0; }
+    .offer { font-size: 10px; line-height: 1.45; }
   </style>
 </head>
 <body>
