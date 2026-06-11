@@ -108,11 +108,10 @@ export default function Receipt({ data, onNewSale }: Props) {
             })}
           </div>
 
-          <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
-
-          {/* Totaux (sous-total + réductions uniquement si réduction) */}
+          {/* Ligne pointillée + sous-total/réductions : uniquement s'il y a une réduction */}
           {(totalDiscount > 0 || (data.offrePct ?? 0) > 0) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 4 }}>
+              <div style={{ borderTop: '1px dashed #000', margin: '0 0 8px' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#555' }}>
                 <span>Sous-total</span>
                 <span>{f(subDisplay)}</span>
