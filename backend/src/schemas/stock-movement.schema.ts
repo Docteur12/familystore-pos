@@ -4,7 +4,14 @@ import { HydratedDocument, Types } from 'mongoose';
 export type StockMovementDocument = HydratedDocument<StockMovement>;
 
 export type MovementType   = 'IN' | 'OUT';
-export type MovementReason = 'restock' | 'sale' | 'adjustment' | 'reception';
+export type MovementReason =
+  | 'restock' | 'sale' | 'adjustment' | 'reception'
+  | 'annulation_vente' | 'livraison_partenaire' | 'retour_partenaire';
+
+const MOVEMENT_REASONS: MovementReason[] = [
+  'restock', 'sale', 'adjustment', 'reception',
+  'annulation_vente', 'livraison_partenaire', 'retour_partenaire',
+];
 
 @Schema({ timestamps: { createdAt: true, updatedAt: false } })
 export class StockMovement {
@@ -17,7 +24,7 @@ export class StockMovement {
   @Prop({ required: true, min: 1 })
   quantity: number;
 
-  @Prop({ required: true, enum: ['restock', 'sale', 'adjustment', 'reception'], default: 'restock' })
+  @Prop({ required: true, enum: MOVEMENT_REASONS, default: 'restock' })
   reason: MovementReason;
 
   @Prop({ trim: true })
