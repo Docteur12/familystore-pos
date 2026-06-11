@@ -4,6 +4,7 @@ import { getFournisseurs } from '../api/fournisseurs';
 import { getTokenPayload } from '../api/dashboard';
 import AutocompleteInput from './AutocompleteInput';
 import QRScanner from './QRScanner';
+import { titleCase } from '../utils/text';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -338,7 +339,9 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
   const setField = (k: keyof FormState) => (v: string) =>
     setForm(prev => ({ ...prev, [k]: v }));
 
-  const computedThreshold = Math.max(1, Math.ceil((parseInt(form.stock) || 0) * 0.10));
+  // Seuil = 10% de la quantité MAXIMALE (initiale), pas du stock courant ; plancher 2.
+  const maxQty = product?.initialStock ?? (parseInt(form.stock) || 0);
+  const computedThreshold = Math.max(2, Math.ceil(maxQty * 0.10));
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.price || !form.stock) {
@@ -354,7 +357,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     setError('');
     const rawName = form.name.trim();
     const payload = {
-      name:        rawName.charAt(0).toUpperCase() + rawName.slice(1),
+      name:        titleCase(rawName),
       localName:   form.localName.trim() || undefined,
       barcode:     form.barcode.trim() || undefined,
       category:    finalCategory || undefined,
@@ -427,7 +430,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
               type="text"
               value={form.name}
               onChange={e => setField('name')(e.target.value)}
-              onBlur={e => { const v = e.target.value.trim(); if (v) setField('name')(v.charAt(0).toUpperCase() + v.slice(1)); }}
+              onBlur={e => { const v = e.target.value.trim(); if (v) setField('name')(titleCase(v)); }}
               placeholder="ex: Nivea Shampoing 400ml"
               style={INPUT_STYLE}
             />
@@ -585,7 +588,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
               <label style={LABEL_STYLE}>Seuil d'alerte <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(auto 10%)</span></label>
               <div style={{ ...INPUT_STYLE, background: 'var(--fs-ivory)', color: 'var(--fs-ink-500)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontWeight: 700, fontFamily: 'var(--fs-font-mono)' }}>{computedThreshold}</span>
-                <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>= 10% de {form.stock || '0'}</span>
+                <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>= 10% de la quantité max ({maxQty})</span>
               </div>
             </div>
           </div>

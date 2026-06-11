@@ -3,6 +3,7 @@ import { getAllProducts, createProduct, updateProduct, setProductPrix, getProduc
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
 import QRScanner from '../components/QRScanner';
+import { titleCase } from '../utils/text';
 import { useIsMobile }       from '../hooks/useIsMobile';
 import AutocompleteInput     from '../components/AutocompleteInput';
 import {
@@ -296,7 +297,7 @@ export default function Magazinier() {
     setNewProdLoading(true);
     try {
       const created = await createProduct({
-        name:                newProd.name.trim().charAt(0).toUpperCase() + newProd.name.trim().slice(1),
+        name:                titleCase(newProd.name),
         barcode:             newProd.barcode.trim() || undefined,
         category:            newProd.category || undefined,
         subCategory:         newProd.subCategory.trim() || undefined,

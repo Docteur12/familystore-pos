@@ -57,7 +57,8 @@ export class ProductsService {
 
   async create(dto: CreateProductDto, actor?: { name?: string; role?: string }) {
     const initialStock = dto.stock ?? 0;
-    const alertThreshold = Math.max(1, Math.ceil(initialStock * 0.10));
+    // Seuil = 10% de la quantité initiale (= maximale), jamais en dessous de 2.
+    const alertThreshold = Math.max(2, Math.ceil(initialStock * 0.10));
     const oneYearFromNow = new Date();
     oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
     const expiryDate = dto.expiryDate ?? oneYearFromNow.toISOString().slice(0, 10);
