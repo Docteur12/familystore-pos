@@ -151,8 +151,8 @@ export function buildReceiptHTML(data: ReceiptData): string {
   </div>
   <div class="solid"></div>
   ${itemRows}
-  <div class="dash"></div>
   ${aReduction ? `
+  <div class="dash"></div>
   <div class="row"><span>Sous-total</span><span>${f(data.subtotal)}</span></div>
   ${totalDiscount > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction produits</span><span>-${f(totalDiscount)}</span></div>` : ''}
   ${(data.offrePct ?? 0) > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction facture (-${data.offrePct}%)</span><span>-${f(data.offreAmt ?? 0)}</span></div>` : ''}
@@ -217,7 +217,7 @@ export function buildReceiptPDF(data: ReceiptData): string {
   // En-tête
   line('Family Store', 22, true, 'center');
   line('BY RDCT', 8, false, 'center');
-  line('Beaute - Saveur - Bien-etre', 9, false, 'center');
+  line('Beauté · Saveur · Bien-être', 9, false, 'center');
   y += 1;
   solid();
 
@@ -227,12 +227,12 @@ export function buildReceiptPDF(data: ReceiptData): string {
     `Date : ${dateStr}  ${timeStr}`,
     `Caissier : ${data.cashierName}`,
   ];
-  const infoR = ['Bonamoussadi - Douala', 'Tel : +237 670792691', 'Tel : +237 682263435'];
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+  const infoR = ['Bonamoussadi - Douala', 'Tél. : +237 670792691', 'Tél. : +237 682263435'];
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
   for (let i = 0; i < 3; i++) {
     doc.text(infoL[i], 2, y);
     doc.text(infoR[i], W + 2, y, { align: 'right' });
-    y += 9 * 0.46;
+    y += 8 * 0.5;
   }
   y += 1;
   solid();
@@ -244,9 +244,8 @@ export function buildReceiptPDF(data: ReceiptData): string {
     row(`  ${item.quantity} x ${fmt(item.unitPrice)}`, `${fmt(item.quantity * item.unitPrice)}`, 10);
     y += 0.5;
   }
-  dash();
 
-  // Totaux
+  // Totaux — la ligne pointillée et le sous-total n'apparaissent QUE s'il y a une réduction
   const pdfDiscount = data.items.reduce((s, item) => {
     if ((item.discount ?? 0) > 0 && item.originalPrice) {
       return s + (item.originalPrice - item.unitPrice) * item.quantity;
@@ -254,9 +253,10 @@ export function buildReceiptPDF(data: ReceiptData): string {
     return s;
   }, 0);
   if (pdfDiscount > 0 || (data.offrePct ?? 0) > 0) {
+    dash();
     row('Sous-total', `${fmt(data.subtotal)}`, 9);
-    if (pdfDiscount > 0) row('Reduction produits', `-${fmt(pdfDiscount)}`, 9);
-    if ((data.offrePct ?? 0) > 0) row(`Reduction facture (-${data.offrePct}%)`, `-${fmt(data.offreAmt ?? 0)}`, 9);
+    if (pdfDiscount > 0) row('Réduction produits', `-${fmt(pdfDiscount)}`, 9);
+    if ((data.offrePct ?? 0) > 0) row(`Réduction facture (-${data.offrePct}%)`, `-${fmt(data.offreAmt ?? 0)}`, 9);
   }
   solid();
   row('Total :', `${fmt(data.total)} FCFA`, 18, true);
@@ -264,16 +264,16 @@ export function buildReceiptPDF(data: ReceiptData): string {
 
   // Paiement
   line(`Mode de paiement : ${data.paymentLabel}`, 9);
-  line(`Montant recu : ${fmt(data.amountPaid)} FCFA`, 9);
-  if (data.change > 0) line(`Montant rembourse : ${fmt(data.change)} FCFA`, 9);
+  line(`Montant reçu : ${fmt(data.amountPaid)} FCFA`, 9);
+  if (data.change > 0) line(`Montant remboursé : ${fmt(data.change)} FCFA`, 9);
   y += 3;
 
   // Pied
   line('Merci de votre visite !', 12, true, 'center');
   line('Pour vous remercier, Family Store vous offre 5%', 8, false, 'center');
-  line('de reduction sur votre prochain achat.', 8, false, 'center');
-  line('Presentez simplement cette facture a la caisse', 7, false, 'center');
-  line('pour beneficier de cette offre.', 7, false, 'center');
+  line('de réduction sur votre prochain achat.', 8, false, 'center');
+  line('Présentez simplement cette facture à la caisse', 7, false, 'center');
+  line('pour bénéficier de cette offre.', 7, false, 'center');
 
   return doc.output('datauristring').split(',')[1] ?? '';
 }
