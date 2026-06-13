@@ -215,6 +215,7 @@ export default function AdminRapports() {
   const [prodDateFrom, setProdDateFrom] = useState('');
   const [prodDateTo,   setProdDateTo]   = useState('');
   const [prodLoading,  setProdLoading]  = useState(false);
+  const [prodExporting, setProdExporting] = useState(false);
 
   const { year, month, label } = MONTHS[monthIdx];
 
@@ -272,6 +273,69 @@ export default function AdminRapports() {
       addToast(`Erreur export ${type.toUpperCase()}`, 'error');
     } finally {
       setExporting(null);
+    }
+  }
+
+  // Export PDF (côté client) du journal des ventes par produit.
+  async function exportByProductPdf() {
+    if (byProduct.length === 0) { addToast('Aucune donnée à exporter', 'error'); return; }
+    setProdExporting(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const num = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+      const trunc = (s: string, max = 52) => (s.length > max ? s.slice(0, max - 1) + '…' : s);
+      const margin = 14;
+      // Colonnes (A4 = 210mm de large)
+      const cX = { nom: margin, qte: 120, ca: 154, nb: 176, moy: 196 };
+      let y = 18;
+
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+      doc.text('Journal des ventes par produit', margin, y);
+      y += 6;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(110);
+      const periode = (prodDateFrom || prodDateTo)
+        ? `Période : ${prodDateFrom || '…'} → ${prodDateTo || '…'}`
+        : 'Toutes périodes';
+      doc.text(`${periode}  ·  ${byProduct.length} produit(s)  ·  édité le ${new Date().toLocaleDateString('fr-FR')}`, margin, y);
+      y += 8;
+
+      const header = () => {
+        doc.setTextColor(0); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        doc.text('Produit', cX.nom, y);
+        doc.text('Qté vendue', cX.qte, y, { align: 'right' });
+        doc.text('CA généré', cX.ca, y, { align: 'right' });
+        doc.text('Nb tr.', cX.nb, y, { align: 'right' });
+        doc.text('Prix moy.', cX.moy, y, { align: 'right' });
+        y += 2; doc.setDrawColor(180); doc.line(margin, y, 196, y); y += 5;
+      };
+      header();
+
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      let totalQte = 0, totalCA = 0;
+      for (const p of byProduct) {
+        if (y > 285) { doc.addPage(); y = 18; header(); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); }
+        doc.setTextColor(20);
+        doc.text(trunc(p.name), cX.nom, y);
+        doc.text(num(p.qtySold), cX.qte, y, { align: 'right' });
+        doc.text(num(p.caGenere), cX.ca, y, { align: 'right' });
+        doc.text(num(p.nbTransactions), cX.nb, y, { align: 'right' });
+        doc.text(num(p.prixMoyenVente), cX.moy, y, { align: 'right' });
+        y += 5.5;
+        totalQte += p.qtySold; totalCA += p.caGenere;
+      }
+      // Total
+      y += 1; doc.setDrawColor(120); doc.line(margin, y, 196, y); y += 5;
+      doc.setFont('helvetica', 'bold');
+      doc.text('TOTAL', cX.nom, y);
+      doc.text(num(totalQte), cX.qte, y, { align: 'right' });
+      doc.text(`${num(totalCA)} XAF`, cX.ca, y, { align: 'right' });
+
+      doc.save(`ventes-par-produit-${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch {
+      addToast('Erreur export PDF', 'error');
+    } finally {
+      setProdExporting(false);
     }
   }
 
@@ -897,6 +961,10 @@ export default function AdminRapports() {
                 <button onClick={loadByProduct} disabled={prodLoading}
                   style={{ padding: '6px 14px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: prodLoading ? 0.6 : 1 }}>
                   {prodLoading ? '…' : 'Filtrer'}
+                </button>
+                <button onClick={exportByProductPdf} disabled={prodExporting || byProduct.length === 0}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', background: '#8B2C1A', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: (prodExporting || byProduct.length === 0) ? 0.5 : 1 }}>
+                  ⬇ {prodExporting ? '…' : 'PDF'}
                 </button>
               </div>
             </div>
