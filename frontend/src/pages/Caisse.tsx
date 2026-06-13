@@ -662,7 +662,7 @@ export default function Caisse() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                     {[
                       { label: 'Stock système', val: item.stockSysteme,   color: '#DC2626' },
-                      { label: 'Qté vendue',   val: item.quantiteVendue, color: '#7A1D2E' },
+                      { label: 'Qté vendue',   val: item.quantiteVendue, color: 'var(--fs-wine-700)' },
                       { label: 'Écart',        val: item.ecart,          color: '#991B1B' },
                     ].map(s => (
                       <div key={s.label} style={{ textAlign: 'center' }}>
@@ -850,7 +850,7 @@ export default function Caisse() {
               ) : auditRows.map(a => (
                 <div key={a._id} style={{ padding: '10px 20px', borderBottom: '1px solid var(--fs-line)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#FAE5DF', color: '#8B2C1A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Suppression</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Suppression</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{a.actorName}</span>
                     <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>({a.actorRole})</span>
                   </div>

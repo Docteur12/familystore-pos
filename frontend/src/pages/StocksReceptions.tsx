@@ -467,7 +467,7 @@ export default function StocksReceptions() {
                           {new Date(r.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
                         </span>
                         {r.creePar?.role === 'gestionnaire' || r.creePar?.role === 'patron' ? (
-                          <span style={{ fontSize: 11, fontWeight: 700, background: '#6B1221', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-wine-900)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>
                             Gestionnaire
                           </span>
                         ) : (
@@ -493,7 +493,7 @@ export default function StocksReceptions() {
                             <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: '#16a34a' }}>+{item.quantity}</td>
                             <td style={{ padding: '9px 14px' }}>
                               {r.creePar?.role === 'gestionnaire' || r.creePar?.role === 'patron' ? (
-                                <span style={{ fontSize: 11, fontWeight: 700, background: '#6B1221', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Gestionnaire</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-wine-900)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Gestionnaire</span>
                               ) : (
                                 <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-gold-500)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Magazinier · {r.creePar?.name ?? '—'}</span>
                               )}
@@ -529,7 +529,7 @@ export default function StocksReceptions() {
                   </div>
                   <span style={{
                     fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 10,
-                    background: bl.totalEcarts < 0 ? '#FAE5DF' : bl.totalEcarts > 0 ? '#E8F0E5' : 'var(--fs-ivory)',
+                    background: bl.totalEcarts < 0 ? 'var(--fs-wine-100)' : bl.totalEcarts > 0 ? '#E8F0E5' : 'var(--fs-ivory)',
                     color: bl.totalEcarts < 0 ? 'var(--fs-danger-700)' : bl.totalEcarts > 0 ? 'var(--fs-success-700)' : 'var(--fs-ink-400)',
                   }}>
                     Écart total : {bl.totalEcarts > 0 ? `+${bl.totalEcarts}` : bl.totalEcarts}
@@ -554,7 +554,7 @@ export default function StocksReceptions() {
                           <td style={{ padding: '9px 14px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-400)' }}>{l.datePeremption || '—'}</td>
                           <td style={{ padding: '9px 14px' }}>
                             {l.etatEmballage && (
-                              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 8, background: l.etatEmballage === 'bon' ? '#E8F0E5' : '#FAE5DF', color: l.etatEmballage === 'bon' ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' }}>
+                              <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 8, background: l.etatEmballage === 'bon' ? '#E8F0E5' : 'var(--fs-wine-100)', color: l.etatEmballage === 'bon' ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' }}>
                                 {l.etatEmballage === 'bon' ? 'Bon état' : 'Endommagé'}
                               </span>
                             )}

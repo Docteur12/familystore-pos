@@ -10,6 +10,7 @@ import {
   getPaymentBreakdown, getTokenPayload,
   StatsToday, PeriodDay, TopProduct, PaymentSlice,
 } from '../api/dashboard';
+import { getBrandColor } from '../utils/text';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { getAllProducts, Product } from '../api/products';
 
@@ -72,7 +73,7 @@ const D = {
 };
 
 const PM_COLORS: Record<string, string> = {
-  cash:         '#7A1D2E',
+  cash:         '#FF0000',
   mtn_momo:     '#FFCC00',
   orange_money:  '#FF6600',
   card:          '#5E8FBF',
@@ -162,6 +163,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
 
 export default function AdminDashboard() {
   const { toasts, addToast, removeToast } = useToast();
+  const brand = getBrandColor();
   const isMobile  = useIsMobile();
   const payload  = getTokenPayload();
   const prenom   = payload?.name?.split(' ')[0] ?? '';
@@ -449,8 +451,8 @@ export default function AdminDashboard() {
                         interval={Math.max(0, Math.floor(chartData.length / 8) - 1)}/>
                       <YAxis tickFormatter={v => fmtK(v)} tick={{ fontSize: 10, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={38}/>
                       <Tooltip content={<ChartTooltip/>}/>
-                      <Line type="monotone" dataKey="value" stroke="#7A1D2E" strokeWidth={2.5}
-                        dot={{ fill: '#7A1D2E', r: 3, strokeWidth: 0 }}
+                      <Line type="monotone" dataKey="value" stroke={brand} strokeWidth={2.5}
+                        dot={{ fill: brand, r: 3, strokeWidth: 0 }}
                         activeDot={{ fill: '#D1A660', r: 5, strokeWidth: 0 }} name="CA"/>
                       <Line type="monotone" dataKey="avgTicket" stroke="#7A9EC2" strokeWidth={1.5}
                         strokeDasharray="4 3" dot={false} name="Moyenne"/>
@@ -473,7 +475,7 @@ export default function AdminDashboard() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {topProds.slice(0, 5).map((p, i) => {
-                    const colors = ['#7A1D2E','#D1A660','#7AB87A','#7A9EC2','#C2566B'];
+                    const colors = [brand,'#D1A660','#7AB87A','#7A9EC2','#C2566B'];
                     return (
                       <div key={p._id}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>

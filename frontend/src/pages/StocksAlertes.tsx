@@ -13,7 +13,7 @@ function getStatus(p: Product): AlertStatus {
   return 'alerte';
 }
 const STATUS_CFG: Record<AlertStatus, { label: string; bg: string; color: string }> = {
-  rupture:  { label: 'Rupture',  bg: '#FAE5DF', color: '#8B2C1A' },
+  rupture:  { label: 'Rupture',  bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)' },
   critique: { label: 'Critique', bg: '#FEF0E0', color: '#8B5A14' },
   alerte:   { label: 'Alerte',   bg: '#F7ECD4', color: '#8B5A14' },
 };
@@ -130,7 +130,7 @@ export default function StocksAlertes() {
         {/* KPI cards */}
         <div style={{ display: 'flex', gap: 14, padding: '16px 24px', flexShrink: 0 }}>
           {[
-            { label: 'Ruptures',  count: ruptures,  bg: '#FAE5DF', color: '#8B2C1A' },
+            { label: 'Ruptures',  count: ruptures,  bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)' },
             { label: 'Critiques', count: critiques, bg: '#FEF0E0', color: '#8B5A14' },
             { label: 'Alertes',   count: alertes,   bg: '#F7ECD4', color: '#8B5A14' },
             { label: 'Total',     count: alertCount, bg: 'var(--fs-wine-50)', color: 'var(--fs-wine-800)' },
@@ -246,8 +246,8 @@ export default function StocksAlertes() {
                     const exp = expiryOf(p)!;
                     const isExpired = days < 0;
                     const isSoon = days >= 0 && days <= 30;
-                    const bg   = isExpired ? '#FAE5DF' : isSoon ? '#FEF0E0' : '#F7ECD4';
-                    const color = isExpired ? '#8B2C1A' : '#8B5A14';
+                    const bg   = isExpired ? 'var(--fs-wine-100)' : isSoon ? '#FEF0E0' : '#F7ECD4';
+                    const color = isExpired ? 'var(--fs-wine-700)' : '#8B5A14';
                     return (
                       <tr key={p._id} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
                         <td style={{ padding: '10px 12px' }}>
@@ -311,8 +311,8 @@ export default function StocksAlertes() {
                         <td style={{ padding: '10px 12px', textAlign: 'center' }}>
                           <span style={{
                             fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 10,
-                            background: urgency === 'Urgent' ? '#FAE5DF' : urgency === 'Critique' ? '#FEF0E0' : '#F7ECD4',
-                            color: urgency === 'Urgent' ? '#8B2C1A' : '#8B5A14',
+                            background: urgency === 'Urgent' ? 'var(--fs-wine-100)' : urgency === 'Critique' ? '#FEF0E0' : '#F7ECD4',
+                            color: urgency === 'Urgent' ? 'var(--fs-wine-700)' : '#8B5A14',
                           }}>{urgency}</span>
                         </td>
                       </tr>

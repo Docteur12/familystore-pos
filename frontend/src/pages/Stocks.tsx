@@ -82,8 +82,8 @@ function expiryStatus(d: Date | null): ExpiryStatus {
 const EXPIRY_BADGE: Record<ExpiryStatus, { bg: string; color: string; label: (d: number | null) => string }> = {
   ok:      { bg: '#E8F0E5', color: '#3F6B3A', label: d => d !== null ? `${d} j` : '—' },
   near:    { bg: '#F7ECD4', color: '#8B5A14', label: d => d !== null ? `${d} j` : '—' },
-  soon:    { bg: '#FAE5DF', color: '#8B2C1A', label: d => d !== null ? `${d} j` : '—' },
-  expired: { bg: '#FAE5DF', color: '#8B2C1A', label: _ => 'Expiré'                    },
+  soon:    { bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', label: d => d !== null ? `${d} j` : '—' },
+  expired: { bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', label: _ => 'Expiré'                    },
 };
 
 // ── Tri colonnes ────────────────────────────────────────────────────────────────
@@ -399,7 +399,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
             {product.category ?? 'Autre'}
           </span>
           {lowStock && (
-            <span style={{ background: '#FAE5DF', color: 'var(--fs-danger-700)', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <span style={{ background: 'var(--fs-wine-100)', color: 'var(--fs-danger-700)', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
               À SURVEILLER
             </span>
           )}

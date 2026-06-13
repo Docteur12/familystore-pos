@@ -221,7 +221,7 @@ export default function StocksEtiquettes() {
         .cat   { font-size: 8px; color: #999; text-transform: uppercase; margin-bottom: 6px; }
         .bc    { background: #f5f5f0; border-radius: 4px; padding: 4px; text-align: center; margin-bottom: 6px; }
         .sku   { font-size: ${fs.sku}px; font-family: monospace; letter-spacing: 0.1em; }
-        .price { font-size: ${fs.price}px; font-weight: 900; color: #7a1d2e; }
+        .price { font-size: ${fs.price}px; font-weight: 900; color: var(--fs-wine-700); }
         .row   { display: flex; justify-content: space-between; align-items: baseline; }
         .unit  { font-size: 10px; color: #666; }
         .bars  { display: flex; align-items: flex-end; justify-content: center; gap: 1px; height: ${template === 'mini' ? 20 : template === 'grande' ? 32 : 26}px; }

@@ -10,7 +10,7 @@ const TYPE_CFG: Record<string, { label: string; bg: string; color: string; icon:
   connexion:    { label: 'Connexion',    bg: '#EEF3FA', color: '#3A5E8F', icon: 'M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3' },
   creation:     { label: 'Création',     bg: '#E8F5E8', color: '#2E7D2E', icon: 'M12 5v14M5 12h14' },
   modification: { label: 'Modification', bg: '#F0EAF7', color: '#6B3FA0', icon: 'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z' },
-  suppression:  { label: 'Suppression',  bg: '#FAE5DF', color: '#8B2C1A', icon: 'M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2' },
+  suppression:  { label: 'Suppression',  bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', icon: 'M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2' },
 };
 
 const MODULE_CFG: Record<string, { label: string; color: string }> = {
@@ -19,7 +19,7 @@ const MODULE_CFG: Record<string, { label: string; color: string }> = {
   produits:      { label: 'Produits',     color: '#8B5A14' },
   ventes:        { label: 'Ventes',       color: '#3F6B3A' },
   stock:         { label: 'Stock',        color: '#1D7A4E' },
-  caisses:       { label: 'Caisses',      color: '#7A1D2E' },
+  caisses:       { label: 'Caisses',      color: 'var(--fs-wine-700)' },
   'paramètres':  { label: 'Paramètres',   color: '#4A4A6A' },
 };
 
@@ -191,7 +191,7 @@ export default function AdminAudit() {
             { label: 'Connexions',    value: stats.connexion,    bg: '#EEF3FA',   color: '#3A5E8F'           },
             { label: 'Créations',     value: stats.creation,     bg: '#E8F5E8',   color: '#2E7D2E'           },
             { label: 'Modifications', value: stats.modification, bg: '#F0EAF7',   color: '#6B3FA0'           },
-            { label: 'Suppressions',  value: stats.suppression,  bg: '#FAE5DF',   color: '#8B2C1A'           },
+            { label: 'Suppressions',  value: stats.suppression,  bg: 'var(--fs-wine-100)',   color: 'var(--fs-wine-700)'           },
           ].map(s => (
             <div key={s.label} style={{ background: s.bg, border: '1px solid var(--fs-line)', borderRadius: 10, padding: '8px 14px', minWidth: 80 }}>
               <div style={{ fontSize: 20, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: s.color }}>{s.value}</div>

@@ -4,6 +4,7 @@ import {
   ResponsiveContainer, Cell, LineChart, Line, Legend,
 } from 'recharts';
 import AdminSidebar from '../components/AdminSidebar';
+import { getBrandColor } from '../utils/text';
 import ToastContainer, { useToast } from '../components/Toast';
 import {
   getAnalyseMonth, getAnalyseWeek, downloadReport, getByProduct,
@@ -166,6 +167,7 @@ function EmptyState({ label }: { label: string }) {
 
 export default function AdminRapports() {
   const { toasts, addToast, removeToast } = useToast();
+  const brand = getBrandColor();
 
   const [viewMode, setViewMode] = useState<'mensuel' | 'semaine'>('mensuel');
 
@@ -488,7 +490,7 @@ export default function AdminRapports() {
                       <Tooltip content={<BarTip/>}/>
                       <Bar dataKey="value" radius={[2, 2, 0, 0]}>
                         {chartData.map((cd, i) => (
-                          <Cell key={i} fill={cd.value === 0 ? '#E5E7EB' : cd.isWE ? '#D1A660' : '#7A1D2E'}/>
+                          <Cell key={i} fill={cd.value === 0 ? '#E5E7EB' : cd.isWE ? '#D1A660' : brand}/>
                         ))}
                       </Bar>
                     </BarChart>
@@ -496,7 +498,7 @@ export default function AdminRapports() {
                 </div>
                 <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--fs-ink-500)' }}>
-                    <div style={{ width: 12, height: 12, borderRadius: 2, background: '#7A1D2E' }}/> Jours semaine
+                    <div style={{ width: 12, height: 12, borderRadius: 2, background: brand }}/> Jours semaine
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--fs-ink-500)' }}>
                     <div style={{ width: 12, height: 12, borderRadius: 2, background: '#D1A660' }}/> Week-ends
@@ -674,7 +676,7 @@ export default function AdminRapports() {
           {/* ── Comparaison 5 dernières années ── */}
           {multiYear.length > 0 && (() => {
             const MONTHS_FR = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-            const YEAR_COLORS = ['#7A1D2E','#D1A660','#7A9EC2','#7AB87A','#9A7AC2'];
+            const YEAR_COLORS = [brand,'#D1A660','#7A9EC2','#7AB87A','#9A7AC2'];
             const chartData = MONTHS_FR.map((m, mi) => {
               const entry: Record<string, string | number> = { month: m };
               multiYear.forEach(y => { entry[String(y.year)] = y.months[mi]; });
@@ -798,7 +800,7 @@ export default function AdminRapports() {
                             <XAxis dataKey={fmtXKey} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} interval={Math.max(0, Math.floor(ticketData.length / 8) - 1)}/>
                             <YAxis tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={24} allowDecimals={false}/>
                             <Tooltip formatter={(v: number) => [v, 'Tickets']} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
-                            <Bar dataKey="nbVentes" fill="#7A1D2E" radius={[2,2,0,0]}/>
+                            <Bar dataKey="nbVentes" fill={brand} radius={[2,2,0,0]}/>
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -818,7 +820,7 @@ export default function AdminRapports() {
                             <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`]} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
                             <Legend wrapperStyle={{ fontSize: 10 }}/>
                             <Line type="monotone" dataKey="minTicket" stroke="#7AB87A" strokeWidth={1.5} dot={false} name="MIN"/>
-                            <Line type="monotone" dataKey="avgTicket" stroke="#7A1D2E" strokeWidth={2} dot={false} name="MOY"/>
+                            <Line type="monotone" dataKey="avgTicket" stroke={brand} strokeWidth={2} dot={false} name="MOY"/>
                             <Line type="monotone" dataKey="maxTicket" stroke="#D1A660" strokeWidth={1.5} dot={false} name="MAX"/>
                           </LineChart>
                         </ResponsiveContainer>
@@ -901,7 +903,7 @@ export default function AdminRapports() {
                             <XAxis dataKey={fmtXKey} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} interval={Math.max(0, Math.floor(ticketData.length / 8) - 1)}/>
                             <YAxis tickFormatter={fmtK} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={36}/>
                             <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`, 'CA']} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
-                            <Bar dataKey="totalCA" fill="#7A1D2E" radius={[2,2,0,0]}/>
+                            <Bar dataKey="totalCA" fill={brand} radius={[2,2,0,0]}/>
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -919,7 +921,7 @@ export default function AdminRapports() {
                             <XAxis dataKey={fmtXKey} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} interval={Math.max(0, Math.floor(ticketData.length / 8) - 1)}/>
                             <YAxis tickFormatter={fmtK} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={36}/>
                             <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`, 'CA']} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
-                            <Line type="monotone" dataKey="totalCA" stroke="#7A1D2E" strokeWidth={2} dot={false} name="CA"/>
+                            <Line type="monotone" dataKey="totalCA" stroke={brand} strokeWidth={2} dot={false} name="CA"/>
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -963,7 +965,7 @@ export default function AdminRapports() {
                   {prodLoading ? '…' : 'Filtrer'}
                 </button>
                 <button onClick={exportByProductPdf} disabled={prodExporting || byProduct.length === 0}
-                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', background: '#8B2C1A', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: (prodExporting || byProduct.length === 0) ? 0.5 : 1 }}>
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: (prodExporting || byProduct.length === 0) ? 0.5 : 1 }}>
                   ⬇ {prodExporting ? '…' : 'PDF'}
                 </button>
               </div>

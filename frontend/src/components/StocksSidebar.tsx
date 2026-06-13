@@ -7,7 +7,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 
 const LS_RECEPTION_SEEN = 'receptions_last_seen';
 const SIDEBAR_W   = 190;
-const SIDEBAR_BG  = '#6B1221';
+const SIDEBAR_BG  = 'var(--fs-wine-900)';
 const SIDEBAR_ACT = '#8B1A2B';
 
 function I({ d, size = 15 }: { d: string; size?: number }) {

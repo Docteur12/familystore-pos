@@ -21,6 +21,7 @@ import {
 } from '../api/dashboard';
 import { getAllProducts, Product } from '../api/products';
 import { qtyUnitLabel } from '../utils/units';
+import { getBrandColor } from '../utils/text';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -52,6 +53,7 @@ function ChartTooltip({ active, payload, label }: any) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const brand = getBrandColor();
 
   // ── Auth guard — patron only ───────────────────────────────────────────────
   useEffect(() => {
@@ -235,9 +237,9 @@ export default function Dashboard() {
                   <Line
                     type="monotone"
                     dataKey="totalCA"
-                    stroke="#7A1D2E"
+                    stroke={brand}
                     strokeWidth={2.5}
-                    dot={{ fill: '#7A1D2E', r: 4, strokeWidth: 0 }}
+                    dot={{ fill: brand, r: 4, strokeWidth: 0 }}
                     activeDot={{ r: 6, fill: '#B8893E', strokeWidth: 0 }}
                   />
                 </LineChart>

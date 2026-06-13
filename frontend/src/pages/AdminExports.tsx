@@ -69,7 +69,7 @@ const EXPORTS: ExportItem[] = [
 
 const FORMAT_CONFIG = {
   xlsx: { bg: '#E8F0E5', color: '#3F6B3A', label: 'Excel', icon: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M8 13h8M8 17h5' },
-  pdf:  { bg: '#FAE5DF', color: '#8B2C1A', label: 'PDF',   icon: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M9 13h1M9 17h6' },
+  pdf:  { bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', label: 'PDF',   icon: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M9 13h1M9 17h6' },
   csv:  { bg: '#EEF3FA', color: '#3A5E8F', label: 'CSV',   icon: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M8 13h8M8 17h4' },
 };
 
@@ -167,7 +167,7 @@ export default function AdminExports() {
           {[
             { label: 'Fichiers disponibles', value: EXPORTS.length,                             color: 'var(--fs-ink-700)', bg: '#fff' },
             { label: 'Excel',  value: EXPORTS.filter(e => e.format === 'xlsx').length,           color: '#3F6B3A', bg: '#E8F0E5' },
-            { label: 'PDF',    value: EXPORTS.filter(e => e.format === 'pdf').length,             color: '#8B2C1A', bg: '#FAE5DF' },
+            { label: 'PDF',    value: EXPORTS.filter(e => e.format === 'pdf').length,             color: 'var(--fs-wine-700)', bg: 'var(--fs-wine-100)' },
             { label: 'CSV',    value: EXPORTS.filter(e => e.format === 'csv').length,             color: '#3A5E8F', bg: '#EEF3FA' },
             { label: 'Connectés à l\'API', value: EXPORTS.filter(e => !!e.url).length,           color: '#5A8B53', bg: '#E8F0E5' },
           ].map(s => (

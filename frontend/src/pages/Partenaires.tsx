@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { getTokenPayload } from '../api/dashboard';
+import { getBrandColor } from '../utils/text';
 import { getAllProducts, Product } from '../api/products';
 import {
   getPartenaires, createPartenaire, updatePartenaire, deletePartenaire,
@@ -95,6 +96,7 @@ interface Row { productId: string; quantite: string; prix: string }
 
 export default function Partenaires() {
   const navigate = useNavigate();
+  const brand = getBrandColor();
   const payload = getTokenPayload();
   const isPatron = payload?.role === 'patron';
   const { toasts, addToast, removeToast } = useToast();
@@ -197,7 +199,7 @@ export default function Partenaires() {
         h2{margin:0 0 2px} .sub{color:#666;font-size:13px;margin-bottom:16px}
         table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
         th,td{border:1px solid #999;padding:6px 8px} th{background:#f0f0f0;text-align:left}
-        .tot{margin-top:16px;font-size:15px} .solde{font-size:20px;font-weight:bold;color:#7A1D2E}
+        .tot{margin-top:16px;font-size:15px} .solde{font-size:20px;font-weight:bold;color:${brand}}
       </style></head><body>
         <h2>Relevé de compte — ${c.partenaire.name}</h2>
         <div class="sub">${[c.partenaire.lieu, c.partenaire.phone].filter(Boolean).join(' · ')} &middot; Édité le ${new Date().toLocaleDateString('fr-FR')}</div>
@@ -425,7 +427,7 @@ export default function Partenaires() {
                         <YAxis tick={{ fontSize: 10, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={48} tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)}/>
                         <Tooltip formatter={(v: number) => `${fmtN(v)} XAF`}/>
                         <Legend wrapperStyle={{ fontSize: 11 }}/>
-                        <Bar dataKey="livre" name="Livré" fill="#7A1D2E" radius={[3, 3, 0, 0]}/>
+                        <Bar dataKey="livre" name="Livré" fill={brand} radius={[3, 3, 0, 0]}/>
                         <Bar dataKey="encaisse" name="Encaissé" fill="#15803d" radius={[3, 3, 0, 0]}/>
                       </BarChart>
                     </ResponsiveContainer>

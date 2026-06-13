@@ -42,7 +42,7 @@ const INPUT: React.CSSProperties = {
 };
 
 const CODE_COLORS: Record<string, string> = {
-  C01: '#7A1D2E', C02: '#1D4E7A', C03: '#1D7A4E', C04: '#7A5C1D',
+  C01: 'var(--fs-wine-700)', C02: '#1D4E7A', C03: '#1D7A4E', C04: '#7A5C1D',
   C05: '#5C1D7A', C06: '#1D6B7A', C07: '#7A3B1D', C08: '#3B7A1D',
 };
 function codeColor(code: string) { return CODE_COLORS[code] ?? '#4A4A6A'; }

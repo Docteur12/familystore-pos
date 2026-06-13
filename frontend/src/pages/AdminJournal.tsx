@@ -51,7 +51,7 @@ const PM_COLORS: Record<string, { bg: string; color: string }> = {
   orange_money:  { bg: '#FFE8D4', color: '#7A3700' },
   mobile_money:  { bg: '#EEF3FA', color: '#3A5E8F' },
   card:          { bg: '#EDE7F6', color: '#5E35B1' },
-  credit:        { bg: '#FAE5DF', color: '#8B2C1A' },
+  credit:        { bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)' },
 };
 
 const PAGE_SIZE = 50;
