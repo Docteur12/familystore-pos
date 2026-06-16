@@ -3,8 +3,8 @@
  * Layout full-screen : sidebar gauche | main | panneau détail droit
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { getAllProducts, deleteProduct, Product } from '../api/products';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getAllProducts, deleteProduct, updateProduct, Product } from '../api/products';
 import NouveauProduitModal from '../components/NouveauProduitModal';
 import { addStockWithMovement, getMovements, StockMovement } from '../api/stock';
 import ToastContainer, { useToast }            from '../components/Toast';
@@ -730,6 +730,69 @@ export default function Stocks() {
     URL.revokeObjectURL(url);
   };
 
+  // ── Recatégorisation en masse (CSV éditable dans Excel) ─────────────────────
+  const recatInputRef = useRef<HTMLInputElement>(null);
+  const [recatBusy, setRecatBusy] = useState(false);
+
+  // Export : _id + valeurs actuelles + colonnes « nouvelle » à remplir dans Excel.
+  const handleExportRecat = () => {
+    const BOM = '﻿';
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const headers = ['_id (NE PAS MODIFIER)', 'Nom', 'Catégorie actuelle', 'Sous-catégorie actuelle', 'Nouvelle catégorie', 'Nouvelle sous-catégorie'];
+    const rows = products.map(p =>
+      [p._id, p.name, p.category ?? '', p.subCategory ?? '', p.category ?? '', p.subCategory ?? ''].map(esc).join(';'),
+    );
+    const csv  = BOM + [headers.join(';'), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = `recategorisation_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    addToast('Export prêt — éditez les colonnes « Nouvelle… » dans Excel puis réimportez', 'success');
+  };
+
+  // Import : met à jour catégorie/sous-catégorie par _id (le reste intact).
+  const handleImportRecat = async (file: File) => {
+    setRecatBusy(true);
+    try {
+      const text = (await file.text()).replace(/^﻿/, '');
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      const parseLine = (line: string): string[] => {
+        const out: string[] = []; let cur = '', q = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (q) { if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+          else if (c === '"') q = true;
+          else if (c === ';' || c === ',') { out.push(cur); cur = ''; }
+          else cur += c;
+        }
+        out.push(cur); return out;
+      };
+      const byId = new Map(products.map(p => [p._id, p]));
+      let updated = 0, skipped = 0;
+      let batch: Promise<unknown>[] = [];
+      for (const line of lines.slice(1)) {
+        const cols = parseLine(line);
+        const id = (cols[0] || '').trim();
+        const newCat = (cols[4] || '').trim();
+        const newSub = (cols[5] || '').trim();
+        const prod = byId.get(id);
+        if (!id || !prod) { skipped++; continue; }
+        if (newCat === (prod.category ?? '') && newSub === (prod.subCategory ?? '')) { skipped++; continue; }
+        batch.push(updateProduct(id, { category: newCat || undefined, subCategory: newSub }).then(() => { updated++; }).catch(() => { skipped++; }));
+        if (batch.length >= 10) { await Promise.all(batch); batch = []; }
+      }
+      await Promise.all(batch);
+      addToast(`Recatégorisation : ${updated} mis à jour${skipped ? ` · ${skipped} inchangé(s)` : ''}`, 'success');
+      fetchProducts();
+    } catch {
+      addToast('Erreur import — vérifiez le fichier CSV', 'error');
+    } finally {
+      setRecatBusy(false);
+      if (recatInputRef.current) recatInputRef.current.value = '';
+    }
+  };
+
   const handleDeleteProduct = async () => {
     if (!selected) return;
     const name = selected.name;
@@ -828,6 +891,24 @@ export default function Stocks() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input ref={recatInputRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleImportRecat(f); }} />
+              <button onClick={handleExportRecat} title="Exporter un CSV pour recatégoriser les produits dans Excel" style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
+                border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-md)',
+                background: '#fff', color: 'var(--fs-ink-600)', fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'var(--fs-font-sans)',
+              }}>
+                ⬇ Export recat.
+              </button>
+              <button onClick={() => recatInputRef.current?.click()} disabled={recatBusy} title="Importer le CSV recatégorisé (met à jour catégorie/sous-catégorie)" style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
+                border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-md)',
+                background: '#fff', color: 'var(--fs-ink-600)', fontSize: 12, fontWeight: 600,
+                cursor: recatBusy ? 'default' : 'pointer', opacity: recatBusy ? 0.6 : 1, fontFamily: 'var(--fs-font-sans)',
+              }}>
+                ⬆ {recatBusy ? 'Import…' : 'Import recat.'}
+              </button>
               <button onClick={handleExport} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
                 border: '1.5px solid var(--fs-wine-700)', borderRadius: 'var(--fs-r-md)',
