@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
 import {
@@ -176,7 +177,10 @@ export default function StocksFournisseurs() {
   const [editing, setEditing]   = useState<FournisseurRecord | null>(null);
   const [loading, setLoading]   = useState(true);
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const { toasts, addToast, removeToast } = useToast();
+  // Ouvre le catalogue filtré sur les produits de ce fournisseur.
+  const openProducts = (f: FournisseurRecord) => navigate(`/stocks?q=${encodeURIComponent(f.name)}`);
 
   useEffect(() => { getAllProducts().then(setProducts).catch(() => {}); }, []);
   useEffect(() => {
@@ -278,7 +282,7 @@ export default function StocksFournisseurs() {
                   {search ? 'Aucun fournisseur ne correspond à la recherche.' : 'Aucun fournisseur. Cliquez sur « Nouveau fournisseur » pour en ajouter un.'}
                 </div>
               ) : displayed.map(f => (
-                <div key={f._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 14, boxShadow: 'var(--fs-shadow-sm)' }}>
+                <div key={f._id} onClick={() => openProducts(f)} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 14, boxShadow: 'var(--fs-shadow-sm)', cursor: 'pointer' }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                     <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--fs-wine-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fs-wine-700)', flexShrink: 0 }}>
                       <I d={D.truck} size={14}/>
@@ -288,11 +292,11 @@ export default function StocksFournisseurs() {
                       {f.adresse && <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}><I d={D.map} size={10}/>{f.adresse}</div>}
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                      <button onClick={() => setEditing(f)}
+                      <button onClick={e => { e.stopPropagation(); setEditing(f); }}
                         style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fs-ink-500)' }}>
                         <I d={D.edit} size={14}/>
                       </button>
-                      <button onClick={() => handleDelete(f._id)}
+                      <button onClick={e => { e.stopPropagation(); handleDelete(f._id); }}
                         style={{ background: 'var(--fs-danger-100)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fs-danger-700)' }}>
                         <I d={D.trash} size={14}/>
                       </button>
@@ -357,7 +361,8 @@ export default function StocksFournisseurs() {
                     </td>
                   </tr>
                 ) : displayed.map((f, idx) => (
-                  <tr key={f._id} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
+                  <tr key={f._id} onClick={() => openProducts(f)} title="Voir les produits de ce fournisseur"
+                    style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)', cursor: 'pointer' }}>
                     <td style={{ padding: '12px 14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--fs-wine-50)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fs-wine-700)', flexShrink: 0 }}>
@@ -402,11 +407,11 @@ export default function StocksFournisseurs() {
                     </td>
                     <td style={{ padding: '12px 14px' }}>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => setEditing(f)}
+                        <button onClick={e => { e.stopPropagation(); setEditing(f); }}
                           style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fs-ink-500)' }}>
                           <I d={D.edit} size={13}/>
                         </button>
-                        <button onClick={() => handleDelete(f._id)}
+                        <button onClick={e => { e.stopPropagation(); handleDelete(f._id); }}
                           style={{ background: 'var(--fs-danger-100)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '5px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fs-danger-700)' }}>
                           <I d={D.trash} size={13}/>
                         </button>

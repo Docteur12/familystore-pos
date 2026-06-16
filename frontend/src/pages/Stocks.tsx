@@ -616,7 +616,10 @@ export default function Stocks() {
   const isMobile = useIsMobile();
   const [products,  setProducts]  = useState<Product[]>([]);
   const [loading,   setLoading]   = useState(true);
-  const [search,    setSearch]    = useState('');
+  // Pré-remplit la recherche depuis l'URL (?q=…) — ex. clic sur un fournisseur.
+  const [search,    setSearch]    = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('q') ?? ''; } catch { return ''; }
+  });
   const [tab,       setTab]       = useState<TabMode>('all');
   const [selected,  setSelected]  = useState<Product | null>(null);
   const [sort,      setSort]      = useState<{ key: StockSortKey; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' });
