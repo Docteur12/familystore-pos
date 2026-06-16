@@ -3,6 +3,7 @@ import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product, updateProduct } from '../api/products';
 import ToastContainer, { useToast } from '../components/Toast';
 import { qtyUnitLabel } from '../utils/units';
+import { getBrandColor } from '../utils/text';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -100,6 +101,61 @@ export default function StocksInventaire() {
     const matchCat = type === 'total' || !categorie || r.product.category?.toLowerCase() === categorie.toLowerCase();
     return matchSearch && matchCat;
   });
+
+  // Export PDF de l'inventaire (côté client, en-tête à la couleur de la boutique).
+  const exportInventairePdf = async () => {
+    if (displayed.length === 0) { addToast('Aucun produit à exporter', 'error'); return; }
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const hex = getBrandColor();
+      const rgb: [number, number, number] = /^#[0-9A-Fa-f]{6}$/.test(hex)
+        ? [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)]
+        : [139, 26, 43];
+      const trunc = (s: string, max = 46) => (s.length > max ? s.slice(0, max - 1) + '…' : s);
+      const margin = 14;
+      const cX = { nom: margin, cat: 96, unit: 130, theo: 158, cmp: 178, ecart: 196 };
+
+      // En-tête couleur boutique
+      doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.rect(0, 0, 210, 24, 'F');
+      doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+      doc.text('Family Store — Inventaire', margin, 12);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      doc.text(`${type === 'total' ? 'Inventaire total' : `Partiel · ${categorie || 'toutes catégories'}`}  ·  ${displayed.length} produit(s)  ·  ${date}`, margin, 19);
+
+      let y = 34;
+      const header = () => {
+        doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        doc.text('Produit', cX.nom, y);
+        doc.text('Catégorie', cX.cat, y);
+        doc.text('Unité', cX.unit, y);
+        doc.text('Théo.', cX.theo, y, { align: 'right' });
+        doc.text('Compté', cX.cmp, y, { align: 'right' });
+        doc.text('Écart', cX.ecart, y, { align: 'right' });
+        y += 2; doc.setDrawColor(180); doc.line(margin, y, 196, y); y += 5;
+      };
+      header();
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      for (const r of displayed) {
+        if (y > 285) { doc.addPage(); y = 18; header(); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); }
+        const theo = r.product.stock;
+        const cmp = r.counted === '' ? null : parseInt(r.counted);
+        const ecart = cmp === null ? null : cmp - theo;
+        doc.setTextColor(20, 20, 20);
+        doc.text(trunc(r.product.name), cX.nom, y);
+        doc.text(trunc(r.product.category ?? '—', 18), cX.cat, y);
+        doc.text(String(r.product.unit ?? ''), cX.unit, y);
+        doc.text(String(theo), cX.theo, y, { align: 'right' });
+        doc.text(cmp === null ? '—' : String(cmp), cX.cmp, y, { align: 'right' });
+        if (ecart !== null && ecart !== 0) doc.setTextColor(ecart > 0 ? 21 : 194, ecart > 0 ? 128 : 62, ecart > 0 ? 61 : 36);
+        doc.text(ecart === null ? '—' : (ecart > 0 ? `+${ecart}` : String(ecart)), cX.ecart, y, { align: 'right' });
+        y += 5.5;
+      }
+      doc.save(`inventaire-${date || new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch {
+      addToast('Erreur export PDF', 'error');
+    }
+  };
 
   const handleValidate = async () => {
     const toUpdate = dirtyRows.filter(r => {
@@ -261,9 +317,12 @@ export default function StocksInventaire() {
                 <button onClick={load} style={{ display: 'flex', alignItems: 'center', padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
                   <I d={D.refresh} size={14}/>
                 </button>
+                <button onClick={exportInventairePdf} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600 }}>
+                  <I d={D.print} size={13}/> Exporter PDF
+                </button>
                 {dirtyRows.length > 0 && (
                   <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600 }}>
-                    <I d={D.print} size={13}/> PDF
+                    <I d={D.print} size={13}/> Écarts
                   </button>
                 )}
                 <button onClick={handleValidate} disabled={dirtyRows.length === 0 || saving}

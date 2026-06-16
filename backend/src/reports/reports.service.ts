@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { Sale, SaleDocument } from '../schemas/sale.schema';
 import { Expense, ExpenseDocument } from '../schemas/expense.schema';
 import { AuditLog, AuditLogDocument } from '../schemas/audit-log.schema';
+import { Settings, SettingsDocument } from '../settings/settings.schema';
 
 // ── Types internes ─────────────────────────────────────────────────────────────
 
@@ -40,7 +41,21 @@ export class ReportsService {
     @InjectModel(Sale.name)     private saleModel:     Model<SaleDocument>,
     @InjectModel(Expense.name)  private expenseModel:  Model<ExpenseDocument>,
     @InjectModel(AuditLog.name) private auditLogModel: Model<AuditLogDocument>,
+    @InjectModel(Settings.name) private settingsModel: Model<SettingsDocument>,
   ) {}
+
+  // Couleur de la boutique (RGB) pour les PDF — lue depuis les paramètres.
+  private async brandRgb(): Promise<[number, number, number]> {
+    const fallback: [number, number, number] = [139, 26, 43];
+    try {
+      const s = await this.settingsModel.findOne().lean();
+      const hex = (s as any)?.couleurPrincipale as string | undefined;
+      if (hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+        return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+      }
+    } catch { /* défaut */ }
+    return fallback;
+  }
 
   // ── Helpers données ───────────────────────────────────────────────────────
 
@@ -442,7 +457,7 @@ export class ReportsService {
 
     // Palette
     const C = {
-      bordeaux: [139, 26, 43],
+      bordeaux: await this.brandRgb(),
       gold:     [201, 168, 76],
       cream:    [245, 240, 232],
       light:    [249, 250, 251],
@@ -457,7 +472,7 @@ export class ReportsService {
     const draw  = (c: number[]) => doc.setDrawColor(c[0], c[1], c[2]);
     const color = (c: number[]) => doc.setTextColor(c[0], c[1], c[2]);
 
-    const fr = (n: number) => n.toLocaleString('fr-FR');
+    const fr = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
     // ── HEADER ──────────────────────────────────────────────────────────────
     fill(C.bordeaux); doc.rect(0, 0, W, 78, 'F');
@@ -715,7 +730,7 @@ export class ReportsService {
 
     const W = 595, ML = 40, MR = 555, UW = 515;
     const C = {
-      bordeaux: [139, 26, 43] as [number,number,number],
+      bordeaux: await this.brandRgb(),
       gold:     [201, 168, 76] as [number,number,number],
       cream:    [245, 240, 232] as [number,number,number],
       light:    [249, 250, 251] as [number,number,number],
@@ -729,7 +744,7 @@ export class ReportsService {
     const fill  = (c: [number,number,number]) => doc.setFillColor(c[0], c[1], c[2]);
     const draw  = (c: [number,number,number]) => doc.setDrawColor(c[0], c[1], c[2]);
     const color = (c: [number,number,number]) => doc.setTextColor(c[0], c[1], c[2]);
-    const fr    = (n: number) => n.toLocaleString('fr-FR');
+    const fr    = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
     // ── HEADER ────────────────────────────────────────────────────────────────
     fill(C.bordeaux); doc.rect(0, 0, W, 78, 'F');

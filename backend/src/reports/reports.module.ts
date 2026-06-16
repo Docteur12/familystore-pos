@@ -5,6 +5,7 @@ import { ReportsService } from './reports.service';
 import { Sale, SaleSchema } from '../schemas/sale.schema';
 import { Expense, ExpenseSchema } from '../schemas/expense.schema';
 import { AuditLog, AuditLogSchema } from '../schemas/audit-log.schema';
+import { Settings, SettingsSchema } from '../settings/settings.schema';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -13,6 +14,7 @@ import { AuthModule } from '../auth/auth.module';
       { name: Sale.name,     schema: SaleSchema     },
       { name: Expense.name,  schema: ExpenseSchema  },
       { name: AuditLog.name, schema: AuditLogSchema },
+      { name: Settings.name, schema: SettingsSchema },
     ]),
     AuthModule,
   ],

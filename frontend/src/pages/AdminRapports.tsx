@@ -290,11 +290,16 @@ export default function AdminRapports() {
       const margin = 14;
       // Colonnes (A4 = 210mm de large)
       const cX = { nom: margin, qte: 120, ca: 154, nb: 176, moy: 196 };
-      let y = 18;
 
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-      doc.text('Journal des ventes par produit', margin, y);
-      y += 6;
+      // En-tête à la couleur de la boutique
+      const rgb: [number, number, number] = /^#[0-9A-Fa-f]{6}$/.test(brand)
+        ? [parseInt(brand.slice(1, 3), 16), parseInt(brand.slice(3, 5), 16), parseInt(brand.slice(5, 7), 16)]
+        : [139, 26, 43];
+      doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.rect(0, 0, 210, 22, 'F');
+      doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+      doc.text('Journal des ventes par produit', margin, 14);
+      let y = 30;
+
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(110);
       const periode = (prodDateFrom || prodDateTo)
         ? `Période : ${prodDateFrom || '…'} → ${prodDateTo || '…'}`

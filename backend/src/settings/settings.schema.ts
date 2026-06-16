@@ -34,6 +34,9 @@ export class Settings {
 
   @Prop({ default: 'fr', enum: ['fr', 'en'] })
   langue: string;
+
+  @Prop({ default: '#FF0000' })
+  couleurPrincipale: string;   // couleur de la boutique (interface + PDF)
 }
 
 export const SettingsSchema = SchemaFactory.createForClass(Settings);
