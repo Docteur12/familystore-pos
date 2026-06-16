@@ -1175,9 +1175,10 @@ export default function Magazinier() {
           {tab === 'dashboard' && (() => {
             // Magazinier : ses produits réceptionnés. Patron (en supervision) :
             // tout l'entrepôt (produits avec stock entrepôt), pas ses propres réceptions.
-            const isPatron = payload?.role === 'patron';
+            // Tout l'entrepôt (produits avec stock entrepôt), peu importe qui a
+            // réceptionné — un seul entrepôt partagé (magazinier + patron).
             const mesProduits = products
-              .filter(p => isPatron ? (p.stockMagazin ?? 0) > 0 : lastRecByProd[p._id])
+              .filter(p => (p.stockMagazin ?? 0) > 0)
               .filter(p => !dashSearch.trim()
                 || p.name.toLowerCase().includes(dashSearch.toLowerCase())
                 || (p.category ?? '').toLowerCase().includes(dashSearch.toLowerCase()));
@@ -1188,7 +1189,7 @@ export default function Magazinier() {
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>
                     Mes produits — {mesProduits.length} référence{mesProduits.length !== 1 ? 's' : ''}
                   </p>
-                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--fs-ink-400)' }}>Produits que vous avez déjà réceptionnés</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--fs-ink-400)' }}>Produits en entrepôt</p>
                   <input
                     value={dashSearch}
                     onChange={e => setDashSearch(e.target.value)}
@@ -1211,7 +1212,7 @@ export default function Magazinier() {
                     {mesProduits.length === 0 ? (
                       <tr>
                         <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontStyle: 'italic' }}>
-                          Aucune réception enregistrée — validez une réception pour voir vos produits ici
+                          Aucun produit en entrepôt — validez une réception pour alimenter l'entrepôt
                         </td>
                       </tr>
                     ) : mesProduits.map((p, i) => {
