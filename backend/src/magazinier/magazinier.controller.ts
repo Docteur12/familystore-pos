@@ -86,6 +86,6 @@ export class MagazinierController {
   @UseGuards(RolesGuard)
   @Roles('magazinier', 'gestionnaire', 'patron')
   getHistorique(@Req() req: any) {
-    return this.svc.getHistorique(req.user.sub);
+    return this.svc.getHistorique(req.user.sub, req.user.role);
   }
 }

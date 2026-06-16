@@ -203,10 +203,13 @@ export class MagazinierService {
 
   // ── GET /magazinier/historique ────────────────────────────────────────────
 
-  async getHistorique(userId: string) {
+  async getHistorique(userId: string, role?: string) {
+    // Le patron (supervision) voit TOUT l'historique ; un magazinier voit le sien.
+    const recFilter = role === 'patron' ? {} : { creePar: new Types.ObjectId(userId) };
     const [receptions, envois] = await Promise.all([
       this.receptionModel
-        .find({ creePar: new Types.ObjectId(userId) })
+        .find(recFilter)
+        .populate('creePar', 'name role')
         .sort({ createdAt: -1 })
         .limit(50)
         .lean(),
