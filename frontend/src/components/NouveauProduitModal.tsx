@@ -5,7 +5,8 @@ import { getTokenPayload } from '../api/dashboard';
 import AutocompleteInput from './AutocompleteInput';
 import QRScanner from './QRScanner';
 import { titleCase } from '../utils/text';
-import { CATEGORY_LIST, subCategoriesOf } from '../data/categories';
+import { CATEGORY_TREE } from '../data/categories';
+import { getCategoryTree, addCategory, CategoryTree } from '../api/categories';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -234,12 +235,14 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     getFournisseurs()
       .then(list => setFournisseurs(list.map(f => f.name)))
       .catch(() => {});
+    getCategoryTree().then(setCatTree).catch(() => {});
   }, []);
   const [loading,         setLoading]         = useState(false);
   const [error,           setError]           = useState('');
   const [extraCategories, setExtraCategories] = useState<string[]>([]);
   const [newCatInput,     setNewCatInput]     = useState('');
   const [newSubInput,     setNewSubInput]     = useState('');
+  const [catTree,         setCatTree]         = useState<CategoryTree>(CATEGORY_TREE);
   const [markupPct,       setMarkupPct]       = useState('');
   // Seuls les administrateurs (patron) peuvent ajouter une catégorie/sous-catégorie hors liste.
   const isPatron = getTokenPayload()?.role === 'patron';
@@ -318,20 +321,20 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     }
   };
 
-  // Catégories = taxonomie officielle (REC#4) + éventuelles ajoutées par l'admin
+  // Catégories = taxonomie de la base (éditable sans code) + ajoutées par l'admin
   // + la catégorie actuelle du produit (rétro-compat) pour ne rien perdre.
   const allCategories = useMemo(() => {
-    const base = [...CATEGORY_LIST, ...extraCategories];
+    const base = [...Object.keys(catTree), ...extraCategories];
     if (product?.category && !base.includes(product.category)) base.push(product.category);
     return base;
-  }, [extraCategories, product]);
+  }, [catTree, extraCategories, product]);
 
   // Sous-catégories dépendantes de la catégorie sélectionnée (+ valeur actuelle).
   const allSubCategories = useMemo(() => {
-    const base = [...subCategoriesOf(form.category)];
+    const base = [...(catTree[form.category] ?? [])];
     if (form.subCategory && !base.includes(form.subCategory) && !form.subCategory.startsWith('__')) base.push(form.subCategory);
     return base;
-  }, [form.category, form.subCategory]);
+  }, [catTree, form.category, form.subCategory]);
 
   const confirmNewCat = () => {
     const v = newCatInput.trim();
@@ -361,6 +364,11 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     let finalSubCategory = form.subCategory;
     if (form.subCategory === '__newsub__') {
       finalSubCategory = newSubInput.trim() ? titleCase(newSubInput.trim()) : '';
+    }
+    // Catégorie/sous-catégorie ajoutée par l'admin → on l'enregistre aussi dans la
+    // taxonomie (base) pour qu'elle apparaisse ensuite dans les listes déroulantes.
+    if ((form.category === '__new__' || form.subCategory === '__newsub__') && finalCategory) {
+      addCategory(finalCategory, finalSubCategory).catch(() => {});
     }
     setLoading(true);
     setError('');

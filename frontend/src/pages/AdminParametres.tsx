@@ -7,6 +7,7 @@ import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings, applyPri
 import { useSettings } from '../contexts/SettingsContext';
 import { getPendingSales, getLastSyncTime, syncPendingSales } from '../services/offlineSync';
 import { getPrintSettings, savePrintSettings, PrintSettings } from '../components/ReceiptPrint';
+import { getCategoryTree, importCategories } from '../api/categories';
 import { authHeaders } from '../api/http';
 
 // ── Styles partagés ──────────────────────────────────────────────────────────
@@ -131,6 +132,59 @@ function fromSForm(f: SForm): Partial<StoreSettings> {
 export default function AdminParametres() {
   const { reloadSettings } = useSettings();
   const { toasts, addToast, removeToast } = useToast();
+
+  // ── Catégories (taxonomie éditable via CSV) ────────────────────────────────
+  const catFileRef = useRef<HTMLInputElement>(null);
+  const [catBusy, setCatBusy] = useState(false);
+
+  const parseCatLine = (line: string): string[] => {
+    const out: string[] = []; let cur = '', q = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (q) { if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+      else if (c === '"') q = true;
+      else if (c === ';' || c === ',') { out.push(cur); cur = ''; }
+      else cur += c;
+    }
+    out.push(cur); return out;
+  };
+
+  const exportCatCsv = async () => {
+    try {
+      const tree = await getCategoryTree();
+      const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+      const rows = ['Catégorie;Sous-catégorie'];
+      for (const [cat, subs] of Object.entries(tree)) {
+        if (!subs.length) rows.push(`${esc(cat)};${esc('')}`);
+        else subs.forEach(s => rows.push(`${esc(cat)};${esc(s)}`));
+      }
+      const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `categories_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click(); URL.revokeObjectURL(url);
+    } catch { addToast('Erreur export catégories', 'error'); }
+  };
+
+  const importCatCsv = async (file: File) => {
+    setCatBusy(true);
+    try {
+      const text = (await file.text()).replace(/^﻿/, '');
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      const rows = lines.slice(1)
+        .map(l => parseCatLine(l))
+        .map(c => ({ category: (c[0] || '').trim(), subCategory: (c[1] || '').trim() }))
+        .filter(r => r.category);
+      if (rows.length === 0) { addToast('CSV vide ou invalide', 'error'); return; }
+      const { count } = await importCategories(rows);
+      addToast(`Catégories actualisées : ${count} ligne(s)`, 'success');
+    } catch {
+      addToast('Erreur import — vérifiez le CSV (Catégorie ; Sous-catégorie)', 'error');
+    } finally {
+      setCatBusy(false);
+      if (catFileRef.current) catFileRef.current.value = '';
+    }
+  };
 
   // ── Réinitialisation ─────────────────────────────────────────────────────
   const [resetStep,    setResetStep]    = useState<0 | 1 | 2>(0);
@@ -355,6 +409,28 @@ export default function AdminParametres() {
               <button onClick={() => { mkChange('couleurPrincipale')('#FF0000'); if (typeof applyPrimaryColor === 'function') applyPrimaryColor('#FF0000'); }}
                 style={{ padding: '7px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)' }}>
                 Défaut
+              </button>
+            </div>
+          </div>
+
+          {/* ── Catégories de produits (éditable sans code) ──────────────────── */}
+          <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
+            <p style={SECTION_TITLE}>Catégories de produits</p>
+            <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '0 0 12px', lineHeight: 1.5 }}>
+              Gérez les catégories et sous-catégories <strong>sans toucher au code</strong> : exportez le CSV, éditez-le dans Excel
+              (2 colonnes : <em>Catégorie ; Sous-catégorie</em>, une ligne par sous-catégorie), puis réimportez pour <strong>actualiser le serveur</strong>.
+              L'import <strong>remplace</strong> toute la liste. (Les administrateurs peuvent aussi ajouter une catégorie directement depuis la fiche produit, via « Autre… ».)
+            </p>
+            <input ref={catFileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) importCatCsv(f); }} />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={exportCatCsv}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                ⬇ Exporter (CSV)
+              </button>
+              <button onClick={() => catFileRef.current?.click()} disabled={catBusy}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: catBusy ? 'default' : 'pointer', opacity: catBusy ? 0.6 : 1 }}>
+                ⬆ {catBusy ? 'Import…' : 'Importer (CSV)'}
               </button>
             </div>
           </div>

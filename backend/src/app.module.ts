@@ -18,6 +18,7 @@ import { EcartsModule }   from './ecarts/ecarts.module';
 import { FournisseursModule } from './fournisseurs/fournisseurs.module';
 import { BonsLivraisonModule } from './bons-livraison/bons-livraison.module';
 import { PartenairesModule } from './partenaires/partenaires.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { PartenairesModule } from './partenaires/partenaires.module';
     FournisseursModule,
     BonsLivraisonModule,
     PartenairesModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [],
