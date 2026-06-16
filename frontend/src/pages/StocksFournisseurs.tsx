@@ -186,8 +186,11 @@ export default function StocksFournisseurs() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Nombre de produits réellement rattachés à ce fournisseur (champ « fournisseur »
+  // du produit), cohérent avec la recherche du catalogue. (Avant : comptait par
+  // catégorie, ce qui gonflait/faussait le total.)
   const productsFor = (f: FournisseurRecord) =>
-    products.filter(p => f.categories.includes(p.category?.toLowerCase() ?? '')).length;
+    products.filter(p => (p.fournisseur ?? '').trim().toLowerCase() === f.name.trim().toLowerCase()).length;
 
   const handleSave = async (data: FournisseurInput, id?: string) => {
     try {
