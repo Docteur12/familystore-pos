@@ -5,6 +5,7 @@ import { getTokenPayload } from '../api/dashboard';
 import AutocompleteInput from './AutocompleteInput';
 import QRScanner from './QRScanner';
 import { titleCase } from '../utils/text';
+import { CATEGORY_LIST, subCategoriesOf } from '../data/categories';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -238,7 +239,10 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
   const [error,           setError]           = useState('');
   const [extraCategories, setExtraCategories] = useState<string[]>([]);
   const [newCatInput,     setNewCatInput]     = useState('');
+  const [newSubInput,     setNewSubInput]     = useState('');
   const [markupPct,       setMarkupPct]       = useState('');
+  // Seuls les administrateurs (patron) peuvent ajouter une catégorie/sous-catégorie hors liste.
+  const isPatron = getTokenPayload()?.role === 'patron';
   // Prix fixé par le magazinier → non modifiable par le gestionnaire.
   // L'administrateur (patron) peut tout modifier, le verrou ne s'applique pas à lui.
   const priceLocked = !!product?.prixVerrouille && getTokenPayload()?.role !== 'patron';
@@ -314,19 +318,20 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     }
   };
 
+  // Catégories = taxonomie officielle (REC#4) + éventuelles ajoutées par l'admin
+  // + la catégorie actuelle du produit (rétro-compat) pour ne rien perdre.
   const allCategories = useMemo(() => {
-    const base = new Set([...CATEGORIES, ...(knownCategories ?? [])]);
-    extraCategories.forEach(c => base.add(c));
-    if (product?.category) base.add(product.category);
-    return Array.from(base).sort((a, b) => a.localeCompare(b, 'fr'));
-  }, [knownCategories, extraCategories, product]);
+    const base = [...CATEGORY_LIST, ...extraCategories];
+    if (product?.category && !base.includes(product.category)) base.push(product.category);
+    return base;
+  }, [extraCategories, product]);
 
+  // Sous-catégories dépendantes de la catégorie sélectionnée (+ valeur actuelle).
   const allSubCategories = useMemo(() => {
-    const base = new Set<string>();
-    (existingProducts ?? []).forEach(p => { if (p.subCategory) base.add(p.subCategory); });
-    if (product?.subCategory) base.add(product.subCategory);
-    return Array.from(base).sort((a, b) => a.localeCompare(b, 'fr'));
-  }, [existingProducts, product]);
+    const base = [...subCategoriesOf(form.category)];
+    if (form.subCategory && !base.includes(form.subCategory) && !form.subCategory.startsWith('__')) base.push(form.subCategory);
+    return base;
+  }, [form.category, form.subCategory]);
 
   const confirmNewCat = () => {
     const v = newCatInput.trim();
@@ -350,8 +355,12 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     }
     let finalCategory = form.category;
     if (form.category === '__new__') {
-      if (!newCatInput.trim()) { setError('Saisissez et confirmez un nom de catégorie'); return; }
-      finalCategory = newCatInput.trim();
+      if (!newCatInput.trim()) { setError('Saisissez le nom de la nouvelle catégorie'); return; }
+      finalCategory = titleCase(newCatInput.trim());
+    }
+    let finalSubCategory = form.subCategory;
+    if (form.subCategory === '__newsub__') {
+      finalSubCategory = newSubInput.trim() ? titleCase(newSubInput.trim()) : '';
     }
     setLoading(true);
     setError('');
@@ -368,7 +377,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
       stock:       parseInt(form.stock),
       discount:    Math.min(100, Math.max(0, parseFloat(form.discount) || 0)),
       expiryDate:  form.expiryDate || null,
-      subCategory: form.subCategory.trim() || undefined,
+      subCategory: finalSubCategory.trim() || undefined,
       fournisseur: form.fournisseur.trim() || undefined,
     };
     try {
@@ -465,21 +474,44 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={LABEL_STYLE}>Catégorie</label>
-              <AutocompleteInput
+              <select
                 value={form.category}
-                onChange={v => setField('category')(v)}
-                suggestions={allCategories}
-                placeholder="Saisir ou choisir une catégorie…"
-              />
+                onChange={e => setForm(f => ({ ...f, category: e.target.value, subCategory: '' }))}
+                style={{ ...INPUT_STYLE, background: '#fff', cursor: 'pointer' }}
+              >
+                <option value="">— Choisir une catégorie —</option>
+                {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                {isPatron && <option value="__new__">➕ Autre catégorie…</option>}
+              </select>
+              {form.category === '__new__' && (
+                <input
+                  autoFocus value={newCatInput}
+                  onChange={e => setNewCatInput(e.target.value)}
+                  placeholder="Nouvelle catégorie"
+                  style={{ ...INPUT_STYLE, marginTop: 6 }}
+                />
+              )}
             </div>
             <div>
               <label style={LABEL_STYLE}>Sous-catégorie <span style={{ fontWeight: 400, textTransform: 'none' }}>(optionnel)</span></label>
-              <AutocompleteInput
+              <select
                 value={form.subCategory}
-                onChange={v => setField('subCategory')(v)}
-                suggestions={allSubCategories}
-                placeholder="ex: Parfum, Shampoing…"
-              />
+                onChange={e => setField('subCategory')(e.target.value)}
+                disabled={!form.category || form.category === '__new__'}
+                style={{ ...INPUT_STYLE, background: (!form.category || form.category === '__new__') ? 'var(--fs-ivory)' : '#fff', cursor: (!form.category || form.category === '__new__') ? 'not-allowed' : 'pointer' }}
+              >
+                <option value="">— Aucune —</option>
+                {allSubCategories.map(s => <option key={s} value={s}>{s}</option>)}
+                {isPatron && form.category && form.category !== '__new__' && <option value="__newsub__">➕ Autre sous-catégorie…</option>}
+              </select>
+              {form.subCategory === '__newsub__' && (
+                <input
+                  autoFocus value={newSubInput}
+                  onChange={e => setNewSubInput(e.target.value)}
+                  placeholder="Nouvelle sous-catégorie"
+                  style={{ ...INPUT_STYLE, marginTop: 6 }}
+                />
+              )}
             </div>
             <div>
               <label style={LABEL_STYLE}>Unité</label>
