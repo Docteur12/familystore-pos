@@ -458,53 +458,35 @@ export default function StocksReceptions() {
                     Réceptions magazinier
                   </p>
                 )}
-                {magRecs.map(r => (
-                  <div key={r._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, marginBottom: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', borderBottom: '1px solid var(--fs-line)', background: '#f0fdf4' }}>
-                      <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{r.fournisseur}</span>
-                        <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', fontFamily: 'var(--fs-font-mono)' }}>
-                          {new Date(r.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </span>
-                        {r.creePar?.role === 'gestionnaire' || r.creePar?.role === 'patron' ? (
-                          <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-wine-900)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>
-                            Gestionnaire
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-gold-500)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>
-                            Magazinier · {r.creePar?.name ?? '—'}
-                          </span>
-                        )}
-                      </div>
-                      <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{r.items.length} article(s)</span>
-                    </div>
-                    <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr>
-                          {['Produit', 'Qté reçue', 'Reçu par'].map(h => (
-                            <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)' }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {r.items.map((item, i) => (
-                          <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
-                            <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{item.productName}</td>
-                            <td style={{ padding: '9px 14px', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: '#16a34a' }}>+{item.quantity}</td>
-                            <td style={{ padding: '9px 14px' }}>
-                              {r.creePar?.role === 'gestionnaire' || r.creePar?.role === 'patron' ? (
-                                <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-wine-900)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Gestionnaire</span>
-                              ) : (
-                                <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-gold-500)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Magazinier · {r.creePar?.name ?? '—'}</span>
-                              )}
+                <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+                  <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#f0fdf4' }}>
+                        {['Fournisseur', 'Date', 'Produit', 'Qté reçue', 'Reçu par'].map(h => (
+                          <th key={h} style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {magRecs.flatMap((r, ri) => r.items.map((item, i) => {
+                        const isGest = r.creePar?.role === 'gestionnaire' || r.creePar?.role === 'patron';
+                        return (
+                          <tr key={`${r._id}-${i}`} style={{ background: ri % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
+                            <td style={{ padding: '9px 14px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{i === 0 ? r.fournisseur : ''}</td>
+                            <td style={{ padding: '9px 14px', textAlign: 'left', fontSize: 12, color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-mono)', whiteSpace: 'nowrap' }}>{i === 0 ? new Date(r.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}</td>
+                            <td style={{ padding: '9px 14px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{item.productName}</td>
+                            <td style={{ padding: '9px 14px', textAlign: 'left', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: '#16a34a' }}>+{item.quantity}</td>
+                            <td style={{ padding: '9px 14px', textAlign: 'left' }}>
+                              {isGest
+                                ? <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-wine-900)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Gestionnaire</span>
+                                : <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-gold-500)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Magazinier · {r.creePar?.name ?? '—'}</span>}
                             </td>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {r.note && <div style={{ padding: '8px 18px', fontSize: 11, color: 'var(--fs-ink-400)', borderTop: '1px solid var(--fs-line)', background: 'var(--fs-ivory)' }}>Note : {r.note}</div>}
-                  </div>
-                ))}
+                        );
+                      }))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
