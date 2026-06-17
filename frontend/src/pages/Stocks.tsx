@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAllProducts, deleteProduct, updateProduct, Product } from '../api/products';
 import { normalizeName } from '../utils/text';
+import { ajusterStockEntrepot } from '../api/magazinier';
 import NouveauProduitModal from '../components/NouveauProduitModal';
 import { addStockWithMovement, getMovements, StockMovement } from '../api/stock';
 import ToastContainer, { useToast }            from '../components/Toast';
@@ -833,6 +834,46 @@ export default function Stocks() {
     }
   };
 
+  // ── Fusion des doublons (même nom) en une seule fiche ───────────────────────
+  const [mergeBusy, setMergeBusy] = useState(false);
+  const handleMergeDuplicates = async () => {
+    const groups = new Map<string, Product[]>();
+    for (const p of products) {
+      const k = normalizeName(p.name).toLowerCase();
+      groups.set(k, [...(groups.get(k) ?? []), p]);
+    }
+    const dupGroups = [...groups.values()].filter(g => g.length > 1);
+    if (dupGroups.length === 0) { addToast('Aucun doublon à fusionner', 'success'); return; }
+    const totalFiches = dupGroups.reduce((s, g) => s + g.length, 0);
+    if (!window.confirm(`Fusionner ${dupGroups.length} groupe(s) de doublons (${totalFiches} fiches → ${dupGroups.length}) ?\nLes stocks (caisse + entrepôt) seront additionnés sur une seule fiche, les doublons supprimés. Action irréversible.`)) return;
+    setMergeBusy(true);
+    try {
+      let merged = 0;
+      for (const g of dupGroups) {
+        // Fiche gardée = stock total le plus élevé, sinon celle qui a un code-barres.
+        const primary = [...g].sort((a, b) =>
+          ((b.stock + (b.stockMagazin ?? 0)) - (a.stock + (a.stockMagazin ?? 0))) || ((b.barcode ? 1 : 0) - (a.barcode ? 1 : 0)),
+        )[0];
+        const others = g.filter(p => p._id !== primary._id);
+        const totalStock = g.reduce((s, p) => s + (p.stock || 0), 0);
+        const totalMag   = g.reduce((s, p) => s + (p.stockMagazin ?? 0), 0);
+        const barcode    = primary.barcode || others.find(p => p.barcode)?.barcode;
+        // 1) supprimer les doublons (libère le code-barres unique)
+        for (const o of others) await deleteProduct(o._id).catch(() => {});
+        // 2) recaler la fiche gardée : stocks additionnés + code-barres récupéré
+        await updateProduct(primary._id, { stock: totalStock, ...(barcode ? { barcode } : {}) }).catch(() => {});
+        await ajusterStockEntrepot(primary._id, totalMag).catch(() => {});
+        merged++;
+      }
+      addToast(`${merged} groupe(s) de doublons fusionné(s) ✓`, 'success');
+      fetchProducts();
+    } catch {
+      addToast('Erreur lors de la fusion', 'error');
+    } finally {
+      setMergeBusy(false);
+    }
+  };
+
   const handleDeleteProduct = async () => {
     if (!selected) return;
     const name = selected.name;
@@ -1055,6 +1096,12 @@ export default function Stocks() {
             ))}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
+            {tab === 'dup' && dupIds.size > 0 && (
+              <button onClick={handleMergeDuplicates} disabled={mergeBusy}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: mergeBusy ? 'default' : 'pointer', opacity: mergeBusy ? 0.6 : 1, fontFamily: 'var(--fs-font-sans)' }}>
+                {mergeBusy ? 'Fusion…' : 'Fusionner les doublons'}
+              </button>
+            )}
             <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
               <I d={D.filter} size={13}/> Filtres
             </button>
