@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAllProducts, deleteProduct, updateProduct, Product } from '../api/products';
-import { normalizeName } from '../utils/text';
+import { normalizeName, formatProductName } from '../utils/text';
 import { ajusterStockEntrepot } from '../api/magazinier';
 import NouveauProduitModal from '../components/NouveauProduitModal';
 import { addStockWithMovement, getMovements, StockMovement } from '../api/stock';
@@ -813,15 +813,15 @@ export default function Stocks() {
   // ── Normalisation des noms (Title Case) sur tous les produits existants ──────
   const [normBusy, setNormBusy] = useState(false);
   const handleNormalizeNames = async () => {
-    const toFix = products.filter(p => normalizeName(p.name) !== p.name);
+    const toFix = products.filter(p => formatProductName(p.name) !== p.name);
     if (toFix.length === 0) { addToast('Tous les noms sont déjà au bon format ✓', 'success'); return; }
-    if (!window.confirm(`Mettre ${toFix.length} nom(s) de produit au format « Title Case » (ex. « BALEA SHAMPOO » → « Balea Shampoo ») ? Action en masse.`)) return;
+    if (!window.confirm(`Corriger ${toFix.length} nom(s) ? Les mots en MAJUSCULES deviennent « Première lettre en majuscule » (BALEA → Balea) et la 1ʳᵉ lettre du nom est mise en majuscule ; les mots en minuscules sont laissés tels quels.`)) return;
     setNormBusy(true);
     try {
       let updated = 0;
       let batch: Promise<unknown>[] = [];
       for (const p of toFix) {
-        batch.push(updateProduct(p._id, { name: normalizeName(p.name) }).then(() => { updated++; }).catch(() => {}));
+        batch.push(updateProduct(p._id, { name: formatProductName(p.name) }).then(() => { updated++; }).catch(() => {}));
         if (batch.length >= 10) { await Promise.all(batch); batch = []; }
       }
       await Promise.all(batch);
@@ -992,7 +992,7 @@ export default function Stocks() {
               }}>
                 ⬆ {recatBusy ? 'Import…' : 'Import recat.'}
               </button>
-              <button onClick={handleNormalizeNames} disabled={normBusy} title="Met tous les noms de produits au format Title Case (Balea Shampoo)" style={{
+              <button onClick={handleNormalizeNames} disabled={normBusy} title="Corrige les noms en MAJUSCULES (BALEA → Balea) + 1ʳᵉ lettre du nom ; laisse les minuscules" style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
                 border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-md)',
                 background: '#fff', color: 'var(--fs-ink-600)', fontSize: 12, fontWeight: 600,
