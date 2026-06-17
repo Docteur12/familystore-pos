@@ -7,7 +7,7 @@ import { Category, CategoryDocument } from '../schemas/category.schema';
 const SEED: Record<string, string[]> = {
   'Décoration': ['Décoration murale', 'Textile décoratif', 'Décoration de table et accessoires', 'Ambiance et senteurs', 'Décoration événementielle', 'Décoration salle de bain'],
   'Maison / Ménage / Cuisine / Linge': ['Produits entretien', 'Hygiène de la maison', 'Linge de maison', 'Rangement et organisation', 'Arts de table', 'Cuisine et préparation'],
-  'Hygiène / Beauté': ['Hygiène capillaire', 'Hygiène bucco-dentaire', 'Hygiène corporelle', 'Soins du visage', 'Maquillage du teint', 'Maquillage des yeux', 'Maquillage des lèvres', 'Parfumerie', 'Accessoires beauté', 'Compléments et bien-être'],
+  'Cosmétique / Hygiène': ['Hygiène capillaire', 'Hygiène bucco-dentaire', 'Hygiène corporelle', 'Soins du visage', 'Maquillage du teint', 'Maquillage des yeux', 'Maquillage des lèvres', 'Parfumerie', 'Accessoires beauté', 'Compléments et bien-être'],
   'Alimentation / Boissons': ['Épicerie', 'Snacks et apéritifs', 'Boissons', 'Ingrédients de cuisine', 'Compléments alimentaires', 'Alcools et spiritueux'],
   'Textile / Mode': ['Vêtements', 'Sous-vêtements', 'Chaussettes', 'Chaussures', 'Maroquinerie', 'Accessoires de mode', 'Linge de bain'],
   'Bureau / Hobby': ['Papeterie', 'Fournitures scolaires', 'Loisirs créatifs', 'Jeux éducatifs', 'Puzzles et jeux', 'Jouets'],

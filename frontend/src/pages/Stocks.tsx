@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAllProducts, deleteProduct, updateProduct, Product } from '../api/products';
 import { normalizeName, formatProductName } from '../utils/text';
+import { inferCategoryFromName } from '../data/categories';
 import { ajusterStockEntrepot } from '../api/magazinier';
 import NouveauProduitModal from '../components/NouveauProduitModal';
 import { addStockWithMovement, getMovements, StockMovement } from '../api/stock';
@@ -756,9 +757,13 @@ export default function Stocks() {
     const BOM = '﻿';
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const headers = ['_id (NE PAS MODIFIER)', 'Nom', 'Catégorie actuelle', 'Sous-catégorie actuelle', 'Nouvelle catégorie', 'Nouvelle sous-catégorie'];
-    const rows = products.map(p =>
-      [p._id, p.name, p.category ?? '', p.subCategory ?? '', p.category ?? '', p.subCategory ?? ''].map(esc).join(';'),
-    );
+    const rows = products.map(p => {
+      // Proposition intelligente déduite du nom (sinon on garde l'actuel).
+      const inf    = inferCategoryFromName(p.name);
+      const newCat = inf?.category ?? (p.category ?? '');
+      const newSub = inf?.subCategory ?? (p.subCategory ?? '');
+      return [p._id, p.name, p.category ?? '', p.subCategory ?? '', newCat, newSub].map(esc).join(';');
+    });
     const csv  = BOM + [headers.join(';'), ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url  = URL.createObjectURL(blob);
