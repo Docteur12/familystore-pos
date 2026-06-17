@@ -857,7 +857,9 @@ export default function Stocks() {
         const others = g.filter(p => p._id !== primary._id);
         const totalStock = g.reduce((s, p) => s + (p.stock || 0), 0);
         const totalMag   = g.reduce((s, p) => s + (p.stockMagazin ?? 0), 0);
-        const barcode    = primary.barcode || others.find(p => p.barcode)?.barcode;
+        // Code-barres conservé = le plus court non vide (évite les codes scannés
+        // en double, ex. « SC000002SC000002 » → on garde « SC000002 »).
+        const barcode = g.map(p => p.barcode).filter((b): b is string => !!b).sort((a, b) => a.length - b.length)[0];
         // 1) supprimer les doublons (libère le code-barres unique)
         for (const o of others) await deleteProduct(o._id).catch(() => {});
         // 2) recaler la fiche gardée : stocks additionnés + code-barres récupéré
