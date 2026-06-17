@@ -3,7 +3,7 @@ import { getAllProducts, createProduct, updateProduct, setProductPrix, getProduc
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
 import QRScanner from '../components/QRScanner';
-import { titleCase } from '../utils/text';
+import { normalizeName } from '../utils/text';
 import { useIsMobile }       from '../hooks/useIsMobile';
 import AutocompleteInput     from '../components/AutocompleteInput';
 import {
@@ -297,7 +297,7 @@ export default function Magazinier() {
     setNewProdLoading(true);
     try {
       const created = await createProduct({
-        name:                titleCase(newProd.name),
+        name:                normalizeName(newProd.name),
         barcode:             newProd.barcode.trim() || undefined,
         category:            newProd.category || undefined,
         subCategory:         newProd.subCategory.trim() || undefined,
@@ -800,7 +800,7 @@ export default function Magazinier() {
 
                       {/* Nom */}
                       <div style={{ marginBottom: 8 }}>
-                        <input style={INPUT} value={newProd.name} onChange={e => setNP('name', e.target.value)} placeholder="Nom du produit *" autoFocus={!newProd.barcode}/>
+                        <input style={INPUT} value={newProd.name} onChange={e => setNP('name', e.target.value)} onBlur={e => { const v = e.target.value.trim(); if (v) setNP('name', normalizeName(v)); }} placeholder="Nom du produit *" autoFocus={!newProd.barcode}/>
                       </div>
 
                       {/* Catégorie + Sous-catégorie */}

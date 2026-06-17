@@ -4,7 +4,7 @@ import { getFournisseurs } from '../api/fournisseurs';
 import { getTokenPayload } from '../api/dashboard';
 import AutocompleteInput from './AutocompleteInput';
 import QRScanner from './QRScanner';
-import { titleCase } from '../utils/text';
+import { titleCase, normalizeName } from '../utils/text';
 import { CATEGORY_TREE } from '../data/categories';
 import { getCategoryTree, addCategory, CategoryTree } from '../api/categories';
 
@@ -374,7 +374,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     setError('');
     const rawName = form.name.trim();
     const payload = {
-      name:        titleCase(rawName),
+      name:        normalizeName(rawName),
       localName:   form.localName.trim() || undefined,
       barcode:     form.barcode.trim() || undefined,
       category:    finalCategory || undefined,
@@ -447,7 +447,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
               type="text"
               value={form.name}
               onChange={e => setField('name')(e.target.value)}
-              onBlur={e => { const v = e.target.value.trim(); if (v) setField('name')(titleCase(v)); }}
+              onBlur={e => { const v = e.target.value.trim(); if (v) setField('name')(normalizeName(v)); }}
               placeholder="ex: Nivea Shampoing 400ml"
               style={INPUT_STYLE}
             />
