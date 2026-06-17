@@ -610,7 +610,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-type TabMode = 'all' | 'low' | 'expiry';
+type TabMode = 'all' | 'low' | 'expiry' | 'dup';
 
 export default function Stocks() {
   const { toasts, addToast, removeToast } = useToast();
@@ -689,6 +689,17 @@ export default function Stocks() {
     return s === 'soon' || s === 'near';
   }).length, [products]);
   const stockValue        = useMemo(() => products.reduce((s, p) => s + p.stock * p.costPrice, 0), [products]);
+  // Doublons : produits dont le nom (normalisé) apparaît plus d'une fois.
+  const dupIds = useMemo(() => {
+    const byName = new Map<string, string[]>();
+    for (const p of products) {
+      const k = normalizeName(p.name).toLowerCase();
+      byName.set(k, [...(byName.get(k) ?? []), p._id]);
+    }
+    const ids = new Set<string>();
+    for (const arr of byName.values()) if (arr.length > 1) arr.forEach(id => ids.add(id));
+    return ids;
+  }, [products]);
   const derivedCategories = useMemo(() => {
     const s = new Set<string>();
     products.forEach(p => { if (p.category?.trim()) s.add(p.category.trim()); });
@@ -704,6 +715,7 @@ export default function Stocks() {
         || supplierOf(p).toLowerCase().includes(q);
       const matchTab = tab === 'all' ? true
         : tab === 'low' ? p.stock <= p.alertThreshold
+        : tab === 'dup' ? dupIds.has(p._id)
         : expiryStatus(expiryOf(p)) !== 'ok';
       return matchSearch && matchTab;
     });
@@ -714,7 +726,7 @@ export default function Stocks() {
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
       return String(va).localeCompare(String(vb)) * dir;
     });
-  }, [products, search, tab, sort]);
+  }, [products, search, tab, sort, dupIds]);
 
   const handleExport = () => {
     const BOM = '\uFEFF';
@@ -1020,6 +1032,7 @@ export default function Stocks() {
               { id: 'all',    label: 'Tous',             count: products.length },
               { id: 'low',    label: 'Stock bas',        count: lowCount        },
               { id: 'expiry', label: 'Péremption proche',count: expiryCount     },
+              ...(dupIds.size > 0 ? [{ id: 'dup' as TabMode, label: 'Doublons', count: dupIds.size }] : []),
             ] as { id: TabMode; label: string; count: number }[]).map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{
                 padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
