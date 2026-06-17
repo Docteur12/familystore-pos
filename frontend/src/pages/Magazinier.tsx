@@ -323,6 +323,7 @@ export default function Magazinier() {
 
       // Réinitialise le formulaire (reste vierge), prêt pour un autre produit
       setNewProd({ ...NP_EMPTY });
+      loadProducts();   // le nouveau produit apparaît dans les listes/quantités
       addToast('Produit créé et ajouté à la réception ✓', 'success');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '';
@@ -436,10 +437,11 @@ export default function Magazinier() {
       await createReception({ fournisseur: fournisseur.trim(), items: validRows, note });
       addToast(`Réception validée — ${validRows.length} produit(s) mis à jour`, 'success');
       setFournisseur(''); setNote(''); setRows([{ productId: '', quantity: 1 }]); setRowBarcodes(['']);
+      loadProducts();   // rafraîchit les quantités (entrepôt) immédiatement
     } catch (e: unknown) {
       addToast(e instanceof Error ? e.message : 'Erreur', 'error');
     } finally { setRecLoading(false); }
-  }, [fournisseur, rows, note, addToast]);
+  }, [fournisseur, rows, note, addToast, loadProducts]);
 
   // ── Envoi direct au gestionnaire ─────────────────────────────────────────
   interface EnvoiRow { produitId: string; quantite: number }
