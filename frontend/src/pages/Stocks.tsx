@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAllProducts, deleteProduct, updateProduct, Product } from '../api/products';
-import { normalizeName, formatProductName } from '../utils/text';
+import { normalizeName, formatProductName, extractVolume } from '../utils/text';
 import { inferCategoryFromName } from '../data/categories';
 import { ajusterStockEntrepot } from '../api/magazinier';
 import NouveauProduitModal from '../components/NouveauProduitModal';
@@ -839,6 +839,35 @@ export default function Stocks() {
     }
   };
 
+  // Extrait le volume du nom (…500ml) → remplit le champ « Valeur » + nettoie le nom.
+  const [volBusy, setVolBusy] = useState(false);
+  const handleExtractVolumes = async () => {
+    const toFix = products
+      .map(p => ({ p, ext: extractVolume(p.name) }))
+      .filter(({ p, ext }) => ext && ((p.valeur ?? '').trim() === '' || ext.cleaned !== p.name));
+    if (toFix.length === 0) { addToast('Aucun volume à extraire (déjà fait ou non détecté)', 'success'); return; }
+    if (!window.confirm(`Extraire le volume de ${toFix.length} produit(s) ? Le volume détecté dans le nom (ex. « …500ml ») est mis dans le champ « Valeur » et retiré du nom. Action en masse.`)) return;
+    setVolBusy(true);
+    try {
+      let updated = 0;
+      let batch: Promise<unknown>[] = [];
+      for (const { p, ext } of toFix) {
+        if (!ext) continue;
+        const valeur = (p.valeur ?? '').trim() || ext.valeur;
+        const name   = ext.cleaned || p.name;
+        batch.push(updateProduct(p._id, { valeur, name }).then(() => { updated++; }).catch(() => {}));
+        if (batch.length >= 10) { await Promise.all(batch); batch = []; }
+      }
+      await Promise.all(batch);
+      addToast(`${updated} volume(s) extrait(s) ✓`, 'success');
+      fetchProducts();
+    } catch {
+      addToast('Erreur lors de l\'extraction des volumes', 'error');
+    } finally {
+      setVolBusy(false);
+    }
+  };
+
   // ── Fusion des doublons (même nom) en une seule fiche ───────────────────────
   const [mergeBusy, setMergeBusy] = useState(false);
   const handleMergeDuplicates = async () => {
@@ -1004,6 +1033,14 @@ export default function Stocks() {
                 cursor: normBusy ? 'default' : 'pointer', opacity: normBusy ? 0.6 : 1, fontFamily: 'var(--fs-font-sans)',
               }}>
                 Aa {normBusy ? 'Normalisation…' : 'Normaliser noms'}
+              </button>
+              <button onClick={handleExtractVolumes} disabled={volBusy} title="Extrait le volume du nom (…500ml) vers le champ Valeur" style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
+                border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-md)',
+                background: '#fff', color: 'var(--fs-ink-600)', fontSize: 12, fontWeight: 600,
+                cursor: volBusy ? 'default' : 'pointer', opacity: volBusy ? 0.6 : 1, fontFamily: 'var(--fs-font-sans)',
+              }}>
+                🧴 {volBusy ? 'Extraction…' : 'Extraire volumes'}
               </button>
               <button onClick={handleExport} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',

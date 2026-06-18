@@ -36,6 +36,27 @@ export function formatProductName(s: string): string {
     .join(' ');
 }
 
+// Extrait le volume/quantité d'un nom de produit (« …500ml », « …1L », « …400g »).
+// Renvoie { valeur, cleaned } — cleaned = nom sans le volume si celui-ci est en fin.
+// Renvoie null si aucun volume détecté.
+export function extractVolume(name: string): { valeur: string; cleaned: string } | null {
+  const re = /(\d+(?:[.,]\d+)?)\s*(ml|cl|kg|mg|l|g)\b/gi;
+  let m: RegExpExecArray | null;
+  let last: RegExpExecArray | null = null;
+  while ((m = re.exec(name)) !== null) last = m;
+  if (!last) return null;
+  let unit = last[2].toLowerCase();
+  if (unit === 'l') unit = 'L';                       // litre plus lisible en majuscule
+  const valeur = `${last[1].replace(',', '.')}${unit}`;
+  // Nettoie le nom uniquement si le volume est en fin de nom (cas le plus courant).
+  const endPos = last.index + last[0].length;
+  let cleaned = name;
+  if (name.slice(endPos).trim() === '') {
+    cleaned = name.slice(0, last.index).replace(/[\s·\-–,]+$/g, '').trim();
+  }
+  return { valeur, cleaned: cleaned || name };
+}
+
 // Title Case « complet » : tout en minuscule puis 1ʳᵉ lettre de chaque mot
 // en majuscule. Sert à normaliser des noms existants (ex. tout en MAJUSCULES).
 // « BALEA HAARSPRAY GLOSSY » → « Balea Haarspray Glossy ».
