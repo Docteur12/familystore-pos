@@ -6,23 +6,32 @@ export function getBrandColor(fallback = '#FF0000'): string {
   return v || fallback;
 }
 
-// Met en forme un nom de produit selon la convention :
-//  - un mot en MAJUSCULES  → « Première lettre majuscule, reste minuscule » (BALEA → Balea)
-//  - le 1ᵉʳ mot en minuscules → on capitalise sa 1ʳᵉ lettre (deo → Deo)
-//  - les autres mots en minuscules / déjà mixtes → inchangés (balea → balea, iPhone → iPhone)
+// Petits mots (articles, prépositions, conjonctions) laissés en minuscule,
+// SAUF s'ils sont le 1ᵉʳ mot du nom.
+const NAME_STOPWORDS = new Set([
+  'le', 'la', 'les', "l", 'un', 'une', 'des', 'de', 'du', "d",
+  'et', 'ou', 'à', 'au', 'aux', 'en', 'dans', 'par', 'pour', 'sur', 'sous', 'avec', 'sans',
+]);
+
+// Met en forme un nom de produit (convention) :
+//  - chaque mot : 1ʳᵉ lettre en MAJUSCULE, reste en minuscule (BALEA → Balea, deo → Deo)
+//  - sauf les petits mots (le, la, les, de, du, un, une, à, pour…) → minuscule
+//  - mais le 1ᵉʳ mot est toujours capitalisé
+//  - élisions gérées : « d'aloe » → « d'Aloe », « l'urée » → « l'Urée »
 export function formatProductName(s: string): string {
-  const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  const cap = (w: string) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w);
   return s
     .trim()
     .split(/\s+/)
     .map((w, i) => {
-      const hasLetter = /[a-zà-ÿ]/i.test(w);
-      if (!hasLetter) return w;
-      const isUpper = w === w.toUpperCase();
-      const isLower = w === w.toLowerCase();
-      if (isUpper) return cap(w);             // mot tout en majuscules
-      if (i === 0 && isLower) return cap(w);  // 1ᵉʳ mot en minuscules
-      return w;                                // sinon on ne touche pas
+      // Élision : article court + apostrophe + mot (d'Aloe, l'Urée, qu'…)
+      const el = w.match(/^([A-Za-zÀ-ÿ]{1,2})['’](.+)$/);
+      if (el) {
+        const art = i === 0 ? cap(el[1]) : el[1].toLowerCase();
+        return `${art}'${cap(el[2])}`;
+      }
+      if (i > 0 && NAME_STOPWORDS.has(w.toLowerCase())) return w.toLowerCase();
+      return cap(w);
     })
     .join(' ');
 }
