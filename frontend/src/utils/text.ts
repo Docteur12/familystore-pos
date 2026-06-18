@@ -45,8 +45,7 @@ export function extractVolume(name: string): { valeur: string; cleaned: string }
   let last: RegExpExecArray | null = null;
   while ((m = re.exec(name)) !== null) last = m;
   if (!last) return null;
-  let unit = last[2].toLowerCase();
-  if (unit === 'l') unit = 'L';                       // litre plus lisible en majuscule
+  const unit = last[2].toLowerCase();                 // unités uniformes en minuscule
   const valeur = `${last[1].replace(',', '.')}${unit}`;
   // Nettoie le nom uniquement si le volume est en fin de nom (cas le plus courant).
   const endPos = last.index + last[0].length;

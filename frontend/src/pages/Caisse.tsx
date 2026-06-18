@@ -1716,9 +1716,10 @@ function Row({ label, value }: { label: string; value: string }) {
 // Volume du produit (champ « Valeur »). Renvoie '' si non renseigné.
 // « 500ml » → « 500ml » ; « 500 » (sans unité) → « 500 mL ».
 function volumeLabel(p: { valeur?: string; unit?: string }): string {
-  const v = (p.valeur ?? '').trim();
+  let v = (p.valeur ?? '').trim();
   if (!v) return '';
-  return /[a-zà-ÿ]/i.test(v) ? v : `${v} ${p.unit ?? ''}`.trim();
+  if (!/[a-zà-ÿ]/i.test(v)) v = `${v} ${p.unit ?? ''}`.trim();   // nombre seul → ajoute l'unité
+  return v.toLowerCase();   // unités uniformes en minuscule (ml, l, g, kg)
 }
 
 // ── Product card (grid view) ──────────────────────────────────────────────────
@@ -1754,10 +1755,10 @@ const ProductCard = memo(function ProductCard({
         outline: 'none',
       }}
     >
-      {/* Stock badge */}
+      {/* Stock badge — en bas à droite (le haut est chargé, le bas-droite est libre) */}
       {product.stock > 0 && (
         <div style={{
-          position: 'absolute', top: 8, right: 8,
+          position: 'absolute', bottom: 8, right: 8,
           background: 'var(--fs-wine-700)',
           color: '#fff',
           borderRadius: '50%',
