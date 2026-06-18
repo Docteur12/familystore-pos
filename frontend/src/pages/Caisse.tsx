@@ -1713,6 +1713,14 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+// Volume du produit (champ « Valeur »). Renvoie '' si non renseigné.
+// « 500ml » → « 500ml » ; « 500 » (sans unité) → « 500 mL ».
+function volumeLabel(p: { valeur?: string; unit?: string }): string {
+  const v = (p.valeur ?? '').trim();
+  if (!v) return '';
+  return /[a-zà-ÿ]/i.test(v) ? v : `${v} ${p.unit ?? ''}`.trim();
+}
+
 // ── Product card (grid view) ──────────────────────────────────────────────────
 
 const ProductCard = memo(function ProductCard({
@@ -1805,11 +1813,16 @@ const ProductCard = memo(function ProductCard({
           </p>
         )}
         <p style={{
-          fontSize: 12, color: 'var(--fs-ink-500)', margin: '0 0 7px',
+          fontSize: 12, color: 'var(--fs-ink-500)', margin: '0 0 5px',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {product.category ?? 'Autre'}{product.subCategory ? ` › ${product.subCategory}` : ''} · {product.valeur ? `${product.valeur} ${product.unit}` : product.unit}
+          {product.category ?? 'Autre'}{product.subCategory ? ` › ${product.subCategory}` : ''}
         </p>
+        {volumeLabel(product) && (
+          <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, color: 'var(--fs-wine-700)', background: 'var(--fs-wine-50)', border: '1px solid var(--fs-line)', borderRadius: 6, padding: '1px 7px', marginBottom: 7 }}>
+            {volumeLabel(product)}
+          </span>
+        )}
         <p style={{ margin: 0, fontFamily: 'var(--fs-font-mono)' }}>
           {(product.discount ?? 0) > 0 && (
             <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', textDecoration: 'line-through', marginRight: 5 }}>
@@ -1853,7 +1866,7 @@ const ProductListRow = memo(function ProductListRow({
         {product.localName && (
           <p style={{ fontSize: 10, color: '#aaa', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.localName}</p>
         )}
-        <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: 0 }}>{product.category ?? 'Autre'} · {product.valeur ? `${product.valeur} ${product.unit}` : product.unit}</p>
+        <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: 0 }}>{product.category ?? 'Autre'}{volumeLabel(product) ? ` · ${volumeLabel(product)}` : ''}</p>
       </div>
       {(product.discount ?? 0) > 0 && (
         <span style={{ fontSize: 9, fontWeight: 900, color: '#fff', background: '#c0392b', borderRadius: 3, padding: '1px 5px' }}>-{product.discount}%</span>
