@@ -820,7 +820,7 @@ export default function Stocks() {
   const handleNormalizeNames = async () => {
     const toFix = products.filter(p => formatProductName(p.name) !== p.name);
     if (toFix.length === 0) { addToast('Tous les noms sont déjà au bon format ✓', 'success'); return; }
-    if (!window.confirm(`Corriger ${toFix.length} nom(s) ? Les mots en MAJUSCULES deviennent « Première lettre en majuscule » (BALEA → Balea) et la 1ʳᵉ lettre du nom est mise en majuscule ; les mots en minuscules sont laissés tels quels.`)) return;
+    if (!window.confirm(`Corriger ${toFix.length} nom(s) ? Chaque mot prendra une majuscule en 1ʳᵉ lettre (le reste en minuscule), sauf les petits mots (le, la, les, de, du, un, une, à, pour…). Ex. « baby love kopf » → « Baby Love Kopf ».`)) return;
     setNormBusy(true);
     try {
       let updated = 0;
