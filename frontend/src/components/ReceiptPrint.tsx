@@ -100,8 +100,9 @@ export function buildReceiptHTML(data: ReceiptData): string {
   <meta charset="utf-8">
   <title>Recu ${data.receiptNo}</title>
   <style>
-    /* Papier 80mm, mais la zone imprimable réelle ≈ 72mm : on limite le
-       contenu à 72mm (aligné à gauche) pour ne RIEN couper à droite. */
+    /* Papier 80mm. L'imprimante a une marge NON imprimable des 2 côtés
+       (~4-6mm) : on centre le contenu avec une marge égale à gauche ET à
+       droite pour ne rien couper ni à gauche ni à droite. */
     @page { size: 80mm auto; margin: 0; }
     @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
     * {
@@ -109,8 +110,8 @@ export function buildReceiptHTML(data: ReceiptData): string {
       font-family: Arial, Helvetica, sans-serif;
       font-size: 12px; color: #000 !important;
     }
-    html, body { width: 72mm; margin: 0; padding: 0; background: #fff; }
-    body { padding: 8px 6px 14px; }
+    html, body { width: 80mm; margin: 0; padding: 0; background: #fff; }
+    body { padding: 8px 8mm 14px 8mm; }
     .center{ text-align: center; }
     .solid { border-top: 2px solid #000; margin: 7px 0; }
     .dash  { border-top: 1px dashed #000; margin: 7px 0; }
