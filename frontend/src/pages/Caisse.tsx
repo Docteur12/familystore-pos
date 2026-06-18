@@ -20,6 +20,7 @@ import Receipt, { ReceiptData } from '../components/Receipt';
 import { buildReceiptHTML, doPrint, getPrintSettings, openCashDrawer } from '../components/ReceiptPrint';
 import { useSettings } from '../contexts/SettingsContext';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { formatVolume } from '../utils/text';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -1716,10 +1717,7 @@ function Row({ label, value }: { label: string; value: string }) {
 // Volume du produit (champ « Valeur »). Renvoie '' si non renseigné.
 // « 500ml » → « 500ml » ; « 500 » (sans unité) → « 500 mL ».
 function volumeLabel(p: { valeur?: string; unit?: string }): string {
-  let v = (p.valeur ?? '').trim();
-  if (!v) return '';
-  if (!/[a-zà-ÿ]/i.test(v)) v = `${v} ${p.unit ?? ''}`.trim();   // nombre seul → ajoute l'unité
-  return v.toLowerCase();   // unités uniformes en minuscule (ml, l, g, kg)
+  return formatVolume(p.valeur, p.unit);   // L, mL, cL, g, Kg
 }
 
 // ── Product card (grid view) ──────────────────────────────────────────────────

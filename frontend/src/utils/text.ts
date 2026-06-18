@@ -36,6 +36,18 @@ export function formatProductName(s: string): string {
     .join(' ');
 }
 
+// Forme canonique des unités : L, mL, cL, g, Kg, mg.
+const UNIT_MAP: Record<string, string> = { l: 'L', ml: 'mL', cl: 'cL', g: 'g', kg: 'Kg', mg: 'mg' };
+
+// Met un volume au bon format d'unité (« 500ml » → « 500mL », « 1l » → « 1L »,
+// « 2.025KG » → « 2.025Kg »). Si valeur = nombre seul, ajoute l'unité fournie.
+export function formatVolume(valeur?: string, unit?: string): string {
+  let v = (valeur ?? '').trim();
+  if (!v) return '';
+  if (!/[a-zà-ÿ]/i.test(v)) v = `${v} ${unit ?? ''}`.trim();
+  return v.replace(/(\d\s*)(ml|cl|kg|mg|l|g)\b/gi, (_, n, u) => n + (UNIT_MAP[u.toLowerCase()] ?? u));
+}
+
 // Extrait le volume/quantité d'un nom de produit (« …500ml », « …1L », « …400g »).
 // Renvoie { valeur, cleaned } — cleaned = nom sans le volume si celui-ci est en fin.
 // Renvoie null si aucun volume détecté.
@@ -45,8 +57,8 @@ export function extractVolume(name: string): { valeur: string; cleaned: string }
   let last: RegExpExecArray | null = null;
   while ((m = re.exec(name)) !== null) last = m;
   if (!last) return null;
-  const unit = last[2].toLowerCase();                 // unités uniformes en minuscule
-  const valeur = `${last[1].replace(',', '.')}${unit}`;
+  const u = last[2].toLowerCase();
+  const valeur = `${last[1].replace(',', '.')}${UNIT_MAP[u] ?? u}`;
   // Nettoie le nom uniquement si le volume est en fin de nom (cas le plus courant).
   const endPos = last.index + last[0].length;
   let cleaned = name;
