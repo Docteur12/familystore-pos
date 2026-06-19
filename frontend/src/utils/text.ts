@@ -19,7 +19,8 @@ const NAME_STOPWORDS = new Set([
 //  - mais le 1ᵉʳ mot est toujours capitalisé
 //  - élisions gérées : « d'aloe » → « d'Aloe », « l'urée » → « l'Urée »
 export function formatProductName(s: string): string {
-  const cap = (w: string) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w);
+  // Capitalise la 1ʳᵉ LETTRE (en ignorant la ponctuation initiale, ex. « (soin » → « (Soin »).
+  const cap = (w: string) => (w ? w.toLowerCase().replace(/[a-zà-ÿ]/i, (c) => c.toUpperCase()) : w);
   return s
     .trim()
     .split(/\s+/)

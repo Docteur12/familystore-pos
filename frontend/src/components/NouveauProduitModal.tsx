@@ -4,8 +4,8 @@ import { getFournisseurs } from '../api/fournisseurs';
 import { getTokenPayload } from '../api/dashboard';
 import AutocompleteInput from './AutocompleteInput';
 import QRScanner from './QRScanner';
-import { titleCase, formatProductName } from '../utils/text';
-import { CATEGORY_TREE } from '../data/categories';
+import { formatProductName } from '../utils/text';
+import { CATEGORY_TREE, normalizeTree } from '../data/categories';
 import { getCategoryTree, addCategory, CategoryTree } from '../api/categories';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -235,14 +235,14 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     getFournisseurs()
       .then(list => setFournisseurs(list.map(f => f.name)))
       .catch(() => {});
-    getCategoryTree().then(setCatTree).catch(() => {});
+    getCategoryTree().then(t => setCatTree(normalizeTree(t))).catch(() => {});
   }, []);
   const [loading,         setLoading]         = useState(false);
   const [error,           setError]           = useState('');
   const [extraCategories, setExtraCategories] = useState<string[]>([]);
   const [newCatInput,     setNewCatInput]     = useState('');
   const [newSubInput,     setNewSubInput]     = useState('');
-  const [catTree,         setCatTree]         = useState<CategoryTree>(CATEGORY_TREE);
+  const [catTree,         setCatTree]         = useState<CategoryTree>(() => normalizeTree(CATEGORY_TREE));
   const [markupPct,       setMarkupPct]       = useState('');
   // Seuls les administrateurs (patron) peuvent ajouter une catégorie/sous-catégorie hors liste.
   const isPatron = getTokenPayload()?.role === 'patron';
@@ -359,11 +359,11 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     let finalCategory = form.category;
     if (form.category === '__new__') {
       if (!newCatInput.trim()) { setError('Saisissez le nom de la nouvelle catégorie'); return; }
-      finalCategory = titleCase(newCatInput.trim());
+      finalCategory = formatProductName(newCatInput.trim());
     }
     let finalSubCategory = form.subCategory;
     if (form.subCategory === '__newsub__') {
-      finalSubCategory = newSubInput.trim() ? titleCase(newSubInput.trim()) : '';
+      finalSubCategory = newSubInput.trim() ? formatProductName(newSubInput.trim()) : '';
     }
     // Catégorie/sous-catégorie ajoutée par l'admin → on l'enregistre aussi dans la
     // taxonomie (base) pour qu'elle apparaisse ensuite dans les listes déroulantes.
@@ -375,7 +375,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
     const rawName = form.name.trim();
     const payload = {
       name:        formatProductName(rawName),
-      localName:   form.localName.trim() || undefined,
+      localName:   form.localName.trim() ? formatProductName(form.localName.trim()) : undefined,
       barcode:     form.barcode.trim() || undefined,
       category:    finalCategory || undefined,
       unit:        form.unit,
@@ -458,6 +458,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
               type="text"
               value={form.localName}
               onChange={e => setField('localName')(e.target.value)}
+              onBlur={e => { const v = e.target.value.trim(); if (v) setField('localName')(formatProductName(v)); }}
               placeholder="ex: Shampoua ya asali"
               style={INPUT_STYLE}
             />

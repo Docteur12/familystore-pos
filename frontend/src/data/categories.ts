@@ -1,3 +1,5 @@
+import { formatProductName } from '../utils/text';
+
 // Taxonomie catégories → sous-catégories (REC#4).
 // Listes déroulantes dépendantes : la sous-catégorie dépend de la catégorie.
 export const CATEGORY_TREE: Record<string, string[]> = {
@@ -43,6 +45,16 @@ export function subCategoriesOf(category: string): string[] {
   return CATEGORY_TREE[category] ?? [];
 }
 
+// Applique la nomenclature (Title Case) aux catégories ET sous-catégories
+// d'un arbre (clés + valeurs). « Hygiène corporelle » → « Hygiène Corporelle ».
+export function normalizeTree(tree: Record<string, string[]>): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const [cat, subs] of Object.entries(tree)) {
+    out[formatProductName(cat)] = (subs ?? []).map((s) => formatProductName(s));
+  }
+  return out;
+}
+
 // Déduction intelligente de la catégorie/sous-catégorie depuis le NOM du produit
 // (mots-clés FR/DE — catalogue surtout cosmétique). Renvoie null si rien ne matche.
 const KEYWORD_RULES: { re: RegExp; category: string; subCategory: string }[] = [
@@ -59,6 +71,6 @@ const KEYWORD_RULES: { re: RegExp; category: string; subCategory: string }[] = [
 ];
 
 export function inferCategoryFromName(name: string): { category: string; subCategory: string } | null {
-  for (const r of KEYWORD_RULES) if (r.re.test(name)) return { category: r.category, subCategory: r.subCategory };
+  for (const r of KEYWORD_RULES) if (r.re.test(name)) return { category: formatProductName(r.category), subCategory: formatProductName(r.subCategory) };
   return null;
 }
