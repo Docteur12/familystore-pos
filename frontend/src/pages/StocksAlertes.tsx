@@ -50,6 +50,7 @@ export default function StocksAlertes() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading]   = useState(true);
   const [tab, setTab]           = useState<TabKey>('reappro');
+  const [statusFilter, setStatusFilter] = useState<'all' | AlertStatus>('all');
   const [expiryFilter, setExpFilter] = useState<ExpiryFilter>('180');
 
   const load = useCallback(async () => {
@@ -84,6 +85,8 @@ export default function StocksAlertes() {
     .sort((a, b) => b.recommended - a.recommended);
 
   const alertCount = lowProducts.length;
+  // Liste filtrée par la carte cliquée (Ruptures / Critiques / Alertes / Total)
+  const displayedLow = statusFilter === 'all' ? lowProducts : lowProducts.filter(p => getStatus(p) === statusFilter);
 
   const handleEmailRecap = () => {
     const lines = lowProducts.map(p => `• ${p.name} : stock ${p.stock}/${p.alertThreshold}`).join('\n');
@@ -129,20 +132,25 @@ export default function StocksAlertes() {
 
         {/* KPI cards */}
         <div style={{ display: 'flex', gap: 14, padding: '16px 24px', flexShrink: 0 }}>
-          {[
-            { label: 'Ruptures',  count: ruptures,  bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)' },
-            { label: 'Critiques', count: critiques, bg: '#FEF0E0', color: '#8B5A14' },
-            { label: 'Alertes',   count: alertes,   bg: '#F7ECD4', color: '#8B5A14' },
-            { label: 'Total',     count: alertCount, bg: 'var(--fs-wine-50)', color: 'var(--fs-wine-800)' },
-          ].map(s => (
-            <div key={s.label} style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 18px', boxShadow: 'var(--fs-shadow-sm)' }}>
+          {([
+            { label: 'Ruptures',  count: ruptures,  bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', filter: 'rupture' },
+            { label: 'Critiques', count: critiques, bg: '#FEF0E0', color: '#8B5A14', filter: 'critique' },
+            { label: 'Alertes',   count: alertes,   bg: '#F7ECD4', color: '#8B5A14', filter: 'alerte' },
+            { label: 'Total',     count: alertCount, bg: 'var(--fs-wine-50)', color: 'var(--fs-wine-800)', filter: 'all' },
+          ] as { label: string; count: number; bg: string; color: string; filter: 'all' | AlertStatus }[]).map(s => {
+            const active = tab === 'reappro' && statusFilter === s.filter;
+            return (
+            <div key={s.label} onClick={() => { setTab('reappro'); setStatusFilter(s.filter); }}
+              title={`Voir : ${s.label}`}
+              style={{ flex: 1, background: '#fff', border: active ? '2px solid var(--fs-wine-700)' : '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 18px', boxShadow: 'var(--fs-shadow-sm)', cursor: 'pointer' }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{s.label}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 28, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: s.color }}>{s.count}</span>
                 {s.count > 0 && <span style={{ background: s.bg, color: s.color, fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10 }}>{s.label}</span>}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Tabs */}
@@ -182,10 +190,11 @@ export default function StocksAlertes() {
           {loading ? (
             <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
           ) : tab === 'reappro' ? (
-            lowProducts.length === 0 ? (
+            displayedLow.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)' }}>
                 <div style={{ fontSize: 36, marginBottom: 10 }}>✓</div>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>Tous les stocks sont suffisants</div>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>{statusFilter === 'all' ? 'Tous les stocks sont suffisants' : `Aucun produit « ${STATUS_CFG[statusFilter].label} »`}</div>
+                {statusFilter !== 'all' && <button onClick={() => setStatusFilter('all')} style={{ marginTop: 12, padding: '6px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-500)' }}>Voir tout</button>}
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
@@ -198,7 +207,7 @@ export default function StocksAlertes() {
                   </tr>
                 </thead>
                 <tbody>
-                  {lowProducts.map((p, idx) => {
+                  {displayedLow.map((p, idx) => {
                     const status = getStatus(p);
                     const st = STATUS_CFG[status];
                     return (
