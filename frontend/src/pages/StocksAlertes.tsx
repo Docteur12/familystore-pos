@@ -3,6 +3,7 @@ import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
 import ToastContainer, { useToast } from '../components/Toast';
 import { qtyUnitLabel } from '../utils/units';
+import { getBrandColor } from '../utils/text';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -94,6 +95,86 @@ export default function StocksAlertes() {
     window.open(mailto);
   };
 
+  // Données d'export selon l'onglet actif.
+  const exportData = (): { title: string; headers: string[]; rows: (string | number)[][] } => {
+    if (tab === 'peremption') {
+      return {
+        title: 'Péremption proche',
+        headers: ['Produit', 'Catégorie', 'Jours restants', 'Date péremption'],
+        rows: expiryProducts.map(({ p, days }) => [p.name, p.category ?? '', days, expiryOf(p)?.toLocaleDateString('fr-FR') ?? '']),
+      };
+    }
+    if (tab === 'suggestions') {
+      return {
+        title: 'Suggestions de réapprovisionnement',
+        headers: ['Produit', 'Stock', 'Qté conseillée', 'Urgence'],
+        rows: suggestions.map(({ p, recommended, urgency }) => [p.name, p.stock, recommended, urgency]),
+      };
+    }
+    return {
+      title: 'Réapprovisionnement',
+      headers: ['Produit', 'Catégorie', 'Stock actuel', 'Seuil', 'Statut'],
+      rows: displayedLow.map(p => [p.name, p.category ?? '', p.stock, p.alertThreshold, STATUS_CFG[getStatus(p)].label]),
+    };
+  };
+
+  const handleExportPdf = async () => {
+    const { title, headers, rows } = exportData();
+    if (rows.length === 0) { addToast('Rien à exporter', 'error'); return; }
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const hex = getBrandColor();
+      const rgb: [number, number, number] = /^#[0-9A-Fa-f]{6}$/.test(hex)
+        ? [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)]
+        : [255, 0, 0];
+      const trunc = (s: string, max = 46) => (s.length > max ? s.slice(0, max - 1) + '…' : s);
+      const margin = 14;
+      const valN = headers.length - 1;
+      const right0 = 108, rightN = 196;
+      const step = valN > 1 ? (rightN - right0) / (valN - 1) : 0;
+      const valX = (i: number) => (valN === 1 ? rightN : right0 + step * i);
+      doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.rect(0, 0, 210, 24, 'F');
+      doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+      doc.text(`Family Store — ${title}`, margin, 12);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      doc.text(`${rows.length} produit(s)  ·  ${new Date().toLocaleDateString('fr-FR')}`, margin, 19);
+      let y = 34;
+      const head = () => {
+        doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        doc.text(headers[0], margin, y);
+        for (let i = 0; i < valN; i++) doc.text(headers[i + 1], valX(i), y, { align: 'right' });
+        y += 2; doc.setDrawColor(180); doc.line(margin, y, rightN, y); y += 5;
+      };
+      head();
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      for (const r of rows) {
+        if (y > 285) { doc.addPage(); y = 18; head(); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); }
+        doc.setTextColor(20, 20, 20);
+        doc.text(trunc(String(r[0])), margin, y);
+        for (let i = 0; i < valN; i++) doc.text(String(r[i + 1]), valX(i), y, { align: 'right' });
+        y += 5.5;
+      }
+      doc.save(`alertes_${tab}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch {
+      addToast('Erreur export PDF', 'error');
+    }
+  };
+
+  const handleExportExcel = () => {
+    const { headers, rows } = exportData();
+    if (rows.length === 0) { addToast('Rien à exporter', 'error'); return; }
+    const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const rowsHtml = rows.map(r => '<tr>' + r.map(c => `<td>${esc(c)}</td>`).join('') + '</tr>').join('');
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
+    const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `alertes_${tab}_${new Date().toISOString().slice(0, 10)}.xls`;
+    a.click(); URL.revokeObjectURL(url);
+    addToast('Export Excel prêt', 'success');
+  };
+
   const tabs: { id: TabKey; label: string; count: number; color: string }[] = [
     { id: 'reappro',     label: 'Réapprovisionnement', count: lowProducts.length,     color: '#D97706' },
     { id: 'peremption',  label: 'Péremption proche',   count: expiryProducts.length,  color: '#DC2626' },
@@ -121,6 +202,14 @@ export default function StocksAlertes() {
               <button onClick={handleEmailRecap}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--fs-font-sans)' }}>
                 <I d={D.mail} size={13}/> Récap email
+              </button>
+              <button onClick={handleExportPdf} title="Exporter en PDF (onglet actif)"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1.5px solid var(--fs-wine-700)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-wine-700)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--fs-font-sans)' }}>
+                PDF
+              </button>
+              <button onClick={handleExportExcel} title="Exporter en Excel (onglet actif)"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1.5px solid var(--fs-wine-700)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-wine-700)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--fs-font-sans)' }}>
+                Excel
               </button>
               <button onClick={load}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--fs-font-sans)' }}>

@@ -157,6 +157,27 @@ export default function StocksInventaire() {
     }
   };
 
+  // Export Excel (.xls) — tableau HTML ouvert nativement par Excel.
+  const exportInventaireExcel = () => {
+    if (displayed.length === 0) { addToast('Aucun produit à exporter', 'error'); return; }
+    const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const headers = ['Produit', 'Catégorie', 'Unité', 'Stock théorique', 'Compté', 'Écart'];
+    const rowsHtml = displayed.map(r => {
+      const theo = r.product.stock;
+      const cmp = r.counted === '' ? null : parseInt(r.counted);
+      const ecart = cmp === null ? '' : cmp - theo;
+      const cells = [r.product.name, r.product.category ?? '', r.product.unit ?? '', theo, cmp === null ? '' : cmp, ecart];
+      return '<tr>' + cells.map(c => `<td>${esc(c)}</td>`).join('') + '</tr>';
+    }).join('');
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
+    const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `inventaire-${date || new Date().toISOString().slice(0, 10)}.xls`;
+    a.click(); URL.revokeObjectURL(url);
+    addToast('Export Excel prêt', 'success');
+  };
+
   const handleValidate = async () => {
     const toUpdate = dirtyRows.filter(r => {
       const matchCat = type === 'total' || !categorie || r.product.category?.toLowerCase() === categorie.toLowerCase();
@@ -318,7 +339,10 @@ export default function StocksInventaire() {
                   <I d={D.refresh} size={14}/>
                 </button>
                 <button onClick={exportInventairePdf} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600 }}>
-                  <I d={D.print} size={13}/> Exporter PDF
+                  <I d={D.print} size={13}/> PDF
+                </button>
+                <button onClick={exportInventaireExcel} title="Exporter l'inventaire en Excel" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600 }}>
+                  Excel
                 </button>
                 {dirtyRows.length > 0 && (
                   <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600 }}>
