@@ -886,15 +886,20 @@ export default function Stocks() {
   // ── Normalisation des noms (Title Case) sur tous les produits existants ──────
   const [normBusy, setNormBusy] = useState(false);
   const handleNormalizeNames = async () => {
-    const toFix = products.filter(p => formatProductName(p.name) !== p.name);
+    const needsFix = (p: Product) =>
+      formatProductName(p.name) !== p.name ||
+      (!!p.localName && formatProductName(p.localName) !== p.localName);
+    const toFix = products.filter(needsFix);
     if (toFix.length === 0) { addToast('Tous les noms sont déjà au bon format ✓', 'success'); return; }
-    if (!window.confirm(`Corriger ${toFix.length} nom(s) ? Chaque mot prendra une majuscule en 1ʳᵉ lettre (le reste en minuscule), sauf les petits mots (le, la, les, de, du, un, une, à, pour…). Ex. « baby love kopf » → « Baby Love Kopf ».`)) return;
+    if (!window.confirm(`Corriger ${toFix.length} produit(s) (nom + nom local) ? Chaque mot prendra une majuscule en 1ʳᵉ lettre (le reste en minuscule), sauf les petits mots (le, la, les, de, du, un, une, à, pour…). Ex. « baby love kopf » → « Baby Love Kopf ».`)) return;
     setNormBusy(true);
     try {
       let updated = 0;
       let batch: Promise<unknown>[] = [];
       for (const p of toFix) {
-        batch.push(updateProduct(p._id, { name: formatProductName(p.name) }).then(() => { updated++; }).catch(() => {}));
+        const patch: { name: string; localName?: string } = { name: formatProductName(p.name) };
+        if (p.localName) patch.localName = formatProductName(p.localName);
+        batch.push(updateProduct(p._id, patch).then(() => { updated++; }).catch(() => {}));
         if (batch.length >= 10) { await Promise.all(batch); batch = []; }
       }
       await Promise.all(batch);
