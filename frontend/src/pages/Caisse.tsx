@@ -162,6 +162,7 @@ export default function Caisse() {
   const [searchQuery,    setSearchQuery]    = useState('');
   const [viewMode,       setViewMode]       = useState<'grid' | 'list'>('grid');
   const [sortBy,         setSortBy]         = useState<'pop' | 'name' | 'price' | 'subCategory'>('pop');
+  const [availableOnly,  setAvailableOnly]  = useState(false);
   const [showSortMenu,   setShowSortMenu]   = useState(false);
 
   const [cart,           setCart]           = useState<CartItem[]>([]);
@@ -291,6 +292,7 @@ export default function Caisse() {
   // ── Filtered + sorted products ────────────────────────────────────────────
   const filteredProducts = useMemo(() => {
     let list = allProducts;
+    if (availableOnly) list = list.filter(p => p.stock > 0);   // produits disponibles (en stock)
     if (selectedCat) list = list.filter(p => (p.category?.trim() || 'Autre') === selectedCat);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -309,7 +311,7 @@ export default function Caisse() {
       }
       return b.stock - a.stock; // popularity = most stocked
     });
-  }, [allProducts, selectedCat, searchQuery, sortBy]);
+  }, [allProducts, selectedCat, searchQuery, sortBy, availableOnly]);
 
   // ── Cart helpers ──────────────────────────────────────────────────────────
   const focusScan = useCallback(() => setTimeout(() => scanInputRef.current?.focus(), 0), []);
@@ -1224,6 +1226,22 @@ export default function Caisse() {
               ✕ {scanError}
             </span>
           )}
+
+          {/* Filtre disponibles (en stock) */}
+          <button
+            onClick={() => setAvailableOnly(v => !v)}
+            title="Afficher uniquement les produits en stock"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              border: `1.5px solid ${availableOnly ? 'var(--fs-wine-700)' : 'var(--fs-line-2)'}`,
+              background: availableOnly ? 'var(--fs-wine-700)' : 'none',
+              color: availableOnly ? '#fff' : 'var(--fs-ink-500)',
+              borderRadius: 'var(--fs-r-sm)', padding: '5px 12px',
+              fontSize: 13, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)', fontWeight: 600,
+            }}
+          >
+            {availableOnly ? '✓ ' : ''}Disponibles
+          </button>
 
           {/* Sort dropdown */}
           <div style={{ position: 'relative' }}>
