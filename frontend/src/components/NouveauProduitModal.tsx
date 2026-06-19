@@ -532,12 +532,15 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
               </select>
             </div>
             <div>
-              <label style={LABEL_STYLE}>Valeur <span style={{ fontWeight: 400, textTransform: 'none' }}>(optionnel)</span></label>
+              <label style={LABEL_STYLE}>Valeur <span style={{ fontWeight: 400, textTransform: 'none' }}>(nombre — unité = champ Unité)</span></label>
               <input
-                type="text"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="any"
                 value={form.valeur}
-                onChange={e => setField('valeur')(e.target.value)}
-                placeholder="ex: 50mL, 250g, 1L…"
+                onChange={e => setField('valeur')(e.target.value.replace(/[^0-9.,]/g, ''))}
+                placeholder="ex: 50"
                 style={INPUT_STYLE}
               />
             </div>

@@ -44,8 +44,9 @@ const UNIT_MAP: Record<string, string> = { l: 'L', ml: 'mL', cl: 'cL', g: 'g', k
 export function formatVolume(valeur?: string, unit?: string): string {
   let v = (valeur ?? '').trim();
   if (!v) return '';
-  if (!/[a-zà-ÿ]/i.test(v)) v = `${v} ${unit ?? ''}`.trim();
-  return v.replace(/(\d\s*)(ml|cl|kg|mg|l|g)\b/gi, (_, n, u) => n + (UNIT_MAP[u.toLowerCase()] ?? u));
+  if (!/[a-zà-ÿ]/i.test(v)) v = `${v} ${unit ?? ''}`.trim();   // nombre seul → ajoute l'unité
+  // Unité de volume collée au nombre et normalisée (500 ml → 500mL, 1 l → 1L, 2kg → 2Kg)
+  return v.replace(/(\d)\s*(ml|cl|kg|mg|l|g)\b/gi, (_, d, u) => d + (UNIT_MAP[u.toLowerCase()] ?? u));
 }
 
 // Extrait le volume/quantité d'un nom de produit (« …500ml », « …1L », « …400g »).
