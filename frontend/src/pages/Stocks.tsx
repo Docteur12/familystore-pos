@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAllProducts, deleteProduct, updateProduct, Product } from '../api/products';
-import { normalizeName, formatProductName, extractVolume } from '../utils/text';
+import { normalizeName, formatProductName, extractVolume, getBrandColor } from '../utils/text';
 import { inferCategoryFromName } from '../data/categories';
 import { ajusterStockEntrepot } from '../api/magazinier';
 import NouveauProduitModal from '../components/NouveauProduitModal';
@@ -748,6 +748,74 @@ export default function Stocks() {
     URL.revokeObjectURL(url);
   };
 
+  // Export PDF (en-tête à la couleur de la boutique).
+  const handleExportPdf = async () => {
+    if (products.length === 0) { addToast('Aucun produit à exporter', 'error'); return; }
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const hex = getBrandColor();
+      const rgb: [number, number, number] = /^#[0-9A-Fa-f]{6}$/.test(hex)
+        ? [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)]
+        : [255, 0, 0];
+      const trunc = (s: string, max = 44) => (s.length > max ? s.slice(0, max - 1) + '…' : s);
+      const num = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+      const margin = 14;
+      const cX = { nom: margin, cat: 92, prix: 150, stock: 174, seuil: 196 };
+      doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.rect(0, 0, 210, 24, 'F');
+      doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+      doc.text('Family Store — Catalogue produits', margin, 12);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      doc.text(`${products.length} produit(s)  ·  ${new Date().toLocaleDateString('fr-FR')}`, margin, 19);
+      let y = 34;
+      const header = () => {
+        doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        doc.text('Produit', cX.nom, y);
+        doc.text('Catégorie', cX.cat, y);
+        doc.text('Prix', cX.prix, y, { align: 'right' });
+        doc.text('Stock', cX.stock, y, { align: 'right' });
+        doc.text('Seuil', cX.seuil, y, { align: 'right' });
+        y += 2; doc.setDrawColor(180); doc.line(margin, y, 196, y); y += 5;
+      };
+      header();
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      for (const p of products) {
+        if (y > 285) { doc.addPage(); y = 18; header(); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); }
+        doc.setTextColor(20, 20, 20);
+        doc.text(trunc(p.name), cX.nom, y);
+        doc.text(trunc(p.category ?? '—', 22), cX.cat, y);
+        doc.text(num(p.price), cX.prix, y, { align: 'right' });
+        if (p.stock === 0) doc.setTextColor(194, 62, 36); else doc.setTextColor(20, 20, 20);
+        doc.text(String(p.stock), cX.stock, y, { align: 'right' });
+        doc.setTextColor(20, 20, 20);
+        doc.text(String(p.alertThreshold), cX.seuil, y, { align: 'right' });
+        y += 5.5;
+      }
+      doc.save(`catalogue_produits_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } catch {
+      addToast('Erreur export PDF', 'error');
+    }
+  };
+
+  // Export Excel (.xls) — tableau HTML ouvert nativement par Excel (pas de dépendance).
+  const handleExportExcel = () => {
+    if (products.length === 0) { addToast('Aucun produit à exporter', 'error'); return; }
+    const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const headers = ['SKU', 'Nom', 'Catégorie', 'Sous-catégorie', 'Prix vente', 'Prix achat', 'Marge%', 'Stock', 'Seuil', 'Emplacement', 'Fournisseur', 'Valeur', 'Unité', 'Date péremption'];
+    const rowsHtml = products.map(p => {
+      const marge = p.costPrice > 0 ? Math.round(((p.price - p.costPrice) / p.price) * 1000) / 10 : 0;
+      const cells = [skuOf(p), p.name, p.category ?? '', p.subCategory ?? '', p.price, p.costPrice, marge, p.stock, p.alertThreshold, locationOf(p), supplierOf(p), p.valeur ?? '', p.unit ?? '', fmtDate(expiryOf(p))];
+      return '<tr>' + cells.map(c => `<td>${esc(c)}</td>`).join('') + '</tr>';
+    }).join('');
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rowsHtml}</tbody></table></body></html>`;
+    const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `catalogue_produits_${new Date().toISOString().slice(0, 10)}.xls`;
+    a.click(); URL.revokeObjectURL(url);
+    addToast('Export Excel prêt', 'success');
+  };
+
   // ── Recatégorisation en masse (CSV éditable dans Excel) ─────────────────────
   const recatInputRef = useRef<HTMLInputElement>(null);
   const [recatBusy, setRecatBusy] = useState(false);
@@ -1048,7 +1116,23 @@ export default function Stocks() {
                 background: 'none', color: 'var(--fs-wine-700)', fontSize: 13, fontWeight: 600,
                 cursor: 'pointer', fontFamily: 'var(--fs-font-sans)',
               }}>
-                <I d={D.export} size={13}/> Exporter
+                <I d={D.export} size={13}/> CSV
+              </button>
+              <button onClick={handleExportPdf} title="Exporter le catalogue en PDF" style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+                border: '1.5px solid var(--fs-wine-700)', borderRadius: 'var(--fs-r-md)',
+                background: 'none', color: 'var(--fs-wine-700)', fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'var(--fs-font-sans)',
+              }}>
+                <I d={D.export} size={13}/> PDF
+              </button>
+              <button onClick={handleExportExcel} title="Exporter le catalogue en Excel" style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+                border: '1.5px solid var(--fs-wine-700)', borderRadius: 'var(--fs-r-md)',
+                background: 'none', color: 'var(--fs-wine-700)', fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'var(--fs-font-sans)',
+              }}>
+                <I d={D.export} size={13}/> Excel
               </button>
               <button onClick={() => setNewProduct(true)} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
