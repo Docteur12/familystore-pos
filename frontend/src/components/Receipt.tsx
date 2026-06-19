@@ -3,6 +3,7 @@ import {
   ReceiptData, buildReceiptHTML, buildReceiptPDF, doPrint, getPrintSettings, openCashDrawer,
 } from './ReceiptPrint';
 import { saveFacture } from '../api/factures';
+import { formatVolume } from '../utils/text';
 
 export type { ReceiptData } from './ReceiptPrint';
 
@@ -95,7 +96,9 @@ export default function Receipt({ data, onNewSale }: Props) {
                       <span style={{ background: '#c0392b', color: '#fff', fontSize: 8, fontWeight: 900, padding: '1px 5px', borderRadius: 3, marginLeft: 4 }}>-{item.discount}%</span>
                     )}
                   </div>
-                  {item.localName && <div style={{ fontSize: 10, color: '#999' }}>{item.localName}</div>}
+                  {[formatVolume(item.valeur, item.unit), item.localName].filter(Boolean).length > 0 && (
+                    <div style={{ fontSize: 10, color: '#999' }}>{[formatVolume(item.valeur, item.unit), item.localName].filter(Boolean).join(' · ')}</div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#555', marginTop: 3 }}>
                     <span>
                       {hasDiscount && <span style={{ textDecoration: 'line-through', marginRight: 4 }}>{f(item.originalPrice!)}</span>}

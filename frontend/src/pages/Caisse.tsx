@@ -499,7 +499,7 @@ export default function Caisse() {
         const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,'');        const offlineData: ReceiptData = {
           receiptNo: `OFF-${dateP}-${Math.random().toString(36).slice(2,8).toUpperCase()}`, date: d,
           cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
-          items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
+          items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, valeur: i.product.valeur || undefined, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
           subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
           ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
         };
@@ -521,7 +521,7 @@ export default function Caisse() {
         succeeded = true;
         const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const idPart = String(result.sale._id).slice(-6).toUpperCase();        const newData: ReceiptData = {
           receiptNo: `FSV-${dateP}-${idPart}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
-          items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
+          items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, valeur: i.product.valeur || undefined, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
           subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
           ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
         };
@@ -557,7 +557,7 @@ export default function Caisse() {
             const cached = await getCachedProducts(); setAllProducts(cached); setPendingCount(prev => prev + 1);
             const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,'');            const offlineData: ReceiptData = {
               receiptNo: `OFF-${dateP}-${Math.random().toString(36).slice(2,8).toUpperCase()}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
-              items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
+              items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, valeur: i.product.valeur || undefined, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
               subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
               ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
             };

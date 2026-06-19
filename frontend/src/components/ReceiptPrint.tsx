@@ -1,10 +1,12 @@
 // Utilitaires impression reçu thermique 80mm + gestion paramètres d'impression
 import { jsPDF } from 'jspdf';
+import { formatVolume } from '../utils/text';
 
 export interface ReceiptItem {
   name:          string;
   localName?:    string;
   unit:          string;
+  valeur?:       string;
   quantity:      number;
   unitPrice:     number;
   originalPrice?: number;
@@ -78,8 +80,9 @@ export function buildReceiptHTML(data: ReceiptData): string {
     const badge      = hasDiscount
       ? `<span style="background:#c0392b;color:#fff;font-size:8px;font-weight:900;padding:1px 4px;border-radius:2px;margin-left:4px">-${item.discount}%</span>`
       : '';
-    const localNameRow = item.localName
-      ? `<div class="ilocal">${item.localName}</div>`
+    const meta = [formatVolume(item.valeur, item.unit), item.localName].filter(Boolean).join(' · ');
+    const localNameRow = meta
+      ? `<div class="ilocal">${meta}</div>`
       : '';
     return `
     <div class="item">
@@ -241,7 +244,8 @@ export function buildReceiptPDF(data: ReceiptData): string {
   // Articles
   for (const item of data.items) {
     line(truncName(item.name), 12, true);
-    if (item.localName) line(item.localName, 8, false);
+    const meta = [formatVolume(item.valeur, item.unit), item.localName].filter(Boolean).join(' · ');
+    if (meta) line(meta, 8, false);
     row(`  ${item.quantity} x ${fmt(item.unitPrice)}`, `${fmt(item.quantity * item.unitPrice)}`, 10);
     y += 0.5;
   }
