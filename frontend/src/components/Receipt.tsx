@@ -54,7 +54,11 @@ export default function Receipt({ data, onNewSale }: Props) {
       <div style={{
         background: '#fff', borderRadius: 20, boxShadow: '0 24px 64px rgba(0,0,0,0.25)',
         width: '100%', maxWidth: 380, overflow: 'hidden',
+        maxHeight: 'calc(100vh - 32px)', display: 'flex', flexDirection: 'column',
       }}>
+
+        {/* Zone défilable : en-tête + corps du ticket */}
+        <div style={{ overflowY: 'auto', flex: 1 }}>
 
         {/* Header */}
         <div style={{ padding: '18px 24px 8px', textAlign: 'center', color: '#111' }}>
@@ -159,6 +163,7 @@ export default function Receipt({ data, onNewSale }: Props) {
             </div>
           </div>
         </div>
+        </div>{/* fin zone défilable */}
 
         {/* Actions */}
         <div style={{ padding: '0 24px 20px', display: 'flex', gap: 10 }}>
