@@ -1817,11 +1817,14 @@ const ProductCard = memo(function ProductCard({
         }}>
           {product.category ?? 'Autre'}{product.subCategory ? ` › ${product.subCategory}` : ''}
         </p>
-        {volumeLabel(product) && (
-          <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, color: 'var(--fs-wine-700)', background: 'var(--fs-wine-50)', border: '1px solid var(--fs-line)', borderRadius: 6, padding: '1px 7px', marginBottom: 7 }}>
-            {volumeLabel(product)}
-          </span>
-        )}
+        {/* Emplacement volume réservé (même hauteur même sans volume) → cartes uniformes */}
+        <div style={{ height: 22, marginBottom: 5 }}>
+          {volumeLabel(product) && (
+            <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, color: 'var(--fs-wine-700)', background: 'var(--fs-wine-50)', border: '1px solid var(--fs-line)', borderRadius: 6, padding: '2px 7px' }}>
+              {volumeLabel(product)}
+            </span>
+          )}
+        </div>
         <p style={{ margin: 0, fontFamily: 'var(--fs-font-mono)' }}>
           {(product.discount ?? 0) > 0 && (
             <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', textDecoration: 'line-through', marginRight: 5 }}>
