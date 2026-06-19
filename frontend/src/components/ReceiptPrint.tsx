@@ -146,8 +146,8 @@ export function buildReceiptHTML(data: ReceiptData): string {
     </div>
     <div class="r">
       <div>Bonamoussadi &ndash; Douala</div>
-      <div>T&eacute;l. : +237 670792691</div>
-      <div>T&eacute;l. : +237 682263435</div>
+      <div>T&eacute;l. : +237 694060524</div>
+      <div>T&eacute;l. : +237 682634355</div>
     </div>
   </div>
   <div class="solid"></div>
@@ -228,7 +228,7 @@ export function buildReceiptPDF(data: ReceiptData): string {
     `Date : ${dateStr}  ${timeStr}`,
     `Caissier : ${data.cashierName}`,
   ];
-  const infoR = ['Bonamoussadi - Douala', 'Tél. : +237 670792691', 'Tél. : +237 682263435'];
+  const infoR = ['Bonamoussadi - Douala', 'Tél. : +237 694060524', 'Tél. : +237 682634355'];
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
   for (let i = 0; i < 3; i++) {
     doc.text(infoL[i], 2, y);

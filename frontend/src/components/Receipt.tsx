@@ -76,8 +76,8 @@ export default function Receipt({ data, onNewSale }: Props) {
             </div>
             <div style={{ textAlign: 'right' }}>
               <div>Bonamoussadi – Douala</div>
-              <div>Tél. : +237 670792691</div>
-              <div>Tél. : +237 682263435</div>
+              <div>Tél. : +237 694060524</div>
+              <div>Tél. : +237 682634355</div>
             </div>
           </div>
 
