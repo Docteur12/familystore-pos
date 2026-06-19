@@ -111,24 +111,24 @@ export function buildReceiptHTML(data: ReceiptData): string {
       font-size: 12px; color: #000 !important;
     }
     html, body { width: 80mm; margin: 0; padding: 0; background: #fff; }
-    body { padding: 8px 8mm 14px 8mm; }
+    body { padding: 8px 9mm 14px 9mm; }
     .center{ text-align: center; }
-    .solid { border-top: 2px solid #000; margin: 7px 0; }
-    .dash  { border-top: 1px dashed #000; margin: 7px 0; }
-    .store { font-size: 28px; font-weight: 700; line-height: 1.05; }
-    .rdct  { font-size: 11px; letter-spacing: 1px; margin-top: 3px; }
-    .tag   { font-size: 12px; margin-top: 2px; }
-    .info  { display: flex; justify-content: space-between; gap: 6px; font-size: 10px; line-height: 1.55; }
+    .solid { border-top: 2px solid #000; margin: 9px 0; }
+    .dash  { border-top: 1px dashed #000; margin: 8px 0; }
+    .store { font-size: 23px; font-weight: 700; line-height: 1.05; }
+    .rdct  { font-size: 10px; letter-spacing: 1px; margin-top: 3px; }
+    .tag   { font-size: 11px; margin-top: 2px; }
+    .info  { display: flex; justify-content: space-between; gap: 6px; font-size: 9px; line-height: 1.5; }
     .info .r { text-align: right; white-space: nowrap; }
-    .item  { margin: 7px 0; }
-    .iname { font-size: 15px; font-weight: 700; }
-    .ilocal{ font-size: 10px; color: #666; margin-top: 1px; }
-    .irow  { display: flex; justify-content: space-between; font-size: 12px; color: #333; margin-top: 3px; }
-    .row   { display: flex; justify-content: space-between; font-size: 11px; margin: 2px 0; }
-    .total { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 22px; font-weight: 700; margin: 4px 0; }
-    .pay   { font-size: 12px; line-height: 1.7; }
-    .merci { font-size: 16px; font-weight: 700; letter-spacing: 1px; margin: 4px 0; }
-    .offer { font-size: 10px; line-height: 1.45; }
+    .item  { margin: 6px 0; }
+    .iname { font-size: 13px; font-weight: 700; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
+    .ilocal{ font-size: 9px; color: #666; margin-top: 1px; }
+    .irow  { display: flex; justify-content: space-between; font-size: 11px; color: #333; margin-top: 2px; }
+    .row   { display: flex; justify-content: space-between; font-size: 10px; margin: 2px 0; }
+    .total { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 18px; font-weight: 700; margin: 6px 0; }
+    .pay   { font-size: 11px; line-height: 1.65; }
+    .merci { font-size: 14px; font-weight: 700; letter-spacing: 0.5px; margin: 4px 0; }
+    .offer { font-size: 9px; line-height: 1.4; }
   </style>
 </head>
 <body>
