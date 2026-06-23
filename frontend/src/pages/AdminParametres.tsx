@@ -8,6 +8,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { getPendingSales, getLastSyncTime, syncPendingSales } from '../services/offlineSync';
 import { getPrintSettings, savePrintSettings, PrintSettings } from '../components/ReceiptPrint';
 import { getCategoryTree, importCategories } from '../api/categories';
+import { resetEntrepot } from '../api/magazinier';
 import { authHeaders } from '../api/http';
 
 // ── Styles partagés ──────────────────────────────────────────────────────────
@@ -189,6 +190,17 @@ export default function AdminParametres() {
   // ── Réinitialisation ─────────────────────────────────────────────────────
   const [resetStep,    setResetStep]    = useState<0 | 1 | 2>(0);
   const [resetLoading, setResetLoading] = useState(false);
+  // Réinitialisation du magazin (entrepôt) — déplacée ici depuis la page Magaziniers.
+  const [magResetText,    setMagResetText]    = useState('');
+  const [magResetLoading, setMagResetLoading] = useState(false);
+  const [magResetDone,    setMagResetDone]    = useState(false);
+  const handleResetMagazin = async () => {
+    if (magResetText.trim().toUpperCase() !== 'RÉINITIALISER') return;
+    setMagResetLoading(true);
+    try { await resetEntrepot(); setMagResetDone(true); setMagResetText(''); addToast('Stock entrepôt réinitialisé', 'success'); }
+    catch { addToast('Erreur lors de la réinitialisation de l\'entrepôt', 'error'); }
+    finally { setMagResetLoading(false); }
+  };
   const [cleanLoading, setCleanLoading] = useState(false);
   const [cleanDone,    setCleanDone]    = useState(false);
 
@@ -638,6 +650,31 @@ export default function AdminParametres() {
                     style={{ alignSelf: 'flex-start', padding: '9px 18px', background: '#EA580C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: cleanLoading ? 0.7 : 1 }}>
                     {cleanLoading ? 'Nettoyage…' : 'Supprimer les données de test uniquement'}
                   </button>
+                )}
+              </div>
+
+              <div style={{ borderTop: '1px solid #fca5a5' }}/>
+
+              {/* ── Réinitialiser le magazin (entrepôt) ── */}
+              <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#C2410C' }}>📦 Réinitialiser le magazin (entrepôt)</p>
+                  <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--fs-ink-600)', lineHeight: 1.5 }}>
+                    Remet à <strong>zéro le stock entrepôt</strong> de tous les produits et <strong>supprime l'historique des réceptions</strong>.<br/>
+                    N'affecte <strong>pas</strong> le stock caisse, les ventes ni les produits.
+                  </p>
+                </div>
+                {magResetDone ? (
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>✓ Magazin réinitialisé</p>
+                ) : (
+                  <>
+                    <input value={magResetText} onChange={e => setMagResetText(e.target.value)} placeholder="Tapez RÉINITIALISER pour confirmer"
+                      style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', boxSizing: 'border-box' }}/>
+                    <button onClick={handleResetMagazin} disabled={magResetLoading || magResetText.trim().toUpperCase() !== 'RÉINITIALISER'}
+                      style={{ alignSelf: 'flex-start', padding: '9px 18px', background: '#EA580C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: (magResetLoading || magResetText.trim().toUpperCase() !== 'RÉINITIALISER') ? 'not-allowed' : 'pointer', opacity: (magResetLoading || magResetText.trim().toUpperCase() !== 'RÉINITIALISER') ? 0.5 : 1 }}>
+                      {magResetLoading ? 'Réinitialisation…' : 'Réinitialiser le magazin'}
+                    </button>
+                  </>
                 )}
               </div>
 
