@@ -188,8 +188,8 @@ export default function AdminParametres() {
   };
 
   // ── Réinitialisation ─────────────────────────────────────────────────────
-  const [resetStep,    setResetStep]    = useState<0 | 1 | 2>(0);
   const [resetLoading, setResetLoading] = useState(false);
+  const [resetText,    setResetText]    = useState('');   // mot-clé « TOUT SUPPRIMER »
   // Réinitialisation du magazin (entrepôt) — déplacée ici depuis la page Magaziniers.
   const [magResetText,    setMagResetText]    = useState('');
   const [magResetLoading, setMagResetLoading] = useState(false);
@@ -203,8 +203,10 @@ export default function AdminParametres() {
   };
   const [cleanLoading, setCleanLoading] = useState(false);
   const [cleanDone,    setCleanDone]    = useState(false);
+  const [cleanText,    setCleanText]    = useState('');   // mot-clé « NETTOYER »
 
   const handleCleanTransactions = async () => {
+    if (cleanText.trim().toUpperCase() !== 'NETTOYER') return;
     setCleanLoading(true);
     try {
       const res = await fetch('/api/admin/clean-transactions', { method: 'POST', headers: authHeaders() });
@@ -219,12 +221,13 @@ export default function AdminParametres() {
   };
 
   const handleReset = async () => {
+    if (resetText.trim().toUpperCase() !== 'TOUT SUPPRIMER') return;
     setResetLoading(true);
     try {
       const res = await fetch('/api/admin/reset', { method: 'POST', headers: authHeaders() });
       if (!res.ok) throw new Error('Erreur serveur');
       addToast('Base réinitialisée — bienvenue en production !', 'success');
-      setResetStep(0);
+      setResetText('');
       setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 2000);
     } catch {
       addToast('Erreur lors de la réinitialisation', 'error');
@@ -646,10 +649,14 @@ export default function AdminParametres() {
                 {cleanDone ? (
                   <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>✓ Nettoyage effectué avec succès</p>
                 ) : (
-                  <button onClick={handleCleanTransactions} disabled={cleanLoading}
-                    style={{ alignSelf: 'flex-start', padding: '9px 18px', background: '#EA580C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: cleanLoading ? 0.7 : 1 }}>
-                    {cleanLoading ? 'Nettoyage…' : 'Supprimer les données de test uniquement'}
-                  </button>
+                  <>
+                    <input value={cleanText} onChange={e => setCleanText(e.target.value)} placeholder="Tapez NETTOYER pour confirmer"
+                      style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', boxSizing: 'border-box' }}/>
+                    <button onClick={handleCleanTransactions} disabled={cleanLoading || cleanText.trim().toUpperCase() !== 'NETTOYER'}
+                      style={{ alignSelf: 'flex-start', padding: '9px 18px', background: '#EA580C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: (cleanLoading || cleanText.trim().toUpperCase() !== 'NETTOYER') ? 'not-allowed' : 'pointer', opacity: (cleanLoading || cleanText.trim().toUpperCase() !== 'NETTOYER') ? 0.5 : 1 }}>
+                      {cleanLoading ? 'Nettoyage…' : 'Supprimer les données de test uniquement'}
+                    </button>
+                  </>
                 )}
               </div>
 
@@ -685,48 +692,12 @@ export default function AdminParametres() {
                 Conserve : votre compte <strong>Admin Patron</strong> + configuration des caisses.
               </div>
 
-              {resetStep === 0 && (
-                <button onClick={() => setResetStep(1)}
-                  style={{ alignSelf: 'flex-start', padding: '10px 20px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  Réinitialiser pour la mise en production
-                </button>
-              )}
-
-              {resetStep === 1 && (
-                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#991b1b' }}>
-                    Êtes-vous sûr ? Toutes les données de test seront définitivement perdues.
-                  </p>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button onClick={() => setResetStep(2)}
-                      style={{ padding: '9px 18px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                      Oui, supprimer toutes les données
-                    </button>
-                    <button onClick={() => setResetStep(0)}
-                      style={{ padding: '9px 18px', background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-600)' }}>
-                      Annuler
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {resetStep === 2 && (
-                <div style={{ background: '#fef2f2', border: '2px solid #dc2626', borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#991b1b' }}>
-                    ⚠️ DERNIÈRE CONFIRMATION — Cette action est irréversible.
-                  </p>
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <button onClick={handleReset} disabled={resetLoading}
-                      style={{ padding: '10px 20px', background: '#991b1b', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: resetLoading ? 0.7 : 1 }}>
-                      {resetLoading ? 'Réinitialisation en cours…' : '🗑️ CONFIRMER LA RÉINITIALISATION'}
-                    </button>
-                    <button onClick={() => setResetStep(0)}
-                      style={{ padding: '10px 18px', background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-600)' }}>
-                      Annuler
-                    </button>
-                  </div>
-                </div>
-              )}
+              <input value={resetText} onChange={e => setResetText(e.target.value)} placeholder="Tapez TOUT SUPPRIMER pour confirmer"
+                style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', boxSizing: 'border-box' }}/>
+              <button onClick={handleReset} disabled={resetLoading || resetText.trim().toUpperCase() !== 'TOUT SUPPRIMER'}
+                style={{ alignSelf: 'flex-start', padding: '10px 20px', background: '#991b1b', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: (resetLoading || resetText.trim().toUpperCase() !== 'TOUT SUPPRIMER') ? 'not-allowed' : 'pointer', opacity: (resetLoading || resetText.trim().toUpperCase() !== 'TOUT SUPPRIMER') ? 0.5 : 1 }}>
+                {resetLoading ? 'Réinitialisation en cours…' : '🗑️ Réinitialiser pour la mise en production'}
+              </button>
             </div>
           </div>
 
