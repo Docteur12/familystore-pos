@@ -621,6 +621,8 @@ export default function AdminMagaziniers() {
   const [receptions, setReceptions] = useState<ReceptionFull[]>([]);
   const [resetConfirm, setResetConfirm] = useState(false);
   const [resetting, setResetting]       = useState(false);
+  const [resetText, setResetText]       = useState('');   // mot de confirmation à taper
+  const RESET_WORD = 'RÉINITIALISER';
 
   const load = () => getUsers().then(us => setUsers(us.filter(u => u.role === 'magazinier'))).catch(() => {});
 
@@ -639,11 +641,13 @@ export default function AdminMagaziniers() {
   }, []);
 
   const handleReset = async () => {
+    if (resetText.trim().toUpperCase() !== RESET_WORD) return;   // garde-fou
     setResetting(true);
-    try { await resetEntrepot(); setResetConfirm(false); reloadStock(); }
+    try { await resetEntrepot(); setResetConfirm(false); setResetText(''); reloadStock(); }
     catch { /* garder le modal ouvert si erreur */ }
     finally { setResetting(false); }
   };
+  const closeResetModal = () => { setResetConfirm(false); setResetText(''); };
 
   // Produits qui ont été reçus au moins une fois par le magazinier
   const receivedIds = new Set(
@@ -670,16 +674,31 @@ export default function AdminMagaziniers() {
                 <div style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginTop: 2 }}>Cette action est irréversible.</div>
               </div>
             </div>
-            <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 20 }}>
+            <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 14 }}>
               Cela va <strong>remettre à zéro le stock entrepôt</strong> de tous les produits et <strong>supprimer tout l'historique des réceptions</strong>. Le magazinier devra recommencer à enregistrer ses réceptions depuis le début.
             </p>
+            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-600)', display: 'block', marginBottom: 6 }}>
+              Pour confirmer, tapez <strong>{RESET_WORD}</strong> ci-dessous :
+            </label>
+            <input
+              value={resetText}
+              onChange={e => setResetText(e.target.value)}
+              placeholder={RESET_WORD}
+              autoFocus
+              style={{ width: '100%', padding: '10px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, outline: 'none', marginBottom: 18, fontFamily: 'var(--fs-font-sans)', boxSizing: 'border-box' }}
+            />
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setResetConfirm(false)} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
+              <button onClick={closeResetModal} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
                 Annuler
               </button>
-              <button onClick={handleReset} disabled={resetting} style={{ flex: 1, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#dc2626', color: '#fff', opacity: resetting ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
-                {resetting ? 'Réinitialisation…' : 'Oui, réinitialiser'}
-              </button>
+              {(() => {
+                const ready = resetText.trim().toUpperCase() === RESET_WORD;
+                return (
+                  <button onClick={handleReset} disabled={resetting || !ready} style={{ flex: 1, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: (resetting || !ready) ? 'not-allowed' : 'pointer', background: '#dc2626', color: '#fff', opacity: (resetting || !ready) ? 0.5 : 1, fontFamily: 'var(--fs-font-sans)' }}>
+                    {resetting ? 'Réinitialisation…' : 'Oui, réinitialiser'}
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>
