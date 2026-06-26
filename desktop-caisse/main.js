@@ -120,9 +120,10 @@ function createMain() {
 
 ipcMain.on('retry', async () => {
   if (!mainWindow) return;
-  const online = await checkOnline();
-  if (online) mainWindow.loadURL(POS_URL);
-  else        mainWindow.loadFile('offline.html'); // recharge la page offline
+  // Tenter de (re)charger l'app : le service worker sert le shell depuis son
+  // cache si une connexion a déjà eu lieu. Sinon (aucun cache + toujours hors
+  // ligne), did-fail-load ramène sur offline.html.
+  mainWindow.loadURL(POS_URL);
 });
 
 // ── Cycle de vie de l'application ─────────────────────────────────────────────
@@ -149,12 +150,14 @@ app.whenReady().then(async () => {
     mainWindow.setFullScreen(true);
   });
 
-  // 5. Charger la page appropriée
-  if (online) {
-    mainWindow.loadURL(POS_URL);
-  } else {
-    mainWindow.loadFile('offline.html');
-  }
+  // 5. Toujours tenter de charger l'app.
+  //    Le service worker (PWA) sert le shell depuis son cache même hors ligne :
+  //    la caisse démarre et bascule en mode hors-ligne (ventes en file, stock
+  //    local). On ne tombe sur offline.html (cul-de-sac) qu'en dernier recours,
+  //    via did-fail-load, si aucun cache n'existe encore (toute 1ʳᵉ ouverture
+  //    avant la moindre connexion). `online` ne sert plus qu'au splash.
+  void online;
+  mainWindow.loadURL(POS_URL);
 
   // 6. Raccourci secret pour quitter le mode kiosque
   globalShortcut.register('CommandOrControl+Alt+Q', () => {
