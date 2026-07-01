@@ -1,1 +1,10 @@
-"node_modules/" 
+# Dépendances (réinstallées par `npm install` / `npm ci`)
+node_modules/
+
+# Build de production (régénéré par `npm run build`)
+dist/
+
+# Variables d'environnement & sauvegardes (contiennent des secrets)
+.env
+.env.*
+!.env.example
