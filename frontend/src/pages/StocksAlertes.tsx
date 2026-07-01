@@ -4,6 +4,7 @@ import { getAllProducts, Product } from '../api/products';
 import ToastContainer, { useToast } from '../components/Toast';
 import { qtyUnitLabel } from '../utils/units';
 import { getBrandColor } from '../utils/text';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -48,6 +49,8 @@ type ExpiryFilter = '30' | '90' | '180';
 
 export default function StocksAlertes() {
   const { toasts, addToast, removeToast } = useToast();
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading]   = useState(true);
   const [tab, setTab]           = useState<TabKey>('reappro');
@@ -190,15 +193,15 @@ export default function StocksAlertes() {
       <ToastContainer toasts={toasts} onRemove={removeToast}/>
       <StocksSidebar alertCount={alertCount}/>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 24px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
+            <div style={{ paddingLeft: isMobile ? 44 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
               <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Alertes & Seuils</h1>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               <button onClick={handleEmailRecap}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600, fontFamily: 'var(--fs-font-sans)' }}>
                 <I d={D.mail} size={13}/> Récap email
@@ -220,7 +223,7 @@ export default function StocksAlertes() {
         </div>
 
         {/* KPI cards */}
-        <div style={{ display: 'flex', gap: 14, padding: '16px 24px', flexShrink: 0 }}>
+        <div style={{ display: isNarrow ? 'grid' : 'flex', gridTemplateColumns: isNarrow ? '1fr 1fr' : undefined, gap: isNarrow ? 10 : 14, padding: isNarrow ? '14px 16px' : '16px 24px', flexShrink: 0 }}>
           {([
             { label: 'Ruptures',  count: ruptures,  bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', filter: 'rupture' },
             { label: 'Critiques', count: critiques, bg: '#FEF0E0', color: '#8B5A14', filter: 'critique' },
@@ -243,7 +246,7 @@ export default function StocksAlertes() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', alignItems: 'center', padding: '0 24px 12px', gap: 6, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', padding: isNarrow ? '0 16px 12px' : '0 24px 12px', gap: 6, flexShrink: 0 }}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 20,
@@ -275,7 +278,7 @@ export default function StocksAlertes() {
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px' }}>
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isNarrow ? '0 12px 16px' : '0 24px 24px', minHeight: isNarrow ? undefined : 0 }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
           ) : tab === 'reappro' ? (
@@ -287,7 +290,7 @@ export default function StocksAlertes() {
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-              <table className="fs-grid" style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
+              <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 720 : 640, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {['Produit', 'Catégorie', 'Stock actuel', 'Seuil (auto 10%)', 'Statut'].map((h, i) => (
@@ -331,7 +334,7 @@ export default function StocksAlertes() {
               </div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-              <table className="fs-grid" style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
+              <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 720 : 640, borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
                     {['Produit', 'Catégorie', 'Stock', 'Date péremption', 'Délai', 'Urgence'].map((h, i) => (
@@ -385,7 +388,7 @@ export default function StocksAlertes() {
                   <I d={D.zap} size={14}/> Ces suggestions sont calculées automatiquement : stock conseillé = 2× seuil d'alerte.
                 </div>
                 <div style={{ overflowX: 'auto' }}>
-                <table className="fs-grid" style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse' }}>
+                <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 720 : 640, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
                       {['Produit', 'Catégorie', 'Stock actuel', 'Seuil', 'Qté recommandée', 'Urgence'].map((h, i) => (

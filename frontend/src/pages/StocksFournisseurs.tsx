@@ -177,6 +177,7 @@ export default function StocksFournisseurs() {
   const [editing, setEditing]   = useState<FournisseurRecord | null>(null);
   const [loading, setLoading]   = useState(true);
   const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu
   const navigate = useNavigate();
   const { toasts, addToast, removeToast } = useToast();
   // Ouvre le catalogue filtré sur les produits de ce fournisseur.
@@ -250,19 +251,19 @@ export default function StocksFournisseurs() {
 
       <StocksSidebar/>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '12px 16px 12px 56px' : '12px 24px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 10 : 0 }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', flexDirection: isNarrow ? 'column' : 'row', gap: isNarrow ? 10 : 0 }}>
+            <div style={{ paddingLeft: isMobile ? 44 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
               <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Fournisseurs</h1>
             </div>
-            <div style={{ display: 'flex', gap: 10, flexDirection: isMobile ? 'column' : 'row' }}>
-              <div style={{ position: 'relative', flex: isMobile ? 1 : undefined }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, flexDirection: isNarrow ? 'column' : 'row' }}>
+              <div style={{ position: 'relative', flex: isNarrow ? 1 : undefined }}>
                 <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-300)' }}><I d={D.search} size={13}/></span>
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…"
-                  style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: 'var(--fs-ivory)', width: isMobile ? '100%' : 220, boxSizing: 'border-box' }}/>
+                  style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: 'var(--fs-ivory)', width: isNarrow ? '100%' : 220, boxSizing: 'border-box' }}/>
               </div>
               <button onClick={() => setShowAdd(true)}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
@@ -272,7 +273,7 @@ export default function StocksFournisseurs() {
           </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '14px' : '20px 24px' }}>
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isMobile ? '14px' : isNarrow ? '16px' : '20px 24px', minHeight: isNarrow ? undefined : 0 }}>
           {isMobile ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {loading ? (
@@ -339,7 +340,7 @@ export default function StocksFournisseurs() {
             </div>
           ) : (
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
-            <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 720 : undefined }}>
               <thead>
                 <tr style={{ background: 'var(--fs-ivory)' }}>
                   {['Fournisseur', 'Contact', 'Conditions', 'Remise', 'Note', 'Catégories', 'Produits', ''].map(h => (

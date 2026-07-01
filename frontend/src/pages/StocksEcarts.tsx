@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { getEcarts, resoudreEcart, EcartRecord } from '../api/ecarts';
 
 const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
@@ -18,6 +19,8 @@ const TH: React.CSSProperties = {
 
 export default function StocksEcarts() {
   const { toasts, addToast, removeToast } = useToast();
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu
   const [ecarts,   setEcarts]   = useState<EcartRecord[]>([]);
   const [total,    setTotal]    = useState(0);
   const [loading,  setLoading]  = useState(true);
@@ -53,16 +56,16 @@ export default function StocksEcarts() {
       <StocksSidebar alertCount={0}/>
       <ToastContainer toasts={toasts} onRemove={removeToast}/>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: isNarrow ? 10 : 16 }}>
+            <div style={{ paddingLeft: isMobile ? 44 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Écarts de stock</h1>
             </div>
-            <div style={{ display: 'flex', gap: 4 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
               {(['en_attente', 'resolu', 'tous'] as const).map(f => (
                 <button key={f} onClick={() => setFiltre(f)} style={{
                   padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
@@ -77,7 +80,7 @@ export default function StocksEcarts() {
         </div>
 
         {/* Stats */}
-        <div style={{ display: 'flex', gap: 14, padding: '14px 28px', flexShrink: 0 }}>
+        <div style={{ display: isNarrow ? 'grid' : 'flex', gridTemplateColumns: isNarrow ? '1fr 1fr' : undefined, gap: isNarrow ? 10 : 14, padding: isNarrow ? '14px 16px' : '14px 28px', flexShrink: 0 }}>
           {[
             { label: 'Écarts trouvés',  val: fmtN(total),        color: 'var(--fs-danger-700)' },
             { label: 'Unités manquantes', val: fmtN(totalEcart), color: 'var(--fs-warning-700)' },
@@ -90,7 +93,7 @@ export default function StocksEcarts() {
         </div>
 
         {/* Table */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 28px 28px' }}>
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isNarrow ? '0 12px 16px' : '0 28px 28px', minHeight: isNarrow ? undefined : 0 }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
           ) : (

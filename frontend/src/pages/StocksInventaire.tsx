@@ -4,6 +4,7 @@ import { getAllProducts, Product, updateProduct } from '../api/products';
 import ToastContainer, { useToast } from '../components/Toast';
 import { qtyUnitLabel } from '../utils/units';
 import { getBrandColor } from '../utils/text';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -59,6 +60,8 @@ type ViewMode = 'seance' | 'history';
 
 export default function StocksInventaire() {
   const { toasts, addToast, removeToast } = useToast();
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu
   const [view, setView]         = useState<ViewMode>('seance');
   const [rows, setRows]         = useState<InventaireRow[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -275,15 +278,15 @@ export default function StocksInventaire() {
       <ToastContainer toasts={toasts} onRemove={removeToast}/>
       <StocksSidebar/>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 24px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 12 }}>
+            <div style={{ paddingLeft: isMobile ? 44 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
               <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Inventaire</h1>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {(['seance', 'history'] as ViewMode[]).map(v => (
                 <button key={v} onClick={() => setView(v)} style={{
                   padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
@@ -303,7 +306,7 @@ export default function StocksInventaire() {
         {view === 'seance' ? (
           <>
             {/* Séance config */}
-            <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 24px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+            <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', gap: 6 }}>
                 {(['total', 'partiel'] as const).map(t => (
                   <button key={t} onClick={() => setType(t)} style={{
@@ -329,7 +332,7 @@ export default function StocksInventaire() {
                 <input type="date" value={date} onChange={e => setDate(e.target.value)}
                   style={{ padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)' }}/>
               </div>
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-300)' }}><I d={D.search} size={13}/></span>
                   <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…"
@@ -363,7 +366,7 @@ export default function StocksInventaire() {
             </div>
 
             {/* Table */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px' }}>
+            <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isNarrow ? '0 12px 16px' : '0 24px 24px', minHeight: isNarrow ? undefined : 0 }}>
               {loading ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
               ) : (
@@ -413,7 +416,7 @@ export default function StocksInventaire() {
           </>
         ) : (
           // History view
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+          <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isNarrow ? '20px 12px' : '20px 24px', minHeight: isNarrow ? undefined : 0 }}>
             {history.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Aucun inventaire enregistré</div>
             ) : history.map(s => (

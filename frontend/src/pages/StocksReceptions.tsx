@@ -7,6 +7,7 @@ import { getAllReceptions, ReceptionFull } from '../api/magazinier';
 import { getFournisseurs } from '../api/fournisseurs';
 import { getBonsLivraison, createBonLivraison, BonLivraisonRecord } from '../api/bons-livraison';
 import { qtyUnitLabel } from '../utils/units';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const LS_RECEPTION_SEEN = 'receptions_last_seen';
 
@@ -211,6 +212,8 @@ type HistoFilter = 'tous' | 'moi' | 'magazinier';
 
 export default function StocksReceptions() {
   const { toasts, addToast, removeToast } = useToast();
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu
   const [products, setProducts] = useState<Product[]>([]);
   const [bls, setBls]           = useState<BonLivraisonRecord[]>([]);
   const [view, setView]         = useState<ViewMode>('form');
@@ -292,15 +295,15 @@ export default function StocksReceptions() {
       <ToastContainer toasts={toasts} onRemove={removeToast}/>
       <StocksSidebar/>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 24px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
+            <div style={{ paddingLeft: isMobile ? 44 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
               <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Réceptions</h1>
             </div>
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {(['form', 'history'] as ViewMode[]).map(v => (
                 <button key={v} onClick={() => setView(v)} style={{
                   padding: '7px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
@@ -317,7 +320,7 @@ export default function StocksReceptions() {
         </div>
 
         {view === 'form' ? (
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+          <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isNarrow ? '16px 12px' : '20px 24px', minHeight: isNarrow ? undefined : 0 }}>
             {/* BL Header */}
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 14px' }}>
@@ -348,7 +351,7 @@ export default function StocksReceptions() {
 
             {/* Lines table */}
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)', marginBottom: 14 }}>
-              <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 720 : undefined }}>
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
                     {['Produit', 'Qté attendue', 'Qté reçue', 'Date péremption', 'État emballage', 'Écart', ''].map(h => (
@@ -416,7 +419,7 @@ export default function StocksReceptions() {
               </table>
             </div>
 
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <button onClick={() => setLines(prev => [...prev, newLine()])}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', border: '1.5px dashed var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)' }}>
                 <I d={D.plus} size={13}/> Ajouter une ligne
@@ -429,10 +432,10 @@ export default function StocksReceptions() {
           </div>
         ) : (
           // History view
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+          <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isNarrow ? '16px 12px' : '20px 24px', minHeight: isNarrow ? undefined : 0 }}>
 
             {/* Filtre */}
-            <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
               {([['tous', 'Tous'], ['moi', 'Par moi'], ['magazinier', 'Par magazinier']] as [HistoFilter, string][]).map(([key, label]) => (
                 <button key={key} onClick={() => setHistoFilter(key)} style={{
                   padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)',
@@ -459,7 +462,7 @@ export default function StocksReceptions() {
                   </p>
                 )}
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
-                  <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 640 : undefined }}>
                     <thead>
                       <tr style={{ background: '#f0fdf4' }}>
                         {['Fournisseur', 'Date', 'Produit', 'Qté reçue', 'Reçu par'].map(h => (
@@ -517,7 +520,7 @@ export default function StocksReceptions() {
                     Écart total : {bl.totalEcarts > 0 ? `+${bl.totalEcarts}` : bl.totalEcarts}
                   </span>
                 </div>
-                <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 640 : undefined }}>
                   <thead>
                     <tr>
                       {['Produit', 'Qté attendue', 'Qté reçue', 'Date péremption', 'État', 'Écart'].map(h => (

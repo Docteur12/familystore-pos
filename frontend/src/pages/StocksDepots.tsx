@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,8 @@ type ViewMode = 'depots' | 'transferts';
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function StocksDepots() {
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu
   const [depots,     setDepots]     = useState<Depot[]>(loadDepots);
   const [transferts, setTransferts] = useState<Transfert[]>(loadTransferts);
   const [products,   setProducts]   = useState<Product[]>([]);
@@ -136,15 +139,15 @@ export default function StocksDepots() {
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <StocksSidebar/>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 24px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
+            <div style={{ paddingLeft: isMobile ? 44 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
               <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Dépôts</h1>
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {(['depots', 'transferts'] as ViewMode[]).map(v => (
                 <button key={v} onClick={() => setView(v)} style={{
                   padding: '7px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
@@ -171,7 +174,7 @@ export default function StocksDepots() {
           </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isNarrow ? '16px 12px' : '20px 24px' }}>
           {view === 'depots' ? (
             <>
               {/* Add depot form */}
@@ -181,7 +184,7 @@ export default function StocksDepots() {
                     <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', margin: 0 }}>Nouveau dépôt</p>
                     <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)' }}><I d={D.x} size={15}/></button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr 1fr' : '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
                     {([
                       { key: 'name',         label: 'Nom *',          placeholder: 'ex: Entrepôt Nord' },
                       { key: 'city',         label: 'Ville',          placeholder: 'ex: Douala' },
@@ -204,7 +207,7 @@ export default function StocksDepots() {
               )}
 
               {/* Depot cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
                 {depots.map(depot => (
                   <div key={depot.id} style={{ background: '#fff', border: `1px solid ${depot.main ? 'rgba(122,29,46,0.3)' : 'var(--fs-line)'}`, borderRadius: 12, padding: '18px 20px', boxShadow: 'var(--fs-shadow-sm)', position: 'relative' }}>
                     {depot.main && (
@@ -258,7 +261,7 @@ export default function StocksDepots() {
                     <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', margin: 0 }}>Nouveau transfert inter-dépôt</p>
                     <button onClick={() => setShowTransf(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)' }}><I d={D.x} size={15}/></button>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr 1fr' : '1fr 1fr 1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
                     <div>
                       <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Dépôt source *</label>
                       <select value={tForm.depotSourceId} onChange={e => setTForm(p => ({ ...p, depotSourceId: e.target.value }))}

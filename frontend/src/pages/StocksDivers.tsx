@@ -4,6 +4,7 @@ import ToastContainer, { useToast } from '../components/Toast';
 import NouveauProduitModal from '../components/NouveauProduitModal';
 import { getDiversSales, DiversSaleRow } from '../api/sales';
 import { getAllProducts, Product } from '../api/products';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
 
@@ -30,6 +31,8 @@ interface Groupe {
 
 export default function StocksDivers() {
   const { toasts, addToast, removeToast } = useToast();
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu
   const [rows, setRows]       = useState<DiversSaleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
@@ -96,20 +99,20 @@ export default function StocksDivers() {
         />
       )}
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0, paddingLeft: isMobile ? 60 : undefined }}>
           <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Articles divers</h1>
         </div>
 
         {/* Info + stats */}
-        <div style={{ padding: '14px 28px 0', flexShrink: 0 }}>
+        <div style={{ padding: isNarrow ? '14px 16px 0' : '14px 28px 0', flexShrink: 0 }}>
           <div style={{ background: '#fff', border: '1px solid rgba(122,29,46,0.15)', borderRadius: 10, padding: '10px 16px', fontSize: 12, color: 'var(--fs-wine-800)', marginBottom: 14 }}>
             Articles vendus en caisse <strong>sans être enregistrés</strong> dans le système. Crée le produit correspondant, puis ajuste son stock pour régulariser.
           </div>
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ display: isNarrow ? 'grid' : 'flex', gridTemplateColumns: isNarrow ? '1fr 1fr' : undefined, gap: isNarrow ? 10 : 14, flexWrap: 'wrap' }}>
             {[
               { label: 'Désignations à régulariser', val: fmtN(groupes.length), color: 'var(--fs-wine-700)' },
               { label: 'Total vendu (divers)',       val: `${fmtN(totalMontant)} XAF`, color: 'var(--fs-ink-800)' },
@@ -123,7 +126,7 @@ export default function StocksDivers() {
         </div>
 
         {/* Table */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '14px 28px 28px' }}>
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isNarrow ? '14px 12px 16px' : '14px 28px 28px', minHeight: isNarrow ? undefined : 0 }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
           ) : groupes.length === 0 ? (
