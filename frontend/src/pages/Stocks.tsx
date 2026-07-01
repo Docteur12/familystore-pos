@@ -617,6 +617,7 @@ type TabMode = 'all' | 'low' | 'expiry' | 'dup';
 export default function Stocks() {
   const { toasts, addToast, removeToast } = useToast();
   const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu
   const [products,  setProducts]  = useState<Product[]>([]);
   const [loading,   setLoading]   = useState(true);
   // Pré-remplit la recherche depuis l'URL (?q=…) — ex. clic sur un fournisseur.
@@ -1043,12 +1044,12 @@ export default function Stocks() {
       <StocksSidebar alertCount={lowCount}/>
 
       {/* ── Main ── */}
-      <main style={{ flex: 1, height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)', minWidth: 0 }}>
+      <main style={{ flex: 1, height: '100vh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)', minWidth: 0 }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 24px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
+            <div style={{ paddingLeft: isMobile ? 44 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>
                 Gestion de stock
               </p>
@@ -1062,7 +1063,7 @@ export default function Stocks() {
               </h1>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, maxWidth: 440, margin: '0 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, width: isNarrow ? '100%' : undefined, maxWidth: isNarrow ? '100%' : 440, margin: isNarrow ? 0 : '0 20px' }}>
               <div style={{ position: 'relative', flex: 1 }}>
                 <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-300)' }}>
                   <I d={D.search} size={14}/>
@@ -1080,7 +1081,7 @@ export default function Stocks() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: isNarrow ? 'flex-start' : 'flex-end' }}>
               <input ref={recatInputRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleImportRecat(f); }} />
               <button onClick={handleExportRecat} title="Exporter un CSV pour recatégoriser les produits dans Excel" style={{
@@ -1152,7 +1153,7 @@ export default function Stocks() {
         </div>
 
         {/* Metric cards */}
-        <div style={{ display: 'flex', gap: 14, padding: '16px 24px', flexShrink: 0 }}>
+        <div style={{ display: isNarrow ? 'grid' : 'flex', gridTemplateColumns: isNarrow ? '1fr 1fr' : undefined, gap: isNarrow ? 10 : 14, padding: isNarrow ? '14px 16px' : '16px 24px', flexShrink: 0 }}>
           <MetricCard title="Références actives" value={products.length} sub="+12" subColor="var(--fs-success-700)" icon={D.pkg}/>
           <MetricCard title="Valeur du stock" value={`${fmtN(stockValue)} XAF`} sub="+6,2 %" subColor="var(--fs-success-700)" icon={D.export} accent/>
           <MetricCard title="Stock faible" value={lowCount} sub={lowCount > 0 ? `${lowCount} à réapprovisionner` : 'Tout est OK'} subColor={lowCount > 0 ? 'var(--fs-warning-700)' : undefined} icon={D.alertes} onClick={lowCount > 0 ? () => setTab('low') : undefined}/>
@@ -1200,8 +1201,8 @@ export default function Stocks() {
         )}
 
         {/* Filter tabs + actions */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px 10px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', padding: isNarrow ? '0 16px 10px' : '0 24px 10px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {([
               { id: 'all',    label: 'Tous',             count: products.length },
               { id: 'low',    label: 'Stock bas',        count: lowCount        },
@@ -1245,8 +1246,8 @@ export default function Stocks() {
         </div>
 
         {/* Table */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px', minHeight: 0 }}>
-          <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isNarrow ? '0 12px 16px' : '0 24px 24px', minHeight: isNarrow ? undefined : 0 }}>
+          <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 720 : undefined, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#fff' }}>
                 {STOCK_COLS.map((col, i) => {
