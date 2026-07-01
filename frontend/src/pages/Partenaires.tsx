@@ -7,10 +7,12 @@ import { getAllProducts, Product } from '../api/products';
 import {
   getPartenaires, createPartenaire, updatePartenaire, deletePartenaire,
   getLivraisons, createLivraison, getDernierPrix,
-  getCompte, createPaiement, getPartenairesStats,
-  getCommandes, createCommande, deleteCommande, livrerCommande, createRetour,
+  getCompte, createPaiement, getPartenairesStats, getCompteAgences, CompteAgences,
+  getStatsAgences, StatsAgences, getOperations, Operation,
+  getCommandes, createCommande, updateCommande, deleteCommande, createRetour,
+  getAgences, createAgence, updateAgence, deleteAgence, preparerCommande,
   Partenaire, LivraisonPartenaire, ComptePartenaire, PartenairesStats,
-  CommandePartenaire, ModePaiement, MODE_LABELS,
+  CommandePartenaire, ModePaiement, MODE_LABELS, Agence,
 } from '../api/partenaires';
 import { getUsers, createUser, updateUser, deleteUser, UserRecord } from '../api/auth';
 import ToastContainer, { useToast } from '../components/Toast';
@@ -41,6 +43,13 @@ const D = {
   plus:      'M12 5v14M5 12h14',
   trash:     'M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2',
   edit:      'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z',
+  chart:     'M3 3v18h18M7 15l3-4 3 2 4-6',
+  clock:     'M12 7v5l3 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
+  bank:      'M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3',
+  user:      'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  shop:      'M3 9l1-5h16l1 5M4 9v11h16V9M9 22v-6h6v6',
+  link:      'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+  unlink:    'M18.84 12.25l1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71M5.17 11.75l-1.72 1.71a5 5 0 0 0 7.07 7.07l1.71-1.71M8 8l8 8',
 };
 
 const INPUT: React.CSSProperties = {
@@ -91,18 +100,20 @@ function ProductSelect({ products, value, onChange }: {
   );
 }
 
-type Tab = 'dashboard' | 'commandes' | 'livraisons' | 'comptes' | 'partenaires' | 'acces';
+type Tab = 'dashboard' | 'commandes' | 'preparer' | 'livraisons' | 'comptes' | 'rapport' | 'historique' | 'partenaires' | 'acces';
 interface Row { productId: string; quantite: string; prix: string }
 
-export default function Partenaires() {
+export default function Partenaires({ embedded = false, allowedTabs, initialTab }: { embedded?: boolean; allowedTabs?: Tab[]; initialTab?: Tab } = {}) {
   const navigate = useNavigate();
   const brand = getBrandColor();
   const payload = getTokenPayload();
   const isPatron = payload?.role === 'patron';
   const { toasts, addToast, removeToast } = useToast();
 
-  const [tab, setTab] = useState<Tab>('dashboard');
+  const [tab, setTab] = useState<Tab>(initialTab ?? (allowedTabs ? allowedTabs[0] : 'dashboard'));
   const [stats, setStats] = useState<PartenairesStats | null>(null);
+  const [statsAg, setStatsAg] = useState<StatsAgences | null>(null);
+  const [ops, setOps] = useState<Operation[]>([]); // historique global
   const [partenaires, setPartenaires] = useState<Partenaire[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [livraisons, setLivraisons] = useState<LivraisonPartenaire[]>([]);
@@ -118,10 +129,93 @@ export default function Partenaires() {
   // Formulaire commande
   const [commandes, setCommandes] = useState<CommandePartenaire[]>([]);
   const [cmdPartId, setCmdPartId] = useState('');
+  const [cmdAgenceId, setCmdAgenceId] = useState('');
+  const [cmdAgences, setCmdAgences] = useState<Agence[]>([]); // agences du partenaire sélectionné (commande)
   const [cmdRows, setCmdRows] = useState<Row[]>([{ productId: '', quantite: '1', prix: '' }]);
   const [cmdMode, setCmdMode] = useState<ModePaiement>('credit');
   const [cmdDelai, setCmdDelai] = useState('');
   const [cmdDernierPrix, setCmdDernierPrix] = useState<Record<string, number>>({});
+
+  // Charge les agences (actives) du partenaire choisi pour la commande
+  useEffect(() => {
+    setCmdAgenceId('');
+    if (cmdPartId) getAgences(cmdPartId).then(list => setCmdAgences(list.filter(a => !a.archivee))).catch(() => setCmdAgences([]));
+    else setCmdAgences([]);
+  }, [cmdPartId]);
+
+  // Toutes les agences (pour afficher le nom sur les commandes / préparation)
+  const [allAgences, setAllAgences] = useState<Agence[]>([]);
+  const agenceLabel = (id?: string | null) => {
+    if (!id) return '';
+    const a = allAgences.find(x => x._id === id);
+    return a ? `${a.nom}${a.ville ? ' · ' + a.ville : ''}` : '';
+  };
+
+  // Onglet « À préparer » : quantités servies par le magazinier
+  const [prepQty, setPrepQty] = useState<Record<string, string>>({}); // clé `${cmdId}|${productId}`
+  const [prepLoading, setPrepLoading] = useState<string | null>(null);
+  const resteLigne = (l: { quantite: number; quantiteLivree?: number }) => Math.max(0, (l.quantite ?? 0) - (l.quantiteLivree ?? 0));
+
+  // Impression d'un bon (commande ou livraison)
+  const STYLE_BON = `body{font-family:Arial,sans-serif;padding:24px;color:#111}h2{margin:0}.sub{color:#666;font-size:13px;margin:4px 0 16px}table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}th,td{border:1px solid #999;padding:6px 8px}th{background:#f0f0f0;text-align:left}.tot{margin-top:14px;font-size:16px;font-weight:bold;color:${brand}}.sign{margin-top:46px;display:flex;justify-content:space-between;font-size:12px;color:#444}`;
+  const lignesHtml = (lignes: { productName: string; quantite: number; prixUnitaire: number }[]) =>
+    lignes.map(l => `<tr><td>${l.productName}</td><td style="text-align:center">${l.quantite}</td><td style="text-align:right">${fmtN(l.prixUnitaire)}</td><td style="text-align:right">${fmtN(l.quantite * l.prixUnitaire)}</td></tr>`).join('');
+
+  const imprimerCommande = (c: CommandePartenaire) => {
+    const part = typeof c.partenaire === 'object' ? c.partenaire.name : '—';
+    const ag = agenceLabel(c.agence);
+    const tot = c.lignes.reduce((s, l) => s + l.quantite * l.prixUnitaire, 0);
+    const win = window.open('', '_blank', 'width=800,height=900'); if (!win) return;
+    win.document.write(`<html><head><title>Bon de commande ${c.numero}</title><style>${STYLE_BON}</style></head><body>
+      <h2>Bon de commande — ${part}</h2>
+      <div class="sub">${[ag, c.numero, new Date(c.createdAt).toLocaleDateString('fr-FR')].filter(Boolean).join(' · ')}</div>
+      <table><thead><tr><th>Produit</th><th style="text-align:center">Qté</th><th style="text-align:right">Prix U.</th><th style="text-align:right">Montant</th></tr></thead><tbody>${lignesHtml(c.lignes)}</tbody></table>
+      <div class="tot">Total estimé : ${fmtN(tot)} XAF</div>
+      <div class="sign"><div>Cachet / signature magasin</div><div>Signature partenaire</div></div>
+      <script>window.onload=()=>window.print()<\/script></body></html>`);
+    win.document.close();
+  };
+
+  const imprimerLivraison = (liv: LivraisonPartenaire, part: string, ag: string) => {
+    const win = window.open('', '_blank', 'width=800,height=900'); if (!win) return;
+    win.document.write(`<html><head><title>Bon de livraison ${liv.numeroBL}</title><style>${STYLE_BON}</style></head><body>
+      <h2>Bon de livraison — ${part}</h2>
+      <div class="sub">${[ag, liv.numeroBL, new Date().toLocaleDateString('fr-FR')].filter(Boolean).join(' · ')}</div>
+      <table><thead><tr><th>Produit</th><th style="text-align:center">Qté livrée</th><th style="text-align:right">Prix U.</th><th style="text-align:right">Montant</th></tr></thead><tbody>${lignesHtml(liv.lignes)}</tbody></table>
+      <div class="tot">Total : ${fmtN(liv.total)} XAF</div>
+      <div style="margin-top:6px;font-size:13px">Payé : ${fmtN(liv.montantPaye)} XAF &nbsp;·&nbsp; Reste dû : ${fmtN(Math.max(0, liv.total - liv.montantPaye))} XAF</div>
+      <div class="sign"><div>Cachet / signature magasin</div><div>Reçu par (partenaire)</div></div>
+      <script>window.onload=()=>window.print()<\/script></body></html>`);
+    win.document.close();
+  };
+
+  const validerPreparation = async (cmd: CommandePartenaire) => {
+    const lignes = cmd.lignes.map(l => {
+      const k = `${cmd._id}|${l.productId}`;
+      const saisi = prepQty[k];
+      const q = (saisi !== undefined && saisi !== '') ? (parseInt(saisi) || 0) : resteLigne(l);
+      return { productId: l.productId, quantite: q, prixUnitaire: l.prixUnitaire };
+    }).filter(l => l.quantite > 0);
+    if (lignes.length === 0) { addToast('Saisissez au moins une quantité à servir', 'error'); return; }
+    const rupture = lignes.find(l => l.quantite > (products.find(p => p._id === l.productId)?.stockMagazin ?? 0));
+    if (rupture) {
+      const nom = cmd.lignes.find(x => String(x.productId) === String(rupture.productId))?.productName ?? 'produit';
+      addToast(`Stock entrepôt insuffisant pour « ${nom} » — réduisez la quantité à servir`, 'error');
+      return;
+    }
+    setPrepLoading(cmd._id);
+    try {
+      const res = await preparerCommande(cmd._id, { lignes });
+      addToast('Livraison enregistrée ✓ — stock entrepôt mis à jour', 'success');
+      const partNom = typeof cmd.partenaire === 'object' ? cmd.partenaire.name : '—';
+      imprimerLivraison(res.livraison, partNom, agenceLabel(cmd.agence));
+      setPrepQty(prev => { const c = { ...prev }; cmd.lignes.forEach(l => delete c[`${cmd._id}|${l.productId}`]); return c; });
+      loadCommandes();
+      getAllProducts().then(setProducts).catch(() => {});
+      getLivraisons().then(setLivraisons).catch(() => {});
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+    finally { setPrepLoading(null); }
+  };
 
   // Retour d'invendus (comptes)
   const [retourRows, setRetourRows] = useState<Row[]>([{ productId: '', quantite: '1', prix: '' }]);
@@ -156,30 +250,116 @@ export default function Partenaires() {
     catch { addToast('Erreur suppression', 'error'); }
   };
 
-  // Formulaire partenaire
-  const [pForm, setPForm] = useState({ name: '', phone: '', lieu: '', note: '' });
+  // Formulaire partenaire (fiche d'inscription)
+  const PFORM_VIDE = { name: '', phone: '', ville: '', quartier: '', responsable: '', email: '', note: '', type: 'structure' as 'structure' | 'particulier' };
+  const [pForm, setPForm] = useState({ ...PFORM_VIDE });
   const [editing, setEditing] = useState<string | null>(null);
+  const [showPartModal, setShowPartModal] = useState(false); // modal fiche partenaire (vue détail maquette)
+  const ouvrirNouveauPartenaire = () => { setEditing(null); setPForm({ ...PFORM_VIDE }); setShowPartModal(true); };
+  const ouvrirEditPartenaire = (p: Partenaire) => { setEditing(p._id); setPForm({ name: p.name, phone: p.phone, ville: p.ville ?? '', quartier: p.quartier ?? '', responsable: p.responsable ?? '', email: p.email ?? '', note: p.note, type: p.type ?? 'structure' }); setShowPartModal(true); };
+
+  // Gestion des agences (par partenaire)
+  const [agences, setAgences] = useState<Agence[]>([]);
+  const [agencesPartId, setAgencesPartId] = useState<string | null>(null); // partenaire dont on gère les agences
+  type AForm = { id: string | null; nom: string; ville: string; quartier: string; telephone: string; responsable: string; independante: boolean };
+  const [aForm, setAForm] = useState<AForm | null>(null);
+
+  const loadAgences = (partId: string) => { getAgences(partId).then(setAgences).catch(() => setAgences([])); };
+  // Rafraîchit la liste des agences + la dette (compteAg) + la liste/sidebar (statsAg)
+  const rafraichirDette = (partId: string) => {
+    loadAgences(partId);
+    getCompteAgences(partId).then(setCompteAg).catch(() => {});
+    getStatsAgences().then(setStatsAg).catch(() => {});
+  };
+  const ouvrirAgences = (partId: string) => { setAgencesPartId(partId); setAForm(null); loadAgences(partId); };
+  const ouvrirNouvelleAgence = (p?: Partenaire) => setAForm({ id: null, nom: '', ville: p?.ville ?? '', quartier: '', telephone: '', responsable: '', independante: false });
+  const ouvrirEditAgence = (a: Agence) => setAForm({ id: a._id, nom: a.nom, ville: a.ville ?? '', quartier: a.quartier ?? '', telephone: a.telephone ?? '', responsable: a.responsable ?? '', independante: a.independante });
+
+  const saveAgence = async () => {
+    if (!aForm || !agencesPartId) return;
+    const nom = aForm.nom.trim();
+    if (!nom) { addToast("Le nom de l'agence est requis", 'error'); return; }
+    try {
+      if (aForm.id) {
+        await updateAgence(aForm.id, { nom, ville: aForm.ville.trim(), quartier: aForm.quartier.trim(), telephone: aForm.telephone.trim(), responsable: aForm.responsable.trim(), independante: aForm.independante });
+        addToast('Agence modifiée ✓', 'success');
+      } else {
+        await createAgence({ partenaireId: agencesPartId, nom, ville: aForm.ville.trim(), quartier: aForm.quartier.trim(), telephone: aForm.telephone.trim(), responsable: aForm.responsable.trim(), independante: aForm.independante });
+        addToast('Agence ajoutée ✓', 'success');
+      }
+      setAForm(null); rafraichirDette(agencesPartId);
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+  };
+
+  const toggleIndependante = async (a: Agence) => {
+    try { await updateAgence(a._id, { independante: !a.independante }); if (agencesPartId) rafraichirDette(agencesPartId); }
+    catch { addToast('Erreur', 'error'); }
+  };
+  const reactiverAgence = async (a: Agence) => {
+    try { await updateAgence(a._id, { archivee: false }); if (agencesPartId) rafraichirDette(agencesPartId); }
+    catch { addToast('Erreur', 'error'); }
+  };
+  const supprimerAgence = async (a: Agence) => {
+    if (!window.confirm(`Supprimer l'agence « ${a.nom} » ?\n\nSi elle a un historique, elle sera ARCHIVÉE (conservée dans les totaux), sinon supprimée.`)) return;
+    try {
+      const r = await deleteAgence(a._id);
+      addToast(r.archived ? 'Agence archivée (historique conservé)' : 'Agence supprimée', 'success');
+      if (agencesPartId) rafraichirDette(agencesPartId);
+    } catch { addToast('Erreur suppression', 'error'); }
+  };
+  const setToutesAgences = async (independante: boolean) => {
+    if (!compteId) return;
+    const cibles = agences.filter(a => !a.archivee);
+    if (cibles.length === 0) return;
+    try {
+      await Promise.all(cibles.map(a => updateAgence(a._id, { independante })));
+      rafraichirDette(compteId);
+      addToast(independante ? 'Toutes les agences sont indépendantes' : 'Toutes les agences en dette commune', 'success');
+    } catch { addToast('Erreur', 'error'); }
+  };
 
   // Comptes (relevé)
   const [compteId, setCompteId] = useState('');
   const [compte, setCompte] = useState<ComptePartenaire | null>(null);
+  const [compteAg, setCompteAg] = useState<CompteAgences | null>(null); // ventilation par agence
   const [paieMontant, setPaieMontant] = useState('');
   const [paieNote, setPaieNote] = useState('');
+  const [paieAgenceId, setPaieAgenceId] = useState(''); // '' = versement commun/global
+  const [montantCommun, setMontantCommun] = useState(''); // versement libre sur la dette commune
 
   const loadCompte = (id: string) => {
-    if (!id) { setCompte(null); return; }
+    if (!id) { setCompte(null); setCompteAg(null); return; }
     getCompte(id).then(setCompte).catch(() => setCompte(null));
+    getCompteAgences(id).then(setCompteAg).catch(() => setCompteAg(null));
   };
-  useEffect(() => { loadCompte(compteId); }, [compteId]);
+  useEffect(() => {
+    loadCompte(compteId);
+    setPaieAgenceId('');
+    if (compteId) { setAgencesPartId(compteId); loadAgences(compteId); }
+  }, [compteId]);
 
   const enregistrerPaiement = async () => {
     const montant = parseInt(paieMontant) || 0;
     if (!compteId || montant <= 0) { addToast('Saisissez un montant', 'error'); return; }
     try {
-      await createPaiement(compteId, { montant, note: paieNote.trim() || undefined });
-      addToast('Paiement enregistré ✓', 'success');
-      setPaieMontant(''); setPaieNote('');
+      await createPaiement(compteId, { montant, note: paieNote.trim() || undefined, agenceId: paieAgenceId || null });
+      addToast('Versement enregistré ✓', 'success');
+      setPaieMontant(''); setPaieNote(''); setPaieAgenceId('');
       loadCompte(compteId);
+      getStatsAgences().then(setStatsAg).catch(() => {});
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+  };
+
+  // Versement libre sur la dette commune (agence = null)
+  const enregistrerVersementCommun = async () => {
+    const montant = parseInt(montantCommun) || 0;
+    if (!compteId || montant <= 0) { addToast('Saisissez un montant', 'error'); return; }
+    try {
+      await createPaiement(compteId, { montant, agenceId: null });
+      addToast('Versement enregistré ✓', 'success');
+      setMontantCommun('');
+      loadCompte(compteId);
+      getStatsAgences().then(setStatsAg).catch(() => {});
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
   };
 
@@ -216,17 +396,23 @@ export default function Partenaires() {
 
   const warehouse = useMemo(() => products.filter(p => (p.stockMagazin ?? 0) > 0), [products]);
 
-  const loadStats = () => { getPartenairesStats().then(setStats).catch(() => {}); };
+  const loadStats = () => { getPartenairesStats().then(setStats).catch(() => {}); getStatsAgences().then(setStatsAg).catch(() => {}); };
   const loadCommandes = () => { getCommandes().then(setCommandes).catch(() => {}); };
   const loadAll = () => {
     getPartenaires().then(setPartenaires).catch(() => {});
     getAllProducts().then(setProducts).catch(() => {});
     getLivraisons().then(setLivraisons).catch(() => {});
+    getAgences().then(setAllAgences).catch(() => {});
     loadCommandes();
     loadStats();
   };
   useEffect(() => { loadAll(); }, []);
-  useEffect(() => { if (tab === 'dashboard') loadStats(); if (tab === 'acces') loadCommerciaux(); }, [tab]);
+  useEffect(() => {
+    if (tab === 'dashboard' || tab === 'rapport') loadStats();
+    if (tab === 'rapport' || tab === 'historique') getLivraisons().then(setLivraisons).catch(() => {});
+    if (tab === 'historique') getOperations().then(setOps).catch(() => {});
+    if (tab === 'acces') loadCommerciaux();
+  }, [tab]);
 
   // Rappel des derniers prix pour la commande
   useEffect(() => {
@@ -239,30 +425,57 @@ export default function Partenaires() {
   const removeCmdRow = (i: number) => setCmdRows(r => r.length === 1 ? [{ productId: '', quantite: '1', prix: '' }] : r.filter((_, n) => n !== i));
   const cmdTotal = cmdRows.reduce((s, r) => s + (parseInt(r.quantite) || 0) * (parseInt(r.prix) || 0), 0);
 
+  const [editingCmd, setEditingCmd] = useState<string | null>(null); // id de la commande en cours de modification
+
+  const chargerCommandePourEdition = (c: CommandePartenaire) => {
+    setEditingCmd(c._id);
+    setCmdPartId(typeof c.partenaire === 'object' ? c.partenaire._id : c.partenaire);
+    setCmdAgenceId(c.agence ?? '');
+    setCmdMode(c.modePaiement);
+    setCmdDelai(c.delai ? String(c.delai) : '');
+    setCmdRows(c.lignes.length ? c.lignes.map(l => ({ productId: String(l.productId), quantite: String(l.quantite), prix: String(l.prixUnitaire) })) : [{ productId: '', quantite: '1', prix: '' }]);
+    window.scrollTo(0, 0);
+  };
+  const annulerEditionCmd = () => {
+    setEditingCmd(null);
+    setCmdRows([{ productId: '', quantite: '1', prix: '' }]); setCmdDelai(''); setCmdAgenceId('');
+  };
+
   const validerCommande = async () => {
     if (!cmdPartId) { addToast('Choisissez un partenaire', 'error'); return; }
     const lignes = cmdRows.filter(r => r.productId && (parseInt(r.quantite) || 0) > 0)
       .map(r => ({ productId: r.productId, quantite: parseInt(r.quantite) || 0, prixUnitaire: parseInt(r.prix) || 0 }));
     if (lignes.length === 0) { addToast('Ajoutez au moins un produit', 'error'); return; }
     try {
-      await createCommande({ partenaireId: cmdPartId, modePaiement: cmdMode, delai: parseInt(cmdDelai) || 0, lignes });
-      addToast('Commande enregistrée ✓', 'success');
-      setCmdRows([{ productId: '', quantite: '1', prix: '' }]); setCmdDelai('');
+      if (editingCmd) {
+        await updateCommande(editingCmd, { agenceId: cmdAgenceId || null, modePaiement: cmdMode, delai: parseInt(cmdDelai) || 0, lignes });
+        addToast('Commande modifiée ✓', 'success');
+        setEditingCmd(null);
+      } else {
+        await createCommande({ partenaireId: cmdPartId, agenceId: cmdAgenceId || null, modePaiement: cmdMode, delai: parseInt(cmdDelai) || 0, lignes });
+        addToast('Commande enregistrée ✓', 'success');
+      }
+      setCmdRows([{ productId: '', quantite: '1', prix: '' }]); setCmdDelai(''); setCmdAgenceId('');
       loadCommandes();
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
   };
 
-  const genererBL = async (id: string) => {
+  const supprimerCommande = async (c: CommandePartenaire) => {
+    const livree = c.statut === 'livree' || c.statut === 'partielle';
+    const msg = livree
+      ? `Cette commande a déjà été (partiellement) livrée.\n\nLa supprimer va ANNULER la/les livraison(s) : le stock sera RESTITUÉ à l'entrepôt et la dette correspondante disparaîtra.\n\nConfirmer ?`
+      : 'Supprimer cette commande ?';
+    if (!window.confirm(msg)) return;
     try {
-      await livrerCommande(id, 0);
-      addToast('Bon de livraison généré ✓ — stock entrepôt mis à jour', 'success');
-      loadCommandes(); getAllProducts().then(setProducts).catch(() => {}); getLivraisons().then(setLivraisons).catch(() => {});
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
-  };
-
-  const supprimerCommande = async (id: string) => {
-    try { await deleteCommande(id); setCommandes(prev => prev.filter(c => c._id !== id)); addToast('Commande supprimée', 'success'); }
-    catch { addToast('Erreur suppression', 'error'); }
+      const r = await deleteCommande(c._id);
+      setCommandes(prev => prev.filter(x => x._id !== c._id));
+      addToast(r.livraisonsAnnulees > 0 ? `Commande annulée ✓ — ${r.produitsRestitues} article(s) restitué(s) en entrepôt` : 'Commande supprimée', 'success');
+      getAllProducts().then(setProducts).catch(() => {});
+      getLivraisons().then(setLivraisons).catch(() => {});
+      loadCommandes();
+      if (compteId) loadCompte(compteId);
+      getStatsAgences().then(setStatsAg).catch(() => {});
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur suppression', 'error'); }
   };
 
   // Retour d'invendus
@@ -316,11 +529,15 @@ export default function Partenaires() {
   const savePartenaire = async () => {
     if (!pForm.name.trim()) { addToast('Le nom du partenaire est requis', 'error'); return; }
     try {
+      let nouvelId: string | null = null;
       if (editing) { await updatePartenaire(editing, pForm); addToast('Partenaire modifié ✓', 'success'); }
-      else { await createPartenaire(pForm); addToast('Partenaire ajouté ✓', 'success'); }
-      setPForm({ name: '', phone: '', lieu: '', note: '' });
+      else { const cree = await createPartenaire(pForm); nouvelId = cree._id; addToast('Partenaire ajouté ✓', 'success'); }
+      setPForm({ ...PFORM_VIDE });
       setEditing(null);
+      setShowPartModal(false);
       getPartenaires().then(setPartenaires).catch(() => {});
+      getStatsAgences().then(setStatsAg).catch(() => {});
+      if (nouvelId) { setCompteId(nouvelId); ouvrirAgences(nouvelId); setTab('comptes'); }
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
   };
 
@@ -331,11 +548,25 @@ export default function Partenaires() {
 
   const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
 
+  const TAB_TITLES: Record<string, string> = {
+    dashboard: 'Tableau de bord', commandes: 'Commandes grossistes', preparer: 'Commandes à préparer',
+    livraisons: 'Bon de livraison', comptes: 'Comptes & créances', rapport: 'Rapport & analyse',
+    historique: 'Historique', acces: 'Comptes de connexion Partenaires', partenaires: 'Partenaires',
+  };
+  const TAB_LABELS: Record<string, string> = {
+    dashboard: 'Tableau de bord', commandes: 'Commandes', preparer: 'À préparer',
+    livraisons: 'Livraisons', comptes: 'Comptes', rapport: 'Rapport', historique: 'Historique',
+    acces: 'Accès', partenaires: 'Partenaires',
+  };
+
   return (
-    <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
+    <div style={embedded
+      ? { display: 'flex', width: '100%', height: '100%', overflow: 'hidden', fontFamily: 'var(--fs-font-sans)' }
+      : { display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
-      {/* Sidebar */}
+      {/* Sidebar (masquée en mode intégré) */}
+      {!embedded && (
       <aside className="fs-sidebar-drawer" style={{ width: 200, background: 'var(--fs-wine-900)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>Family Store</div>
@@ -345,11 +576,9 @@ export default function Partenaires() {
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
           {([
             { key: 'dashboard', label: 'Tableau de bord', icon: D.dashboard },
-            { key: 'commandes', label: 'Commandes', icon: D.cart },
-            { key: 'livraisons', label: 'Livraisons', icon: D.livraison },
-            { key: 'comptes', label: 'Comptes & créances', icon: D.compte },
-            { key: 'partenaires', label: 'Partenaires', icon: D.clients },
-            ...(isPatron ? [{ key: 'acces' as Tab, label: 'Accès commerciaux', icon: D.key }] : []),
+            { key: 'rapport', label: 'Rapport & analyse', icon: D.chart },
+            { key: 'historique', label: 'Historique', icon: D.clock },
+            ...(isPatron ? [{ key: 'acces' as Tab, label: 'Comptes de connexion', icon: D.key }] : []),
           ] as { key: Tab; label: string; icon: string }[]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '9px 10px', marginBottom: 2,
@@ -363,6 +592,38 @@ export default function Partenaires() {
               {t.label}
             </button>
           ))}
+
+          {/* Liste des partenaires (clic → détail) */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 10px 6px' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>Partenaires</span>
+            <button onClick={ouvrirNouveauPartenaire} title="Nouveau partenaire" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(255,255,255,0.08)', color: 'var(--fs-gold-300)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '3px 7px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}><I d={D.plus} size={11}/> Nouveau</button>
+          </div>
+          {partenaires.length === 0 && <div style={{ fontSize: 11, color: 'rgba(245,235,217,0.4)', padding: '4px 10px' }}>Aucun partenaire — clique « Nouveau ».</div>}
+          {partenaires.map(p => {
+            const active = tab === 'comptes' && compteId === p._id;
+            const solde = (statsAg?.debiteurs ?? []).filter(d => d.partenaireId === p._id).reduce((s, d) => s + d.solde, 0);
+            return (
+              <button key={p._id} onClick={() => { setCompteId(p._id); ouvrirAgences(p._id); setTab('comptes'); }} style={{
+                width: '100%', textAlign: 'left', marginBottom: 3, padding: '8px 10px', borderRadius: 8, cursor: 'pointer', border: 'none',
+                background: active ? 'var(--fs-wine-700)' : 'rgba(255,255,255,0.03)',
+                borderLeft: active ? '2px solid var(--fs-gold-400)' : '2px solid transparent',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ color: 'var(--fs-gold-400)', flexShrink: 0 }}><I d={p.type === 'particulier' ? D.user : D.bank} size={14}/></span>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+                </div>
+                <div style={{ fontSize: 10.5, color: solde > 0 ? '#fca5a5' : '#86efac', fontWeight: 700, fontFamily: 'var(--fs-font-mono)', marginTop: 3 }}>Dette : {fmtN(solde)} XAF</div>
+              </button>
+            );
+          })}
+
+          <div style={{ margin: '10px 6px 4px', padding: '9px 10px', borderRadius: 8, border: '1px dashed rgba(255,255,255,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ color: 'var(--fs-gold-400)' }}><I d={D.shop} size={13}/></span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(245,235,217,0.85)' }}>Présentoir</span>
+            </div>
+            <div style={{ fontSize: 9.5, color: 'rgba(245,235,217,0.5)', marginTop: 3 }}>Géré comme un partenaire : crée-le avec « Nouveau » (nom « Présentoir »).</div>
+          </div>
         </nav>
 
         {isPatron && (
@@ -378,7 +639,7 @@ export default function Partenaires() {
           <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--fs-gold-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{initials}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
-            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>{isPatron ? 'Administrateur' : payload?.role === 'commercial' ? 'Commercial' : 'Magazinier'}</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>{isPatron ? 'Administrateur' : payload?.role === 'commercial' ? 'Compte Partenaires' : 'Magazinier'}</div>
           </div>
           <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
             style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', padding: 2 }} title="Déconnexion">
@@ -386,15 +647,28 @@ export default function Partenaires() {
           </button>
         </div>
       </aside>
+      )}
 
       {/* Main */}
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
-          <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Partenaires</p>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{tab === 'dashboard' ? 'Tableau de bord' : tab === 'commandes' ? 'Commandes grossistes' : tab === 'livraisons' ? 'Bon de livraison' : tab === 'comptes' ? 'Comptes & créances' : tab === 'acces' ? 'Accès commerciaux' : 'Partenaires'}</h1>
-        </div>
+        {embedded ? (
+          <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '10px 16px', flexShrink: 0, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {(allowedTabs ?? (['commandes', 'preparer'] as Tab[])).map(k => (
+              <button key={k} onClick={() => setTab(k)} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                border: tab === k ? 'none' : '1.5px solid var(--fs-line-2)',
+                background: tab === k ? 'var(--fs-wine-700)' : '#fff', color: tab === k ? '#fff' : 'var(--fs-ink-600)',
+              }}>{TAB_LABELS[k]}</button>
+            ))}
+          </div>
+        ) : (
+          <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
+            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Partenaires</p>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{tab === 'comptes' ? (compteAg ? compteAg.partenaire.name : 'Détail partenaire') : (TAB_TITLES[tab] ?? 'Partenaires')}</h1>
+          </div>
+        )}
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: embedded ? '18px 16px' : '20px 28px' }}>
 
           {/* ── Onglet Tableau de bord ── */}
           {tab === 'dashboard' && (
@@ -434,17 +708,20 @@ export default function Partenaires() {
                   </div>
                 </div>
 
-                {/* Top débiteurs */}
+                {/* Top débiteurs (ventilé par agence) */}
                 <div style={{ flex: '1 1 280px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Top débiteurs (créances)</p>
-                  {(stats?.topDebiteurs ?? []).length === 0 ? (
+                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Top débiteurs <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-400)' }}>(par agence / commune)</span></p>
+                  {(statsAg?.debiteurs ?? []).length === 0 ? (
                     <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune créance — tout est réglé ✓</div>
-                  ) : (stats?.topDebiteurs ?? []).map((d, i) => (
-                    <div key={d.partenaireId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--fs-line)', cursor: 'pointer' }}
+                  ) : (statsAg?.debiteurs ?? []).slice(0, 10).map((d, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--fs-line)', cursor: 'pointer' }}
                       onClick={() => { setCompteId(d.partenaireId); setTab('comptes'); }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                         <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-500)', flexShrink: 0 }}>{i + 1}</span>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</div>
+                          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.sub}</div>
+                        </div>
                       </div>
                       <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-danger-700)', flexShrink: 0 }}>{fmtN(d.solde)}</span>
                     </div>
@@ -458,11 +735,11 @@ export default function Partenaires() {
           {tab === 'commandes' && (
             <div style={{ maxWidth: 880 }}>
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Nouvelle commande du grossiste</p>
+                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: editingCmd ? 'var(--fs-wine-700)' : 'var(--fs-ink-900)' }}>{editingCmd ? '✎ Modifier la commande' : 'Nouvelle commande du grossiste'}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px', gap: 10, marginBottom: 14 }}>
                   <div>
                     <label style={LABEL}>Partenaire</label>
-                    <select value={cmdPartId} onChange={e => setCmdPartId(e.target.value)} style={{ ...INPUT, cursor: 'pointer' }}>
+                    <select value={cmdPartId} onChange={e => setCmdPartId(e.target.value)} disabled={!!editingCmd} style={{ ...INPUT, cursor: editingCmd ? 'not-allowed' : 'pointer', opacity: editingCmd ? 0.6 : 1 }}>
                       <option value="">— Choisir —</option>
                       {partenaires.map(p => <option key={p._id} value={p._id}>{p.name}{p.lieu ? ` · ${p.lieu}` : ''}</option>)}
                     </select>
@@ -481,7 +758,17 @@ export default function Partenaires() {
                   </div>
                 </div>
 
-                <label style={LABEL}>Produits demandés (préparation : stock boutique + entrepôt)</label>
+                {cmdAgences.length > 0 && (
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={LABEL}>Agence concernée</label>
+                    <select value={cmdAgenceId} onChange={e => setCmdAgenceId(e.target.value)} style={{ ...INPUT, cursor: 'pointer' }}>
+                      <option value="">— Aucune (commande au nom du partenaire) —</option>
+                      {cmdAgences.map(a => <option key={a._id} value={a._id}>{a.nom}{a.ville ? ` · ${a.ville}` : ''}{a.independante ? ' — indépendante' : ''}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                <label style={LABEL}>Produits commandés (livrés ensuite depuis l'entrepôt)</label>
                 {cmdRows.map((row, i) => {
                   const prod = products.find(p => p._id === row.productId);
                   const dp = row.productId ? cmdDernierPrix[row.productId] : undefined;
@@ -506,7 +793,10 @@ export default function Partenaires() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--fs-line)' }}>
                   <div style={{ fontSize: 13, color: 'var(--fs-ink-500)' }}>Total estimé : <strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(cmdTotal)} XAF</strong></div>
-                  <button onClick={validerCommande} style={BTN_PRIMARY}>Enregistrer la commande</button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {editingCmd && <button onClick={annulerEditionCmd} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>Annuler</button>}
+                    <button onClick={validerCommande} style={BTN_PRIMARY}>{editingCmd ? 'Enregistrer les modifications' : 'Enregistrer la commande'}</button>
+                  </div>
                 </div>
               </div>
 
@@ -514,33 +804,137 @@ export default function Partenaires() {
               <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Commandes</p>
               {commandes.length === 0 ? (
                 <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune commande</div>
-              ) : commandes.map(c => {
-                const tot = c.lignes.reduce((s, l) => s + l.quantite * l.prixUnitaire, 0);
-                const statutCfg = c.statut === 'livree' ? { bg: '#f0fdf4', col: '#16a34a', txt: 'Livrée' } : c.statut === 'preparee' ? { bg: '#eff6ff', col: '#2563eb', txt: 'Préparée' } : { bg: '#fef9e7', col: '#a16207', txt: 'Reçue' };
-                return (
-                  <div key={c._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 8, boxShadow: 'var(--fs-shadow-sm)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{typeof c.partenaire === 'object' ? c.partenaire.name : '—'}</span>
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: statutCfg.bg, color: statutCfg.col }}>{statutCfg.txt}</span>
-                        <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: 'var(--fs-ivory)', color: 'var(--fs-ink-500)' }}>{MODE_LABELS[c.modePaiement]}</span>
+              ) : (
+                <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflowX: 'auto', boxShadow: 'var(--fs-shadow-sm)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--fs-ivory)' }}>
+                        <th style={{ padding: '8px 12px' }}>Partenaire / Agence</th>
+                        <th style={{ padding: '8px 12px' }}>Produits</th>
+                        <th style={{ padding: '8px 12px' }}>Statut</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Total</th>
+                        <th style={{ padding: '8px 12px' }}>Date</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {commandes.map(c => {
+                        const tot = c.lignes.reduce((s, l) => s + l.quantite * l.prixUnitaire, 0);
+                        const ag = agenceLabel(c.agence);
+                        const statutCfg = c.statut === 'livree' ? { bg: '#f0fdf4', col: '#16a34a', txt: 'Livrée' } : c.statut === 'partielle' ? { bg: '#eff6ff', col: '#2563eb', txt: 'Partielle' } : c.statut === 'preparee' ? { bg: '#eff6ff', col: '#2563eb', txt: 'Préparée' } : { bg: '#fef9e7', col: '#a16207', txt: 'Reçue' };
+                        return (
+                          <tr key={c._id} style={{ borderTop: '1px solid var(--fs-line)', verticalAlign: 'top' }}>
+                            <td style={{ padding: '9px 12px' }}>
+                              <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)' }}>{typeof c.partenaire === 'object' ? c.partenaire.name : '—'}</div>
+                              {ag && <div style={{ fontSize: 10, fontWeight: 700, color: '#2563eb' }}>{ag}</div>}
+                              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{c.numero}{c.delai ? ` · délai ${c.delai}j` : ''}</div>
+                            </td>
+                            <td style={{ padding: '9px 12px' }}>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxWidth: 280 }}>
+                                {c.lignes.map((lg, i) => <span key={i} style={{ fontSize: 11, background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 6, padding: '2px 8px', color: 'var(--fs-ink-700)' }}>{lg.productName} × <strong>{lg.quantite}</strong></span>)}
+                              </div>
+                            </td>
+                            <td style={{ padding: '9px 12px' }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: statutCfg.bg, color: statutCfg.col }}>{statutCfg.txt}</span>
+                              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 3 }}>{MODE_LABELS[c.modePaiement]}</div>
+                            </td>
+                            <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtN(tot)}</td>
+                            <td style={{ padding: '9px 12px', fontSize: 11, color: 'var(--fs-ink-500)', whiteSpace: 'nowrap' }}>{fmtDateTime(c.createdAt)}</td>
+                            <td style={{ padding: '9px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              {c.statut !== 'livree'
+                                ? <button onClick={() => setTab('preparer')} title="Préparer / livrer" style={{ padding: '5px 10px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Préparer →</button>
+                                : <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓</span>}
+                              {c.statut === 'recue' && <button onClick={() => chargerCommandePourEdition(c)} title="Modifier la commande" style={{ marginLeft: 6, padding: '5px 8px', background: 'var(--fs-ivory)', color: 'var(--fs-ink-600)', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.edit} size={13}/></button>}
+                              <button onClick={() => imprimerCommande(c)} title="Imprimer le bon de commande" style={{ marginLeft: 6, padding: '5px 8px', background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.print} size={13}/></button>
+                              <button onClick={() => supprimerCommande(c)} title={c.statut === 'livree' || c.statut === 'partielle' ? 'Annuler (restitue le stock)' : 'Supprimer'} style={{ marginLeft: 6, padding: '5px 8px', background: '#fef2f2', color: 'var(--fs-danger-700)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.trash} size={13}/></button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Onglet À préparer (magazinier) ── */}
+          {tab === 'preparer' && (
+            <div style={{ maxWidth: 880 }}>
+              <div style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 12, color: 'var(--fs-ink-600)' }}>
+                Saisissez les <strong>quantités réellement servies</strong> depuis l'entrepôt. Si vous servez moins que commandé, le <strong>reliquat reste ouvert</strong> et la commande revient ici jusqu'à livraison complète.
+              </div>
+
+              {(() => {
+                const aPreparer = commandes.filter(c => c.statut === 'recue' || c.statut === 'preparee' || c.statut === 'partielle');
+                if (aPreparer.length === 0) return <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune commande à préparer ✓</div>;
+                return aPreparer.map(c => {
+                  const part = typeof c.partenaire === 'object' ? c.partenaire.name : '—';
+                  const ag = agenceLabel(c.agence);
+                  const statutCfg = c.statut === 'partielle' ? { bg: '#eff6ff', col: '#2563eb', txt: 'Partielle' } : { bg: '#fef9e7', col: '#a16207', txt: 'Reçue' };
+                  const serviDe = (l: typeof c.lignes[number]) => { const kk = `${c._id}|${l.productId}`; const v = prepQty[kk]; return (v !== undefined && v !== '') ? (parseInt(v) || 0) : resteLigne(l); };
+                  const stockDe = (l: typeof c.lignes[number]) => products.find(p => p._id === l.productId)?.stockMagazin ?? 0;
+                  const enRupture = c.lignes.some(l => serviDe(l) > stockDe(l));
+                  return (
+                    <div key={c._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 16, marginBottom: 12, boxShadow: 'var(--fs-shadow-sm)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{part}</span>
+                          {ag && <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#eff6ff', color: '#2563eb' }}>{ag}</span>}
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: statutCfg.bg, color: statutCfg.col }}>{statutCfg.txt}</span>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{c.numero} · {fmtDateTime(c.createdAt)}</div>
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{c.numero} · {fmtN(tot)} XAF{c.delai ? ` · délai ${c.delai}j` : ''}</div>
+
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            <th style={{ padding: '5px 6px' }}>Produit</th>
+                            <th style={{ padding: '5px 6px', textAlign: 'center' }}>Commandé</th>
+                            <th style={{ padding: '5px 6px', textAlign: 'center' }}>Déjà livré</th>
+                            <th style={{ padding: '5px 6px', textAlign: 'center' }}>Reste</th>
+                            <th style={{ padding: '5px 6px', textAlign: 'center' }}>Entrepôt</th>
+                            <th style={{ padding: '5px 6px', textAlign: 'center', width: 110 }}>À servir</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {c.lignes.map((l, i) => {
+                            const reste = resteLigne(l);
+                            const stockMag = products.find(p => p._id === l.productId)?.stockMagazin ?? 0;
+                            const k = `${c._id}|${l.productId}`;
+                            const servi = (prepQty[k] !== undefined && prepQty[k] !== '') ? (parseInt(prepQty[k]) || 0) : reste;
+                            const over = servi > stockMag;
+                            return (
+                              <tr key={i} style={{ borderTop: '1px solid var(--fs-line)' }}>
+                                <td style={{ padding: '7px 6px', fontWeight: 600, color: 'var(--fs-ink-900)' }}>{l.productName}</td>
+                                <td style={{ padding: '7px 6px', textAlign: 'center', fontFamily: 'var(--fs-font-mono)' }}>{l.quantite}</td>
+                                <td style={{ padding: '7px 6px', textAlign: 'center', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-success-700)' }}>{l.quantiteLivree ?? 0}</td>
+                                <td style={{ padding: '7px 6px', textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: reste > 0 ? 'var(--fs-danger-700)' : 'var(--fs-ink-400)' }}>{reste}</td>
+                                <td style={{ padding: '7px 6px', textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: over ? 800 : 400, color: over ? 'var(--fs-danger-700)' : 'var(--fs-ink-500)' }}>{stockMag}</td>
+                                <td style={{ padding: '7px 6px', textAlign: 'center' }}>
+                                  <input type="number" min={0} max={stockMag} value={prepQty[k] ?? ''} placeholder={String(reste)}
+                                    onChange={e => setPrepQty(prev => ({ ...prev, [k]: e.target.value }))}
+                                    style={{ ...INPUT, textAlign: 'center', padding: '6px 8px', width: 90, borderColor: over ? 'var(--fs-danger-500)' : 'var(--fs-line-2)', background: over ? '#fef2f2' : '#fff' }}/>
+                                  {over && <div style={{ fontSize: 9, color: 'var(--fs-danger-700)', fontWeight: 700, marginTop: 2 }}>max {stockMag}</div>}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--fs-line)' }}>
+                        {enRupture
+                          ? <span style={{ fontSize: 12, color: 'var(--fs-danger-700)', fontWeight: 700 }}>⚠ Stock entrepôt insuffisant — réduisez les quantités à servir</span>
+                          : <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>Vide = on sert tout le reste</span>}
+                        <button onClick={() => validerPreparation(c)} disabled={prepLoading === c._id || enRupture} style={{ ...BTN_PRIMARY, opacity: (prepLoading === c._id || enRupture) ? 0.5 : 1, cursor: enRupture ? 'not-allowed' : 'pointer' }}>
+                          {prepLoading === c._id ? 'Validation…' : 'Valider la livraison'}
+                        </button>
+                      </div>
                     </div>
-                    <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {c.lignes.map((lg, i) => <span key={i} style={{ fontSize: 11, background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 6, padding: '3px 8px', color: 'var(--fs-ink-700)' }}>{lg.productName} × {lg.quantite}</span>)}
-                    </div>
-                    <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
-                      {c.statut !== 'livree' ? (
-                        <button onClick={() => genererBL(c._id)} style={{ padding: '6px 14px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Générer le bon de livraison</button>
-                      ) : (
-                        <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, alignSelf: 'center' }}>✓ Bon de livraison généré</span>
-                      )}
-                      <button onClick={() => supprimerCommande(c._id)} title="Supprimer" style={{ padding: '6px 9px', background: '#fef2f2', color: 'var(--fs-danger-700)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.trash} size={13}/></button>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           )}
 
@@ -633,114 +1027,378 @@ export default function Partenaires() {
 
           {/* ── Onglet Comptes & créances ── */}
           {tab === 'comptes' && (
-            <div style={{ maxWidth: 820 }}>
-              <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                <label style={LABEL}>Partenaire</label>
-                <select value={compteId} onChange={e => setCompteId(e.target.value)} style={{ ...INPUT, cursor: 'pointer' }}>
-                  <option value="">— Choisir un partenaire —</option>
-                  {partenaires.map(p => <option key={p._id} value={p._id}>{p.name}{p.lieu ? ` · ${p.lieu}` : ''}</option>)}
-                </select>
-              </div>
-
-              {compte && (
-                <>
-                  {/* Solde + actions */}
-                  <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
-                      <div style={{ flex: 1, minWidth: 200 }}>
-                        <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{compte.partenaire.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{[compte.partenaire.lieu, compte.partenaire.phone].filter(Boolean).join(' · ') || '—'}</div>
-                        <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 12, color: 'var(--fs-ink-500)' }}>
-                          <span>Livré : <strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(compte.totalLivre)}</strong></span>
-                          <span>Payé : <strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(compte.payeLivraison + compte.totalPaiements)}</strong></span>
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Solde dû (créance)</div>
-                        <div style={{ fontSize: 26, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: compte.solde > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(compte.solde)} XAF</div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={() => setShowRetour(s => !s)} style={{ padding: '9px 14px', background: '#fff', color: 'var(--fs-ink-600)', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                          Retour d'invendus
-                        </button>
-                        <button onClick={imprimerReleve} style={{ padding: '9px 16px', background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <I d={D.print} size={14}/> Imprimer le relevé
-                        </button>
-                      </div>
+            <div style={{ maxWidth: 860 }}>
+              {!compteId ? (
+                <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '32px 20px', textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, boxShadow: 'var(--fs-shadow-sm)' }}>
+                  ← Sélectionne un partenaire dans la liste à gauche pour voir son détail (agences, dette par agence, versements), ou crée-en un avec « <strong>Nouveau</strong> ».
+                </div>
+              ) : !compteAg ? (
+                <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '32px 20px', textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, boxShadow: 'var(--fs-shadow-sm)' }}>
+                  Chargement du partenaire…
+                </div>
+              ) : (
+                (() => {
+                  const nbActives = compteAg.agences.filter(a => !a.archivee).length;
+                  const nbIndep = compteAg.agences.filter(a => a.independante && !a.archivee).length;
+                  const sub = [
+                    compteAg.partenaire.type === 'particulier' ? 'Particulier' : 'Structure',
+                    [compteAg.partenaire.ville, compteAg.partenaire.quartier].filter(Boolean).join(' '),
+                    compteAg.partenaire.phone, compteAg.partenaire.responsable,
+                    nbActives > 0 ? `${nbIndep} agence(s) indépendante(s) / ${nbActives}` : '',
+                  ].filter(Boolean).join(' · ');
+                  const GHOST = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', color: 'var(--fs-ink-700)' } as React.CSSProperties;
+                  return (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                    <div>
+                      <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ color: 'var(--fs-wine-700)' }}><I d={compteAg.partenaire.type === 'particulier' ? D.user : D.bank} size={20}/></span>
+                        {compteAg.partenaire.name}
+                      </h1>
+                      <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', marginTop: 3 }}>{sub}</div>
                     </div>
-
-                    {/* Enregistrer un paiement */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'flex-end', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--fs-line)' }}>
-                      <div style={{ width: 150 }}>
-                        <label style={LABEL}>Paiement reçu (XAF)</label>
-                        <input type="number" min={0} value={paieMontant} onChange={e => setPaieMontant(e.target.value)} placeholder="0" style={{ ...INPUT, textAlign: 'center' }}/>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 160 }}>
-                        <label style={LABEL}>Note (optionnel)</label>
-                        <input value={paieNote} onChange={e => setPaieNote(e.target.value)} placeholder="ex : espèces, MoMo…" style={INPUT}/>
-                      </div>
-                      <button onClick={enregistrerPaiement} style={BTN_PRIMARY}>Enregistrer le paiement</button>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button onClick={() => ouvrirEditPartenaire(compteAg.partenaire)} style={GHOST}><I d={D.edit} size={14}/> Modifier</button>
+                      <button onClick={() => { if (window.confirm(`Supprimer le partenaire « ${compteAg.partenaire.name} » ?`)) { removePartenaire(compteId); setCompteId(''); setTab('dashboard'); } }} style={{ ...GHOST, color: 'var(--fs-danger-700)', borderColor: 'rgba(194,62,36,0.3)' }}><I d={D.trash} size={14}/> Supprimer</button>
+                      <button onClick={() => ouvrirNouvelleAgence(compteAg.partenaire)} style={GHOST}><I d={D.plus} size={14}/> Ajouter une agence</button>
+                      {nbActives > 0 && <>
+                        <button onClick={() => setToutesAgences(true)} style={GHOST}><I d={D.unlink} size={14}/> Toutes indépendantes</button>
+                        <button onClick={() => setToutesAgences(false)} style={GHOST}><I d={D.link} size={14}/> Toutes en commun</button>
+                      </>}
+                      <button onClick={imprimerReleve} style={GHOST}><I d={D.print} size={14}/> Imprimer</button>
                     </div>
+                  </div>
+                </div>
+                  );
+                })()
+              )}
 
-                    {/* Formulaire retour d'invendus (dépôt-vente) */}
-                    {showRetour && (
-                      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed var(--fs-line-2)' }}>
-                        <label style={LABEL}>Retour d'invendus (remis en entrepôt)</label>
-                        {retourRows.map((row, i) => (
-                          <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 110px 36px', gap: 6, marginBottom: 6, alignItems: 'start' }}>
-                            <ProductSelect products={products} value={row.productId} onChange={id => setRetourRow(i, { productId: id, prix: row.prix || (dernierPrix[id] ? String(dernierPrix[id]) : '') })}/>
-                            <input type="number" min={1} value={row.quantite} onChange={e => setRetourRow(i, { quantite: e.target.value })} placeholder="Qté" style={{ ...INPUT, textAlign: 'center' }}/>
-                            <input type="number" min={0} value={row.prix} onChange={e => setRetourRow(i, { prix: e.target.value })} placeholder="Prix" style={{ ...INPUT, textAlign: 'center' }}/>
-                            <button onClick={() => removeRetourRow(i)} title="Retirer" style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><I d={D.trash} size={13}/></button>
-                          </div>
-                        ))}
-                        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                          <button onClick={addRetourRow} style={{ background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '7px 14px' }}>+ Ligne</button>
-                          <button onClick={enregistrerRetour} style={BTN_PRIMARY}>Enregistrer le retour</button>
-                        </div>
-                      </div>
+              {compteId && compteAg && ((compteAg: CompteAgences) => {
+                const indeps = compteAg.agences.filter(a => a.independante);
+                const pools = compteAg.agences.filter(a => !a.independante);
+                const detteTotale = compteAg.detteAgences + compteAg.detteCommune;
+                const indepIds = new Set(indeps.map(a => a._id));
+                const versCommuns = compteAg.paiements.filter(p => !p.agence || !indepIds.has(String(p.agence)));
+                const livreCommun = compteAg.detteCommune + versCommuns.reduce((s, p) => s + (p.montant ?? 0), 0);
+                const CARD: React.CSSProperties = { background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 18, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' };
+                const rowActions = (a: typeof compteAg.agences[number]) => (
+                  <td style={{ padding: '8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    {a.archivee ? (
+                      <button onClick={() => { const f = agences.find(x => x._id === a._id); if (f) reactiverAgence(f); }} style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-600)', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, padding: '3px 9px', cursor: 'pointer' }}>Réactiver</button>
+                    ) : (
+                      <>
+                        {a.independante && <button onClick={() => setPaieAgenceId(a._id)} title="Verser sur cette agence" style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-wine-700)', background: '#fff', border: '1.5px solid var(--fs-wine-700)', borderRadius: 7, padding: '3px 9px', cursor: 'pointer', marginRight: 5 }}>Verser</button>}
+                        <button onClick={() => { const f = agences.find(x => x._id === a._id); if (f) toggleIndependante(f); }} title={a.independante ? 'Mettre en dette commune' : 'Rendre indépendante'} style={{ fontSize: 11, fontWeight: 700, color: a.independante ? 'var(--fs-ink-500)' : '#2563eb', background: '#fff', border: `1.5px solid ${a.independante ? 'var(--fs-line-2)' : '#bfdbfe'}`, borderRadius: 7, padding: '3px 9px', cursor: 'pointer' }}>{a.independante ? 'Commune' : 'Indép.'}</button>
+                      </>
                     )}
+                    <button onClick={() => { const f = agences.find(x => x._id === a._id); if (f) ouvrirEditAgence(f); }} title="Modifier l'agence" style={{ marginLeft: 5, padding: '4px 6px', background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex' }}><I d={D.edit} size={12}/></button>
+                    <button onClick={() => { const f = agences.find(x => x._id === a._id); if (f) supprimerAgence(f); }} title="Archiver / supprimer" style={{ marginLeft: 5, padding: '4px 6px', background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex' }}><I d={D.trash} size={12}/></button>
+                  </td>
+                );
+                return (
+                <>
+                  {/* Astuce */}
+                  {compteAg.agences.length > 0 && (
+                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#1e40af', marginBottom: 16 }}>
+                      <strong>Astuce :</strong> le bouton <strong>Indép. / Commune</strong> rend <strong>une seule</strong> agence indépendante (elle règle sa propre dette) ou la remet dans la dette commune. C'est ainsi qu'une agence peut être autonome pendant que les autres restent groupées.
+                    </div>
+                  )}
+
+                  {/* Totaux */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
+                    {[
+                      { label: 'Total livré', val: compteAg.totalLivre, color: 'var(--fs-ink-900)' },
+                      { label: 'Dette commune', val: compteAg.detteCommune, color: 'var(--fs-ink-700)' },
+                      { label: 'Dette totale', val: detteTotale, color: 'var(--fs-danger-700)' },
+                    ].map(m => (
+                      <div key={m.label} style={{ ...CARD, flex: '1 1 180px', marginBottom: 0, padding: '14px 18px' }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: m.color, fontFamily: 'var(--fs-font-mono)' }}>{fmtN(m.val)} <span style={{ fontSize: 12 }}>XAF</span></div>
+                      </div>
+                    ))}
                   </div>
 
-                  {/* Relevé : livraisons + paiements */}
-                  <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Relevé des opérations</p>
-                  {(compte.livraisons.length === 0 && compte.paiements.length === 0 && compte.retours.length === 0) ? (
-                    <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune opération</div>
-                  ) : (
-                    <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
-                      {compte.livraisons.map(l => (
-                        <div key={l._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--fs-line)', gap: 10 }}>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Livraison {l.numeroBL} <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-500)' }}>· {MODE_LABELS[l.modePaiement] ?? l.modePaiement}</span></div>
-                            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{fmtDateTime(l.createdAt)} · {l.lignes.length} article(s)</div>
-                          </div>
-                          <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-800)' }}>+{fmtN(l.total)}</div>
-                            <div style={{ fontSize: 10, color: 'var(--fs-success-700)' }}>payé {fmtN(l.montantPaye)}</div>
-                          </div>
+                  {/* Agences indépendantes */}
+                  {indeps.length > 0 && (
+                    <div style={CARD}>
+                      <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Agences indépendantes <span style={{ fontSize: 11, fontWeight: 600, color: '#2563eb' }}>— règlent leur propre dette</span></p>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                              <th style={{ padding: '6px 8px' }}>Agence</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Qté cmd.</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Livré</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Versé</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Solde dû</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {indeps.map(a => (
+                              <tr key={a._id} style={{ borderTop: '1px solid var(--fs-line)', opacity: a.archivee ? 0.55 : 1 }}>
+                                <td style={{ padding: '8px' }}>
+                                  <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)' }}>{a.nom}{a.archivee ? ' (archivée)' : ''}</div>
+                                  <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{a.ville || '—'}</div>
+                                </td>
+                                <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)' }}>{fmtN(a.qteCommandee)}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)' }}>{fmtN(a.livre)}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-success-700)' }}>{fmtN(a.paye + a.verse)}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 800, color: a.solde > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(a.solde)}</td>
+                                {rowActions(a)}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {/* Versement sur agence indépendante */}
+                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--fs-line)', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
+                        <div style={{ width: 230 }}>
+                          <label style={LABEL}>Agence à régler</label>
+                          <select value={paieAgenceId} onChange={e => setPaieAgenceId(e.target.value)} style={{ ...INPUT, cursor: 'pointer' }}>
+                            <option value="">— Choisir —</option>
+                            {indeps.filter(a => !a.archivee).map(a => <option key={a._id} value={a._id}>{a.nom}{a.ville ? ` · ${a.ville}` : ''} — doit {fmtN(a.solde)}</option>)}
+                          </select>
                         </div>
-                      ))}
-                      {compte.paiements.map(p => (
-                        <div key={p._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--fs-line)', background: '#f0fdf4', gap: 10 }}>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#15803d' }}>Paiement{p.note ? ` — ${p.note}` : ''}</div>
-                            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{fmtDateTime(p.createdAt)}</div>
-                          </div>
-                          <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: '#15803d', whiteSpace: 'nowrap' }}>−{fmtN(p.montant)}</div>
+                        <div style={{ width: 160 }}>
+                          <label style={LABEL}>Montant versé</label>
+                          <input type="number" min={0} value={paieMontant} onChange={e => setPaieMontant(e.target.value)} placeholder="0" style={{ ...INPUT, textAlign: 'center' }}/>
                         </div>
-                      ))}
-                      {compte.retours.map(r => (
-                        <div key={r._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--fs-line)', background: '#eff6ff', gap: 10 }}>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#2563eb' }}>Retour d'invendus</div>
-                            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{fmtDateTime(r.createdAt)} · {r.lignes.length} article(s)</div>
-                          </div>
-                          <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: '#2563eb', whiteSpace: 'nowrap' }}>−{fmtN(r.total)}</div>
+                        <button onClick={enregistrerPaiement} style={{ ...BTN_PRIMARY, opacity: paieAgenceId ? 1 : 0.5 }}><I d={D.compte} size={14}/> Enregistrer le versement</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dette commune */}
+                  {(pools.length > 0 || compteAg.agences.length === 0) && (
+                    <div style={CARD}>
+                      <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Dette commune <span style={{ fontSize: 11, fontWeight: 600, color: '#16a34a' }}>— avances libres</span></p>
+                      <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--fs-ink-400)' }}>Versements de montants au choix (200 000, 2 M…) qui réduisent la dette commune, sans rapport avec une facture.</p>
+
+                      {pools.length > 0 && (
+                        <div style={{ overflowX: 'auto', marginBottom: 14 }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                            <thead>
+                              <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                <th style={{ padding: '6px 8px' }}>Agence (suivi)</th>
+                                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Qté cmd.</th>
+                                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Livré</th>
+                                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pools.map(a => (
+                                <tr key={a._id} style={{ borderTop: '1px solid var(--fs-line)', opacity: a.archivee ? 0.55 : 1 }}>
+                                  <td style={{ padding: '8px' }}>
+                                    <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)' }}>{a.nom}{a.archivee ? ' (archivée)' : ''}</div>
+                                    <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{a.ville || '—'}</div>
+                                  </td>
+                                  <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)' }}>{fmtN(a.qteCommandee)}</td>
+                                  <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)' }}>{fmtN(a.livre)}</td>
+                                  {rowActions(a)}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
-                      ))}
+                      )}
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end', marginBottom: 14 }}>
+                        <div style={{ width: 180 }}>
+                          <label style={LABEL}>Montant de l'avance</label>
+                          <input type="number" min={0} value={montantCommun} onChange={e => setMontantCommun(e.target.value)} placeholder="0" style={{ ...INPUT, textAlign: 'center' }}/>
+                        </div>
+                        <button onClick={enregistrerVersementCommun} style={BTN_PRIMARY}><I d={D.compte} size={14}/> Enregistrer le versement</button>
+                        <div style={{ flex: 1, minWidth: 160, textAlign: 'right' }}>
+                          <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Dette commune restante</div>
+                          <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: compteAg.detteCommune > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(compteAg.detteCommune)} XAF</div>
+                        </div>
+                      </div>
+
+                      {/* Historique des versements communs */}
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            <th style={{ padding: '6px 8px' }}>Date</th>
+                            <th style={{ padding: '6px 8px' }}>Opération</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Versé</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Dette restante</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {versCommuns.length === 0 ? (
+                            <tr><td colSpan={4} style={{ padding: '10px 8px', color: 'var(--fs-ink-300)' }}>Aucun versement commun</td></tr>
+                          ) : (() => {
+                            let cumulApres = versCommuns.reduce((s, p) => s + (p.montant ?? 0), 0);
+                            return versCommuns.map(p => {
+                              const detteApres = Math.max(0, livreCommun - cumulApres);
+                              cumulApres -= (p.montant ?? 0);
+                              return (
+                                <tr key={p._id} style={{ borderTop: '1px solid var(--fs-line)' }}>
+                                  <td style={{ padding: '8px' }}>{fmtDateTime(p.createdAt)}</td>
+                                  <td style={{ padding: '8px', color: 'var(--fs-ink-500)' }}>Versement{p.note ? ` — ${p.note}` : ''}</td>
+                                  <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-success-700)' }}>{fmtN(p.montant)}</td>
+                                  <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-ink-700)' }}>{fmtN(detteApres)}</td>
+                                </tr>
+                              );
+                            });
+                          })()}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </>
+                );
+              })(compteAg)}
+            </div>
+          )}
+
+          {/* ── Onglet Rapport & analyse ── */}
+          {tab === 'rapport' && (
+            <div style={{ maxWidth: 920 }}>
+              {(() => {
+                // Top produits livrés
+                const prodMap = new Map<string, { q: number; m: number }>();
+                for (const l of livraisons) for (const lg of l.lignes) {
+                  const e = prodMap.get(lg.productName) ?? { q: 0, m: 0 };
+                  e.q += lg.quantite; e.m += lg.quantite * lg.prixUnitaire;
+                  prodMap.set(lg.productName, e);
+                }
+                const topProduits = [...prodMap.entries()].map(([produit, v]) => ({ produit, ...v })).sort((a, b) => b.m - a.m).slice(0, 12);
+                // Contribution par partenaire
+                const partMap = new Map<string, { name: string; livre: number }>();
+                for (const l of livraisons) {
+                  const pid = typeof l.partenaire === 'object' ? l.partenaire._id : l.partenaire;
+                  const nm = typeof l.partenaire === 'object' ? l.partenaire.name : '—';
+                  const e = partMap.get(pid) ?? { name: nm, livre: 0 };
+                  e.livre += l.total; partMap.set(pid, e);
+                }
+                const soldeBy = new Map<string, number>();
+                for (const d of (statsAg?.debiteurs ?? [])) soldeBy.set(d.partenaireId, (soldeBy.get(d.partenaireId) ?? 0) + d.solde);
+                const totalL = [...partMap.values()].reduce((s, p) => s + p.livre, 0) || 1;
+                const contrib = [...partMap.entries()].map(([pid, e]) => { const solde = soldeBy.get(pid) ?? 0; return { name: e.name, livre: e.livre, solde, encaisse: Math.max(0, e.livre - solde), part: e.livre / totalL }; }).sort((a, b) => b.livre - a.livre);
+                return (
+                  <>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 18 }}>
+                      {[
+                        { label: 'Total livré', val: stats?.totalLivre ?? 0, color: 'var(--fs-ink-900)' },
+                        { label: 'Total encaissé', val: stats?.totalEncaisse ?? 0, color: 'var(--fs-success-700)' },
+                        { label: 'Créances totales', val: stats?.totalCreances ?? 0, color: 'var(--fs-danger-700)' },
+                      ].map(m => (
+                        <div key={m.label} style={{ flex: '1 1 200px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 18px', boxShadow: 'var(--fs-shadow-sm)' }}>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}</div>
+                          <div style={{ fontSize: 22, fontWeight: 800, color: m.color, fontFamily: 'var(--fs-font-mono)' }}>{fmtN(m.val)} <span style={{ fontSize: 12 }}>XAF</span></div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 18, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
+                      <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Contribution par partenaire</p>
+                      {contrib.length === 0 ? <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune livraison enregistrée</div> : (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                              <th style={{ padding: '6px 8px' }}>Partenaire</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Total livré</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Encaissé</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Reste dû</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Part</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {contrib.map(c => (
+                              <tr key={c.name} style={{ borderTop: '1px solid var(--fs-line)' }}>
+                                <td style={{ padding: '8px', fontWeight: 700, color: 'var(--fs-ink-900)' }}>{c.name}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)' }}>{fmtN(c.livre)}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-success-700)' }}>{fmtN(c.encaisse)}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: c.solde > 0 ? 'var(--fs-danger-700)' : 'var(--fs-ink-400)' }}>{fmtN(c.solde)}</td>
+                                <td style={{ padding: '8px', textAlign: 'right' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+                                    <div style={{ width: 60, height: 6, background: 'var(--fs-line)', borderRadius: 3, overflow: 'hidden' }}><div style={{ width: `${Math.round(c.part * 100)}%`, height: '100%', background: 'var(--fs-wine-700)' }}/></div>
+                                    <span style={{ fontFamily: 'var(--fs-font-mono)', fontSize: 12 }}>{Math.round(c.part * 100)}%</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+
+                    <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
+                      <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Produits les plus livrés</p>
+                      {topProduits.length === 0 ? <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucun produit livré</div> : (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                              <th style={{ padding: '6px 8px' }}>Produit</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Quantité</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Montant</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {topProduits.map(p => (
+                              <tr key={p.produit} style={{ borderTop: '1px solid var(--fs-line)' }}>
+                                <td style={{ padding: '8px', fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.produit}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)' }}>{fmtN(p.q)}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)' }}>{fmtN(p.m)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* ── Onglet Historique ── */}
+          {tab === 'historique' && (
+            <div style={{ maxWidth: 920 }}>
+              <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: '0 0 14px' }}>Toutes les opérations (livraisons, versements, retours), du plus récent au plus ancien.</p>
+              {ops.length === 0 ? (
+                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune opération</div>
+              ) : (
+                <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--fs-ivory)' }}>
+                        <th style={{ padding: '8px 12px' }}>Date</th>
+                        <th style={{ padding: '8px 12px' }}>Partenaire · Agence</th>
+                        <th style={{ padding: '8px 12px' }}>Opération</th>
+                        <th style={{ padding: '8px 12px' }}>Détail</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Montant</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ops.map((o, i) => {
+                        const cfg = o.type === 'livraison' ? { bg: '#eff6ff', col: '#2563eb', txt: 'Livraison', sign: '+' } : o.type === 'versement' ? { bg: '#f0fdf4', col: '#16a34a', txt: 'Versement', sign: '−' } : { bg: '#eff6ff', col: '#2563eb', txt: 'Retour', sign: '−' };
+                        return (
+                          <tr key={i} style={{ borderTop: '1px solid var(--fs-line)', verticalAlign: 'top' }}>
+                            <td style={{ padding: '9px 12px', whiteSpace: 'nowrap', color: 'var(--fs-ink-500)' }}>{fmtDateTime(o.date)}</td>
+                            <td style={{ padding: '9px 12px' }}>
+                              <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)' }}>{o.partenaire}</div>
+                              {o.agence && <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{o.agence}</div>}
+                            </td>
+                            <td style={{ padding: '9px 12px' }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: cfg.bg, color: cfg.col }}>{cfg.txt}</span>
+                            </td>
+                            <td style={{ padding: '9px 12px' }}>
+                              {o.type === 'livraison' && o.lignes ? (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                                  {o.lignes.map((lg, j) => <span key={j} style={{ fontSize: 11, background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 6, padding: '2px 8px', color: 'var(--fs-ink-700)' }}>{lg.productName} × <strong>{lg.quantite}</strong></span>)}
+                                </div>
+                              ) : <span style={{ fontSize: 12, color: 'var(--fs-ink-500)' }}>{o.note || (o.ref ?? '—')}</span>}
+                            </td>
+                            <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: o.type === 'versement' ? 'var(--fs-success-700)' : 'var(--fs-ink-900)', whiteSpace: 'nowrap' }}>{cfg.sign}{fmtN(o.montant)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           )}
@@ -749,21 +1407,21 @@ export default function Partenaires() {
           {tab === 'acces' && isPatron && (
             <div style={{ maxWidth: 680 }}>
               <div style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 18, fontSize: 12, color: 'var(--fs-ink-600)' }}>
-                Un compte <strong>Commercial</strong> ouvre <strong>directement cet espace Partenaires</strong> à la connexion (il ne voit ni la caisse, ni l'admin, ni les autres espaces).
+                Un <strong>compte Partenaires</strong> est un identifiant de connexion <strong>propre à cet espace</strong> : la personne se connecte avec son email + mot de passe et arrive <strong>directement</strong> sur l'espace Partenaires (sans passer par l'admin, et sans voir la caisse ni l'entrepôt).
               </div>
 
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Nouveau compte commercial</p>
+                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Nouveau compte de connexion Partenaires</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-                  <div><label style={LABEL}>Nom</label><input value={accForm.name} onChange={e => setAccForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder="ex : Commercial 1"/></div>
-                  <div><label style={LABEL}>Email (identifiant)</label><input value={accForm.email} onChange={e => setAccForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="commercial@familystore.cm"/></div>
+                  <div><label style={LABEL}>Nom</label><input value={accForm.name} onChange={e => setAccForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder="ex : Gérant partenaires"/></div>
+                  <div><label style={LABEL}>Email (identifiant)</label><input value={accForm.email} onChange={e => setAccForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="partenaires@familystore.cm"/></div>
                   <div><label style={LABEL}>Mot de passe</label><input value={accForm.password} onChange={e => setAccForm(f => ({ ...f, password: e.target.value }))} style={INPUT} placeholder="≥ 4 caractères"/></div>
                 </div>
                 <button onClick={creerCommercial} style={BTN_PRIMARY}>Créer le compte</button>
               </div>
 
               {commerciaux.length === 0 ? (
-                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucun compte commercial</div>
+                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucun compte de connexion Partenaires</div>
               ) : (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                   {commerciaux.map((u, i) => (
@@ -785,18 +1443,35 @@ export default function Partenaires() {
 
           {/* ── Onglet Partenaires ── */}
           {tab === 'partenaires' && (
-            <div style={{ maxWidth: 720 }}>
+            <div style={{ maxWidth: 760 }}>
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{editing ? 'Modifier le partenaire' : 'Nouveau partenaire'}</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-                  <div><label style={LABEL}>Nom *</label><input value={pForm.name} onChange={e => setPForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder="ex : Boutique Mbappé"/></div>
-                  <div><label style={LABEL}>Téléphone</label><input value={pForm.phone} onChange={e => setPForm(f => ({ ...f, phone: e.target.value }))} style={INPUT} placeholder="+237 6XX XXX XXX"/></div>
-                  <div><label style={LABEL}>Lieu</label><input value={pForm.lieu} onChange={e => setPForm(f => ({ ...f, lieu: e.target.value }))} style={INPUT} placeholder="ex : Bonabéri"/></div>
+                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{editing ? 'Modifier le partenaire' : "Fiche d'inscription — nouveau partenaire"}</p>
+                <p style={{ margin: '0 0 14px', fontSize: 11.5, color: 'var(--fs-ink-400)' }}>Les <strong>agences</strong> s'ajoutent ensuite sur la fiche (bouton « Agences »). Un partenaire peut démarrer sans agence.</p>
+
+                <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>Identité</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10, marginBottom: 12 }}>
+                  <div><label style={LABEL}>Nom / raison sociale *</label><input value={pForm.name} onChange={e => setPForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder="ex : Santa Lucia"/></div>
+                  <div><label style={LABEL}>Type</label>
+                    <select value={pForm.type} onChange={e => setPForm(f => ({ ...f, type: e.target.value as 'structure' | 'particulier' }))} style={{ ...INPUT, cursor: 'pointer' }}>
+                      <option value="structure">Structure (entreprise)</option>
+                      <option value="particulier">Particulier (revendeur)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>Coordonnées</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                  <div><label style={LABEL}>Responsable / contact</label><input value={pForm.responsable} onChange={e => setPForm(f => ({ ...f, responsable: e.target.value }))} style={INPUT} placeholder="Nom du responsable"/></div>
+                  <div><label style={LABEL}>Téléphone</label><input value={pForm.phone} onChange={e => setPForm(f => ({ ...f, phone: e.target.value }))} style={INPUT} placeholder="6XX XX XX XX"/></div>
+                  <div><label style={LABEL}>Ville</label><input value={pForm.ville} onChange={e => setPForm(f => ({ ...f, ville: e.target.value }))} style={INPUT} placeholder="ex : Douala"/></div>
+                  <div><label style={LABEL}>Quartier / zone</label><input value={pForm.quartier} onChange={e => setPForm(f => ({ ...f, quartier: e.target.value }))} style={INPUT} placeholder="ex : Akwa, Bonabéri…"/></div>
+                  <div><label style={LABEL}>Email</label><input value={pForm.email} onChange={e => setPForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="contact@exemple.cm"/></div>
                   <div><label style={LABEL}>Note</label><input value={pForm.note} onChange={e => setPForm(f => ({ ...f, note: e.target.value }))} style={INPUT} placeholder="(optionnel)"/></div>
                 </div>
+
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={savePartenaire} style={BTN_PRIMARY}>{editing ? 'Enregistrer' : 'Ajouter'}</button>
-                  {editing && <button onClick={() => { setEditing(null); setPForm({ name: '', phone: '', lieu: '', note: '' }); }} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>Annuler</button>}
+                  <button onClick={savePartenaire} style={BTN_PRIMARY}>{editing ? 'Enregistrer' : 'Inscrire le partenaire'}</button>
+                  {editing && <button onClick={() => { setEditing(null); setPForm({ ...PFORM_VIDE }); }} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>Annuler</button>}
                 </div>
               </div>
 
@@ -805,20 +1480,69 @@ export default function Partenaires() {
               ) : (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                   {partenaires.map((p, i) => {
+                    const localisation = [p.ville, p.quartier].filter(Boolean).join(' · ') || p.lieu || '';
+                    const ouvert = agencesPartId === p._id;
                     return (
-                      <div key={p._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: i < partenaires.length - 1 ? '1px solid var(--fs-line)' : 'none', background: i % 2 ? 'var(--fs-ivory)' : '#fff' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{p.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{[p.lieu, p.phone].filter(Boolean).join(' · ') || '—'}</div>
+                      <div key={p._id} style={{ borderBottom: i < partenaires.length - 1 ? '1px solid var(--fs-line)' : 'none', background: ouvert ? 'var(--fs-ivory)' : (i % 2 ? 'var(--fs-ivory)' : '#fff') }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', display: 'flex', alignItems: 'center', gap: 7 }}>
+                              {p.name}
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 7px', borderRadius: 8, background: p.type === 'particulier' ? '#f0fdf4' : '#eff6ff', color: p.type === 'particulier' ? '#16a34a' : '#2563eb' }}>{p.type === 'particulier' ? 'Particulier' : 'Structure'}</span>
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{[localisation, p.responsable, p.phone].filter(Boolean).join(' · ') || '—'}</div>
+                          </div>
+                          <button onClick={() => ouvert ? setAgencesPartId(null) : ouvrirAgences(p._id)} title="Gérer les agences"
+                            style={{ background: ouvert ? 'var(--fs-wine-700)' : 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: ouvert ? '#fff' : 'var(--fs-ink-600)', fontSize: 12, fontWeight: 700 }}>
+                            Agences
+                          </button>
+                          <button onClick={() => { setCompteId(p._id); setTab('comptes'); }} title="Voir le compte / créance"
+                            style={{ background: 'var(--fs-wine-50)', border: '1px solid var(--fs-wine-200)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--fs-wine-700)', fontSize: 12, fontWeight: 700 }}>
+                            Compte
+                          </button>
+                          <button onClick={() => { setEditing(p._id); setPForm({ name: p.name, phone: p.phone, ville: p.ville ?? '', quartier: p.quartier ?? '', responsable: p.responsable ?? '', email: p.email ?? '', note: p.note, type: p.type ?? 'structure' }); window.scrollTo(0, 0); }} title="Modifier"
+                            style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex' }}><I d={D.edit} size={13}/></button>
+                          <button onClick={() => removePartenaire(p._id)} title="Supprimer"
+                            style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex' }}><I d={D.trash} size={13}/></button>
                         </div>
-                        <button onClick={() => { setCompteId(p._id); setTab('comptes'); }} title="Voir le compte / créance"
-                          style={{ background: 'var(--fs-wine-50)', border: '1px solid var(--fs-wine-200)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--fs-wine-700)', fontSize: 12, fontWeight: 700, marginRight: 4 }}>
-                          Compte
-                        </button>
-                        <button onClick={() => { setEditing(p._id); setPForm({ name: p.name, phone: p.phone, lieu: p.lieu, note: p.note }); }} title="Modifier"
-                          style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex' }}><I d={D.edit} size={13}/></button>
-                        <button onClick={() => removePartenaire(p._id)} title="Supprimer"
-                          style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex' }}><I d={D.trash} size={13}/></button>
+
+                        {/* Panneau de gestion des agences */}
+                        {ouvert && (
+                          <div style={{ padding: '0 16px 16px' }}>
+                            <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: 14 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-700)' }}>Agences de {p.name}</span>
+                                <button onClick={() => ouvrirNouvelleAgence(p)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}><I d={D.plus} size={12}/> Ajouter une agence</button>
+                              </div>
+
+                              {agences.length === 0 ? (
+                                <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', padding: '6px 0' }}>Aucune agence — ce partenaire fonctionne en compte unique. Ajoutez-en une si besoin.</div>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                  {agences.map(a => (
+                                    <div key={a._id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: '1px solid var(--fs-line)', borderRadius: 8, background: a.archivee ? '#fafafa' : '#fff' }}>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 12.5, fontWeight: 700, color: a.archivee ? 'var(--fs-ink-400)' : 'var(--fs-ink-900)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                          {a.nom}
+                                          {a.independante && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 6, background: '#eff6ff', color: '#2563eb' }}>Indépendante</span>}
+                                          {a.archivee && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 6, background: '#f3f4f6', color: '#6b7280' }}>Archivée</span>}
+                                        </div>
+                                        <div style={{ fontSize: 10.5, color: 'var(--fs-ink-400)' }}>{[a.ville, a.quartier, a.responsable, a.telephone].filter(Boolean).join(' · ') || '—'}</div>
+                                      </div>
+                                      <button onClick={() => toggleIndependante(a)} title={a.independante ? 'Mettre en dette commune' : 'Rendre indépendante (règle sa propre dette)'}
+                                        style={{ fontSize: 11, fontWeight: 700, color: a.independante ? 'var(--fs-ink-500)' : '#2563eb', background: '#fff', border: `1.5px solid ${a.independante ? 'var(--fs-line-2)' : '#bfdbfe'}`, borderRadius: 7, padding: '4px 10px', cursor: 'pointer' }}>
+                                        {a.independante ? 'Dette commune' : 'Rendre indép.'}
+                                      </button>
+                                      {a.archivee && <button onClick={() => reactiverAgence(a)} title="Réactiver" style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-600)', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, padding: '4px 8px', cursor: 'pointer' }}>Réactiver</button>}
+                                      <button onClick={() => ouvrirEditAgence(a)} title="Modifier" style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, padding: '5px 7px', cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex' }}><I d={D.edit} size={12}/></button>
+                                      <button onClick={() => supprimerAgence(a)} title="Archiver / supprimer" style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, padding: '5px 7px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex' }}><I d={D.trash} size={12}/></button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -828,6 +1552,69 @@ export default function Partenaires() {
           )}
         </div>
       </main>
+
+      {/* Modal fiche d'inscription partenaire */}
+      {showPartModal && (
+        <div onClick={() => setShowPartModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, boxShadow: 'var(--fs-shadow-md)', width: 560, maxWidth: '100%', maxHeight: '92vh', overflowY: 'auto', padding: 24 }}>
+            <p style={{ margin: '0 0 2px', fontSize: 17, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{editing ? 'Modifier le partenaire' : "Fiche d'inscription — nouveau partenaire"}</p>
+            <p style={{ margin: '0 0 18px', fontSize: 12, color: 'var(--fs-ink-400)' }}>Les <strong>agences</strong> s'ajoutent ensuite sur la fiche du partenaire. Un partenaire peut démarrer sans agence.</p>
+
+            <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>Identité</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div><label style={LABEL}>Nom / raison sociale *</label><input value={pForm.name} onChange={e => setPForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder="ex : Santa Lucia" autoFocus/></div>
+              <div><label style={LABEL}>Type</label>
+                <select value={pForm.type} onChange={e => setPForm(f => ({ ...f, type: e.target.value as 'structure' | 'particulier' }))} style={{ ...INPUT, cursor: 'pointer' }}>
+                  <option value="structure">Structure (entreprise)</option>
+                  <option value="particulier">Particulier (revendeur)</option>
+                </select>
+              </div>
+            </div>
+
+            <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>Coordonnées</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div><label style={LABEL}>Responsable / contact</label><input value={pForm.responsable} onChange={e => setPForm(f => ({ ...f, responsable: e.target.value }))} style={INPUT} placeholder="Nom du responsable"/></div>
+              <div><label style={LABEL}>Téléphone</label><input value={pForm.phone} onChange={e => setPForm(f => ({ ...f, phone: e.target.value }))} style={INPUT} placeholder="6XX XX XX XX"/></div>
+              <div><label style={LABEL}>Ville</label><input value={pForm.ville} onChange={e => setPForm(f => ({ ...f, ville: e.target.value }))} style={INPUT} placeholder="ex : Douala"/></div>
+              <div><label style={LABEL}>Quartier / zone</label><input value={pForm.quartier} onChange={e => setPForm(f => ({ ...f, quartier: e.target.value }))} style={INPUT} placeholder="ex : Akwa, Bonabéri…"/></div>
+              <div><label style={LABEL}>Email</label><input value={pForm.email} onChange={e => setPForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="contact@exemple.cm"/></div>
+              <div><label style={LABEL}>Note</label><input value={pForm.note} onChange={e => setPForm(f => ({ ...f, note: e.target.value }))} style={INPUT} placeholder="(optionnel)"/></div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setShowPartModal(false)} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>Annuler</button>
+              <button onClick={savePartenaire} style={{ ...BTN_PRIMARY, opacity: pForm.name.trim() ? 1 : 0.5 }}>{editing ? 'Enregistrer' : 'Inscrire le partenaire'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal fiche d'agence */}
+      {aForm && (
+        <div onClick={() => setAForm(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, boxShadow: 'var(--fs-shadow-md)', width: 520, maxWidth: '100%', maxHeight: '92vh', overflowY: 'auto', padding: 24 }}>
+            <p style={{ margin: '0 0 16px', fontSize: 17, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{aForm.id ? "Modifier l'agence" : 'Nouvelle agence'}</p>
+            <div style={{ marginBottom: 14 }}>
+              <label style={LABEL}>Nom de l'agence *</label>
+              <input value={aForm.nom} onChange={e => setAForm(f => f && ({ ...f, nom: e.target.value }))} placeholder="ex : Agence Akwa" style={INPUT} autoFocus/>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+              <div><label style={LABEL}>Ville</label><input value={aForm.ville} onChange={e => setAForm(f => f && ({ ...f, ville: e.target.value }))} placeholder="ex : Douala" style={INPUT}/></div>
+              <div><label style={LABEL}>Zone / quartier</label><input value={aForm.quartier} onChange={e => setAForm(f => f && ({ ...f, quartier: e.target.value }))} placeholder="ex : Akwa, Bonabéri…" style={INPUT}/></div>
+              <div><label style={LABEL}>Téléphone</label><input value={aForm.telephone} onChange={e => setAForm(f => f && ({ ...f, telephone: e.target.value }))} placeholder="6XX XX XX XX" style={INPUT}/></div>
+              <div><label style={LABEL}>Responsable</label><input value={aForm.responsable} onChange={e => setAForm(f => f && ({ ...f, responsable: e.target.value }))} placeholder="Nom du responsable" style={INPUT}/></div>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', padding: '10px 12px', borderRadius: 9, border: '1.5px solid var(--fs-line-2)', marginBottom: 18 }}>
+              <input type="checkbox" checked={aForm.independante} onChange={e => setAForm(f => f && ({ ...f, independante: e.target.checked }))} style={{ width: 16, height: 16, cursor: 'pointer' }}/>
+              <span style={{ fontSize: 13, color: 'var(--fs-ink-700)' }}><strong>Règle sa propre dette</strong> (indépendante) — sinon elle entre dans la dette commune du partenaire.</span>
+            </label>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button onClick={() => setAForm(null)} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>Annuler</button>
+              <button onClick={saveAgence} style={{ ...BTN_PRIMARY, opacity: aForm.nom.trim() ? 1 : 0.5 }}>{aForm.id ? 'Enregistrer' : "Ajouter l'agence"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

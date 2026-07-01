@@ -13,6 +13,7 @@ import {
 import { getBrandColor } from '../utils/text';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { getAllProducts, Product } from '../api/products';
+import { getPartenairesStats, PartenairesStats } from '../api/partenaires';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -176,6 +177,7 @@ export default function AdminDashboard() {
   const [prodCount,     setProdCount]     = useState<number | null>(null);
   const [prodLowCount,  setProdLowCount]  = useState(0);
   const [products,      setProducts]      = useState<Product[]>([]);
+  const [partStats,     setPartStats]     = useState<PartenairesStats | null>(null);
   const [prodSearch,    setProdSearch]    = useState('');
   const [prodSort,      setProdSort]      = useState<{ key: CatalogSortKey; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' });
 
@@ -226,6 +228,7 @@ export default function AdminDashboard() {
       setProdCount(prods.length);
       setProdLowCount(prods.filter(p => p.stock <= p.alertThreshold).length);
     }).catch(() => {});
+    getPartenairesStats().then(setPartStats).catch(() => {});
     // Dérivés expiry pour le panneau
 
   }, []);
@@ -372,6 +375,26 @@ export default function AdminDashboard() {
               value={`${marge} %`}
               sub={ca > 0 ? `CA : ${fmtK(ca)} XAF · ${tickets} ticket${tickets > 1 ? 's' : ''}` : 'En attente de ventes'}
             />
+
+            {/* Partenaires — créances (cliquable → espace Partenaires) */}
+            <div onClick={() => { window.location.href = '/partenaires'; }} title="Ouvrir l'espace Partenaires"
+              style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)', minWidth: 0, cursor: 'pointer' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 8 }}>Partenaires — créances</div>
+              <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: (partStats?.totalCreances ?? 0) > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)', lineHeight: 1, marginBottom: 6 }}>
+                {partStats === null ? '…' : fmtN(partStats.totalCreances)}<span style={{ fontSize: 11, fontWeight: 700 }}> XAF</span>
+              </div>
+              {partStats && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {(partStats.topDebiteurs ?? []).slice(0, 3).map(d => (
+                    <div key={d.partenaireId} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 11 }}>
+                      <span style={{ color: 'var(--fs-ink-600)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+                      <span style={{ color: 'var(--fs-danger-700)', fontWeight: 700, fontFamily: 'var(--fs-font-mono)', flexShrink: 0 }}>{fmtN(d.solde)}</span>
+                    </div>
+                  ))}
+                  <span style={{ fontSize: 11, color: 'var(--fs-wine-700)', fontWeight: 600, marginTop: 2 }}>Ouvrir l'espace →</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Panneau produits à surveiller */}

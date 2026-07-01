@@ -6,6 +6,7 @@ import QRScanner from '../components/QRScanner';
 import { formatProductName } from '../utils/text';
 import { useIsMobile }       from '../hooks/useIsMobile';
 import AutocompleteInput     from '../components/AutocompleteInput';
+import Partenaires           from './Partenaires';
 import {
   createReception, getDemandes, marquerEnvoye, getHistorique, createEnvoi,
   DemandeStock, ReceptionRecord,
@@ -240,7 +241,7 @@ function ProductSelect({ products, value, onChange, meta }: {
 
 // ── Tab types ─────────────────────────────────────────────────────────────────
 
-type Tab = 'receptions' | 'envois' | 'demandes' | 'historique' | 'dashboard' | 'etiquettes';
+type Tab = 'receptions' | 'envois' | 'demandes' | 'historique' | 'dashboard' | 'etiquettes' | 'partenaires';
 
 // ── Reception form row ────────────────────────────────────────────────────────
 
@@ -458,6 +459,8 @@ export default function Magazinier() {
   const handleEnvoi = async () => {
     const valid = envoiRows.filter(r => r.produitId && r.quantite > 0);
     if (valid.length === 0) { addToast('Sélectionnez au moins un produit', 'error'); return; }
+    const over = valid.find(r => r.quantite > (products.find(p => p._id === r.produitId)?.stockMagazin ?? 0));
+    if (over) { addToast(`Stock entrepôt insuffisant pour « ${products.find(p => p._id === over.produitId)?.name ?? 'produit'} »`, 'error'); return; }
     setEnvoiLoading(true);
     try {
       await createEnvoi(valid);
@@ -678,15 +681,16 @@ export default function Magazinier() {
             </button>
           ))}
 
-          {/* Lien vers l'espace Partenaires (grossistes) */}
-          <button onClick={() => { window.location.href = '/partenaires'; }} style={{
+          {/* Commandes & livraisons partenaires (intégré à l'espace Magazinier) */}
+          <button onClick={() => { setTab('partenaires'); setSideOpen(false); }} style={{
             width: '100%', display: 'flex', alignItems: 'center', gap: 9,
             padding: '9px 10px', marginTop: 8, borderRadius: 8, border: 'none',
-            background: 'transparent', borderLeft: '2px solid transparent',
-            color: 'rgba(245,235,217,0.65)', cursor: 'pointer', textAlign: 'left', fontSize: 13,
-            fontFamily: 'var(--fs-font-sans)',
+            background: tab === 'partenaires' ? 'var(--fs-wine-700)' : 'transparent',
+            borderLeft: tab === 'partenaires' ? '2px solid var(--fs-gold-400)' : '2px solid transparent',
+            color: tab === 'partenaires' ? '#fff' : 'rgba(245,235,217,0.65)', cursor: 'pointer', textAlign: 'left', fontSize: 13,
+            fontWeight: tab === 'partenaires' ? 600 : 400, fontFamily: 'var(--fs-font-sans)',
           }}>
-            <span style={{ color: 'var(--fs-gold-500)', flexShrink: 0 }}>
+            <span style={{ color: tab === 'partenaires' ? 'var(--fs-gold-300)' : 'var(--fs-gold-500)', flexShrink: 0 }}>
               <I d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" size={15}/>
             </span>
             Partenaires
@@ -723,11 +727,16 @@ export default function Magazinier() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '12px 14px 12px 58px' : '12px 28px', flexShrink: 0 }}>
           <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Magazinier</p>
           <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>
-            {TABS.find(t => t.key === tab)?.label}
+            {tab === 'partenaires' ? 'Partenaires — commandes & livraisons' : TABS.find(t => t.key === tab)?.label}
           </h1>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+        <div style={{ flex: 1, overflowY: tab === 'partenaires' ? 'hidden' : 'auto', padding: tab === 'partenaires' ? 0 : '24px 28px' }}>
+
+          {/* ════════════════ ONGLET PARTENAIRES (commandes + à préparer) ════════════════ */}
+          {tab === 'partenaires' && (
+            <Partenaires embedded allowedTabs={['commandes', 'preparer']} initialTab="commandes" />
+          )}
 
           {/* ════════════════════════════════════════════════════════════════
               ONGLET 1 — RÉCEPTIONS
@@ -1062,8 +1071,11 @@ export default function Magazinier() {
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '40px 24px', textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13 }}>
                   <I d={D.check} size={32}/><br/>Aucune demande en attente
                 </div>
-              ) : demandes.map(d => (
-                <div key={d._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', marginBottom: 10, boxShadow: 'var(--fs-shadow-sm)', display: 'flex', alignItems: 'center', gap: 16 }}>
+              ) : demandes.map(d => {
+                const stockMag = d.produit?.stockMagazin ?? 0;
+                const insuffisant = d.quantiteDemandee > stockMag;
+                return (
+                <div key={d._id} style={{ background: '#fff', border: `1px solid ${insuffisant ? 'var(--fs-danger-500)' : 'var(--fs-line)'}`, borderRadius: 12, padding: '16px 20px', marginBottom: 10, boxShadow: 'var(--fs-shadow-sm)', display: 'flex', alignItems: 'center', gap: 16 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 10, background: '#FEF0E0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <I d={D.pkg} size={18}/>
                   </div>
@@ -1074,20 +1086,22 @@ export default function Magazinier() {
                     <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', marginTop: 2 }}>
                       {d.quantiteDemandee} demandé(s) · par {d.demandePar?.name ?? '?'} · {fmtDate(d.createdAt)}
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--fs-ink-300)', marginTop: 1 }}>
-                      Stock actuel : {d.produit?.stock ?? '?'}
+                    <div style={{ fontSize: 11, marginTop: 1, color: insuffisant ? 'var(--fs-danger-700)' : 'var(--fs-ink-300)', fontWeight: insuffisant ? 700 : 400 }}>
+                      Stock entrepôt : {stockMag}{insuffisant && ` — insuffisant pour envoyer ${d.quantiteDemandee}`}
                     </div>
                   </div>
                   <button
                     onClick={() => handleEnvoyer(d._id)}
-                    disabled={sending === d._id}
-                    style={{ ...BTN_PRIMARY, display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, opacity: sending === d._id ? 0.7 : 1 }}
+                    disabled={sending === d._id || insuffisant}
+                    title={insuffisant ? 'Stock entrepôt insuffisant' : ''}
+                    style={{ ...BTN_PRIMARY, display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, opacity: (sending === d._id || insuffisant) ? 0.5 : 1, cursor: insuffisant ? 'not-allowed' : 'pointer' }}
                   >
                     <I d={D.truck} size={13}/>
                     {sending === d._id ? 'Envoi…' : 'Marquer comme envoyé'}
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

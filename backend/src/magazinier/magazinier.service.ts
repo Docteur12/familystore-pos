@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Product, ProductDocument } from '../schemas/product.schema';
@@ -98,6 +98,12 @@ export class MagazinierService {
     if (!demande) throw new NotFoundException('Demande introuvable');
     if (demande.statut !== 'en_attente') throw new ForbiddenException('Demande déjà traitée');
 
+    // Garde-fou : ne pas envoyer plus que le stock entrepôt (jamais de stock négatif)
+    const prod = await this.productModel.findById(demande.produit).lean();
+    if (prod && demande.quantiteDemandee > (prod.stockMagazin ?? 0)) {
+      throw new BadRequestException(`Stock entrepôt insuffisant pour « ${prod.name} » : ${prod.stockMagazin ?? 0} en stock, ${demande.quantiteDemandee} demandé(s).`);
+    }
+
     // Décrémente le stock entrepôt quand les produits quittent physiquement le magazin
     await this.productModel.findByIdAndUpdate(
       demande.produit,
@@ -166,11 +172,20 @@ export class MagazinierService {
     body: { items: { produitId: string; quantite: number }[] },
     userId: string,
   ) {
-    const result = [];
-    for (const item of body.items) {
-      const product = await this.productModel.findById(item.produitId);
-      if (!product) throw new NotFoundException(`Produit introuvable : ${item.produitId}`);
+    const items = body?.items;
+    if (!Array.isArray(items) || items.length === 0) throw new BadRequestException('Aucun produit à envoyer.');
 
+    // Pré-vérification (tout ou rien) : ne pas envoyer plus que le stock entrepôt
+    for (const item of items) {
+      const product = await this.productModel.findById(item.produitId).lean();
+      if (!product) throw new NotFoundException(`Produit introuvable : ${item.produitId}`);
+      if (Number(item.quantite) > (product.stockMagazin ?? 0)) {
+        throw new BadRequestException(`Stock entrepôt insuffisant pour « ${product.name} » : ${product.stockMagazin ?? 0} en stock, ${item.quantite} demandé(s).`);
+      }
+    }
+
+    const result = [];
+    for (const item of items) {
       await this.productModel.findByIdAndUpdate(
         item.produitId,
         { $inc: { stockMagazin: -item.quantite } },

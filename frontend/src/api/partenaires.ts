@@ -5,8 +5,52 @@ export interface Partenaire {
   name: string;
   phone: string;
   lieu: string;
+  ville?: string;
+  quartier?: string;
+  responsable?: string;
+  email?: string;
   note: string;
+  type?: 'structure' | 'particulier';
+  archivee?: boolean;
   createdAt?: string;
+}
+
+// ── Agences (sous-entités d'un partenaire) ─────────────────────────────────────
+export interface Agence {
+  _id: string;
+  partenaire: string;
+  nom: string;
+  ville: string;
+  quartier?: string;
+  telephone?: string;
+  responsable?: string;
+  independante: boolean;
+  archivee: boolean;
+  createdAt?: string;
+}
+
+export async function getAgences(partenaireId?: string): Promise<Agence[]> {
+  const res = await fetch(`/api/partenaires/agences${partenaireId ? `?partenaireId=${partenaireId}` : ''}`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement agences');
+  return res.json();
+}
+
+export async function createAgence(data: { partenaireId: string; nom: string; ville?: string; quartier?: string; telephone?: string; responsable?: string; independante?: boolean }): Promise<Agence> {
+  const res = await fetch('/api/partenaires/agences', { method: 'POST', headers: authHeaders(), body: JSON.stringify(data) });
+  if (!res.ok) throw new Error('Erreur création agence');
+  return res.json();
+}
+
+export async function updateAgence(id: string, dto: Partial<{ nom: string; ville: string; quartier: string; telephone: string; responsable: string; independante: boolean; archivee: boolean }>): Promise<Agence> {
+  const res = await fetch(`/api/partenaires/agences/${id}`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(dto) });
+  if (!res.ok) throw new Error('Erreur modification agence');
+  return res.json();
+}
+
+export async function deleteAgence(id: string): Promise<{ archived: boolean; deleted: boolean }> {
+  const res = await fetch(`/api/partenaires/agences/${id}`, { method: 'DELETE', headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur suppression agence');
+  return res.json();
 }
 
 export interface LivraisonLigne {
@@ -26,6 +70,8 @@ export interface LivraisonPartenaire {
   _id: string;
   numeroBL: string;
   partenaire: { _id: string; name: string; phone?: string; lieu?: string } | string;
+  agence?: string | null;
+  commande?: string | null;
   lignes: LivraisonLigne[];
   total: number;
   montantPaye: number;
@@ -40,6 +86,8 @@ export interface LivraisonInput {
   date?: string;
   montantPaye?: number;
   modePaiement?: ModePaiement;
+  agenceId?: string | null;
+  commandeId?: string | null;
   lignes: { productId: string; quantite: number; prixUnitaire: number }[];
 }
 
@@ -48,13 +96,21 @@ export interface CommandePartenaire {
   _id: string;
   numero: string;
   partenaire: { _id: string; name: string; lieu?: string } | string;
-  lignes: { productId: string; productName: string; unit: string; quantite: number; prixUnitaire: number }[];
+  agence?: string | null;
+  lignes: { productId: string; productName: string; unit: string; quantite: number; quantiteLivree?: number; prixUnitaire: number }[];
   modePaiement: ModePaiement;
   delai: number;
-  statut: 'recue' | 'preparee' | 'livree';
+  statut: 'recue' | 'preparee' | 'partielle' | 'livree';
   note: string;
   livraison: string | null;
   createdAt: string;
+}
+
+// Préparation/livraison par le magazinier : quantités réellement servies
+export async function preparerCommande(commandeId: string, data: { lignes: { productId: string; quantite: number; prixUnitaire?: number }[]; montantPaye?: number; date?: string; numeroBL?: string }): Promise<{ livraison: LivraisonPartenaire; commande: CommandePartenaire }> {
+  const res = await fetch(`/api/partenaires/commandes/${commandeId}/preparer`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(data) });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur préparation de la commande');
+  return res.json();
 }
 
 export async function getCommandes(statut?: string): Promise<CommandePartenaire[]> {
@@ -63,21 +119,22 @@ export async function getCommandes(statut?: string): Promise<CommandePartenaire[
   return res.json();
 }
 
-export async function createCommande(data: { partenaireId: string; modePaiement?: ModePaiement; delai?: number; note?: string; lignes: { productId: string; quantite: number; prixUnitaire: number }[] }): Promise<CommandePartenaire> {
+export async function createCommande(data: { partenaireId: string; agenceId?: string | null; modePaiement?: ModePaiement; delai?: number; note?: string; lignes: { productId: string; quantite: number; prixUnitaire: number }[] }): Promise<CommandePartenaire> {
   const res = await fetch('/api/partenaires/commandes', { method: 'POST', headers: authHeaders(), body: JSON.stringify(data) });
   if (!res.ok) throw new Error('Erreur création commande');
   return res.json();
 }
 
-export async function updateCommande(id: string, dto: Partial<{ statut: string; note: string; delai: number }>): Promise<CommandePartenaire> {
+export async function updateCommande(id: string, dto: Partial<{ statut: string; note: string; delai: number; modePaiement: ModePaiement; agenceId: string | null; lignes: { productId: string; quantite: number; prixUnitaire: number }[] }>): Promise<CommandePartenaire> {
   const res = await fetch(`/api/partenaires/commandes/${id}`, { method: 'PATCH', headers: authHeaders(), body: JSON.stringify(dto) });
-  if (!res.ok) throw new Error('Erreur modification commande');
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur modification commande');
   return res.json();
 }
 
-export async function deleteCommande(id: string): Promise<void> {
+export async function deleteCommande(id: string): Promise<{ ok: boolean; livraisonsAnnulees: number; produitsRestitues: number }> {
   const res = await fetch(`/api/partenaires/commandes/${id}`, { method: 'DELETE', headers: authHeaders() });
   if (!res.ok) throw new Error('Erreur suppression commande');
+  return res.json();
 }
 
 export async function livrerCommande(id: string, montantPaye = 0): Promise<LivraisonPartenaire> {
@@ -100,7 +157,7 @@ export async function getPartenaires(): Promise<Partenaire[]> {
   return res.json();
 }
 
-export async function createPartenaire(data: { name: string; phone?: string; lieu?: string; note?: string }): Promise<Partenaire> {
+export async function createPartenaire(data: { name: string; phone?: string; lieu?: string; ville?: string; quartier?: string; responsable?: string; email?: string; note?: string; type?: 'structure' | 'particulier' }): Promise<Partenaire> {
   const res = await fetch('/api/partenaires', {
     method: 'POST', headers: authHeaders(), body: JSON.stringify(data),
   });
@@ -108,7 +165,7 @@ export async function createPartenaire(data: { name: string; phone?: string; lie
   return res.json();
 }
 
-export async function updatePartenaire(id: string, data: Partial<Pick<Partenaire, 'name' | 'phone' | 'lieu' | 'note'>>): Promise<Partenaire> {
+export async function updatePartenaire(id: string, data: Partial<Pick<Partenaire, 'name' | 'phone' | 'lieu' | 'ville' | 'quartier' | 'responsable' | 'email' | 'note' | 'type' | 'archivee'>>): Promise<Partenaire> {
   const res = await fetch(`/api/partenaires/${id}`, {
     method: 'PATCH', headers: authHeaders(), body: JSON.stringify(data),
   });
@@ -141,6 +198,7 @@ export async function createLivraison(partenaireId: string, data: LivraisonInput
 export interface PaiementPartenaire {
   _id: string;
   partenaire: string;
+  agence?: string | null;
   montant: number;
   note: string;
   date: string;
@@ -190,11 +248,68 @@ export async function getPartenairesStats(): Promise<PartenairesStats> {
   return res.json();
 }
 
-export async function createPaiement(partenaireId: string, data: { montant: number; note?: string }): Promise<PaiementPartenaire> {
+export async function createPaiement(partenaireId: string, data: { montant: number; note?: string; date?: string; agenceId?: string | null }): Promise<PaiementPartenaire> {
   const res = await fetch(`/api/partenaires/${partenaireId}/paiements`, {
     method: 'POST', headers: authHeaders(), body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('Erreur enregistrement du paiement');
+  return res.json();
+}
+
+// ── Compte ventilé par agence (dette par agence / commune / globale) ───────────
+export interface AgenceCompte {
+  _id: string; nom: string; ville: string; telephone?: string; responsable?: string;
+  independante: boolean; archivee: boolean;
+  livre: number; paye: number; verse: number; qteCommandee: number; qteLivree: number; solde: number;
+}
+export interface CompteAgences {
+  partenaire: Partenaire;
+  agences: AgenceCompte[];
+  livraisons: LivraisonPartenaire[];
+  paiements: PaiementPartenaire[];
+  retours: RetourPartenaire[];
+  commandes: CommandePartenaire[];
+  detteCommune: number;
+  detteAgences: number;
+  soldeGlobal: number;
+  totalLivre: number;
+  payeLivraison: number;
+  totalPaiements: number;
+  totalRetours: number;
+}
+export async function getCompteAgences(partenaireId: string): Promise<CompteAgences> {
+  const res = await fetch(`/api/partenaires/${partenaireId}/compte-agences`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement du compte par agence');
+  return res.json();
+}
+
+export interface StatsAgences {
+  nbPartenaires: number;
+  nbAgences: number;
+  totalLivre: number;
+  totalCreances: number;
+  debiteurs: { partenaireId: string; name: string; agenceId: string | null; agenceNom: string; sub: string; solde: number }[];
+}
+export async function getStatsAgences(): Promise<StatsAgences> {
+  const res = await fetch('/api/partenaires/stats-agences', { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement statistiques par agence');
+  return res.json();
+}
+
+// ── Historique global (livraisons + versements + retours) ──────────────────────
+export interface Operation {
+  type: 'livraison' | 'versement' | 'retour';
+  date: string;
+  partenaire: string;
+  agence: string;
+  montant: number;
+  ref?: string;
+  note?: string;
+  lignes?: { productName: string; quantite: number }[];
+}
+export async function getOperations(): Promise<Operation[]> {
+  const res = await fetch('/api/partenaires/historique', { headers: authHeaders() });
+  if (!res.ok) throw new Error('Erreur chargement historique');
   return res.json();
 }
 

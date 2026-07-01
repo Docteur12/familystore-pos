@@ -60,6 +60,7 @@ const SECTIONS = [
       { id: 'caissiers',     label: 'Caissiers',          icon: D.caissiers,     path: '/admin/caissiers'     },
       { id: 'gestionnaires', label: 'Gestionnaires',      icon: D.gestionnaires, path: '/admin/gestionnaires' },
       { id: 'magaziniers',   label: 'Magaziniers',        icon: D.equipe,        path: '/admin/magaziniers'   },
+      { id: 'partenaires',   label: 'Partenaires',        icon: D.caissiers,     path: '/admin/partenaires'   },
       { id: 'sessions',      label: 'Sessions de travail', icon: D.sessions,      path: '/admin/sessions'      },
       { id: 'roles',         label: 'Rôles & accès',      icon: D.roles,         path: '/admin/roles'         },
     ],

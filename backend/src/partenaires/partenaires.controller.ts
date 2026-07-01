@@ -20,7 +20,7 @@ export class PartenairesController {
   }
 
   @Post()
-  create(@Body() dto: { name: string; phone?: string; lieu?: string; note?: string }) {
+  create(@Body() dto: { name: string; phone?: string; lieu?: string; ville?: string; quartier?: string; responsable?: string; email?: string; note?: string; type?: string }) {
     return this.service.createPartenaire(dto);
   }
 
@@ -28,6 +28,39 @@ export class PartenairesController {
   @Get('stats')
   stats() {
     return this.service.getStats();
+  }
+
+  // ── Tableau de bord ventilé par agence ─────────────────────────────────────
+  @Get('stats-agences')
+  statsAgences() {
+    return this.service.getStatsAgences();
+  }
+
+  // ── Historique global (livraisons + versements + retours) ──────────────────
+  @Get('historique')
+  historique() {
+    return this.service.getOperations();
+  }
+
+  // ── Agences (sous-entités d'un partenaire) ─────────────────────────────────
+  @Get('agences')
+  agences(@Query('partenaireId') partenaireId?: string) {
+    return this.service.getAgences(partenaireId);
+  }
+
+  @Post('agences')
+  createAgence(@Body() body: { partenaireId: string; nom: string; ville?: string; quartier?: string; telephone?: string; responsable?: string; independante?: boolean }) {
+    return this.service.createAgence(body);
+  }
+
+  @Patch('agences/:aid')
+  updateAgence(@Param('aid') aid: string, @Body() dto: Partial<{ nom: string; ville: string; quartier: string; telephone: string; responsable: string; independante: boolean; archivee: boolean }>) {
+    return this.service.updateAgence(aid, dto);
+  }
+
+  @Delete('agences/:aid')
+  deleteAgence(@Param('aid') aid: string) {
+    return this.service.deleteAgence(aid);
   }
 
   @Get('livraisons')
@@ -43,15 +76,26 @@ export class PartenairesController {
 
   @Post('commandes')
   createCommande(
-    @Body() body: { partenaireId: string; modePaiement?: string; delai?: number; note?: string; lignes: { productId: string; quantite: number; prixUnitaire: number }[] },
+    @Body() body: { partenaireId: string; agenceId?: string | null; modePaiement?: string; delai?: number; note?: string; lignes: { productId: string; quantite: number; prixUnitaire: number }[] },
     @Req() req: Request,
   ) {
     const actor = (req as any).user;
     return this.service.createCommande(body, actor?.sub);
   }
 
+  // Préparation / livraison par le magazinier (quantités réellement servies)
+  @Post('commandes/:cid/preparer')
+  preparerCommande(
+    @Param('cid') cid: string,
+    @Body() body: { lignes: { productId: string; quantite: number; prixUnitaire?: number }[]; montantPaye?: number; date?: string; numeroBL?: string },
+    @Req() req: Request,
+  ) {
+    const actor = (req as any).user;
+    return this.service.preparerCommande(cid, body, actor?.sub);
+  }
+
   @Patch('commandes/:cid')
-  updateCommande(@Param('cid') cid: string, @Body() dto: Partial<{ statut: string; note: string; delai: number }>) {
+  updateCommande(@Param('cid') cid: string, @Body() dto: Partial<{ statut: string; note: string; delai: number; modePaiement: string; agenceId: string | null; lignes: { productId: string; quantite: number; prixUnitaire: number }[] }>) {
     return this.service.updateCommande(cid, dto);
   }
 
@@ -67,7 +111,7 @@ export class PartenairesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: Partial<{ name: string; phone: string; lieu: string; note: string }>) {
+  update(@Param('id') id: string, @Body() dto: Partial<{ name: string; phone: string; lieu: string; ville: string; quartier: string; responsable: string; email: string; note: string; type: string; archivee: boolean }>) {
     return this.service.updatePartenaire(id, dto);
   }
 
@@ -84,11 +128,17 @@ export class PartenairesController {
   @Post(':id/livraisons')
   createLivraison(
     @Param('id') id: string,
-    @Body() body: { numeroBL?: string; date?: string; montantPaye?: number; modePaiement?: string; lignes: { productId: string; quantite: number; prixUnitaire: number }[] },
+    @Body() body: { numeroBL?: string; date?: string; montantPaye?: number; modePaiement?: string; agenceId?: string | null; commandeId?: string | null; lignes: { productId: string; quantite: number; prixUnitaire: number }[] },
     @Req() req: Request,
   ) {
     const actor = (req as any).user;
     return this.service.createLivraison(id, body, actor?.sub);
+  }
+
+  // Relevé ventilé par agence (dette par agence / commune / globale)
+  @Get(':id/compte-agences')
+  compteAgences(@Param('id') id: string) {
+    return this.service.getCompteAgences(id);
   }
 
   @Post(':id/retours')
@@ -110,7 +160,7 @@ export class PartenairesController {
   @Post(':id/paiements')
   createPaiement(
     @Param('id') id: string,
-    @Body() body: { montant: number; note?: string; date?: string },
+    @Body() body: { montant: number; note?: string; date?: string; agenceId?: string | null },
     @Req() req: Request,
   ) {
     const actor = (req as any).user;

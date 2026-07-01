@@ -9,6 +9,10 @@ export class PaiementPartenaire {
   @Prop({ type: Types.ObjectId, ref: 'Partenaire', required: true })
   partenaire: Types.ObjectId;
 
+  // Agence réglée (optionnel ; null = versement commun/global, non rattaché à une agence)
+  @Prop({ type: Types.ObjectId, ref: 'Agence', default: null })
+  agence: Types.ObjectId | null;
+
   @Prop({ required: true, min: 0 })
   montant: number;
 

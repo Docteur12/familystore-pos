@@ -12,13 +12,18 @@ export class CommandePartenaire {
   @Prop({ type: Types.ObjectId, ref: 'Partenaire', required: true })
   partenaire: Types.ObjectId;
 
+  // Agence concernée (optionnel ; null = partenaire sans agence / particulier)
+  @Prop({ type: Types.ObjectId, ref: 'Agence', default: null })
+  agence: Types.ObjectId | null;
+
   @Prop({
     type: [{
-      productId:    { type: Types.ObjectId, ref: 'Product' },
-      productName:  String,
-      unit:         { type: String, default: '' },
-      quantite:     { type: Number, default: 0 },
-      prixUnitaire: { type: Number, default: 0 },
+      productId:      { type: Types.ObjectId, ref: 'Product' },
+      productName:    String,
+      unit:           { type: String, default: '' },
+      quantite:       { type: Number, default: 0 },   // quantité commandée
+      quantiteLivree: { type: Number, default: 0 },   // cumul réellement servi (reliquat = quantite - quantiteLivree)
+      prixUnitaire:   { type: Number, default: 0 },
     }],
     default: [],
   })
@@ -27,6 +32,7 @@ export class CommandePartenaire {
     productName: string;
     unit: string;
     quantite: number;
+    quantiteLivree: number;
     prixUnitaire: number;
   }[];
 
@@ -36,7 +42,8 @@ export class CommandePartenaire {
   @Prop({ default: 0 })
   delai: number;   // délai de livraison en jours
 
-  @Prop({ enum: ['recue', 'preparee', 'livree'], default: 'recue' })
+  // 'partielle' = partiellement livrée (reliquat ouvert)
+  @Prop({ enum: ['recue', 'preparee', 'partielle', 'livree'], default: 'recue' })
   statut: string;
 
   @Prop({ trim: true, default: '' })

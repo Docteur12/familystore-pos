@@ -60,7 +60,8 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5173,
+    port: 5180,
+    strictPort: true, // toujours ce port dédié → plus de conflit/décalage avec les autres projets
     proxy: {
       '/api': 'http://localhost:3004',
     },

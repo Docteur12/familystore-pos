@@ -16,7 +16,27 @@ export class Partenaire {
   lieu: string;
 
   @Prop({ trim: true, default: '' })
+  ville: string;
+
+  @Prop({ trim: true, default: '' })
+  quartier: string;
+
+  @Prop({ trim: true, default: '' })
+  responsable: string;
+
+  @Prop({ trim: true, default: '' })
+  email: string;
+
+  @Prop({ trim: true, default: '' })
   note: string;
+
+  // structure = avec agences ; particulier = revendeur sans agence
+  @Prop({ enum: ['structure', 'particulier'], default: 'structure' })
+  type: string;
+
+  // archivé = conservé pour l'historique, retiré des nouvelles opérations
+  @Prop({ default: false })
+  archivee: boolean;
 }
 
 export const PartenaireSchema = SchemaFactory.createForClass(Partenaire);

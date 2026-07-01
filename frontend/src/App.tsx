@@ -34,11 +34,13 @@ import AdminExports      from './pages/AdminExports';
 import AdminFactures     from './pages/AdminFactures';
 import AdminSessions     from './pages/AdminSessions';
 import AdminMagaziniers  from './pages/AdminMagaziniers';
+import AdminPartenaires  from './pages/AdminPartenaires';
 import AdminCaisses      from './pages/AdminCaisses';
 import Magazinier        from './pages/Magazinier';
 import StocksEcarts      from './pages/StocksEcarts';
 import StocksDivers      from './pages/StocksDivers';
 import Partenaires       from './pages/Partenaires';
+import PartenairesAgencesMaquette from './pages/PartenairesAgencesMaquette';
 import { getTokenPayload } from './api/dashboard';
 
 const INACTIVITY_MS = 10 * 60 * 1000;
@@ -149,9 +151,11 @@ export default function App() {
         <Route path="/admin/factures"      element={<RequireAuthBare><AdminFactures /></RequireAuthBare>} />
         <Route path="/admin/sessions"      element={<RequireAuthBare><AdminSessions /></RequireAuthBare>} />
         <Route path="/admin/magaziniers"   element={<RequireAuthBare><AdminMagaziniers /></RequireAuthBare>} />
+        <Route path="/admin/partenaires"   element={<RequireAuthBare><AdminPartenaires /></RequireAuthBare>} />
         <Route path="/admin/caisses"       element={<RequireAuthBare><AdminCaisses /></RequireAuthBare>} />
         <Route path="/magazinier"          element={<RequireRole role={['magazinier','patron']}><Magazinier /></RequireRole>} />
-        <Route path="/partenaires"         element={<RequireRole role={['magazinier','patron','commercial']}><Partenaires /></RequireRole>} />
+        <Route path="/partenaires"         element={<RequireRole role={['patron','commercial']}><Partenaires /></RequireRole>} />
+        <Route path="/maquette/agences"    element={<PartenairesAgencesMaquette />} />
       </Routes>
     </BrowserRouter>
     </SettingsProvider>

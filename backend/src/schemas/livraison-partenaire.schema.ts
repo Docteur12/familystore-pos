@@ -12,6 +12,14 @@ export class LivraisonPartenaire {
   @Prop({ type: Types.ObjectId, ref: 'Partenaire', required: true })
   partenaire: Types.ObjectId;
 
+  // Agence livrée (optionnel ; null = sans agence)
+  @Prop({ type: Types.ObjectId, ref: 'Agence', default: null })
+  agence: Types.ObjectId | null;
+
+  // Commande d'origine (optionnel ; null = livraison directe)
+  @Prop({ type: Types.ObjectId, ref: 'CommandePartenaire', default: null })
+  commande: Types.ObjectId | null;
+
   @Prop({
     type: [{
       productId:     { type: Types.ObjectId, ref: 'Product' },
