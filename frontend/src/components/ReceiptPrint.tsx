@@ -186,6 +186,15 @@ export function doPrint(html: string, copies = 1) {
       w.document.write(html);
       w.document.close();
       setTimeout(() => {
+        // Page de la hauteur EXACTE du ticket : tout tient sur une seule page,
+        // même si le pilote de l'imprimante est réglé sur une longueur fixe.
+        // (Sinon le pied « Merci / offre -5% » déborde sur le segment suivant.)
+        try {
+          const hMm = Math.ceil((w.document.body.scrollHeight * 25.4) / 96) + 4;
+          const st  = w.document.createElement('style');
+          st.textContent = `@page { size: 80mm ${hMm}mm; margin: 0; }`;
+          w.document.head.appendChild(st);
+        } catch { /* mesure impossible → @page 80mm auto du HTML reste appliqué */ }
         try { w.focus(); w.print(); setTimeout(() => w.close(), 1200); } catch { /* ignore */ }
       }, 400);
     }, i * 1000);
