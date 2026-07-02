@@ -172,7 +172,7 @@ export function buildReceiptHTML(data: ReceiptData): string {
   <div style="height:6px"></div>
   <div class="center foot">
     <div class="merci">Merci de votre visite !</div>
-    <div class="offer">Pour vous remercier, <b>Family Store vous offre 5 %</b> de r&eacute;duction sur votre prochain achat. Pr&eacute;sentez simplement cette facture &agrave; la caisse pour b&eacute;n&eacute;ficier de cette offre.</div>
+    <div class="offer">Pour vous remercier, <b>Family Store vous offre 5&nbsp;%</b> de r&eacute;duction sur votre prochain achat. Pr&eacute;sentez simplement cette facture &agrave; la caisse pour b&eacute;n&eacute;ficier de cette offre.</div>
   </div>
 </body>
 </html>`;
