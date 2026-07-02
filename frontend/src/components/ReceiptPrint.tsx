@@ -114,7 +114,7 @@ export function buildReceiptHTML(data: ReceiptData): string {
       font-size: 12px; color: #000 !important;
     }
     html, body { width: 80mm; margin: 0; padding: 0; background: #fff; }
-    body { padding: 8px 9mm 14px 9mm; }
+    body { padding: 8px 9mm 8px 9mm; }
     .center{ text-align: center; }
     .solid { border-top: 2px solid #000; margin: 9px 0; }
     .dash  { border-top: 1px dashed #000; margin: 8px 0; }
@@ -130,8 +130,10 @@ export function buildReceiptHTML(data: ReceiptData): string {
     .row   { display: flex; justify-content: space-between; font-size: 10px; margin: 2px 0; }
     .total { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 18px; font-weight: 700; margin: 6px 0; }
     .pay   { font-size: 11px; line-height: 1.65; }
-    .merci { font-size: 14px; font-weight: 700; letter-spacing: 0.5px; margin: 4px 0; }
-    .offer { font-size: 9px; line-height: 1.4; }
+    .merci { font-size: 14px; font-weight: 700; letter-spacing: 0.5px; margin: 2px 0; }
+    .offer { font-size: 9px; line-height: 1.35; }
+    /* Le pied (Merci + offre) reste d'un seul tenant : jamais coupé en fin de page */
+    .foot  { page-break-inside: avoid; break-inside: avoid; }
   </style>
 </head>
 <body>
@@ -167,8 +169,8 @@ export function buildReceiptHTML(data: ReceiptData): string {
   <div class="pay">Mode de paiement : ${data.paymentLabel}</div>
   <div class="pay">Montant re&ccedil;u : ${f(data.amountPaid)} FCFA</div>
   ${data.change > 0 ? `<div class="pay">Montant rembours&eacute; : ${f(data.change)} FCFA</div>` : ''}
-  <div style="height:10px"></div>
-  <div class="center">
+  <div style="height:6px"></div>
+  <div class="center foot">
     <div class="merci">Merci de votre visite !</div>
     <div class="offer">Pour vous remercier, <b>Family Store vous offre 5 %</b> de r&eacute;duction sur votre prochain achat. Pr&eacute;sentez simplement cette facture &agrave; la caisse pour b&eacute;n&eacute;ficier de cette offre.</div>
   </div>
