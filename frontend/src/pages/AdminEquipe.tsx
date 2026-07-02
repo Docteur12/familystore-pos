@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import { getUsers, UserRecord } from '../api/auth';
 import { getCaisses, CaisseRecord } from '../api/caisses';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 type EquipeSortKey = 'name' | 'role' | 'poste' | 'email' | 'phone';
 const EQUIPE_COLS: { key: EquipeSortKey; label: string }[] = [
@@ -28,6 +29,8 @@ const ROLE_COLOR: Record<string, { bg: string; color: string }> = {
 };
 
 export default function AdminEquipe() {
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024);
   const [users,   setUsers]   = useState<UserRecord[]>([]);
   const [caisses, setCaisses] = useState<CaisseRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,10 +79,10 @@ export default function AdminEquipe() {
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <AdminSidebar/>
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', paddingLeft: isMobile ? 52 : undefined, flexShrink: 0 }}>
           <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Personnel</p>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>
             Équipe · {users.length} collaborateur{users.length !== 1 ? 's' : ''}
@@ -87,14 +90,14 @@ export default function AdminEquipe() {
         </div>
 
         {/* Stats */}
-        <div style={{ display: 'flex', gap: 12, padding: '14px 28px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexWrap: isNarrow ? 'wrap' : 'nowrap', gap: 12, padding: isNarrow ? '14px 16px' : '14px 28px', flexShrink: 0 }}>
           {[
             { label: 'Caissiers',     count: byRole('caissier'),     ...ROLE_COLOR.caissier     },
             { label: 'Gestionnaires', count: byRole('gestionnaire'), ...ROLE_COLOR.gestionnaire },
             { label: 'Magaziniers',   count: byRole('magazinier'),   ...ROLE_COLOR.magazinier   },
             { label: 'Total',         count: users.length, bg: '#fff', color: 'var(--fs-ink-700)' },
           ].map(s => (
-            <div key={s.label} style={{ background: s.bg, border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 18px', minWidth: 110 }}>
+            <div key={s.label} style={{ background: s.bg, border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 18px', minWidth: 110, flex: isMobile ? '1 1 40%' : undefined }}>
               <div style={{ fontSize: 24, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: s.color }}>{s.count}</div>
               <div style={{ fontSize: 11, fontWeight: 600, color: s.color, marginTop: 2 }}>{s.label}</div>
             </div>
@@ -102,7 +105,7 @@ export default function AdminEquipe() {
         </div>
 
         {/* Table */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 28px 28px' }}>
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '0 16px 28px' : '0 28px 28px' }}>
           {loading ? (
             <div style={{ textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13, padding: '60px 0' }}>Chargement…</div>
           ) : users.length === 0 ? (
@@ -110,8 +113,8 @@ export default function AdminEquipe() {
               Aucun collaborateur trouvé.
             </div>
           ) : (
-            <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden' }}>
-              <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', overflowX: isNarrow ? 'auto' : 'hidden' }}>
+              <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 720 : undefined }}>
                 <thead>
                   <tr>
                     {EQUIPE_COLS.map(col => {

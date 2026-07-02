@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { createUser, deleteUser, getUsers, updateUser, UserRecord } from '../api/auth';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ function PartenaireCard({ user, selected, onEdit, onDelete }: {
 }
 
 // ── Create panel ──────────────────────────────────────────────────────────────
-function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
+function CreatePanel({ isNarrow, onCreated, onCancel }: { isNarrow: boolean; onCreated: () => void; onCancel: () => void }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -85,7 +86,7 @@ function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel:
   };
 
   return (
-    <div style={{ width: 320, borderLeft: '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+    <div style={{ width: isNarrow ? '100%' : 320, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', borderTop: isNarrow ? '1px solid var(--fs-line)' : undefined, background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>+ Nouveau compte Partenaires</div>
@@ -125,8 +126,8 @@ function CreatePanel({ onCreated, onCancel }: { onCreated: () => void; onCancel:
 }
 
 // ── Edit panel ────────────────────────────────────────────────────────────────
-function EditPanel({ user, onSaved, onCancel, onDeleted }: {
-  user: UserRecord; onSaved: () => void; onCancel: () => void; onDeleted: () => void;
+function EditPanel({ isNarrow, user, onSaved, onCancel, onDeleted }: {
+  isNarrow: boolean; user: UserRecord; onSaved: () => void; onCancel: () => void; onDeleted: () => void;
 }) {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -160,7 +161,7 @@ function EditPanel({ user, onSaved, onCancel, onDeleted }: {
   };
 
   return (
-    <div style={{ width: 320, borderLeft: '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+    <div style={{ width: isNarrow ? '100%' : 320, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', borderTop: isNarrow ? '1px solid var(--fs-line)' : undefined, background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Modification</div>
@@ -213,6 +214,8 @@ function EditPanel({ user, onSaved, onCancel, onDeleted }: {
 type PanelMode = { type: 'create' } | { type: 'edit'; user: UserRecord } | null;
 
 export default function AdminPartenaires() {
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [panel, setPanel] = useState<PanelMode>(null);
 
@@ -224,9 +227,9 @@ export default function AdminPartenaires() {
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <AdminSidebar/>
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0, display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
+          <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
             <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Personnel</p>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Comptes Partenaires <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-400)' }}>({users.length})</span></h1>
           </div>
@@ -235,8 +238,8 @@ export default function AdminPartenaires() {
           </button>
         </div>
 
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: isNarrow ? 'column' : 'row', overflow: isNarrow ? 'visible' : 'hidden' }}>
+          <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '16px' : '20px 24px' }}>
             <div style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 18, fontSize: 12, color: 'var(--fs-ink-600)', maxWidth: 720 }}>
               Ces comptes servent à se connecter à l'<strong>espace Partenaires</strong> (grossistes) : la personne se connecte avec son email + mot de passe et arrive directement dans cet espace.
             </div>
@@ -246,7 +249,7 @@ export default function AdminPartenaires() {
                 Aucun compte partenaire — cliquez sur <strong>Ajouter</strong> pour créer le premier.
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, maxWidth: 860 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 14, maxWidth: 860 }}>
                 {users.map(u => (
                   <PartenaireCard key={u._id} user={u} selected={selectedId === u._id}
                     onEdit={() => setPanel({ type: 'edit', user: u })}
@@ -255,8 +258,8 @@ export default function AdminPartenaires() {
               </div>
             )}
           </div>
-          {panel?.type === 'create' && <CreatePanel onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
-          {panel?.type === 'edit' && <EditPanel user={panel.user} onSaved={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)} onDeleted={() => { load(); setPanel(null); }}/>}
+          {panel?.type === 'create' && <CreatePanel isNarrow={isNarrow} onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
+          {panel?.type === 'edit' && <EditPanel isNarrow={isNarrow} user={panel.user} onSaved={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)} onDeleted={() => { load(); setPanel(null); }}/>}
         </div>
       </main>
     </div>

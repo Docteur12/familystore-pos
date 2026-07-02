@@ -10,6 +10,7 @@ import { getPrintSettings, savePrintSettings, PrintSettings } from '../component
 import { getCategoryTree, importCategories } from '../api/categories';
 import { resetEntrepot } from '../api/magazinier';
 import { authHeaders } from '../api/http';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Styles partagés ──────────────────────────────────────────────────────────
 
@@ -133,6 +134,8 @@ function fromSForm(f: SForm): Partial<StoreSettings> {
 export default function AdminParametres() {
   const { reloadSettings } = useSettings();
   const { toasts, addToast, removeToast } = useToast();
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024);
 
   // ── Catégories (taxonomie éditable via CSV) ────────────────────────────────
   const catFileRef = useRef<HTMLInputElement>(null);
@@ -352,15 +355,15 @@ export default function AdminParametres() {
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <AdminSidebar/>
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0, paddingLeft: isMobile ? 52 : undefined }}>
           <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Système</p>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>Paramètres magasin</h1>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', maxWidth: 660 }}>
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '20px 16px' : '24px 28px', maxWidth: 660 }}>
 
           {/* ── Logo ──────────────────────────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
@@ -391,7 +394,7 @@ export default function AdminParametres() {
           {/* ── Couleur principale ───────────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
             <p style={SECTION_TITLE}>Couleur de la boutique</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 <div style={{ width: 52, height: 52, borderRadius: 10, background: form.couleurPrincipale || 'var(--fs-wine-700)', border: '2px solid var(--fs-line-2)', overflow: 'hidden', cursor: 'pointer' }}>
                   <input
@@ -456,7 +459,7 @@ export default function AdminParametres() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <Field label="Nom du magasin"  value={form.nomMagasin} onChange={mkChange('nomMagasin')} placeholder="Family Store"/>
               <Field label="Adresse"         value={form.adresse}    onChange={mkChange('adresse')}    placeholder="Rue de la Joie, Akwa"/>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                 <Field label="Ville"         value={form.ville}      onChange={mkChange('ville')}      placeholder="Douala"/>
                 <Field label="Téléphone"     value={form.telephone}  onChange={mkChange('telephone')}  placeholder="+237 6XX XXX XXX"/>
               </div>
@@ -467,7 +470,7 @@ export default function AdminParametres() {
           {/* ── Horaires ─────────────────────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
             <p style={SECTION_TITLE}>Horaires d'ouverture</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
               <Field label="Heure d'ouverture" value={form.ouverture} onChange={mkChange('ouverture')} type="time"/>
               <Field label="Heure de fermeture" value={form.fermeture} onChange={mkChange('fermeture')} type="time"/>
             </div>
@@ -608,12 +611,12 @@ export default function AdminParametres() {
               <p style={SECTION_TITLE}>Mon compte</p>
               {accError && <div style={{ background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', padding: '8px 12px', borderRadius: 8, marginBottom: 12, fontSize: 12, fontWeight: 600 }}>{accError}</div>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                   <Field label="Prénom" value={accPrenom} onChange={onAccPrenom} placeholder="Prénom"/>
                   <Field label="Nom"    value={accNom}    onChange={onAccNom}    placeholder="Nom de famille"/>
                 </div>
                 <Field label="Email" value={payload?.email ?? ''} onChange={() => {}} disabled placeholder="email@familystore.cm"/>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                   <Field label="Nouveau mot de passe"     value={accPwd}  onChange={onAccPwd}  type="password" placeholder="Laisser vide pour ne pas changer"/>
                   <Field label="Confirmer le mot de passe" value={accPwd2} onChange={onAccPwd2} type="password" placeholder="Répéter le mot de passe"/>
                 </div>

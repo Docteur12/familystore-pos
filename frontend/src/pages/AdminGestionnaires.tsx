@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { createUser, deleteUser, getUsers, updateUser, UserRecord } from '../api/auth';
 import { getCaisses, CaisseRecord } from '../api/caisses';
 
@@ -78,7 +79,7 @@ function GestCard({ user, selected, onClick, onEdit, onDelete }: { user: UserRec
 
 // ── Edit gestionnaire panel ───────────────────────────────────────────────────
 
-function EditGestPanel({ user, caisses, onSaved, onCancel }: { user: UserRecord; caisses: CaisseRecord[]; onSaved: () => void; onCancel: () => void }) {
+function EditGestPanel({ user, caisses, isNarrow, onSaved, onCancel }: { user: UserRecord; caisses: CaisseRecord[]; isNarrow: boolean; onSaved: () => void; onCancel: () => void }) {
   const parts = user.name.split(' ');
   const [prenom, setPrenom] = useState(parts[0] ?? '');
   const [nom, setNom]       = useState(parts.slice(1).join(' ') ?? '');
@@ -103,7 +104,7 @@ function EditGestPanel({ user, caisses, onSaved, onCancel }: { user: UserRecord;
   };
 
   return (
-    <div style={{ width: 310, borderLeft: '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+    <div style={{ width: isNarrow ? '100%' : 310, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-success-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Modification</div>
@@ -157,7 +158,7 @@ function EditGestPanel({ user, caisses, onSaved, onCancel }: { user: UserRecord;
 
 // ── Delete confirm panel ──────────────────────────────────────────────────────
 
-function DeleteGestPanel({ user, onDeleted, onCancel }: { user: UserRecord; onDeleted: () => void; onCancel: () => void }) {
+function DeleteGestPanel({ user, isNarrow, onDeleted, onCancel }: { user: UserRecord; isNarrow: boolean; onDeleted: () => void; onCancel: () => void }) {
   const [loading, setLoading] = useState(false);
   const handleDelete = async () => {
     setLoading(true);
@@ -165,7 +166,7 @@ function DeleteGestPanel({ user, onDeleted, onCancel }: { user: UserRecord; onDe
     catch { setLoading(false); }
   };
   return (
-    <div style={{ width: 310, borderLeft: '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px 22px', flexShrink: 0 }}>
+    <div style={{ width: isNarrow ? '100%' : 310, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px 22px', flexShrink: 0 }}>
       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 10 }}>Supprimer {user.name} ?</div>
       <p style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginBottom: 20, lineHeight: 1.5 }}>Ce compte gestionnaire sera définitivement supprimé. Cette action est irréversible.</p>
       <div style={{ display: 'flex', gap: 8 }}>
@@ -178,7 +179,7 @@ function DeleteGestPanel({ user, onDeleted, onCancel }: { user: UserRecord; onDe
   );
 }
 
-function FormPanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]; onCreated: () => void; onCancel: () => void }) {
+function FormPanel({ caisses, isNarrow, onCreated, onCancel }: { caisses: CaisseRecord[]; isNarrow: boolean; onCreated: () => void; onCancel: () => void }) {
   const [form, setForm] = useState({ prenom: '', nom: '', email: '', phone: '', assignedLocation: '', dateEmb: new Date().toISOString().slice(0, 10), password: '' });
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -203,7 +204,7 @@ function FormPanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]; 
   };
 
   return (
-    <div style={{ width: 310, borderLeft: '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+    <div style={{ width: isNarrow ? '100%' : 310, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0 }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-success-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>+ Nouveau gestionnaire</div>
         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Créer un compte gestionnaire</div>
@@ -256,6 +257,8 @@ function FormPanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]; 
 type GestPanel = { type: 'create' } | { type: 'edit'; user: UserRecord } | { type: 'delete'; user: UserRecord } | null;
 
 export default function AdminGestionnaires() {
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024);
   const [users, setUsers]     = useState<UserRecord[]>([]);
   const [caisses, setCaisses] = useState<CaisseRecord[]>([]);
   const [panel, setPanel]     = useState<GestPanel>(null);
@@ -271,10 +274,10 @@ export default function AdminGestionnaires() {
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <AdminSidebar/>
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
+            <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Personnel — Gestionnaires</p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>Gestionnaires · {staff.length} comptes</h1>
             </div>
@@ -283,9 +286,9 @@ export default function AdminGestionnaires() {
             </button>
           </div>
         </div>
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: isNarrow ? 'column' : 'row', overflow: isNarrow ? 'visible' : 'hidden' }}>
+          <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '16px 16px' : '20px 24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 14 }}>
               {staff.map(u => (
                 <GestCard key={u._id} user={u}
                   selected={panel?.type !== 'create' && (panel as { user?: UserRecord })?.user?._id === u._id}
@@ -296,9 +299,9 @@ export default function AdminGestionnaires() {
               ))}
             </div>
           </div>
-          {panel?.type === 'create' && <FormPanel caisses={caisses} onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
-          {panel?.type === 'edit' && <EditGestPanel user={panel.user} caisses={caisses} onSaved={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
-          {panel?.type === 'delete' && <DeleteGestPanel user={panel.user} onDeleted={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
+          {panel?.type === 'create' && <FormPanel caisses={caisses} isNarrow={isNarrow} onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
+          {panel?.type === 'edit' && <EditGestPanel user={panel.user} caisses={caisses} isNarrow={isNarrow} onSaved={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
+          {panel?.type === 'delete' && <DeleteGestPanel user={panel.user} isNarrow={isNarrow} onDeleted={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>}
         </div>
       </main>
     </div>

@@ -5,6 +5,7 @@ import {
   getCaisses, createCaisse, updateCaisse, deleteCaisse, CaisseRecord,
 } from '../api/caisses';
 import { getUsers, UserRecord } from '../api/auth';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -190,10 +191,11 @@ function CaisseCard({ caisse, assignedCount, selected, onEdit }: {
 
 // ── Form panel (create + edit) ────────────────────────────────────────────────
 
-function CaissePanel({ caisse, onSaved, onCancel }: {
+function CaissePanel({ caisse, onSaved, onCancel, isNarrow }: {
   caisse: CaisseRecord | null;
   onSaved: () => void;
   onCancel: () => void;
+  isNarrow: boolean;
 }) {
   const isEdit = caisse !== null;
   const { addToast } = useToast();
@@ -248,7 +250,8 @@ function CaissePanel({ caisse, onSaved, onCancel }: {
 
   return (
     <div style={{
-      width: 340, borderLeft: '1px solid var(--fs-line)', background: '#fff',
+      width: isNarrow ? '100%' : 340, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)',
+      borderTop: isNarrow ? '1px solid var(--fs-line)' : undefined, background: '#fff',
       display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0,
     }}>
       {/* Header */}
@@ -438,6 +441,8 @@ function CaissePanel({ caisse, onSaved, onCancel }: {
 type PanelMode = { type: 'create' } | { type: 'edit'; caisse: CaisseRecord } | null;
 
 export default function AdminCaisses() {
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024);
   const { toasts, addToast, removeToast } = useToast();
   const [caisses,  setCaisses]  = useState<CaisseRecord[]>([]);
   const [users,    setUsers]    = useState<UserRecord[]>([]);
@@ -469,12 +474,12 @@ export default function AdminCaisses() {
       <AdminSidebar/>
       <ToastContainer toasts={toasts} onRemove={removeToast}/>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
+            <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>
                 Système — Infrastructure
               </p>
@@ -492,7 +497,7 @@ export default function AdminCaisses() {
         </div>
 
         {/* Résumé stats */}
-        <div style={{ padding: '16px 28px 0', display: 'flex', gap: 12, flexShrink: 0 }}>
+        <div style={{ padding: isNarrow ? '16px 16px 0' : '16px 28px 0', display: 'flex', flexWrap: 'wrap', gap: 12, flexShrink: 0 }}>
           {[
             { label: 'Terminaux actifs',  value: caisses.length.toString(),                  color: 'var(--fs-wine-700)' },
             { label: 'Caissiers assignés', value: users.filter(u => u.caisseId).length.toString(), color: '#16a34a'        },
@@ -505,9 +510,9 @@ export default function AdminCaisses() {
           ))}
         </div>
 
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: isNarrow ? 'column' : 'row', overflow: isNarrow ? 'visible' : 'hidden' }}>
           {/* Grille */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
+          <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '20px 16px' : '20px 28px' }}>
             {loading ? (
               <div style={{ textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13, padding: '60px 0' }}>
                 Chargement…
@@ -518,7 +523,7 @@ export default function AdminCaisses() {
                 Aucun terminal — cliquez sur <strong>Ajouter une caisse</strong> pour créer le premier.
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
                 {caisses.map(c => (
                   <CaisseCard
                     key={c._id}
@@ -538,6 +543,7 @@ export default function AdminCaisses() {
               caisse={null}
               onSaved={() => { load(); setPanel(null); addToast('Caisse créée ✅', 'success'); }}
               onCancel={() => setPanel(null)}
+              isNarrow={isNarrow}
             />
           )}
           {panel?.type === 'edit' && (
@@ -545,6 +551,7 @@ export default function AdminCaisses() {
               caisse={panel.caisse}
               onSaved={() => { load(); setPanel(null); addToast('Modifications enregistrées ✅', 'success'); }}
               onCancel={() => setPanel(null)}
+              isNarrow={isNarrow}
             />
           )}
         </div>

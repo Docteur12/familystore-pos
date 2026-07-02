@@ -4,6 +4,7 @@ import {
   ResponsiveContainer, Cell, LineChart, Line, Legend,
 } from 'recharts';
 import AdminSidebar from '../components/AdminSidebar';
+import { useIsMobile } from '../hooks/useIsMobile';
 import { getBrandColor } from '../utils/text';
 import ToastContainer, { useToast } from '../components/Toast';
 import {
@@ -168,6 +169,8 @@ function EmptyState({ label }: { label: string }) {
 export default function AdminRapports() {
   const { toasts, addToast, removeToast } = useToast();
   const brand = getBrandColor();
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024);
 
   const [viewMode, setViewMode] = useState<'mensuel' | 'semaine'>('mensuel');
 
@@ -369,12 +372,12 @@ export default function AdminRapports() {
       <AdminSidebar />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: isNarrow ? 'stretch' : 'center', flexDirection: isNarrow ? 'column' : 'row', justifyContent: 'space-between', gap: isNarrow ? 10 : 10, flexWrap: 'wrap' }}>
+            <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Rapports & Analyses — Mensuel</p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>
                 Rapport mensuel — {capLabel}
@@ -406,7 +409,7 @@ export default function AdminRapports() {
         </div>
 
         {/* Corps */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '18px 28px 28px' }}>
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '18px 16px 28px' : '18px 28px 28px' }}>
 
           {loading ? (
             <Skeleton />
@@ -415,7 +418,7 @@ export default function AdminRapports() {
           ) : (
             <>
               {/* KPI cards */}
-              <div style={{ display: 'flex', gap: 16, marginBottom: 18 }}>
+              <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', gap: 16, marginBottom: 18 }}>
                 {/* CA — grande carte bordeaux */}
                 <div style={{ flex: 2, background: 'var(--fs-wine-800)', borderRadius: 12, padding: '20px 24px', color: '#fff', minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(245,235,217,0.5)', marginBottom: 10 }}>
@@ -512,7 +515,7 @@ export default function AdminRapports() {
               </div>
 
               {/* Section basse : 3 colonnes */}
-              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', gap: 16, alignItems: isNarrow ? 'stretch' : 'flex-start' }}>
 
                 {/* Catégories produits */}
                 <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 18px', boxShadow: 'var(--fs-shadow-sm)' }}>
@@ -651,7 +654,8 @@ export default function AdminRapports() {
                   <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Statistiques tickets — {curYear}</div>
                     <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>T1 · T2 · T3 · T4 · Annuel — MIN / MAX / MOYENNE par ticket</div>
-                    <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <div style={{ overflowX: 'auto' }}>
+                    <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 560 : undefined, borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead>
                         <tr style={{ background: 'var(--fs-ivory)' }}>
                           {['Période', 'Nb tickets', 'CA total', 'MIN', 'MAX', 'Moyenne'].map(h => (
@@ -672,6 +676,7 @@ export default function AdminRapports() {
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 );
               })()}
@@ -791,7 +796,7 @@ export default function AdminRapports() {
                 {!hasData ? (
                   <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-300)', fontSize: 12 }}>Aucune donnée pour cette période</div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: 16 }}>
 
                     {/* Nb tickets */}
                     <div>
@@ -841,7 +846,7 @@ export default function AdminRapports() {
                       const globalMax = Math.max(...rows.map(r => r.maxTicket ?? 0));
                       const globalAvg = rows.reduce((s, r) => s + r.totalCA, 0) / totalNb;
                       return (
-                        <div style={{ gridColumn: '1/-1', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 4 }}>
+                        <div style={{ gridColumn: '1/-1', display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 10, marginTop: 4 }}>
                           {[
                             { label: 'Total tickets',  val: fmtN(totalNb),        color: 'var(--fs-wine-700)' },
                             { label: 'Ticket MIN',     val: `${fmtN(globalMin)} XAF`, color: '#7AB87A' },
@@ -894,7 +899,7 @@ export default function AdminRapports() {
                 {!hasData ? (
                   <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-300)', fontSize: 12 }}>Aucune donnée pour cette période</div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: 16 }}>
 
                     {/* CA par période (barres) */}
                     <div>
@@ -933,7 +938,7 @@ export default function AdminRapports() {
                     </div>
 
                     {/* KPIs CA */}
-                    <div style={{ gridColumn: '1/-1', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginTop: 4 }}>
+                    <div style={{ gridColumn: '1/-1', display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 10, marginTop: 4 }}>
                       {[
                         { label: 'CA total', val: `${fmtN(caTotal)} XAF`,            color: 'var(--fs-wine-700)' },
                         { label: 'CA MIN',   val: `${fmtN(caMin)} XAF`,              color: '#7AB87A' },
@@ -979,7 +984,7 @@ export default function AdminRapports() {
               <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-400)', fontSize: 12 }}>Aucune donnée disponible</div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 720 : undefined, borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ background: 'var(--fs-ivory)' }}>
                       {['Produit', 'Qté vendue', 'CA généré', 'Nb transactions', 'Prix moy. vente'].map(h => (

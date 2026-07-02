@@ -3,6 +3,7 @@ import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import { getComptaMonth, ComptaMonth } from '../api/comptabilite';
 import { authHeaders } from '../api/http';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -85,9 +86,9 @@ function Row({ label, value, bold, accent, sub, indent, pct }: RowProps) {
   );
 }
 
-function Skeleton() {
+function Skeleton({ isNarrow }: { isNarrow?: boolean }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: 16 }}>
       {[0, 1].map(i => (
         <div key={i} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, height: 420, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ height: 12, width: 120, background: 'var(--fs-line)', borderRadius: 4 }}/>
@@ -119,6 +120,8 @@ const QTR_MONTHS: Record<QtrTab, number[]> = {
 
 export default function AdminComptabilite() {
   const { toasts, addToast, removeToast } = useToast();
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024);
 
   const [monthIdx,  setMonthIdx]  = useState(0);
   const [qtrTab,    setQtrTab]    = useState<QtrTab | null>(null);
@@ -220,12 +223,12 @@ export default function AdminComptabilite() {
       <AdminSidebar />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', flexWrap: 'wrap', flexDirection: isNarrow ? 'column' : 'row', gap: isNarrow ? 10 : 16 }}>
+            <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Pilotage</p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>
                 Comptabilité — {capLabel}
@@ -270,7 +273,7 @@ export default function AdminComptabilite() {
 
         {/* KPI bar */}
         {d && (
-          <div style={{ display: 'flex', gap: 10, padding: '12px 28px', flexShrink: 0, flexWrap: 'wrap', background: '#fff', borderBottom: '1px solid var(--fs-line)' }}>
+          <div style={{ display: 'flex', gap: 10, padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0, flexWrap: 'wrap', background: '#fff', borderBottom: '1px solid var(--fs-line)' }}>
             {[
               { label: 'CA TTC',       value: d.ca,          color: 'var(--fs-ink-800)' },
               { label: 'Marge brute',  value: d.margesBrute, color: 'var(--fs-success-700)' },
@@ -290,15 +293,15 @@ export default function AdminComptabilite() {
         )}
 
         {/* Contenu */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '16px' : '20px 28px' }}>
           {loading ? (
-            <Skeleton />
+            <Skeleton isNarrow={isNarrow} />
           ) : !d ? (
             <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--fs-ink-400)', fontSize: 14 }}>
               Aucune donnée disponible pour cette période.
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: 16 }}>
 
               {/* Colonne gauche */}
               <div>

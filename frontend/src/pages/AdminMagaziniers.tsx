@@ -5,6 +5,7 @@ import { getCaisses, CaisseRecord } from '../api/caisses';
 import { getAllProducts, deleteProduct, Product } from '../api/products';
 import NouveauProduitModal from '../components/NouveauProduitModal';
 import { getDemandes, DemandeStock, ajusterStockEntrepot, getAllReceptions, ReceptionFull } from '../api/magazinier';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -91,8 +92,8 @@ function MagazinierCard({ user, selected, onEdit, onDelete }: {
 
 // ── Edit panel ────────────────────────────────────────────────────────────────
 
-function EditPanel({ user, caisses, onSaved, onCancel, onDeleted }: {
-  user: UserRecord; caisses: CaisseRecord[]; onSaved: () => void; onCancel: () => void; onDeleted: () => void;
+function EditPanel({ user, caisses, onSaved, onCancel, onDeleted, isNarrow }: {
+  user: UserRecord; caisses: CaisseRecord[]; onSaved: () => void; onCancel: () => void; onDeleted: () => void; isNarrow: boolean;
 }) {
   const nameParts = user.name.split(' ');
   const [prenom, setPrenom]   = useState(nameParts[0] ?? '');
@@ -127,7 +128,7 @@ function EditPanel({ user, caisses, onSaved, onCancel, onDeleted }: {
   };
 
   return (
-    <div style={{ width: 320, borderLeft: '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+    <div style={{ width: isNarrow ? '100%' : 320, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', borderTop: isNarrow ? '1px solid var(--fs-line)' : 'none', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Modification</div>
@@ -192,7 +193,7 @@ function EditPanel({ user, caisses, onSaved, onCancel, onDeleted }: {
 
 // ── Create panel ──────────────────────────────────────────────────────────────
 
-function CreatePanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]; onCreated: () => void; onCancel: () => void }) {
+function CreatePanel({ caisses, onCreated, onCancel, isNarrow }: { caisses: CaisseRecord[]; onCreated: () => void; onCancel: () => void; isNarrow: boolean }) {
   const [form, setForm] = useState({ prenom: '', nom: '', phone: '', email: '', assignedLocation: '', password: '' });
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -222,7 +223,7 @@ function CreatePanel({ caisses, onCreated, onCancel }: { caisses: CaisseRecord[]
   };
 
   return (
-    <div style={{ width: 320, borderLeft: '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
+    <div style={{ width: isNarrow ? '100%' : 320, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', borderTop: isNarrow ? '1px solid var(--fs-line)' : 'none', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>+ Nouveau magazinier</div>
@@ -302,6 +303,8 @@ function StockEntrepotView({ products, demandes, onReload }: {
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024);
   const knownCategories = [...new Set(products.map(p => p.category).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'fr'));
 
   const handleDelete = async () => {
@@ -382,7 +385,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
       )}
 
       {/* Métriques */}
-      <div style={{ display: 'flex', gap: 12, padding: '16px 24px', flexShrink: 0 }}>
+      <div style={{ display: isNarrow ? 'grid' : 'flex', gridTemplateColumns: isNarrow ? (isMobile ? '1fr' : 'repeat(2, 1fr)') : undefined, gap: 12, padding: isNarrow ? '16px 16px' : '16px 24px', flexShrink: 0 }}>
         {[
           { label: 'Total unités entrepôt', value: fmtN(totalEntrepot), color: 'var(--fs-wine-700)', sub: `${avecStock.length} référence${avecStock.length !== 1 ? 's' : ''} avec stock` },
           { label: 'Valeur entrepôt (≈)', value: `${fmtN(valeurEntrepot)} XAF`, color: 'var(--fs-ink-900)', sub: "Sur la base du prix d'achat" },
@@ -399,7 +402,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
       </div>
 
       {/* Barre filtres + recherche + reset */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 24px 12px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: isNarrow ? '0 16px 12px' : '0 24px 12px', flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 4 }}>
           {([
             { id: 'tous', label: 'Tous',       count: products.length },
@@ -429,14 +432,14 @@ function StockEntrepotView({ products, demandes, onReload }: {
       </div>
 
       {/* Tableau */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 24px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: isNarrow ? '0 16px 24px' : '0 24px 24px' }}>
         {products.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>
             <I d={D.warehouse} size={36}/><br/><br/>
             Aucun produit — le magazinier n'a pas encore enregistré de réception.
           </div>
         ) : (
-          <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
+          <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 820 : undefined, borderCollapse: 'collapse', background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
             <thead>
               <tr style={{ background: 'var(--fs-ivory)' }}>
                 {['Produit', 'Catégorie', 'Stock entrepôt', 'Stock caisse', 'Seuil commande', 'Valeur (≈)', 'État', ''].map((h, i) => (
@@ -559,7 +562,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
               Aucun produit encore envoyé au gestionnaire
             </div>
           ) : (
-            <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 720 : undefined, borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--fs-ivory)' }}>
                   {['Produit', 'Qté envoyée', 'Demandé par', 'Statut', 'Date envoi'].map((h, i) => (
@@ -615,6 +618,8 @@ export default function AdminMagaziniers() {
   const [products, setProducts]     = useState<Product[]>([]);
   const [demandes, setDemandes]     = useState<DemandeStock[]>([]);
   const [receptions, setReceptions] = useState<ReceptionFull[]>([]);
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024);
 
   const load = () => getUsers().then(us => setUsers(us.filter(u => u.role === 'magazinier'))).catch(() => {});
 
@@ -644,12 +649,12 @@ export default function AdminMagaziniers() {
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <AdminSidebar/>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
+            <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>Personnel — Entrepôt</p>
               {/* Onglets */}
               <div style={{ display: 'flex', gap: 4 }}>
@@ -688,15 +693,15 @@ export default function AdminMagaziniers() {
 
         {/* ── Vue Équipe ── */}
         {viewMode === 'equipe' && (
-          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: isNarrow ? 'column' : 'row', overflow: isNarrow ? 'visible' : 'hidden' }}>
+            <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '20px 16px' : '20px 24px' }}>
               {users.length === 0 ? (
                 <div style={{ textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, padding: '60px 0' }}>
                   <I d={D.pkg} size={36}/><br/><br/>
                   Aucun magazinier — cliquez sur <strong>Ajouter</strong> pour créer le premier compte.
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 14 }}>
                   {users.map(u => (
                     <MagazinierCard
                       key={u._id}
@@ -710,12 +715,13 @@ export default function AdminMagaziniers() {
               )}
             </div>
             {panel?.type === 'create' && (
-              <CreatePanel caisses={caisses} onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>
+              <CreatePanel caisses={caisses} isNarrow={isNarrow} onCreated={() => { load(); setPanel(null); }} onCancel={() => setPanel(null)}/>
             )}
             {panel?.type === 'edit' && (
               <EditPanel
                 user={panel.user}
                 caisses={caisses}
+                isNarrow={isNarrow}
                 onSaved={() => { load(); setPanel(null); }}
                 onCancel={() => setPanel(null)}
                 onDeleted={() => { load(); setPanel(null); }}

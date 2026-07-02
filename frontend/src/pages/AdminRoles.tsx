@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import { getUserActivity, UserActivity } from '../api/auth';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -164,6 +165,8 @@ export default function AdminRoles() {
   const [loading,     setLoading]     = useState(true);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [permFilter,  setPermFilter]  = useState<RoleKey | null>(null);
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -193,12 +196,12 @@ export default function AdminRoles() {
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
       <AdminSidebar/>
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
+            <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Système</p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>Rôles & Accès</h1>
             </div>
@@ -217,10 +220,10 @@ export default function AdminRoles() {
         </div>
 
         {/* Scrollable content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 28px' }}>
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '20px 16px' : '20px 28px' }}>
 
           {/* KPI strip */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
             {([
               { label: 'Caissiers',     count: byRole('caissier').length,    bg: ROLE_META.caissier.bg,     color: ROLE_META.caissier.color,     border: ROLE_META.caissier.border     },
               { label: 'Gestionnaires', count: byRole('gestionnaire').length, bg: ROLE_META.gestionnaire.bg, color: ROLE_META.gestionnaire.color, border: ROLE_META.gestionnaire.border },
@@ -228,7 +231,7 @@ export default function AdminRoles() {
               { label: 'Total membres', count: nonPatron,   bg: '#fff',    color: 'var(--fs-ink-700)', border: 'var(--fs-line)'             },
               { label: 'Actifs auj.',   count: activeToday, bg: '#F0FDF4', color: '#166534',           border: 'rgba(34,197,94,0.3)'         },
             ] as { label: string; count: number; bg: string; color: string; border: string }[]).map(k => (
-              <div key={k.label} style={{ flex: 1, background: k.bg, border: `1px solid ${k.border}`, borderRadius: 10, padding: '12px 16px' }}>
+              <div key={k.label} style={{ flex: 1, minWidth: isMobile ? 130 : isNarrow ? 110 : undefined, background: k.bg, border: `1px solid ${k.border}`, borderRadius: 10, padding: '12px 16px' }}>
                 <div style={{ fontSize: 26, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: k.color, lineHeight: 1 }}>
                   {loading ? '—' : k.count}
                 </div>
@@ -276,7 +279,7 @@ export default function AdminRoles() {
           </div>
 
           {/* Permissions matrix */}
-          <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflowX: isNarrow ? 'auto' : 'hidden', overflowY: 'hidden' }}>
             {/* Matrix toolbar */}
             <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
               <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Matrice des permissions</span>
@@ -302,7 +305,7 @@ export default function AdminRoles() {
             </div>
 
             {/* Table */}
-            <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 720 : undefined, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'var(--fs-ivory)' }}>
                   <th style={{ padding: '10px 20px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid var(--fs-line)', width: '37%' }}>Action</th>

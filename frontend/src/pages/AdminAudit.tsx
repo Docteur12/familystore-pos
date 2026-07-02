@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import { getAuditLogs, getAuditStats, AuditLogEntry, AuditStats } from '../api/audit';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Config types ──────────────────────────────────────────────────────────────
 
@@ -84,6 +85,8 @@ type ModuleFilter = typeof ALL_MODULES[number];
 
 export default function AdminAudit() {
   const { toasts, addToast, removeToast } = useToast();
+  const isMobile = useIsMobile();
+  const isNarrow = useIsMobile(1024);
 
   const [entries,    setEntries]    = useState<AuditLogEntry[]>([]);
   const [stats,      setStats]      = useState<AuditStats | null>(null);
@@ -135,16 +138,16 @@ export default function AdminAudit() {
       <AdminSidebar/>
       <ToastContainer toasts={toasts} onRemove={removeToast}/>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
+            <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Système</p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>Audit & Logs</h1>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               {/* Refresh status */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--fs-ink-400)' }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', display: 'inline-block', boxShadow: '0 0 0 2px #bbf7d0' }}/>
@@ -184,7 +187,7 @@ export default function AdminAudit() {
         </div>
 
         {/* Compteurs */}
-        <div style={{ display: 'flex', gap: 10, padding: '12px 28px', flexShrink: 0, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0, flexWrap: 'wrap' }}>
           {stats && [
             { label: 'Total',         value: stats.total,        bg: '#fff',      color: 'var(--fs-ink-700)' },
             { label: 'Ventes',        value: stats.vente,        bg: '#E8F0E5',   color: '#3F6B3A'           },
@@ -201,7 +204,7 @@ export default function AdminAudit() {
         </div>
 
         {/* Filtres type */}
-        <div style={{ display: 'flex', gap: 6, padding: '0 28px 6px', flexShrink: 0, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, padding: isNarrow ? '0 16px 6px' : '0 28px 6px', flexShrink: 0, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', fontWeight: 600, alignSelf: 'center', marginRight: 4 }}>Type :</span>
           {ALL_TYPES.map(t => {
             const active = typeFilter === t;
@@ -221,7 +224,7 @@ export default function AdminAudit() {
         </div>
 
         {/* Filtres module */}
-        <div style={{ display: 'flex', gap: 6, padding: '0 28px 12px', flexShrink: 0, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, padding: isNarrow ? '0 16px 12px' : '0 28px 12px', flexShrink: 0, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', fontWeight: 600, alignSelf: 'center', marginRight: 4 }}>Module :</span>
           {ALL_MODULES.map(m => {
             const active = modFilter === m;
@@ -241,17 +244,17 @@ export default function AdminAudit() {
         </div>
 
         {/* Résultats count */}
-        <div style={{ padding: '0 28px 8px', fontSize: 11, color: 'var(--fs-ink-400)', flexShrink: 0 }}>
+        <div style={{ padding: isNarrow ? '0 16px 8px' : '0 28px 8px', fontSize: 11, color: 'var(--fs-ink-400)', flexShrink: 0 }}>
           {filtered.length} entrée{filtered.length !== 1 ? 's' : ''}{search || typeFilter !== 'all' || modFilter !== 'all' ? ' (filtrées)' : ''}
         </div>
 
         {/* Table */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 28px 28px' }}>
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '0 16px 28px' : '0 28px 28px' }}>
           {loading ? (
             <div style={{ textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13, padding: '60px 0' }}>Chargement…</div>
           ) : (
-            <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden' }}>
-              <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', overflowX: 'auto' }}>
+              <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 760 : undefined }}>
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
                     {['Date / Heure', 'Utilisateur', 'Type', 'Module', 'Détail'].map((h, i) => (

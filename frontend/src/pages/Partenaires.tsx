@@ -16,6 +16,7 @@ import {
 } from '../api/partenaires';
 import { getUsers, createUser, updateUser, deleteUser, UserRecord } from '../api/auth';
 import ToastContainer, { useToast } from '../components/Toast';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
 function fmtDateTime(d: string) {
@@ -109,6 +110,10 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
   const payload = getTokenPayload();
   const isPatron = payload?.role === 'patron';
   const { toasts, addToast, removeToast } = useToast();
+
+  // Menu latéral repliable sur mobile (uniquement hors mode intégré)
+  const isMobile = useIsMobile();
+  const [navOpen, setNavOpen] = useState(false);
 
   const [tab, setTab] = useState<Tab>(initialTab ?? (allowedTabs ? allowedTabs[0] : 'dashboard'));
   const [stats, setStats] = useState<PartenairesStats | null>(null);
@@ -559,15 +564,36 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
     acces: 'Accès', partenaires: 'Partenaires',
   };
 
+  // Refermer le menu latéral (mobile) après navigation
+  useEffect(() => { setNavOpen(false); }, [tab, compteId]);
+
+  const mobileNav = !embedded && isMobile;
+
   return (
     <div style={embedded
       ? { display: 'flex', width: '100%', height: '100%', overflow: 'hidden', fontFamily: 'var(--fs-font-sans)' }
       : { display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
+      {/* Bouton hamburger (mobile, hors mode intégré) */}
+      {mobileNav && (
+        <button onClick={() => setNavOpen(o => !o)} aria-label={navOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          style={{ position: 'fixed', top: 12, left: navOpen ? 208 : 12, zIndex: 201, width: 40, height: 40, borderRadius: 10, border: 'none', background: 'var(--fs-wine-700)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', transition: 'left 0.25s' }}>
+          <I d={navOpen ? 'M18 6L6 18M6 6l12 12' : 'M3 12h18M3 6h18M3 18h18'} size={16}/>
+        </button>
+      )}
+
+      {/* Voile sombre quand le menu mobile est ouvert */}
+      {mobileNav && navOpen && (
+        <div onClick={() => setNavOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 199, background: 'rgba(0,0,0,0.5)' }}/>
+      )}
+
       {/* Sidebar (masquée en mode intégré) */}
       {!embedded && (
-      <aside className="fs-sidebar-drawer" style={{ width: 200, background: 'var(--fs-wine-900)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      <aside className="fs-sidebar-drawer" style={{
+        width: 200, background: 'var(--fs-wine-900)', display: 'flex', flexDirection: 'column', flexShrink: 0,
+        ...(mobileNav ? { position: 'fixed', top: 0, left: navOpen ? 0 : -216, height: '100vh', zIndex: 200, boxShadow: navOpen ? '4px 0 24px rgba(0,0,0,0.4)' : 'none', transition: 'left 0.25s' } : {}),
+      }}>
         <div style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>Family Store</div>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Partenaires</div>
@@ -650,7 +676,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       )}
 
       {/* Main */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isMobile ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
         {embedded ? (
           <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '10px 16px', flexShrink: 0, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {(allowedTabs ?? (['commandes', 'preparer'] as Tab[])).map(k => (
@@ -662,13 +688,13 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
             ))}
           </div>
         ) : (
-          <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 28px', flexShrink: 0 }}>
+          <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '12px 16px' : '12px 28px', flexShrink: 0, paddingLeft: mobileNav ? 60 : undefined }}>
             <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Partenaires</p>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{tab === 'comptes' ? (compteAg ? compteAg.partenaire.name : 'Détail partenaire') : (TAB_TITLES[tab] ?? 'Partenaires')}</h1>
           </div>
         )}
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: embedded ? '18px 16px' : '20px 28px' }}>
+        <div style={{ flex: isMobile ? '0 0 auto' : 1, overflowY: isMobile ? 'visible' : 'auto', padding: embedded ? '18px 16px' : (isMobile ? '16px 14px' : '20px 28px') }}>
 
           {/* ── Onglet Tableau de bord ── */}
           {tab === 'dashboard' && (
