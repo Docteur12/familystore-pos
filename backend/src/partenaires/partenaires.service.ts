@@ -38,7 +38,7 @@ export class PartenairesService {
     return this.partModel.find().sort({ name: 1 }).lean();
   }
 
-  createPartenaire(dto: { name: string; phone?: string; lieu?: string; ville?: string; quartier?: string; responsable?: string; email?: string; note?: string; type?: string }) {
+  createPartenaire(dto: { name: string; phone?: string; lieu?: string; ville?: string; quartier?: string; responsable?: string; email?: string; note?: string; type?: string; ancienneDette?: number }) {
     return this.partModel.create({
       name: dto.name.trim(),
       phone: dto.phone ?? '',
@@ -49,10 +49,12 @@ export class PartenairesService {
       email: dto.email ?? '',
       note: dto.note ?? '',
       type: dto.type === 'particulier' ? 'particulier' : 'structure',
+      ancienneDette: Math.max(0, Math.round(Number(dto.ancienneDette) || 0)),
     });
   }
 
-  async updatePartenaire(id: string, dto: Partial<{ name: string; phone: string; lieu: string; ville: string; quartier: string; responsable: string; email: string; note: string; type: string; archivee: boolean }>) {
+  async updatePartenaire(id: string, dto: Partial<{ name: string; phone: string; lieu: string; ville: string; quartier: string; responsable: string; email: string; note: string; type: string; archivee: boolean; ancienneDette: number }>) {
+    if (dto.ancienneDette !== undefined) dto.ancienneDette = Math.max(0, Math.round(Number(dto.ancienneDette) || 0));
     const p = await this.partModel.findByIdAndUpdate(id, dto, { new: true });
     if (!p) throw new NotFoundException('Partenaire introuvable');
     return p;
@@ -336,9 +338,10 @@ export class PartenairesService {
     const payeLivraison  = livraisons.reduce((s, l) => s + (l.montantPaye ?? 0), 0);
     const totalPaiements = paiements.reduce((s, p) => s + (p.montant ?? 0), 0);
     const totalRetours   = retours.reduce((s, r) => s + (r.total ?? 0), 0);
-    const solde          = Math.max(0, totalLivre - payeLivraison - totalPaiements - totalRetours);
+    const ancienneDette  = (partenaire as any).ancienneDette ?? 0;
+    const solde          = Math.max(0, ancienneDette + totalLivre - payeLivraison - totalPaiements - totalRetours);
 
-    return { partenaire, livraisons, paiements, retours, totalLivre, payeLivraison, totalPaiements, totalRetours, solde };
+    return { partenaire, livraisons, paiements, retours, totalLivre, payeLivraison, totalPaiements, totalRetours, ancienneDette, solde };
   }
 
   // ── Tableau de bord ─────────────────────────────────────────────────────────
@@ -351,8 +354,9 @@ export class PartenairesService {
     ]);
 
     // Solde par partenaire (paye = payé à la livraison + paiements + retours d'invendus)
-    const byPart = new Map<string, { name: string; livre: number; paye: number }>();
-    for (const p of partenaires) byPart.set(String(p._id), { name: p.name, livre: 0, paye: 0 });
+    // ancienne = créance existante avant l'enregistrement (report de solde)
+    const byPart = new Map<string, { name: string; livre: number; paye: number; ancienne: number }>();
+    for (const p of partenaires) byPart.set(String(p._id), { name: p.name, livre: 0, paye: 0, ancienne: (p as any).ancienneDette ?? 0 });
     for (const l of livraisons) {
       const e = byPart.get(String(l.partenaire));
       if (e) { e.livre += l.total ?? 0; e.paye += l.montantPaye ?? 0; }
@@ -367,7 +371,7 @@ export class PartenairesService {
     }
 
     const soldes = [...byPart.entries()].map(([id, e]) => ({
-      partenaireId: id, name: e.name, livre: e.livre, paye: e.paye, solde: Math.max(0, e.livre - e.paye),
+      partenaireId: id, name: e.name, livre: e.livre, paye: e.paye, solde: Math.max(0, e.ancienne + e.livre - e.paye),
     }));
 
     const totalLivre    = soldes.reduce((s, p) => s + p.livre, 0);
@@ -556,23 +560,24 @@ export class PartenairesService {
       };
     });
 
-    // Dette commune (livré non-indépendant − payé − versements communs − retours)
+    // Dette commune (ancienne dette + livré non-indépendant − payé − versements communs − retours)
+    const ancienneDette = (partenaire as any).ancienneDette ?? 0;
     const livreCommun = livraisons.filter(l => !isIndep(l.agence)).reduce((s, l) => s + (l.total ?? 0), 0);
     const payeCommun  = livraisons.filter(l => !isIndep(l.agence)).reduce((s, l) => s + (l.montantPaye ?? 0), 0);
     const verseCommun = paiements.filter(p => !isIndep(p.agence)).reduce((s, p) => s + (p.montant ?? 0), 0);
     const totalRetours = retours.reduce((s, r) => s + (r.total ?? 0), 0);
-    const detteCommune = Math.max(0, livreCommun - payeCommun - verseCommun - totalRetours);
+    const detteCommune = Math.max(0, ancienneDette + livreCommun - payeCommun - verseCommun - totalRetours);
 
     // Totaux globaux
     const totalLivre     = livraisons.reduce((s, l) => s + (l.total ?? 0), 0);
     const payeLivraison  = livraisons.reduce((s, l) => s + (l.montantPaye ?? 0), 0);
     const totalPaiements = paiements.reduce((s, p) => s + (p.montant ?? 0), 0);
-    const soldeGlobal    = Math.max(0, totalLivre - payeLivraison - totalPaiements - totalRetours);
+    const soldeGlobal    = Math.max(0, ancienneDette + totalLivre - payeLivraison - totalPaiements - totalRetours);
     const detteAgences   = detailAgences.filter(a => a.independante).reduce((s, a) => s + a.solde, 0);
 
     return {
       partenaire, agences: detailAgences, livraisons, paiements, retours, commandes,
-      detteCommune, detteAgences, soldeGlobal,
+      detteCommune, detteAgences, soldeGlobal, ancienneDette,
       totalLivre, payeLivraison, totalPaiements, totalRetours,
     };
   }
@@ -609,7 +614,7 @@ export class PartenairesService {
         if (solde > 0) debiteurs.push({ partenaireId: pid, name: p.name, agenceId: aid, agenceNom: a.nom, sub: `${a.nom}${a.ville ? ' · ' + a.ville : ''}`, solde });
       }
 
-      // Une ligne « dette commune » par partenaire
+      // Une ligne « dette commune » par partenaire (inclut l'ancienne dette / report)
       const livL = livraisons.filter(l => String(l.partenaire) === pid && !isIndep(l.agence));
       const paieL = paiements.filter(x => String(x.partenaire) === pid && !isIndep(x.agence));
       const retL = retours.filter(r => String(r.partenaire) === pid);
@@ -617,7 +622,7 @@ export class PartenairesService {
       const payeC  = livL.reduce((s, l) => s + (l.montantPaye ?? 0), 0);
       const verseC = paieL.reduce((s, x) => s + (x.montant ?? 0), 0);
       const retC   = retL.reduce((s, r) => s + (r.total ?? 0), 0);
-      const detteC = Math.max(0, livreC - payeC - verseC - retC);
+      const detteC = Math.max(0, ((p as any).ancienneDette ?? 0) + livreC - payeC - verseC - retC);
       if (detteC > 0) {
         const aIndep = sesAgences.some(x => x.independante);
         debiteurs.push({ partenaireId: pid, name: p.name, agenceId: null, agenceNom: '', sub: sesAgences.length ? (aIndep ? 'Dette commune (autres agences)' : 'Dette commune') : (p.type === 'particulier' ? 'Particulier' : 'Dette globale'), solde: detteC });

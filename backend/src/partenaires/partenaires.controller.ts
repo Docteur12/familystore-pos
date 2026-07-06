@@ -20,7 +20,7 @@ export class PartenairesController {
   }
 
   @Post()
-  create(@Body() dto: { name: string; phone?: string; lieu?: string; ville?: string; quartier?: string; responsable?: string; email?: string; note?: string; type?: string }) {
+  create(@Body() dto: { name: string; phone?: string; lieu?: string; ville?: string; quartier?: string; responsable?: string; email?: string; note?: string; type?: string; ancienneDette?: number }) {
     return this.service.createPartenaire(dto);
   }
 
@@ -111,7 +111,7 @@ export class PartenairesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: Partial<{ name: string; phone: string; lieu: string; ville: string; quartier: string; responsable: string; email: string; note: string; type: string; archivee: boolean }>) {
+  update(@Param('id') id: string, @Body() dto: Partial<{ name: string; phone: string; lieu: string; ville: string; quartier: string; responsable: string; email: string; note: string; type: string; archivee: boolean; ancienneDette: number }>) {
     return this.service.updatePartenaire(id, dto);
   }
 

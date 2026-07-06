@@ -34,6 +34,11 @@ export class Partenaire {
   @Prop({ enum: ['structure', 'particulier'], default: 'structure' })
   type: string;
 
+  // Créance existante AVANT l'enregistrement dans le système (report de solde).
+  // S'ajoute à la dette commune ; les versements la réduisent normalement.
+  @Prop({ default: 0, min: 0 })
+  ancienneDette: number;
+
   // archivé = conservé pour l'historique, retiré des nouvelles opérations
   @Prop({ default: false })
   archivee: boolean;

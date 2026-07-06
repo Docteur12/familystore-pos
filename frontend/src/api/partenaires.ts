@@ -12,6 +12,7 @@ export interface Partenaire {
   note: string;
   type?: 'structure' | 'particulier';
   archivee?: boolean;
+  ancienneDette?: number; // créance existante avant l'enregistrement (report de solde)
   createdAt?: string;
 }
 
@@ -157,7 +158,7 @@ export async function getPartenaires(): Promise<Partenaire[]> {
   return res.json();
 }
 
-export async function createPartenaire(data: { name: string; phone?: string; lieu?: string; ville?: string; quartier?: string; responsable?: string; email?: string; note?: string; type?: 'structure' | 'particulier' }): Promise<Partenaire> {
+export async function createPartenaire(data: { name: string; phone?: string; lieu?: string; ville?: string; quartier?: string; responsable?: string; email?: string; note?: string; type?: 'structure' | 'particulier'; ancienneDette?: number }): Promise<Partenaire> {
   const res = await fetch('/api/partenaires', {
     method: 'POST', headers: authHeaders(), body: JSON.stringify(data),
   });
@@ -165,7 +166,7 @@ export async function createPartenaire(data: { name: string; phone?: string; lie
   return res.json();
 }
 
-export async function updatePartenaire(id: string, data: Partial<Pick<Partenaire, 'name' | 'phone' | 'lieu' | 'ville' | 'quartier' | 'responsable' | 'email' | 'note' | 'type' | 'archivee'>>): Promise<Partenaire> {
+export async function updatePartenaire(id: string, data: Partial<Pick<Partenaire, 'name' | 'phone' | 'lieu' | 'ville' | 'quartier' | 'responsable' | 'email' | 'note' | 'type' | 'archivee' | 'ancienneDette'>>): Promise<Partenaire> {
   const res = await fetch(`/api/partenaires/${id}`, {
     method: 'PATCH', headers: authHeaders(), body: JSON.stringify(data),
   });
@@ -272,6 +273,7 @@ export interface CompteAgences {
   detteCommune: number;
   detteAgences: number;
   soldeGlobal: number;
+  ancienneDette: number;
   totalLivre: number;
   payeLivraison: number;
   totalPaiements: number;

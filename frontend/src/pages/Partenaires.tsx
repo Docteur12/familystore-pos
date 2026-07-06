@@ -256,12 +256,12 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
   };
 
   // Formulaire partenaire (fiche d'inscription)
-  const PFORM_VIDE = { name: '', phone: '', ville: '', quartier: '', responsable: '', email: '', note: '', type: 'structure' as 'structure' | 'particulier' };
+  const PFORM_VIDE = { name: '', phone: '', ville: '', quartier: '', responsable: '', email: '', note: '', type: 'structure' as 'structure' | 'particulier', ancienneDette: '' };
   const [pForm, setPForm] = useState({ ...PFORM_VIDE });
   const [editing, setEditing] = useState<string | null>(null);
   const [showPartModal, setShowPartModal] = useState(false); // modal fiche partenaire (vue détail maquette)
   const ouvrirNouveauPartenaire = () => { setEditing(null); setPForm({ ...PFORM_VIDE }); setShowPartModal(true); };
-  const ouvrirEditPartenaire = (p: Partenaire) => { setEditing(p._id); setPForm({ name: p.name, phone: p.phone, ville: p.ville ?? '', quartier: p.quartier ?? '', responsable: p.responsable ?? '', email: p.email ?? '', note: p.note, type: p.type ?? 'structure' }); setShowPartModal(true); };
+  const ouvrirEditPartenaire = (p: Partenaire) => { setEditing(p._id); setPForm({ name: p.name, phone: p.phone, ville: p.ville ?? '', quartier: p.quartier ?? '', responsable: p.responsable ?? '', email: p.email ?? '', note: p.note, type: p.type ?? 'structure', ancienneDette: p.ancienneDette ? String(p.ancienneDette) : '' }); setShowPartModal(true); };
 
   // Gestion des agences (par partenaire)
   const [agences, setAgences] = useState<Agence[]>([]);
@@ -535,13 +535,15 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
     if (!pForm.name.trim()) { addToast('Le nom du partenaire est requis', 'error'); return; }
     try {
       let nouvelId: string | null = null;
-      if (editing) { await updatePartenaire(editing, pForm); addToast('Partenaire modifié ✓', 'success'); }
-      else { const cree = await createPartenaire(pForm); nouvelId = cree._id; addToast('Partenaire ajouté ✓', 'success'); }
+      const payload = { ...pForm, ancienneDette: Math.max(0, parseInt(pForm.ancienneDette) || 0) };
+      if (editing) { await updatePartenaire(editing, payload); addToast('Partenaire modifié ✓', 'success'); }
+      else { const cree = await createPartenaire(payload); nouvelId = cree._id; addToast('Partenaire ajouté ✓', 'success'); }
       setPForm({ ...PFORM_VIDE });
       setEditing(null);
       setShowPartModal(false);
       getPartenaires().then(setPartenaires).catch(() => {});
       getStatsAgences().then(setStatsAg).catch(() => {});
+      if (editing) rafraichirDette(editing); // la dette affichée intègre l'ancienne dette modifiée
       if (nouvelId) { setCompteId(nouvelId); ouvrirAgences(nouvelId); setTab('comptes'); }
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
   };
@@ -1201,6 +1203,12 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                       <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Dette commune <span style={{ fontSize: 11, fontWeight: 600, color: '#16a34a' }}>— avances libres</span></p>
                       <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--fs-ink-400)' }}>Versements de montants au choix (200 000, 2 M…) qui réduisent la dette commune, sans rapport avec une facture.</p>
 
+                      {(compteAg.ancienneDette ?? 0) > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', marginBottom: 14 }}>
+                          <span style={{ fontSize: 12, color: '#92400e' }}>Inclut une <strong>ancienne dette</strong> (créance d'avant l'enregistrement) de <strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(compteAg.ancienneDette)} XAF</strong> — modifiable via « Modifier ».</span>
+                        </div>
+                      )}
+
                       {pools.length > 0 && (
                         <div style={{ overflowX: 'auto', marginBottom: 14 }}>
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -1495,6 +1503,12 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                   <div><label style={LABEL}>Note</label><input value={pForm.note} onChange={e => setPForm(f => ({ ...f, note: e.target.value }))} style={INPUT} placeholder="(optionnel)"/></div>
                 </div>
 
+                <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>Ancienne dette (report)</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10, marginBottom: 12, alignItems: 'end' }}>
+                  <div><label style={LABEL}>Montant (XAF)</label><input type="number" min={0} value={pForm.ancienneDette} onChange={e => setPForm(f => ({ ...f, ancienneDette: e.target.value }))} style={INPUT} placeholder="0"/></div>
+                  <p style={{ margin: 0, fontSize: 11, color: 'var(--fs-ink-400)', lineHeight: 1.45 }}>Créance que le partenaire devait <strong>avant</strong> son enregistrement ici. Elle s'ajoute à sa dette commune et les versements la réduisent normalement.</p>
+                </div>
+
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={savePartenaire} style={BTN_PRIMARY}>{editing ? 'Enregistrer' : 'Inscrire le partenaire'}</button>
                   {editing && <button onClick={() => { setEditing(null); setPForm({ ...PFORM_VIDE }); }} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>Annuler</button>}
@@ -1526,7 +1540,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                             style={{ background: 'var(--fs-wine-50)', border: '1px solid var(--fs-wine-200)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--fs-wine-700)', fontSize: 12, fontWeight: 700 }}>
                             Compte
                           </button>
-                          <button onClick={() => { setEditing(p._id); setPForm({ name: p.name, phone: p.phone, ville: p.ville ?? '', quartier: p.quartier ?? '', responsable: p.responsable ?? '', email: p.email ?? '', note: p.note, type: p.type ?? 'structure' }); window.scrollTo(0, 0); }} title="Modifier"
+                          <button onClick={() => { setEditing(p._id); setPForm({ name: p.name, phone: p.phone, ville: p.ville ?? '', quartier: p.quartier ?? '', responsable: p.responsable ?? '', email: p.email ?? '', note: p.note, type: p.type ?? 'structure', ancienneDette: p.ancienneDette ? String(p.ancienneDette) : '' }); window.scrollTo(0, 0); }} title="Modifier"
                             style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex' }}><I d={D.edit} size={13}/></button>
                           <button onClick={() => removePartenaire(p._id)} title="Supprimer"
                             style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex' }}><I d={D.trash} size={13}/></button>
@@ -1605,6 +1619,12 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
               <div><label style={LABEL}>Quartier / zone</label><input value={pForm.quartier} onChange={e => setPForm(f => ({ ...f, quartier: e.target.value }))} style={INPUT} placeholder="ex : Akwa, Bonabéri…"/></div>
               <div><label style={LABEL}>Email</label><input value={pForm.email} onChange={e => setPForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="contact@exemple.cm"/></div>
               <div><label style={LABEL}>Note</label><input value={pForm.note} onChange={e => setPForm(f => ({ ...f, note: e.target.value }))} style={INPUT} placeholder="(optionnel)"/></div>
+            </div>
+
+            <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>Ancienne dette (report)</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12, marginBottom: 16, alignItems: 'end' }}>
+              <div><label style={LABEL}>Montant (XAF)</label><input type="number" min={0} value={pForm.ancienneDette} onChange={e => setPForm(f => ({ ...f, ancienneDette: e.target.value }))} style={INPUT} placeholder="0"/></div>
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--fs-ink-400)', lineHeight: 1.45 }}>Créance que le partenaire devait <strong>avant</strong> son enregistrement ici. Elle s'ajoute à sa dette commune et les versements la réduisent normalement.</p>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
