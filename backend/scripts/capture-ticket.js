@@ -45,6 +45,7 @@ function buildReceiptHTML(data) {
     .tag   { font-size: 11px; margin-top: 2px; }
     .info  { display: flex; justify-content: space-between; gap: 6px; font-size: 9px; line-height: 1.5; }
     .info .r { text-align: right; white-space: nowrap; }
+    .legal { text-align: center; font-size: 9px; margin-top: 5px; }
     .item  { margin: 6px 0; }
     .iname { font-size: 13px; font-weight: 700; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
     .ilocal{ font-size: 9px; color: #666; margin-top: 1px; }
@@ -54,12 +55,14 @@ function buildReceiptHTML(data) {
     .pay   { font-size: 11px; line-height: 1.65; }
     .merci { font-size: 14px; font-weight: 700; letter-spacing: 0.5px; margin: 2px 0; }
     .offer { font-size: 9px; line-height: 1.35; }
+    .nb    { font-size: 8.5px; line-height: 1.35; margin-top: 6px; }
     .foot  { page-break-inside: avoid; break-inside: avoid; }
 </style></head><body>
   <div class="center"><div class="store">Family Store</div><div class="rdct">BY RDCT</div><div class="tag">Beaut&eacute; &bull; Saveur &bull; Bien-&ecirc;tre</div></div>
   <div class="solid"></div>
   <div class="info"><div class="l"><div>Ticket : #${data.receiptNo}</div><div>Date : ${dateStr}&nbsp;&nbsp;${timeStr}</div><div>Caissier : ${data.cashierName}</div></div>
   <div class="r"><div>Bonamoussadi &ndash; Douala</div><div>T&eacute;l. : +237 694060524</div><div>T&eacute;l. : +237 682634355</div></div></div>
+  <div class="legal">NIU : MO22118477039J &bull; RC : RC/DLN/2021/B/392</div>
   <div class="solid"></div>
   ${itemRows}
   ${aReduction ? `<div class="dash"></div><div class="row"><span>Sous-total</span><span>${f(data.subtotal)}</span></div>${totalDiscount > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction produits</span><span>-${f(totalDiscount)}</span></div>` : ''}${(data.offrePct ?? 0) > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction facture (-${data.offrePct}%)</span><span>-${f(data.offreAmt ?? 0)}</span></div>` : ''}` : ''}
@@ -70,7 +73,7 @@ function buildReceiptHTML(data) {
   <div class="pay">Montant re&ccedil;u : ${f(data.amountPaid)} FCFA</div>
   ${data.change > 0 ? `<div class="pay">Montant rembours&eacute; : ${f(data.change)} FCFA</div>` : ''}
   <div style="height:6px"></div>
-  <div class="center foot"><div class="merci">Merci de votre visite !</div><div class="offer">Pour vous remercier, <b>Family Store vous offre 5&nbsp;%</b> de r&eacute;duction sur votre prochain achat. Pr&eacute;sentez simplement cette facture &agrave; la caisse pour b&eacute;n&eacute;ficier de cette offre.</div></div>
+  <div class="center foot"><div class="merci">Merci de votre visite !</div><div class="offer">Pour vous remercier, <b>Family Store vous offre 5&nbsp;%</b> de r&eacute;duction sur votre prochain achat. Pr&eacute;sentez simplement cette facture &agrave; la caisse pour b&eacute;n&eacute;ficier de cette offre.</div><div class="nb"><b>NB&nbsp;:</b> Les articles achet&eacute;s ou livr&eacute;s ne sont ni &eacute;chang&eacute;s ni repris. Ils seront v&eacute;rifi&eacute;s et approuv&eacute;s par le client.</div></div>
 </body></html>`;
 }
 

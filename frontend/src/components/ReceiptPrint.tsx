@@ -123,6 +123,7 @@ export function buildReceiptHTML(data: ReceiptData): string {
     .tag   { font-size: 11px; margin-top: 2px; }
     .info  { display: flex; justify-content: space-between; gap: 6px; font-size: 9px; line-height: 1.5; }
     .info .r { text-align: right; white-space: nowrap; }
+    .legal { text-align: center; font-size: 9px; margin-top: 5px; }
     .item  { margin: 6px 0; }
     .iname { font-size: 13px; font-weight: 700; line-height: 1.25; white-space: normal; overflow-wrap: anywhere; }
     .ilocal{ font-size: 9px; color: #666; margin-top: 1px; }
@@ -132,6 +133,7 @@ export function buildReceiptHTML(data: ReceiptData): string {
     .pay   { font-size: 11px; line-height: 1.65; }
     .merci { font-size: 14px; font-weight: 700; letter-spacing: 0.5px; margin: 2px 0; }
     .offer { font-size: 9px; line-height: 1.35; }
+    .nb    { font-size: 8.5px; line-height: 1.35; margin-top: 6px; }
     /* Le pied (Merci + offre) reste d'un seul tenant : jamais coupé en fin de page */
     .foot  { page-break-inside: avoid; break-inside: avoid; }
   </style>
@@ -155,6 +157,7 @@ export function buildReceiptHTML(data: ReceiptData): string {
       <div>T&eacute;l. : +237 682634355</div>
     </div>
   </div>
+  <div class="legal">NIU : MO22118477039J &bull; RC : RC/DLN/2021/B/392</div>
   <div class="solid"></div>
   ${itemRows}
   ${aReduction ? `
@@ -173,6 +176,7 @@ export function buildReceiptHTML(data: ReceiptData): string {
   <div class="center foot">
     <div class="merci">Merci de votre visite !</div>
     <div class="offer">Pour vous remercier, <b>Family Store vous offre 5&nbsp;%</b> de r&eacute;duction sur votre prochain achat. Pr&eacute;sentez simplement cette facture &agrave; la caisse pour b&eacute;n&eacute;ficier de cette offre.</div>
+    <div class="nb"><b>NB&nbsp;:</b> Les articles achet&eacute;s ou livr&eacute;s ne sont ni &eacute;chang&eacute;s ni repris. Ils seront v&eacute;rifi&eacute;s et approuv&eacute;s par le client.</div>
   </div>
 </body>
 </html>`;
@@ -241,6 +245,7 @@ export function buildReceiptPDF(data: ReceiptData): string {
     y += 8 * 0.5;
   }
   y += 1;
+  line('NIU : MO22118477039J · RC : RC/DLN/2021/B/392', 7, false, 'center');
   solid();
 
   // Articles
@@ -281,6 +286,9 @@ export function buildReceiptPDF(data: ReceiptData): string {
   line('de réduction sur votre prochain achat.', 8, false, 'center');
   line('Présentez simplement cette facture à la caisse', 7, false, 'center');
   line('pour bénéficier de cette offre.', 7, false, 'center');
+  y += 1;
+  line('NB : Les articles achetés ou livrés ne sont ni échangés ni repris.', 7, false, 'center');
+  line('Ils seront vérifiés et approuvés par le client.', 7, false, 'center');
 
   return doc.output('datauristring').split(',')[1] ?? '';
 }
