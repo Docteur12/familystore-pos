@@ -1,6 +1,8 @@
 import { get, set } from 'idb-keyval';
 import { authHeaders } from '../api/http';
 import type { Product } from '../api/products';
+import { buildReceiptPDF } from '../components/ReceiptPrint';
+import { saveFacture } from '../api/factures';
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 
@@ -14,6 +16,11 @@ export interface PendingSale {
   id: string;
   items: { product?: string; name: string; quantity: number; unitPrice: number; divers?: boolean }[];
   total: number;
+  subtotal?: number;      // avant réduction facture
+  offrePct?: number;      // % réduction facture appliquée
+  offreAmt?: number;      // montant déduit
+  cashierName?: string;   // pour l'archive facture à la synchro
+  paymentLabel?: string;  // libellé du mode de paiement (archive facture)
   paymentMethod: string;
   amountPaid: number;
   createdAt: string;
@@ -76,6 +83,31 @@ export async function getLastSyncTime(): Promise<Date | null> {
   return ts ? new Date(ts) : null;
 }
 
+// Archive la facture PDF d'une vente synchronisée (mêmes données que la vente d'origine).
+async function archiveFactureSynchronisee(sale: PendingSale, numero: string, dateVente: Date): Promise<void> {
+  const pdfBase64 = buildReceiptPDF({
+    receiptNo:    numero,
+    date:         dateVente,
+    cashierName:  sale.cashierName ?? 'Caissier',
+    items:        sale.items.map(i => ({ name: i.name, unit: '', quantity: i.quantity, unitPrice: i.unitPrice })),
+    subtotal:     sale.subtotal ?? sale.total,
+    total:        sale.total,
+    paymentLabel: sale.paymentLabel ?? sale.paymentMethod,
+    amountPaid:   sale.amountPaid,
+    change:       Math.max(0, sale.amountPaid - sale.total),
+    ...(sale.offrePct && sale.offrePct > 0 ? { offrePct: sale.offrePct, offreAmt: sale.offreAmt } : {}),
+  });
+  await saveFacture({
+    numero,
+    caissier:      sale.cashierName ?? 'Caissier',
+    montant:       sale.total,
+    paymentMethod: sale.paymentLabel ?? sale.paymentMethod,
+    items:         sale.items.map(i => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })),
+    pdfBase64,
+    date:          dateVente.toISOString(),
+  });
+}
+
 export async function syncPendingSales(
   addToast: (msg: string, type: 'success' | 'error' | 'warning') => void,
 ): Promise<void> {
@@ -94,6 +126,10 @@ export async function syncPendingSales(
         body: JSON.stringify({
           items: sale.items,
           total: sale.total,
+          subtotal: sale.subtotal ?? 0,
+          offrePct: sale.offrePct ?? 0,
+          offreAmt: sale.offreAmt ?? 0,
+          dateVente: sale.createdAt, // date réelle de la vente (le serveur la garde)
           paymentMethod: sale.paymentMethod,
           amountPaid: sale.amountPaid,
           idempotencyKey: sale.idempotencyKey,
@@ -101,6 +137,13 @@ export async function syncPendingSales(
       });
       if (res.ok) {
         synced++;
+        // Archive la facture PDF (silencieux) — même numérotation FSV que les ventes en ligne
+        try {
+          const { sale: created } = await res.json();
+          const d = new Date(sale.createdAt);
+          const numero = `FSV-${d.toISOString().slice(0, 10).replace(/-/g, '')}-${String(created._id).slice(-6).toUpperCase()}`;
+          await archiveFactureSynchronisee(sale, numero, d);
+        } catch { /* l'archive ne doit jamais bloquer la synchro */ }
       } else {
         remaining.push(sale);
       }

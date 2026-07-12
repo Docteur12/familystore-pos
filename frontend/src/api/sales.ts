@@ -11,6 +11,11 @@ export interface Sale {
   _id:           string;
   items:         SaleItem[];
   total:         number;
+  subtotal?:     number; // avant réduction facture
+  offrePct?:     number; // % réduction facture appliquée
+  offreAmt?:     number; // montant déduit
+  dateVente?:    string; // date réelle de la vente (synchro hors-ligne)
+  syncOffline?:  boolean;
   paymentMethod: string;
   amountPaid:    number;
   change:        number;

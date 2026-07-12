@@ -17,7 +17,8 @@ import {
 } from '../services/offlineSync';
 import QRScanner from '../components/QRScanner';
 import Receipt, { ReceiptData } from '../components/Receipt';
-import { buildReceiptHTML, doPrint, getPrintSettings, openCashDrawer } from '../components/ReceiptPrint';
+import { buildReceiptHTML, buildReceiptPDF, doPrint, getPrintSettings, openCashDrawer } from '../components/ReceiptPrint';
+import { saveFacture } from '../api/factures';
 import { useSettings } from '../contexts/SettingsContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { formatVolume } from '../utils/text';
@@ -491,7 +492,7 @@ export default function Caisse() {
     // ── Offline path ───────────────────────────────────────────────────────
     if (!navigator.onLine) {
       try {
-        await savePendingSale({ items: cart.map(toSaleItem), total, paymentMethod, amountPaid: effPaid, idempotencyKey });
+        await savePendingSale({ items: cart.map(toSaleItem), total, subtotal, ...(offrePct > 0 ? { offrePct, offreAmt } : {}), cashierName: payload?.name ?? 'Caissier', paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey });
         for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
         const cached = await getCachedProducts(); setAllProducts(cached);
         setPendingCount(prev => prev + 1); setSessionSales(n => n + 1);
@@ -517,7 +518,7 @@ export default function Caisse() {
     for (let attempt = 0; attempt < MAX_RETRIES && !nonRetryable && !succeeded; attempt++) {
       if (attempt > 0) await new Promise<void>(r => setTimeout(r, 2000));
       try {
-        const result = await createSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid, sessionId: sessionId ?? undefined, forceVente: forceVente || undefined, ecarts: ecartsData, idempotencyKey });
+        const result = await createSale({ items: saleItems, total, subtotal, ...(offrePct > 0 ? { offrePct, offreAmt } : {}), paymentMethod, amountPaid: effPaid, sessionId: sessionId ?? undefined, forceVente: forceVente || undefined, ecarts: ecartsData, idempotencyKey });
         succeeded = true;
         const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const idPart = String(result.sale._id).slice(-6).toUpperCase();        const newData: ReceiptData = {
           receiptNo: `FSV-${dateP}-${idPart}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
@@ -525,6 +526,10 @@ export default function Caisse() {
           subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
           ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
         };
+        // Archive PDF automatique — l'historique des factures est complet même sans clic « Imprimer »
+        try {
+          saveFacture({ numero: newData.receiptNo, caissier: newData.cashierName, montant: total, paymentMethod: pmLabel, items: newData.items.map(i => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })), pdfBase64: buildReceiptPDF(newData), date: d.toISOString() });
+        } catch { /* silencieux — l'archive ne doit jamais bloquer la vente */ }
         setReceiptData(newData); setCart([]); setAmountPaid(''); setPaymentMethod('cash'); setOffrePct(0);
         setSessionSales(n => n + 1);
         if (attempt > 0) addToast('Vente enregistrée ✅', 'success');
@@ -535,7 +540,7 @@ export default function Caisse() {
         const msg  = err instanceof Error ? err.message : "Erreur d'enregistrement";
         if (kind === 'auth') {
           nonRetryable = true;
-          try { await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid, idempotencyKey }); addToast('Session expirée — ticket sauvegardé localement', 'warning'); } catch {}
+          try { await savePendingSale({ items: saleItems, total, subtotal, ...(offrePct > 0 ? { offrePct, offreAmt } : {}), cashierName: payload?.name ?? 'Caissier', paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey }); addToast('Session expirée — ticket sauvegardé localement', 'warning'); } catch {}
           setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 1800);
         } else if (kind === 'stock') {
           nonRetryable = true;
@@ -552,7 +557,7 @@ export default function Caisse() {
         } else {
           setRetryLabel('Sauvegarde locale…');
           try {
-            await savePendingSale({ items: saleItems, total, paymentMethod, amountPaid: effPaid, idempotencyKey });
+            await savePendingSale({ items: saleItems, total, subtotal, ...(offrePct > 0 ? { offrePct, offreAmt } : {}), cashierName: payload?.name ?? 'Caissier', paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey });
             for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
             const cached = await getCachedProducts(); setAllProducts(cached); setPendingCount(prev => prev + 1);
             const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,'');            const offlineData: ReceiptData = {

@@ -49,6 +49,26 @@ export class Sale {
   @Prop({ required: true, min: 0 })
   total: number;
 
+  /** Sous-total avant réduction facture (0 = pas de réduction, total = subtotal) */
+  @Prop({ default: 0, min: 0 })
+  subtotal: number;
+
+  /** % de réduction facture appliqué à la caisse (offre fidélité, ex : 5) */
+  @Prop({ default: 0, min: 0, max: 100 })
+  offrePct: number;
+
+  /** Montant déduit par la réduction facture */
+  @Prop({ default: 0, min: 0 })
+  offreAmt: number;
+
+  /** Date réelle de la vente quand elle diffère de createdAt (synchro hors-ligne) */
+  @Prop({ required: false })
+  dateVente?: Date;
+
+  /** true = vente enregistrée hors-ligne puis synchronisée */
+  @Prop({ default: false })
+  syncOffline: boolean;
+
   @Prop({
     required: true,
     enum: ['cash', 'mtn_momo', 'orange_money', 'card', 'mobile_money', 'credit'],

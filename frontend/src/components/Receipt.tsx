@@ -1,8 +1,7 @@
 import React from 'react';
 import {
-  ReceiptData, buildReceiptHTML, buildReceiptPDF, doPrint, getPrintSettings, openCashDrawer,
+  ReceiptData, buildReceiptHTML, doPrint, getPrintSettings, openCashDrawer,
 } from './ReceiptPrint';
-import { saveFacture } from '../api/factures';
 import { formatVolume } from '../utils/text';
 
 export type { ReceiptData } from './ReceiptPrint';
@@ -18,22 +17,11 @@ interface Props {
 export default function Receipt({ data, onNewSale }: Props) {
   const ps = getPrintSettings();
 
+  // L'archive PDF de la facture est créée automatiquement à la validation de la
+  // vente (Caisse) et à la synchro hors-ligne — plus besoin de l'archiver ici.
   const handlePrint = () => {
     const html = buildReceiptHTML(data);
     doPrint(html, ps.copies);
-    // Archive PDF en arrière-plan (silencieux)
-    try {
-      const pdfBase64 = buildReceiptPDF(data);
-      saveFacture({
-        numero:        data.receiptNo,
-        caissier:      data.cashierName,
-        montant:       data.total,
-        paymentMethod: data.paymentLabel,
-        items:         data.items.map(i => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })),
-        pdfBase64,
-        date:          data.date.toISOString(),
-      });
-    } catch { /* silently ignore */ }
   };
 
   const subDisplay     = data.subtotal ?? data.total;

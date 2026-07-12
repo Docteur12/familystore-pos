@@ -121,7 +121,7 @@ const JOURNAL_COLS: { key: JSortKey; label: string; align: 'left' | 'right' }[] 
 const journalSortVal = (s: Sale, key: JSortKey): string | number => {
   switch (key) {
     case 'ticket':   return s._id;
-    case 'date':     return new Date(s.createdAt).getTime();
+    case 'date':     return new Date(s.dateVente ?? s.createdAt).getTime();
     case 'cashier':  return s.cashierName ?? '';
     case 'articles': return s.items.reduce((n, it) => n + it.quantity, 0);
     case 'pm':       return PM_LABELS[s.paymentMethod] ?? s.paymentMethod;
@@ -135,7 +135,7 @@ const journalSortVal = (s: Sale, key: JSortKey): string | number => {
 function exportCSV(sales: Sale[]) {
   const header = 'Date;Heure;Ticket #;Mode de paiement;Nb articles;Montant payé;Monnaie rendue;Total XAF';
   const rows = sales.map(s => {
-    const { date, heure } = fmtDatetime(s.createdAt);
+    const { date, heure } = fmtDatetime(s.dateVente ?? s.createdAt);
     const nbArt = s.items.reduce((n, it) => n + it.quantity, 0);
     return [
       date, heure,
@@ -188,7 +188,13 @@ function TicketDetail({ sale }: { sale: Sale }) {
               ))}
             </tbody>
           </table>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 24, padding: '8px 12px', background: 'var(--fs-wine-50)', borderTop: '1px solid var(--fs-line)' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 24, padding: '8px 12px', background: 'var(--fs-wine-50)', borderTop: '1px solid var(--fs-line)' }}>
+            {(sale.offrePct ?? 0) > 0 && (
+              <span style={{ fontSize: 11, color: 'var(--fs-danger-700)', fontWeight: 700 }}>
+                Sous-total : {fmtN(sale.subtotal || sale.items.reduce((s, it) => s + it.unitPrice * it.quantity, 0))} XAF
+                &nbsp;·&nbsp; Réduction facture (−{sale.offrePct} %) : −{fmtN(sale.offreAmt ?? 0)} XAF
+              </span>
+            )}
             {benefice > 0 && (
               <span style={{ fontSize: 11, color: 'var(--fs-success-700)', fontWeight: 600 }}>
                 Marge : {fmtN(benefice)} XAF
@@ -506,7 +512,8 @@ export default function AdminJournal() {
                       </td>
                     </tr>
                   ) : paginated.map((s, i) => {
-                    const { date, heure } = fmtDatetime(s.createdAt);
+                    // Vente synchronisée hors-ligne : afficher la date réelle de la vente
+                    const { date, heure } = fmtDatetime(s.dateVente ?? s.createdAt);
                     const isExp  = expanded.has(s._id);
                     const nbArtS = s.items.reduce((n, it) => n + it.quantity, 0);
                     const pmCfg  = PM_COLORS[s.paymentMethod] ?? { bg: '#f5f5f5', color: '#555' };
@@ -528,10 +535,16 @@ export default function AdminJournal() {
                           <td style={{ padding: '10px 12px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', fontWeight: 800, color: 'var(--fs-wine-700)', whiteSpace: 'nowrap' }}>
                             #{s._id.slice(-6).toUpperCase()}
                           </td>
-                          {/* Date heure */}
+                          {/* Date heure (réelle si synchro hors-ligne) */}
                           <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-800)' }}>{date}</div>
                             <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 1 }}>{heure}</div>
+                            {s.syncOffline && (
+                              <div title={`Vente faite hors connexion, synchronisée le ${fmtDatetime(s.createdAt).date} à ${fmtDatetime(s.createdAt).heure}`}
+                                style={{ fontSize: 9, fontWeight: 700, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '1px 6px', marginTop: 3, display: 'inline-block' }}>
+                                ⇅ synchronisée
+                              </div>
+                            )}
                           </td>
                           {/* Caissière */}
                           <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>

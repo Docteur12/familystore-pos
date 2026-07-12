@@ -61,6 +61,30 @@ export class CreateSaleDto {
   @Min(0)
   total: number;
 
+  /** Sous-total avant réduction facture (optionnel — égal au total sinon) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  subtotal?: number;
+
+  /** % de réduction facture appliqué à la caisse (offre fidélité) */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  offrePct?: number;
+
+  /** Montant déduit par la réduction facture */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  offreAmt?: number;
+
+  /** Date réelle de la vente (ISO) — envoyée par la synchro hors-ligne */
+  @IsOptional()
+  @IsString()
+  dateVente?: string;
+
   @IsIn(['cash', 'mtn_momo', 'orange_money', 'card', 'mobile_money', 'credit'])
   paymentMethod: string;
 

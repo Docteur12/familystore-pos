@@ -53,6 +53,10 @@ export async function getAllProducts(): Promise<Product[]> {
 export interface SalePayload {
   items: Array<{ product?: string; name: string; quantity: number; unitPrice: number; divers?: boolean }>;
   total:         number;
+  subtotal?:     number; // avant réduction facture
+  offrePct?:     number; // % réduction facture (offre fidélité)
+  offreAmt?:     number; // montant déduit
+  dateVente?:    string; // date réelle (ISO) — synchro hors-ligne
   paymentMethod: string;
   amountPaid:    number;
   sessionId?:    string;

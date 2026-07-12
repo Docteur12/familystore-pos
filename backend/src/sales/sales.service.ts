@@ -74,11 +74,17 @@ export class SalesService {
     const change = Math.max(0, dto.amountPaid - dto.total);
 
     // ── 3. Enregistrement de la vente ─────────────────────────────────────────
+    // Date réelle de la vente si fournie et valide (synchro hors-ligne)
+    const dateVente = dto.dateVente && !isNaN(Date.parse(dto.dateVente)) ? new Date(dto.dateVente) : undefined;
     let sale: SaleDocument;
     try {
       sale = await this.saleModel.create({
         items:         dto.items,
         total:         dto.total,
+        subtotal:      dto.subtotal ?? 0,
+        offrePct:      dto.offrePct ?? 0,
+        offreAmt:      dto.offreAmt ?? 0,
+        ...(dateVente ? { dateVente, syncOffline: true } : {}),
         paymentMethod: dto.paymentMethod,
         amountPaid:    dto.amountPaid,
         change,
