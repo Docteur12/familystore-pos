@@ -76,6 +76,10 @@ export default function AdminFactures() {
   const [loading,  setLoading]  = useState(true);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo,   setDateTo]   = useState('');
+  // Filtres rapides (REC#8) — mêmes périodes que le Journal des ventes
+  const [period,    setPeriod]    = useState<'today' | 'week' | 'month' | 'custom' | 'all'>('all');
+  const [caissier,  setCaissier]  = useState('');
+  const [caissiers, setCaissiers] = useState<string[]>([]);
   const [sort,     setSort]     = useState<{ key: FSortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'desc' });
   const [deleteTarget, setDeleteTarget] = useState<FactureRecord | null>(null);
   const [deleting,     setDeleting]     = useState(false);
@@ -99,24 +103,38 @@ export default function AdminFactures() {
     }
   };
 
+  // Bornes de dates (YYYY-MM-DD local) selon le filtre rapide choisi
+  const periodDates = useCallback((): { from?: string; to?: string } => {
+    const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const now = new Date();
+    if (period === 'today') { const t = ymd(now); return { from: t, to: t }; }
+    if (period === 'week')  { const s = new Date(now); const day = s.getDay(); s.setDate(s.getDate() + (day === 0 ? -6 : 1 - day)); return { from: ymd(s), to: ymd(now) }; }
+    if (period === 'month') { const s = new Date(now.getFullYear(), now.getMonth(), 1); return { from: ymd(s), to: ymd(now) }; }
+    if (period === 'custom') return { from: dateFrom || undefined, to: dateTo || undefined };
+    return {}; // all
+  }, [period, dateFrom, dateTo]);
+
   const load = useCallback(async (p = 0) => {
     setLoading(true);
     try {
+      const { from, to } = periodDates();
       const res = await getFactures({
-        dateFrom: dateFrom || undefined,
-        dateTo:   dateTo   || undefined,
+        dateFrom: from,
+        dateTo:   to,
+        caissier: caissier || undefined,
         page: p,
         limit: PAGE_SIZE,
       });
       setFactures(res.data);
       setTotal(res.total);
+      if (res.caissiers?.length) setCaissiers(res.caissiers);
       setPage(p);
     } catch {
       addToast('Erreur chargement des factures', 'error');
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, addToast]);
+  }, [periodDates, caissier, addToast]);
 
   useEffect(() => { load(0); }, [load]);
 
@@ -171,16 +189,35 @@ export default function AdminFactures() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12 }} />
-              <span style={{ fontSize: 12, color: 'var(--fs-ink-400)' }}>→</span>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12 }} />
-              <button onClick={() => load(0)}
-                style={{ padding: '7px 14px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                Filtrer
-              </button>
-              <button onClick={() => { setDateFrom(''); setDateTo(''); }}
+              {/* Filtres rapides (REC#8) — mêmes périodes que le Journal des ventes */}
+              {([
+                { key: 'today',  label: "Aujourd'hui" },
+                { key: 'week',   label: 'Cette semaine' },
+                { key: 'month',  label: 'Ce mois' },
+                { key: 'custom', label: 'Plage dates' },
+                { key: 'all',    label: 'Tout' },
+              ] as const).map(p => (
+                <button key={p.key} onClick={() => setPeriod(p.key)} style={{
+                  padding: '6px 12px', borderRadius: 16, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
+                  background: period === p.key ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
+                  color:      period === p.key ? '#fff'               : 'var(--fs-ink-500)',
+                }}>{p.label}</button>
+              ))}
+              {period === 'custom' && (
+                <>
+                  <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                    style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12 }} />
+                  <span style={{ fontSize: 12, color: 'var(--fs-ink-400)' }}>→</span>
+                  <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                    style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12 }} />
+                </>
+              )}
+              <select value={caissier} onChange={e => setCaissier(e.target.value)}
+                style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-700)' }}>
+                <option value="">Toutes les caissières</option>
+                {caissiers.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <button onClick={() => { setPeriod('all'); setCaissier(''); setDateFrom(''); setDateTo(''); }}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
                 Réinitialiser
               </button>

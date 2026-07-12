@@ -5,6 +5,7 @@ import { updateUser } from '../api/auth';
 import { logAccesEspace } from '../api/audit';
 import { useSettings } from '../contexts/SettingsContext';
 import { useIsMobile } from '../hooks/useIsMobile';
+import logoFs from '../assets/logo-fs.jpg';
 
 const BG       = 'var(--fs-wine-900)';
 const ACT      = 'var(--fs-wine-700)';
@@ -247,20 +248,12 @@ export default function AdminSidebar() {
       )}
 
       <aside className="fs-sidebar-drawer" style={sidebarStyle}>
-        {/* Logo */}
-        <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(255,255,255,0.1)', border: '1px solid var(--fs-gold-400)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M7 11 L9 6 L11 9.5 L12 5 L13 9.5 L15 6 L17 11 L17 13.5 L7 13.5 Z" fill="var(--fs-gold-400)"/>
-                <path d="M7 13.5 L17 13.5" stroke="var(--fs-gold-400)" strokeWidth="1.2"/>
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 13, fontWeight: 700, color: '#f5ebd9', letterSpacing: '0.05em', lineHeight: 1 }}>{settings.nomMagasin}</div>
-              <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.1em', marginTop: 2 }}>Administration</div>
-            </div>
+        {/* Logo Family Store (REC#8) */}
+        <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ background: '#fdf9f0', borderRadius: 10, border: '1px solid var(--fs-gold-400)', padding: '6px 8px', overflow: 'hidden' }}>
+            <img src={logoFs} alt={settings.nomMagasin} style={{ width: '100%', display: 'block', borderRadius: 6 }}/>
           </div>
+          <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.14em', textTransform: 'uppercase', textAlign: 'center', marginTop: 6 }}>Administration</div>
         </div>
 
         {/* Nav */}

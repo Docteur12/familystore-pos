@@ -33,24 +33,29 @@ export class FacturesService {
   async findAll(query: {
     dateFrom?: string;
     dateTo?:   string;
+    caissier?: string;
     page?:     number;
     limit?:    number;
-  } = {}): Promise<{ data: FactureDocument[]; total: number }> {
+  } = {}): Promise<{ data: FactureDocument[]; total: number; caissiers: string[] }> {
     const filter: Record<string, unknown> = {};
+    // Accepte « YYYY-MM-DD » (on complète l'heure) ou un ISO complet (tel quel)
+    const parseDate = (v: string, suffix: string) => new Date(v.includes('T') ? v : v + suffix);
     if (query.dateFrom || query.dateTo) {
       filter['createdAt'] = {};
-      if (query.dateFrom) (filter['createdAt'] as any)['$gte'] = new Date(query.dateFrom + 'T00:00:00');
-      if (query.dateTo)   (filter['createdAt'] as any)['$lte'] = new Date(query.dateTo   + 'T23:59:59');
+      if (query.dateFrom) (filter['createdAt'] as any)['$gte'] = parseDate(query.dateFrom, 'T00:00:00');
+      if (query.dateTo)   (filter['createdAt'] as any)['$lte'] = parseDate(query.dateTo,   'T23:59:59');
     }
+    if (query.caissier) filter['caissier'] = query.caissier;
 
     const limit = Math.min(Number(query.limit) || 50, 100);
     const skip  = (Number(query.page) || 0) * limit;
 
-    const [data, total] = await Promise.all([
+    const [data, total, caissiers] = await Promise.all([
       this.factureModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
       this.factureModel.countDocuments(filter).exec(),
+      this.factureModel.distinct('caissier').exec(),
     ]);
-    return { data, total };
+    return { data, total, caissiers: (caissiers as string[]).filter(Boolean).sort() };
   }
 
   async findOne(id: string): Promise<FactureDocument | null> {
