@@ -82,6 +82,19 @@ export function normalizeName(s: string): string {
     .join(' ');
 }
 
+// Nom de produit pour AFFICHAGE (rapports, tickets…) : applique la nomenclature
+// sans altérer les données — 1ʳᵉ lettre de chaque mot alphabétique en majuscule,
+// et laisse intacts les tokens contenant des chiffres (« 30ml », « 72 g », « 5en1 »).
+// « vanilla » → « Vanilla » ; « Balea serum vitamin c 30 ml » → « Balea Serum Vitamin C 30 ml ».
+export function displayName(s: string): string {
+  const UNITS = new Set(['ml', 'cl', 'l', 'g', 'kg', 'mg', 'pcs', 'pc']);
+  return (s ?? '')
+    .trim()
+    .split(/\s+/)
+    .map((w) => (/\d/.test(w) || UNITS.has(w.toLowerCase()) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(' ');
+}
+
 // Met en majuscule la première lettre de CHAQUE mot (Title Case),
 // en laissant le reste tel que saisi (acronymes, unités « 500ml », etc.).
 export function titleCase(s: string): string {

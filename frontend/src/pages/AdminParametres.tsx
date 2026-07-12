@@ -3,7 +3,7 @@ import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import { updateUser } from '../api/auth';
 import { getTokenPayload } from '../api/dashboard';
-import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings, applyPrimaryColor } from '../api/settings';
+import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings, applyPrimaryColor, OffreFacture, OFFRE_DEFAULTS } from '../api/settings';
 import { useSettings } from '../contexts/SettingsContext';
 import { getPendingSales, getLastSyncTime, syncPendingSales } from '../services/offlineSync';
 import { getPrintSettings, savePrintSettings, PrintSettings } from '../components/ReceiptPrint';
@@ -188,6 +188,58 @@ export default function AdminParametres() {
       setCatBusy(false);
       if (catFileRef.current) catFileRef.current.value = '';
     }
+  };
+
+  // ── Offre marketing du ticket (éditable + import/export CSV) ──────────────
+  const offreFileRef = useRef<HTMLInputElement>(null);
+  const [offre, setOffre] = useState<OffreFacture>({ ...OFFRE_DEFAULTS });
+  const [offreBusy, setOffreBusy] = useState(false);
+  useEffect(() => { getSettings().then(s => setOffre({ ...OFFRE_DEFAULTS, ...(s.offreFacture ?? {}) })).catch(() => {}); }, []);
+
+  const OFFRE_KEYS: { key: keyof OffreFacture; csv: string; label: string; ph: string }[] = [
+    { key: 'titre',      csv: 'TITRE_OFFRE',    label: 'Titre de l\'offre',   ph: 'ex : Ne laissez pas votre remise expirer !' },
+    { key: 'message',    csv: 'MESSAGE_OFFRE',  label: 'Message de l\'offre', ph: 'ex : *Merci pour votre achat !* Family Store vous offre 5 %…' },
+    { key: 'validite',   csv: 'VALIDITE_OFFRE', label: 'Validité',            ph: 'ex : *Offre valable jusqu\'au 31 août 2026 uniquement.*' },
+    { key: 'cta',        csv: 'CALL_TO_ACTION', label: 'Appel à l\'action',   ph: 'ex : *Revenez avant le 31 août avec cette facture…*' },
+    { key: 'salutation', csv: 'SALUTATION_FIN', label: 'Salutation de fin',   ph: 'ex : *À très bientôt chez Family Store !*' },
+  ];
+
+  const saveOffre = async (next: OffreFacture, msg = 'Offre marketing enregistrée ✅') => {
+    try { await updateSettings({ offreFacture: next }); reloadSettings(); addToast(msg, 'success'); }
+    catch { addToast('Erreur sauvegarde de l\'offre', 'error'); }
+  };
+
+  const exportOffreCsv = () => {
+    const rows = OFFRE_KEYS.map(k => `${k.csv}: ${(offre[k.key] ?? '').replace(/\r?\n/g, ' ')}`);
+    // BOM UTF-8 : Excel affiche correctement les accents (é, à, …)
+    const blob = new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'OFFRE_MARKETING.csv';
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  const importOffreCsv = async (file: File) => {
+    setOffreBusy(true);
+    try {
+      const text = (await file.text()).replace(/^﻿/, '');
+      const next = { ...offre };
+      let found = 0;
+      for (const raw of text.split(/\r?\n/)) {
+        // Tolère les guillemets et séparateurs ajoutés par Excel autour de la cellule
+        const line = raw.trim().replace(/^"/, '').replace(/"?[;,]*$/, '');
+        const m = line.match(/^(TITRE_OFFRE|MESSAGE_OFFRE|VALIDITE_OFFRE|CALL_TO_ACTION|SALUTATION_FIN)\s*:\s*(.*)$/i);
+        if (!m) continue;
+        const entry = OFFRE_KEYS.find(x => x.csv === m[1].toUpperCase());
+        if (!entry) continue;
+        next[entry.key] = m[2].replace(/""/g, '"').trim();
+        found++;
+      }
+      if (found === 0) { addToast('CSV invalide — aucune clé reconnue (TITRE_OFFRE, MESSAGE_OFFRE…)', 'error'); return; }
+      setOffre(next);
+      await saveOffre(next, `Offre importée : ${found} champ(s) mis à jour ✅`);
+    } catch { addToast('Erreur lecture du fichier CSV', 'error'); }
+    finally { setOffreBusy(false); if (offreFileRef.current) offreFileRef.current.value = ''; }
   };
 
   // ── Réinitialisation ─────────────────────────────────────────────────────
@@ -449,6 +501,44 @@ export default function AdminParametres() {
               <button onClick={() => catFileRef.current?.click()} disabled={catBusy}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: catBusy ? 'default' : 'pointer', opacity: catBusy ? 0.6 : 1 }}>
                 ⬆ {catBusy ? 'Import…' : 'Importer (CSV)'}
+              </button>
+            </div>
+          </div>
+
+          {/* ── Offre marketing du ticket (éditable sans code) ───────────────── */}
+          <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
+            <p style={SECTION_TITLE}>Offre marketing (facture)</p>
+            <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '0 0 12px', lineHeight: 1.5 }}>
+              Personnalisez les textes imprimés en <strong>pied de ticket</strong> sans toucher au code : modifiez les champs ci-dessous
+              ou passez par Excel (<strong>Exporter</strong> le CSV, l'éditer, puis <strong>Importer</strong>).
+              Les mots entourés d'astérisques <em>*comme ceci*</em> sont imprimés <strong>en gras</strong>. Un champ vide n'est pas imprimé.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+              {OFFRE_KEYS.map(k => (
+                <div key={k.key}>
+                  <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }}>
+                    {k.label} <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>({k.csv})</span>
+                  </label>
+                  <textarea value={offre[k.key]} onChange={e => setOffre(prev => ({ ...prev, [k.key]: e.target.value }))}
+                    placeholder={k.ph} rows={k.key === 'message' || k.key === 'cta' ? 2 : 1}
+                    style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', resize: 'vertical' }}/>
+                </div>
+              ))}
+            </div>
+            <input ref={offreFileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) importOffreCsv(f); }} />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => saveOffre(offre)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                💾 Enregistrer l'offre
+              </button>
+              <button onClick={exportOffreCsv}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                ⬇ Exporter (CSV)
+              </button>
+              <button onClick={() => offreFileRef.current?.click()} disabled={offreBusy}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 600, cursor: offreBusy ? 'default' : 'pointer', opacity: offreBusy ? 0.6 : 1 }}>
+                ⬆ {offreBusy ? 'Import…' : 'Importer (CSV)'}
               </button>
             </div>
           </div>

@@ -37,6 +37,20 @@ export class Settings {
 
   @Prop({ default: '#FF0000' })
   couleurPrincipale: string;   // couleur de la boutique (interface + PDF)
+
+  // Offre marketing imprimée en pied de facture — éditable (import/export CSV).
+  // Les segments entre *astérisques* sont rendus en gras sur le ticket.
+  @Prop({
+    type: { titre: String, message: String, validite: String, cta: String, salutation: String },
+    default: {
+      titre:      '',
+      message:    'Pour vous remercier, *Family Store vous offre 5 %* de réduction sur votre prochain achat. Présentez simplement cette facture à la caisse pour bénéficier de cette offre.',
+      validite:   '',
+      cta:        '',
+      salutation: '',
+    },
+  })
+  offreFacture: { titre: string; message: string; validite: string; cta: string; salutation: string };
 }
 
 export const SettingsSchema = SchemaFactory.createForClass(Settings);

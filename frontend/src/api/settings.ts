@@ -1,5 +1,23 @@
 import { authHeaders } from './http';
 
+// Offre marketing imprimée en pied de facture — les segments entre
+// *astérisques* sont rendus en gras sur le ticket.
+export interface OffreFacture {
+  titre: string;
+  message: string;
+  validite: string;
+  cta: string;
+  salutation: string;
+}
+
+export const OFFRE_DEFAULTS: OffreFacture = {
+  titre:      '',
+  message:    'Pour vous remercier, *Family Store vous offre 5 %* de réduction sur votre prochain achat. Présentez simplement cette facture à la caisse pour bénéficier de cette offre.',
+  validite:   '',
+  cta:        '',
+  salutation: '',
+};
+
 export interface StoreSettings {
   nomMagasin: string;
   adresse: string;
@@ -12,6 +30,7 @@ export interface StoreSettings {
   reseauxSociaux: { facebook: string; whatsapp: string };
   langue: string;
   couleurPrincipale: string;
+  offreFacture?: OffreFacture;
 }
 
 export const SETTINGS_DEFAULTS: StoreSettings = {
@@ -26,6 +45,7 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   reseauxSociaux: { facebook: '', whatsapp: '' },
   langue: 'fr',
   couleurPrincipale: '#FF0000',
+  offreFacture: { ...OFFRE_DEFAULTS },
 };
 
 // Applique la couleur principale sur TOUTE la palette (50 → 900) afin que

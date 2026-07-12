@@ -503,6 +503,7 @@ export default function Caisse() {
           items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, valeur: i.product.valeur || undefined, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
           subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
           ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
+          offre: settings.offreFacture,
         };
         setReceiptData(offlineData); setCart([]); setAmountPaid(''); setPaymentMethod('cash');
         const ps = getPrintSettings(); if (ps.auto) doPrint(buildReceiptHTML(offlineData), ps.copies);
@@ -525,6 +526,7 @@ export default function Caisse() {
           items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, valeur: i.product.valeur || undefined, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
           subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
           ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
+          offre: settings.offreFacture,
         };
         // Archive PDF automatique — l'historique des factures est complet même sans clic « Imprimer »
         try {
@@ -565,6 +567,7 @@ export default function Caisse() {
               items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, valeur: i.product.valeur || undefined, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
               subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
               ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
+              offre: settings.offreFacture,
             };
             setReceiptData(offlineData); setCart([]); setAmountPaid(''); setPaymentMethod('cash');
             addToast('Vente sauvegardée localement — synchronisation dès que possible', 'warning');

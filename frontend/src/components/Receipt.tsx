@@ -3,6 +3,13 @@ import {
   ReceiptData, buildReceiptHTML, doPrint, getPrintSettings, openCashDrawer,
 } from './ReceiptPrint';
 import { formatVolume } from '../utils/text';
+import { OFFRE_DEFAULTS } from '../api/settings';
+
+// Rend un texte marketing : les segments entre *astérisques* passent en gras.
+function BoldText({ text }: { text: string }) {
+  const parts = text.split(/\*([^*]+)\*/g);
+  return <>{parts.map((p, i) => (i % 2 === 1 ? <strong key={i}>{p}</strong> : p))}</>;
+}
 
 export type { ReceiptData } from './ReceiptPrint';
 
@@ -143,13 +150,21 @@ export default function Receipt({ data, onNewSale }: Props) {
             {data.change > 0 && <div>Montant remboursé : {f(data.change)} FCFA</div>}
           </div>
 
-          {/* Pied */}
-          <div style={{ textAlign: 'center', marginTop: 14, color: '#111' }}>
-            <div style={{ fontWeight: 700, fontSize: 17, letterSpacing: '0.04em' }}>Merci de votre visite !</div>
-            <div style={{ fontSize: 11, lineHeight: 1.45, marginTop: 4, color: '#333' }}>
-              Pour vous remercier, <strong>Family Store vous offre 5 %</strong> de réduction sur votre prochain achat. Présentez simplement cette facture à la caisse pour bénéficier de cette offre.
-            </div>
-          </div>
+          {/* Pied — textes marketing paramétrables (Admin → Paramètres) */}
+          {(() => {
+            const offre = { ...OFFRE_DEFAULTS, ...(data.offre ?? {}) };
+            return (
+              <div style={{ textAlign: 'center', marginTop: 14, color: '#111' }}>
+                <div style={{ fontWeight: 700, fontSize: 17, letterSpacing: '0.04em' }}>Merci de votre visite !</div>
+                {offre.titre.trim() && <div style={{ fontSize: 12.5, fontWeight: 700, marginTop: 5 }}><BoldText text={offre.titre}/></div>}
+                {offre.message.trim() && <div style={{ fontSize: 11, lineHeight: 1.45, marginTop: 4, color: '#333' }}><BoldText text={offre.message}/></div>}
+                {offre.validite.trim() && <div style={{ fontSize: 11, lineHeight: 1.45, marginTop: 4, color: '#333' }}><BoldText text={offre.validite}/></div>}
+                {offre.cta.trim() && <div style={{ fontSize: 11, lineHeight: 1.45, marginTop: 4, color: '#333' }}><BoldText text={offre.cta}/></div>}
+                <div style={{ fontSize: 10, lineHeight: 1.4, marginTop: 7, color: '#333' }}><strong>NB :</strong> Les articles achetés ou livrés ne sont ni échangés ni repris. Ils seront vérifiés et approuvés par le client.</div>
+                {offre.salutation.trim() && <div style={{ fontSize: 11, fontWeight: 700, marginTop: 7 }}><BoldText text={offre.salutation}/></div>}
+              </div>
+            );
+          })()}
         </div>
         </div>{/* fin zone défilable */}
 

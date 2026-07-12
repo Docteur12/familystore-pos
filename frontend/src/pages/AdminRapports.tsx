@@ -5,7 +5,7 @@ import {
 } from 'recharts';
 import AdminSidebar from '../components/AdminSidebar';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { getBrandColor } from '../utils/text';
+import { getBrandColor, displayName } from '../utils/text';
 import ToastContainer, { useToast } from '../components/Toast';
 import {
   getAnalyseMonth, getAnalyseWeek, downloadReport, getByProduct,
@@ -220,6 +220,11 @@ export default function AdminRapports() {
   const [prodDateFrom, setProdDateFrom] = useState('');
   const [prodDateTo,   setProdDateTo]   = useState('');
   const [prodLoading,  setProdLoading]  = useState(false);
+  // Tri + recherche du tableau « Journal des ventes par produit » (REC#5)
+  const [prodSearch, setProdSearch] = useState('');
+  const [prodSort, setProdSort] = useState<{ key: keyof ProductStat; dir: 'asc' | 'desc' }>({ key: 'caGenere', dir: 'desc' });
+  const toggleProdSort = (key: keyof ProductStat) =>
+    setProdSort(prev => prev.key === key ? { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'name' ? 'asc' : 'desc' });
   const [prodExporting, setProdExporting] = useState(false);
 
   const { year, month, label } = MONTHS[monthIdx];
@@ -326,7 +331,7 @@ export default function AdminRapports() {
       for (const p of byProduct) {
         if (y > 285) { doc.addPage(); y = 18; header(); doc.setFont('helvetica', 'normal'); doc.setFontSize(9); }
         doc.setTextColor(20);
-        doc.text(trunc(p.name), cX.nom, y);
+        doc.text(trunc(displayName(p.name)), cX.nom, y);
         doc.text(num(p.qtySold), cX.qte, y, { align: 'right' });
         doc.text(num(p.caGenere), cX.ca, y, { align: 'right' });
         doc.text(num(p.nbTransactions), cX.nb, y, { align: 'right' });
@@ -409,7 +414,9 @@ export default function AdminRapports() {
         </div>
 
         {/* Corps */}
-        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '18px 16px 28px' : '18px 28px 28px' }}>
+        {/* cursor/userSelect : flèche standard sur tout le contenu non cliquable (REC#1) —
+            les boutons/onglets gardent leur cursor:pointer propre, les th triables aussi */}
+        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '18px 16px 28px' : '18px 28px 28px', cursor: 'default', userSelect: 'none' }}>
 
           {loading ? (
             <Skeleton />
@@ -605,7 +612,7 @@ export default function AdminRapports() {
                           {i + 1}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-800)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nom}</div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-800)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName(p.nom)}</div>
                           <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{p.quantite} unité{p.quantite > 1 ? 's' : ''}</div>
                         </div>
                         <div style={{ fontSize: 12, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)', flexShrink: 0 }}>
@@ -752,11 +759,16 @@ export default function AdminRapports() {
                               <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--fs-ink-400)', marginBottom: 4 }}>{m.name}</div>
                               <div style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{m.fmt(m.curr)}</div>
                               {pct !== null ? (
-                                <div style={{ fontSize: 11, fontWeight: 700, color: up ? '#16A34A' : '#DC2626', marginTop: 2 }}>
-                                  {up ? '↑' : '↓'} {Math.abs(pct).toFixed(1)}%
-                                </div>
+                                <>
+                                  <div style={{ fontSize: 11, fontWeight: 700, color: up ? '#16A34A' : '#DC2626', marginTop: 2 }}>
+                                    {up ? '↑' : '↓'} {Math.abs(pct).toFixed(1)}%
+                                  </div>
+                                  <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', marginTop: 1 }}>
+                                    vs {m.fmt(m.prev)} (période préc.)
+                                  </div>
+                                </>
                               ) : (
-                                <div style={{ fontSize: 10, color: 'var(--fs-ink-300)', marginTop: 2 }}>Pas de référence</div>
+                                <div style={{ fontSize: 10, color: 'var(--fs-ink-300)', marginTop: 2 }}>Pas de référence (période préc. vide)</div>
                               )}
                             </div>
                           );
@@ -919,19 +931,19 @@ export default function AdminRapports() {
                       </div>
                     </div>
 
-                    {/* Tendance CA (ligne) */}
+                    {/* CA cumulé (ligne) — progression du CA additionné au fil de la période */}
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-                        Tendance CA (XAF)
+                        CA cumulé (XAF) — progression vers le total
                       </div>
                       <div style={{ height: 160 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={ticketData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+                          <LineChart data={(() => { let cum = 0; return ticketData.map(r => ({ ...r, caCumule: (cum += r.totalCA) })); })()} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--fs-line)" vertical={false}/>
                             <XAxis dataKey={fmtXKey} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} interval={Math.max(0, Math.floor(ticketData.length / 8) - 1)}/>
                             <YAxis tickFormatter={fmtK} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={36}/>
-                            <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`, 'CA']} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
-                            <Line type="monotone" dataKey="totalCA" stroke={brand} strokeWidth={2} dot={false} name="CA"/>
+                            <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`, 'CA cumulé']} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
+                            <Line type="monotone" dataKey="caCumule" stroke={brand} strokeWidth={2} dot={false} name="CA cumulé"/>
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -965,6 +977,8 @@ export default function AdminRapports() {
                 <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{byProduct.length} produit{byProduct.length !== 1 ? 's' : ''} · toutes périodes si aucun filtre</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <input type="text" value={prodSearch} onChange={e => setProdSearch(e.target.value)} placeholder="🔎 Filtrer un produit…"
+                  style={{ padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, width: 170 }} />
                 <input type="date" value={prodDateFrom} onChange={e => setProdDateFrom(e.target.value)}
                   style={{ padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12 }} />
                 <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>→</span>
@@ -987,15 +1001,31 @@ export default function AdminRapports() {
                 <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 720 : undefined, borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ background: 'var(--fs-ivory)' }}>
-                      {['Produit', 'Qté vendue', 'CA généré', 'Nb transactions', 'Prix moy. vente'].map(h => (
-                        <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Produit' ? 'left' : 'right', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' }}>{h}</th>
+                      {([
+                        { h: 'Produit',         k: 'name' as const },
+                        { h: 'Qté vendue',      k: 'qtySold' as const },
+                        { h: 'CA généré',       k: 'caGenere' as const },
+                        { h: 'Nb transactions', k: 'nbTransactions' as const },
+                        { h: 'Prix moy. vente', k: 'prixMoyenVente' as const },
+                      ]).map(({ h, k }) => (
+                        <th key={h} onClick={() => toggleProdSort(k)} title="Cliquer pour trier"
+                          style={{ padding: '8px 12px', textAlign: h === 'Produit' ? 'left' : 'right', fontSize: 10, fontWeight: 700, color: prodSort.key === k ? 'var(--fs-wine-700)' : 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}>
+                          {h}{prodSort.key === k ? (prodSort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {byProduct.map((p, i) => (
+                    {byProduct
+                      .filter(p => !prodSearch.trim() || p.name.toLowerCase().includes(prodSearch.trim().toLowerCase()))
+                      .sort((a, b) => {
+                        const va = a[prodSort.key], vb = b[prodSort.key];
+                        const cmp = typeof va === 'string' ? String(va).localeCompare(String(vb), 'fr') : Number(va) - Number(vb);
+                        return prodSort.dir === 'asc' ? cmp : -cmp;
+                      })
+                      .map((p, i) => (
                       <tr key={p.name} style={{ borderBottom: '1px solid var(--fs-line)', background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
-                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--fs-ink-800)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</td>
+                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--fs-ink-800)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName(p.name)}</td>
                         <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{p.qtySold}</td>
                         <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}>{fmtN(p.caGenere)} XAF</td>
                         <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-600)' }}>{p.nbTransactions}</td>

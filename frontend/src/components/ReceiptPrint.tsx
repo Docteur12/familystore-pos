@@ -1,6 +1,7 @@
 // Utilitaires impression reçu thermique 80mm + gestion paramètres d'impression
 import { jsPDF } from 'jspdf';
 import { formatVolume } from '../utils/text';
+import { OffreFacture, OFFRE_DEFAULTS } from '../api/settings';
 
 export interface ReceiptItem {
   name:          string;
@@ -26,7 +27,14 @@ export interface ReceiptData {
   change:         number;
   offrePct?:      number;  // % réduction sur facture (ex: 5)
   offreAmt?:      number;  // montant déduit (ex: 250)
+  offre?:         OffreFacture; // textes marketing du pied de ticket (paramètres boutique)
 }
+
+// Échappe le HTML puis convertit *segment* en <b>segment</b> (gras du ticket).
+const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const boldify = (s: string) => escHtml(s).replace(/\*([^*]+)\*/g, '<b>$1</b>');
+// Version texte brut (PDF archive) : retire simplement les astérisques.
+const plain = (s: string) => s.replace(/\*/g, '');
 
 export interface PrintSettings {
   auto:    boolean;
@@ -58,6 +66,7 @@ export function savePrintSettings(s: PrintSettings) {
 const truncName = (n: string) => (n.length > 40 ? n.slice(0, 40).trimEnd() + '…' : n);
 
 export function buildReceiptHTML(data: ReceiptData): string {
+  const offre = { ...OFFRE_DEFAULTS, ...(data.offre ?? {}) };
   const dateStr = data.date.toLocaleDateString('fr-FR');
   const timeStr = data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   // Séparateur de milliers = espace ASCII normale (pas l'espace insécable
@@ -132,8 +141,10 @@ export function buildReceiptHTML(data: ReceiptData): string {
     .total { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 18px; font-weight: 700; margin: 6px 0; }
     .pay   { font-size: 11px; line-height: 1.65; }
     .merci { font-size: 14px; font-weight: 700; letter-spacing: 0.5px; margin: 2px 0; }
-    .offer { font-size: 9px; line-height: 1.35; }
+    .otitre{ font-size: 10.5px; font-weight: 700; margin-top: 3px; }
+    .offer { font-size: 9px; line-height: 1.35; margin-top: 3px; }
     .nb    { font-size: 8.5px; line-height: 1.35; margin-top: 6px; }
+    .salut { font-size: 9.5px; font-weight: 700; margin-top: 6px; }
     /* Le pied (Merci + offre) reste d'un seul tenant : jamais coupé en fin de page */
     .foot  { page-break-inside: avoid; break-inside: avoid; }
   </style>
@@ -175,8 +186,12 @@ export function buildReceiptHTML(data: ReceiptData): string {
   <div style="height:6px"></div>
   <div class="center foot">
     <div class="merci">Merci de votre visite !</div>
-    <div class="offer">Pour vous remercier, <b>Family Store vous offre 5&nbsp;%</b> de r&eacute;duction sur votre prochain achat. Pr&eacute;sentez simplement cette facture &agrave; la caisse pour b&eacute;n&eacute;ficier de cette offre.</div>
+    ${(offre.titre ?? '').trim() ? `<div class="otitre">${boldify(offre.titre)}</div>` : ''}
+    ${(offre.message ?? '').trim() ? `<div class="offer">${boldify(offre.message)}</div>` : ''}
+    ${(offre.validite ?? '').trim() ? `<div class="offer">${boldify(offre.validite)}</div>` : ''}
+    ${(offre.cta ?? '').trim() ? `<div class="offer">${boldify(offre.cta)}</div>` : ''}
     <div class="nb"><b>NB&nbsp;:</b> Les articles achet&eacute;s ou livr&eacute;s ne sont ni &eacute;chang&eacute;s ni repris. Ils seront v&eacute;rifi&eacute;s et approuv&eacute;s par le client.</div>
+    ${(offre.salutation ?? '').trim() ? `<div class="salut">${boldify(offre.salutation)}</div>` : ''}
   </div>
 </body>
 </html>`;
@@ -199,7 +214,7 @@ export function doPrint(html: string, copies = 1) {
 // Génération PDF reçu (base64) pour archivage ─────────────────────────────────
 
 export function buildReceiptPDF(data: ReceiptData): string {
-  const doc  = new jsPDF({ unit: 'mm', format: [80, 220], orientation: 'portrait' });
+  const doc  = new jsPDF({ unit: 'mm', format: [80, 297], orientation: 'portrait' });
   const W    = 76; // largeur utile
   let   y    = 6;
 
@@ -280,15 +295,27 @@ export function buildReceiptPDF(data: ReceiptData): string {
   if (data.change > 0) line(`Montant remboursé : ${fmt(data.change)} FCFA`, 9);
   y += 3;
 
-  // Pied
+  // Pied — textes marketing paramétrables (retour à la ligne automatique)
+  const offre = { ...OFFRE_DEFAULTS, ...(data.offre ?? {}) };
+  const para = (text: string, size: number, bold = false) => {
+    const t = plain(text).trim();
+    if (!t) return;
+    doc.setFontSize(size);
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    for (const l of doc.splitTextToSize(t, W - 4) as string[]) {
+      doc.text(l, W / 2 + 2, y, { align: 'center' });
+      y += size * 0.42;
+    }
+  };
   line('Merci de votre visite !', 12, true, 'center');
-  line('Pour vous remercier, Family Store vous offre 5%', 8, false, 'center');
-  line('de réduction sur votre prochain achat.', 8, false, 'center');
-  line('Présentez simplement cette facture à la caisse', 7, false, 'center');
-  line('pour bénéficier de cette offre.', 7, false, 'center');
+  para(offre.titre, 9, true);
+  para(offre.message, 8);
+  para(offre.validite, 8);
+  para(offre.cta, 8);
   y += 1;
   line('NB : Les articles achetés ou livrés ne sont ni échangés ni repris.', 7, false, 'center');
   line('Ils seront vérifiés et approuvés par le client.', 7, false, 'center');
+  para(offre.salutation, 8, true);
 
   return doc.output('datauristring').split(',')[1] ?? '';
 }
