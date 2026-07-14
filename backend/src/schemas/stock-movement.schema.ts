@@ -29,6 +29,11 @@ export class StockMovement {
 
   @Prop({ trim: true })
   note?: string;
+
+  /** Clé d'idempotence — évite de compter deux fois le même ajout de stock
+   *  lors de la synchronisation hors-ligne (rejeu réseau). */
+  @Prop({ unique: true, sparse: true })
+  idempotencyKey?: string;
 }
 
 export const StockMovementSchema = SchemaFactory.createForClass(StockMovement);

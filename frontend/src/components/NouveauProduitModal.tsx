@@ -5,6 +5,7 @@ import { getTokenPayload } from '../api/dashboard';
 import AutocompleteInput from './AutocompleteInput';
 import QRScanner from './QRScanner';
 import { formatProductName } from '../utils/text';
+import { queueProduitLocal } from '../services/offlineMagazin';
 import { CATEGORY_TREE, normalizeTree } from '../data/categories';
 import { getCategoryTree, addCategory, CategoryTree } from '../api/categories';
 
@@ -394,14 +395,25 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
         await updateProduct((product ?? foundProduct)!._id, payload);
         onUpdated?.();
       } else {
-        const created = await createProduct(payload);
+        const created = navigator.onLine
+          ? await createProduct(payload)
+          : await (async () => { throw new Error('hors connexion'); })();
         onCreated?.(created);
       }
       onClose();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '';
-      // Échec réseau → l'enregistrement n'a PAS abouti : message explicite.
-      const reseau = !msg || /fetch|network|réseau|Failed/i.test(msg);
+      const reseau = !msg || /fetch|network|réseau|hors connexion|Failed/i.test(msg);
+      // CRÉATION hors connexion → file locale + synchronisation automatique
+      if (reseau && !product && !foundProduct) {
+        try {
+          const temp = await queueProduitLocal(payload);
+          onCreated?.(temp);
+          onClose();
+          return;
+        } catch { /* stockage local indisponible → message classique */ }
+      }
+      // Échec réseau en MODIFICATION → l'enregistrement n'a PAS abouti : message explicite.
       setError(reseau ? 'Échec — enregistrement NON effectué. Vérifiez votre connexion et réessayez.' : msg);
     } finally {
       setLoading(false);

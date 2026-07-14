@@ -263,13 +263,14 @@ export default function Magazinier() {
   const loadProducts = useCallback(() => getAllProducts().then(setProducts).catch(() => {}), []);
 
   // ── Hors-ligne : file locale (produits + réceptions) & synchro automatique ──
-  const [pendingMag, setPendingMag] = useState({ produits: 0, receptions: 0 });
+  const [pendingMag, setPendingMag] = useState({ produits: 0, receptions: 0, ajouts: 0, ajustements: 0, total: 0 });
   const refreshPendingMag = useCallback(() => { getPendingMagazin().then(setPendingMag).catch(() => {}); }, []);
   const lancerSyncMagazin = useCallback(async (silencieux = true) => {
     try {
       const r = await syncMagazin();
-      if (r.produitsSync + r.receptionsSync > 0) {
-        addToast(`Synchronisation ✓ — ${r.produitsSync} produit(s) et ${r.receptionsSync} réception(s) envoyés au serveur`, 'success');
+      const n = r.produitsSync + r.receptionsSync + r.stockSync;
+      if (n > 0) {
+        addToast(`Synchronisation ✓ — ${n} opération(s) envoyée(s) au serveur`, 'success');
         loadProducts();
       } else if (!silencieux && r.restants > 0) {
         addToast('Synchronisation impossible — toujours hors connexion ou erreur serveur', 'warning');
@@ -805,13 +806,14 @@ export default function Magazinier() {
         </div>
 
         {/* Bandeau hors-ligne : opérations en attente de synchronisation */}
-        {(pendingMag.produits + pendingMag.receptions) > 0 && (
+        {pendingMag.total > 0 && (
           <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '8px 16px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>
-              ⏳ {pendingMag.produits > 0 ? `${pendingMag.produits} produit(s)` : ''}
-              {pendingMag.produits > 0 && pendingMag.receptions > 0 ? ' et ' : ''}
-              {pendingMag.receptions > 0 ? `${pendingMag.receptions} réception(s)` : ''}
-              {' '}enregistré(s) hors connexion — envoi automatique au retour du réseau.
+              ⏳ {[
+                pendingMag.produits > 0 ? `${pendingMag.produits} produit(s)` : '',
+                pendingMag.receptions > 0 ? `${pendingMag.receptions} réception(s)` : '',
+                (pendingMag.ajouts + pendingMag.ajustements) > 0 ? `${pendingMag.ajouts + pendingMag.ajustements} mise(s) à jour de stock` : '',
+              ].filter(Boolean).join(', ')} enregistré(s) hors connexion — envoi automatique au retour du réseau.
             </span>
             <button onClick={() => lancerSyncMagazin(false)}
               style={{ padding: '4px 12px', background: '#b45309', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>

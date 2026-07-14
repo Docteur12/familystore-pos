@@ -23,6 +23,17 @@ export class StockService {
   // ── Ajouter du stock (restock) ─────────────────────────────────────────────
 
   async addStock(dto: AddStockDto) {
+    // Idempotence : si cet ajout a déjà été enregistré (rejeu de la
+    // synchronisation hors-ligne), on ne ré-incrémente PAS le stock.
+    if (dto.idempotencyKey) {
+      const dejaFait = await this.movementModel.findOne({ idempotencyKey: dto.idempotencyKey }).lean();
+      if (dejaFait) {
+        const product = await this.productModel.findById(dto.productId);
+        if (!product) throw new NotFoundException('Produit introuvable');
+        return { product, newStock: product.stock };
+      }
+    }
+
     const product = await this.productModel.findByIdAndUpdate(
       dto.productId,
       { $inc: { stock: dto.quantity } },
@@ -30,13 +41,28 @@ export class StockService {
     );
     if (!product) throw new NotFoundException('Produit introuvable');
 
-    await this.movementModel.create({
-      productId: new Types.ObjectId(dto.productId),
-      type:      'IN',
-      quantity:  dto.quantity,
-      reason:    'restock',
-      note:      dto.note,
-    });
+    try {
+      await this.movementModel.create({
+        productId: new Types.ObjectId(dto.productId),
+        type:      'IN',
+        quantity:  dto.quantity,
+        reason:    'restock',
+        note:      dto.note,
+        ...(dto.idempotencyKey ? { idempotencyKey: dto.idempotencyKey } : {}),
+      });
+    } catch (err: any) {
+      // Course entre deux rejeux simultanés : l'index unique rejette le 2e —
+      // on annule l'incrément fait en trop et on renvoie l'état actuel.
+      if (dto.idempotencyKey && err?.code === 11000) {
+        const corrige = await this.productModel.findByIdAndUpdate(
+          dto.productId,
+          { $inc: { stock: -dto.quantity } },
+          { new: true },
+        );
+        return { product: corrige, newStock: corrige?.stock ?? 0 };
+      }
+      throw err;
+    }
 
     return { product, newStock: product.stock };
   }

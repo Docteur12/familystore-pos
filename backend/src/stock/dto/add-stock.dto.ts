@@ -11,4 +11,9 @@ export class AddStockDto {
   @IsOptional()
   @IsString()
   note?: string;
+
+  /** Clé d'idempotence — rejeu sans doublon (synchronisation hors-ligne) */
+  @IsOptional()
+  @IsString()
+  idempotencyKey?: string;
 }

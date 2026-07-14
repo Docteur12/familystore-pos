@@ -13,6 +13,8 @@ import { addStockWithMovement, getMovements, StockMovement } from '../api/stock'
 import ToastContainer, { useToast }            from '../components/Toast';
 import StocksSidebar                           from '../components/StocksSidebar';
 import { useIsMobile }                         from '../hooks/useIsMobile';
+import OfflineSyncBanner                       from '../components/OfflineSyncBanner';
+import { queueAjoutStock }                     from '../services/offlineMagazin';
 import { createDemande, getDemandes, marquerRecu, DemandeStock } from '../api/magazinier';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -1011,13 +1013,29 @@ export default function Stocks() {
   const handleAddStock = async (qty: number) => {
     if (!reception) return;
     try {
+      if (!navigator.onLine) throw new Error('hors connexion');
       const result = await addStockWithMovement(reception._id, qty);
       setProducts(prev => prev.map(p => p._id === reception._id ? { ...p, stock: result.newStock } : p));
       if (selected?._id === reception._id) setSelected(prev => prev ? { ...prev, stock: result.newStock } : null);
       addToast(`+${qty} — ${reception.name}`, 'success');
       setReception(null);
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+      const msg = err instanceof Error ? err.message : '';
+      const reseau = !msg || /fetch|network|réseau|hors connexion|Failed/i.test(msg);
+      if (reseau) {
+        // ── HORS CONNEXION : file locale + affichage mis à jour tout de suite ──
+        try {
+          await queueAjoutStock({ productId: reception._id, quantity: qty, note: 'Réception rapide (hors connexion)' });
+          setProducts(prev => prev.map(p => p._id === reception._id ? { ...p, stock: p.stock + qty } : p));
+          if (selected?._id === reception._id) setSelected(prev => prev ? { ...prev, stock: prev.stock + qty } : null);
+          setReception(null);
+          addToast(`📴 Hors connexion — +${qty} ${reception.name} enregistré sur cet ordinateur, envoi automatique au retour du réseau.`, 'warning');
+        } catch {
+          addToast('❌ Échec — ajout NON enregistré (stockage local indisponible).', 'error');
+        }
+      } else {
+        addToast(msg || 'Erreur', 'error');
+      }
     }
   };
 
@@ -1160,6 +1178,9 @@ export default function Stocks() {
             </div>
           </div>
         </div>
+
+        {/* Opérations hors-ligne en attente (produits créés, ajouts de stock…) */}
+        <OfflineSyncBanner addToast={addToast} onSynced={fetchProducts}/>
 
         {/* Metric cards */}
         <div style={{ display: isNarrow ? 'grid' : 'flex', gridTemplateColumns: isNarrow ? '1fr 1fr' : undefined, gap: isNarrow ? 10 : 14, padding: isNarrow ? '14px 16px' : '16px 24px', flexShrink: 0 }}>

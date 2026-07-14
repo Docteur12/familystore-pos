@@ -10,12 +10,15 @@
 //    conservée), puis réceptions (identifiants remplacés, clé d'idempotence
 //    → jamais de doublon même si le rejeu est interrompu).
 import { get, set } from 'idb-keyval';
-import { createProduct, getProductByBarcode, Product, ProductPayload } from '../api/products';
+import { createProduct, getProductByBarcode, updateProduct, Product, ProductPayload } from '../api/products';
 import { createReception } from '../api/magazinier';
+import { addStockWithMovement } from '../api/stock';
 
-const KEY_PRODUITS   = 'magazin_pending_produits';
-const KEY_RECEPTIONS = 'magazin_pending_receptions';
-const KEY_IDMAP      = 'magazin_temp_id_map';
+const KEY_PRODUITS     = 'magazin_pending_produits';
+const KEY_RECEPTIONS   = 'magazin_pending_receptions';
+const KEY_AJOUTS       = 'stock_pending_ajouts';        // gestionnaire : +N sur le stock caisse
+const KEY_AJUSTEMENTS  = 'stock_pending_ajustements';   // gestionnaire : inventaire (valeur absolue)
+const KEY_IDMAP        = 'magazin_temp_id_map';
 
 export interface ProduitLocal {
   tempId: string;
@@ -36,6 +39,9 @@ const uid = () => (typeof crypto !== 'undefined' && crypto.randomUUID)
   ? crypto.randomUUID()
   : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+// Prévient les bandeaux affichés qu'une opération vient d'entrer en file
+const signalerFile = () => { try { window.dispatchEvent(new Event('offline-queue-changed')); } catch { /* SSR */ } };
+
 export const estIdTemporaire = (id: string) => id.startsWith('temp-');
 
 // ── Files d'attente ───────────────────────────────────────────────────────────
@@ -45,6 +51,7 @@ export async function queueProduitLocal(payload: ProductPayload): Promise<Produc
   const tempId = `temp-${uid()}`;
   pending.push({ tempId, payload, createdAt: new Date().toISOString() });
   await set(KEY_PRODUITS, pending);
+  signalerFile();
   // Objet produit affichable immédiatement dans les listes locales
   return {
     _id: tempId,
@@ -66,19 +73,56 @@ export async function queueReceptionLocale(data: { fournisseur: string; items: {
   const pending: ReceptionLocale[] = (await get<ReceptionLocale[]>(KEY_RECEPTIONS)) ?? [];
   pending.push({ id: uid(), idempotencyKey: uid(), createdAt: new Date().toISOString(), ...data });
   await set(KEY_RECEPTIONS, pending);
+  signalerFile();
 }
 
-export async function getPendingMagazin(): Promise<{ produits: number; receptions: number }> {
-  const [p, r] = await Promise.all([get<ProduitLocal[]>(KEY_PRODUITS), get<ReceptionLocale[]>(KEY_RECEPTIONS)]);
-  return { produits: (p ?? []).length, receptions: (r ?? []).length };
+// ── Files du gestionnaire de stock ────────────────────────────────────────────
+
+export interface AjoutStockLocal {
+  productId: string;      // peut être un temp-…
+  quantity: number;       // ajout RELATIF (+N sur le stock caisse)
+  note?: string;
+  idempotencyKey: string;
+  createdAt: string;
+}
+
+export interface AjustementStockLocal {
+  productId: string;      // peut être un temp-…
+  stock: number;          // valeur ABSOLUE (inventaire) — rejeu sans risque
+  createdAt: string;
+}
+
+export async function queueAjoutStock(data: { productId: string; quantity: number; note?: string }): Promise<void> {
+  const pending: AjoutStockLocal[] = (await get<AjoutStockLocal[]>(KEY_AJOUTS)) ?? [];
+  pending.push({ ...data, idempotencyKey: uid(), createdAt: new Date().toISOString() });
+  await set(KEY_AJOUTS, pending);
+  signalerFile();
+}
+
+export async function queueAjustementStock(data: { productId: string; stock: number }): Promise<void> {
+  const pending: AjustementStockLocal[] = (await get<AjustementStockLocal[]>(KEY_AJUSTEMENTS)) ?? [];
+  // Une seule valeur par produit : la DERNIÈRE saisie d'inventaire gagne
+  const filtres = pending.filter(a => a.productId !== data.productId);
+  filtres.push({ ...data, createdAt: new Date().toISOString() });
+  await set(KEY_AJUSTEMENTS, filtres);
+  signalerFile();
+}
+
+export async function getPendingMagazin(): Promise<{ produits: number; receptions: number; ajouts: number; ajustements: number; total: number }> {
+  const [p, r, a, j] = await Promise.all([
+    get<ProduitLocal[]>(KEY_PRODUITS), get<ReceptionLocale[]>(KEY_RECEPTIONS),
+    get<AjoutStockLocal[]>(KEY_AJOUTS), get<AjustementStockLocal[]>(KEY_AJUSTEMENTS),
+  ]);
+  const produits = (p ?? []).length, receptions = (r ?? []).length, ajouts = (a ?? []).length, ajustements = (j ?? []).length;
+  return { produits, receptions, ajouts, ajustements, total: produits + receptions + ajouts + ajustements };
 }
 
 // ── Synchronisation ───────────────────────────────────────────────────────────
 
-export async function syncMagazin(): Promise<{ produitsSync: number; receptionsSync: number; restants: number }> {
+export async function syncMagazin(): Promise<{ produitsSync: number; receptionsSync: number; stockSync: number; restants: number }> {
   if (!navigator.onLine) {
     const c = await getPendingMagazin();
-    return { produitsSync: 0, receptionsSync: 0, restants: c.produits + c.receptions };
+    return { produitsSync: 0, receptionsSync: 0, stockSync: 0, restants: c.total };
   }
 
   const idMap: Record<string, string> = (await get<Record<string, string>>(KEY_IDMAP)) ?? {};
@@ -129,5 +173,33 @@ export async function syncMagazin(): Promise<{ produitsSync: number; receptionsS
   }
   await set(KEY_RECEPTIONS, receptionsRestantes);
 
-  return { produitsSync, receptionsSync, restants: produitsRestants.length + receptionsRestantes.length };
+  // 3) Ajouts de stock caisse du gestionnaire (+N, idempotents côté serveur)
+  let stockSync = 0;
+  const ajouts: AjoutStockLocal[] = (await get<AjoutStockLocal[]>(KEY_AJOUTS)) ?? [];
+  const ajoutsRestants: AjoutStockLocal[] = [];
+  for (const a of ajouts) {
+    const pid = idMap[a.productId] ?? a.productId;
+    if (estIdTemporaire(pid)) { ajoutsRestants.push(a); continue; }
+    try {
+      await addStockWithMovement(pid, a.quantity, a.note, a.idempotencyKey);
+      stockSync++;
+    } catch { ajoutsRestants.push(a); }
+  }
+  await set(KEY_AJOUTS, ajoutsRestants);
+
+  // 4) Ajustements d'inventaire (valeur absolue → rejeu naturellement sûr)
+  const ajustements: AjustementStockLocal[] = (await get<AjustementStockLocal[]>(KEY_AJUSTEMENTS)) ?? [];
+  const ajustementsRestants: AjustementStockLocal[] = [];
+  for (const j of ajustements) {
+    const pid = idMap[j.productId] ?? j.productId;
+    if (estIdTemporaire(pid)) { ajustementsRestants.push(j); continue; }
+    try {
+      await updateProduct(pid, { stock: j.stock });
+      stockSync++;
+    } catch { ajustementsRestants.push(j); }
+  }
+  await set(KEY_AJUSTEMENTS, ajustementsRestants);
+
+  const restants = produitsRestants.length + receptionsRestantes.length + ajoutsRestants.length + ajustementsRestants.length;
+  return { produitsSync, receptionsSync, stockSync, restants };
 }

@@ -35,11 +35,12 @@ export async function addStockWithMovement(
   productId: string,
   quantity: number,
   note?: string,
+  idempotencyKey?: string, // rejeu sans doublon (synchronisation hors-ligne)
 ): Promise<StockAddResult> {
   const res = await fetch('/api/stock/add', {
     method:  'POST',
     headers: authHeaders(),
-    body:    JSON.stringify({ productId, quantity, note }),
+    body:    JSON.stringify({ productId, quantity, note, idempotencyKey }),
   });
   if (res.status === 401) throw new Error('Non authentifié');
   if (res.status === 403) throw new Error('Accès refusé');

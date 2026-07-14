@@ -5,6 +5,8 @@ import ToastContainer, { useToast } from '../components/Toast';
 import { qtyUnitLabel } from '../utils/units';
 import { getBrandColor } from '../utils/text';
 import { useIsMobile } from '../hooks/useIsMobile';
+import OfflineSyncBanner from '../components/OfflineSyncBanner';
+import { queueAjustementStock } from '../services/offlineMagazin';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -188,12 +190,21 @@ export default function StocksInventaire() {
     });
     if (toUpdate.length === 0) return;
     setSaving(true);
-    let ok = 0; let fail = 0;
+    let ok = 0; let fail = 0; let horsLigne = 0;
     for (const r of toUpdate) {
       try {
+        if (!navigator.onLine) throw new Error('hors connexion');
         await updateProduct(r.product._id, { stock: parseInt(r.counted) });
         ok++;
-      } catch { fail++; }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : '';
+        const reseau = !msg || /fetch|network|réseau|hors connexion|Failed/i.test(msg);
+        if (reseau) {
+          // ── HORS CONNEXION : la valeur comptée part en file locale (rejeu sûr : valeur absolue) ──
+          try { await queueAjustementStock({ productId: r.product._id, stock: parseInt(r.counted) }); ok++; horsLigne++; }
+          catch { fail++; }
+        } else { fail++; }
+      }
     }
     setSaving(false);
 
@@ -218,9 +229,10 @@ export default function StocksInventaire() {
     setHistory(updatedHistory);
     saveHistory(updatedHistory);
 
-    if (ok > 0) addToast(`${ok} produit(s) mis à jour`, 'success');
+    if (horsLigne > 0) addToast(`📴 Hors connexion — ${horsLigne} valeur(s) d'inventaire enregistrée(s) sur cet ordinateur, envoi automatique au retour du réseau.`, 'warning');
+    else if (ok > 0) addToast(`${ok} produit(s) mis à jour`, 'success');
     if (fail > 0) addToast(`${fail} erreur(s)`, 'error');
-    load();
+    if (horsLigne === 0) load();
   };
 
   const handlePrint = () => {
@@ -302,6 +314,9 @@ export default function StocksInventaire() {
             </div>
           </div>
         </div>
+
+        {/* Valeurs d'inventaire enregistrées hors connexion */}
+        <OfflineSyncBanner addToast={addToast} onSynced={load}/>
 
         {view === 'seance' ? (
           <>
