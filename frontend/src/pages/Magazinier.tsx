@@ -4,6 +4,7 @@ import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
 import QRScanner from '../components/QRScanner';
 import { formatProductName, contientTexte } from '../utils/text';
+import { queueProduitLocal, queueReceptionLocale, getPendingMagazin, syncMagazin, estIdTemporaire } from '../services/offlineMagazin';
 import { useIsMobile }       from '../hooks/useIsMobile';
 import AutocompleteInput     from '../components/AutocompleteInput';
 import Partenaires           from './Partenaires';
@@ -260,6 +261,29 @@ export default function Magazinier() {
   // ── Product list ─────────────────────────────────────────────────────────
   const [products, setProducts] = useState<Product[]>([]);
   const loadProducts = useCallback(() => getAllProducts().then(setProducts).catch(() => {}), []);
+
+  // ── Hors-ligne : file locale (produits + réceptions) & synchro automatique ──
+  const [pendingMag, setPendingMag] = useState({ produits: 0, receptions: 0 });
+  const refreshPendingMag = useCallback(() => { getPendingMagazin().then(setPendingMag).catch(() => {}); }, []);
+  const lancerSyncMagazin = useCallback(async (silencieux = true) => {
+    try {
+      const r = await syncMagazin();
+      if (r.produitsSync + r.receptionsSync > 0) {
+        addToast(`Synchronisation ✓ — ${r.produitsSync} produit(s) et ${r.receptionsSync} réception(s) envoyés au serveur`, 'success');
+        loadProducts();
+      } else if (!silencieux && r.restants > 0) {
+        addToast('Synchronisation impossible — toujours hors connexion ou erreur serveur', 'warning');
+      }
+    } catch { /* silencieux */ }
+    refreshPendingMag();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadProducts, refreshPendingMag]);
+  useEffect(() => {
+    lancerSyncMagazin();
+    const onOnline = () => lancerSyncMagazin();
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [lancerSyncMagazin]);
   useEffect(() => { loadProducts(); }, [loadProducts]);
 
   // ── Fournisseurs (table centrale + historique des réceptions) ──────────────
@@ -297,44 +321,62 @@ export default function Magazinier() {
   const handleCreateProd = async () => {
     if (!newProd.name.trim()) { addToast('Le nom du produit est requis', 'error'); return; }
     setNewProdLoading(true);
-    try {
-      const created = await createProduct({
-        name:                formatProductName(newProd.name),
-        barcode:             newProd.barcode.trim() || undefined,
-        category:            newProd.category || undefined,
-        subCategory:         newProd.subCategory.trim() || undefined,
-        unit:                newProd.unit || 'unité',
-        price:               parseInt(newProd.prixVente) || 0,
-        costPrice:           parseInt(newProd.prixAchat) || 0,
-        stock:               0,
-        expiryDate:          newProd.expiryDate || null,
-        magazinierThreshold: parseInt(newProd.seuilCommande) || 0,
-        // Si le magazinier a fixé le prix de vente, il est verrouillé pour le gestionnaire
-        prixVerrouille:      (parseInt(newProd.prixVente) || 0) > 0,
-      });
-      // Visibilité garantie : le produit créé entre TOUT DE SUITE dans la liste
-      // locale (recherche incluse), même si le rafraîchissement réseau échoue.
-      setProducts(prev => prev.some(p => p._id === created._id) ? prev : [...prev, created]);
-      await loadProducts().catch(() => {});
 
-      // Ajoute automatiquement le produit créé à la réception en cours
-      // (remplit la 1re ligne vide, sinon ajoute une ligne) → pas besoin de re-scanner.
+    const payloadProd = {
+      name:                formatProductName(newProd.name),
+      barcode:             newProd.barcode.trim() || undefined,
+      category:            newProd.category || undefined,
+      subCategory:         newProd.subCategory.trim() || undefined,
+      unit:                newProd.unit || 'unité',
+      price:               parseInt(newProd.prixVente) || 0,
+      costPrice:           parseInt(newProd.prixAchat) || 0,
+      stock:               0,
+      expiryDate:          newProd.expiryDate || null,
+      magazinierThreshold: parseInt(newProd.seuilCommande) || 0,
+      // Si le magazinier a fixé le prix de vente, il est verrouillé pour le gestionnaire
+      prixVerrouille:      (parseInt(newProd.prixVente) || 0) > 0,
+    };
+
+    // Ajoute automatiquement le produit à la réception en cours
+    // (remplit la 1re ligne vide, sinon ajoute une ligne) → pas besoin de re-scanner.
+    const ajouterALaReception = (created: Product) => {
       const qte = Math.max(1, parseInt(newProd.qty) || 1);
       const bc  = created.barcode ?? '';
       const emptyIdx = rows.findIndex(r => !r.productId);
       const line = { productId: created._id, quantity: qte };
       setRows(prev => emptyIdx !== -1 ? prev.map((r, n) => n === emptyIdx ? line : r) : [...prev, line]);
       setRowBarcodes(prev => emptyIdx !== -1 ? prev.map((b, n) => n === emptyIdx ? bc : b) : [...prev, bc]);
+    };
 
-      // Réinitialise le formulaire (reste vierge), prêt pour un autre produit
+    try {
+      const created = navigator.onLine
+        ? await createProduct(payloadProd)
+        : await (async () => { throw new Error('hors connexion'); })();
+      // Visibilité garantie : le produit créé entre TOUT DE SUITE dans la liste
+      // locale (recherche incluse), même si le rafraîchissement réseau échoue.
+      setProducts(prev => prev.some(p => p._id === created._id) ? prev : [...prev, created]);
+      loadProducts();
+      ajouterALaReception(created);
       setNewProd({ ...NP_EMPTY });
-      loadProducts();   // le nouveau produit apparaît dans les listes/quantités
       addToast('Produit créé et ajouté à la réception ✓', 'success');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '';
-      // Échec réseau → le produit n'a PAS été enregistré : on le dit clairement.
-      const reseau = !msg || /fetch|network|réseau|Failed/i.test(msg);
-      addToast(reseau ? '❌ Échec — produit NON enregistré. Vérifiez la connexion et réessayez.' : `❌ ${msg}`, 'error');
+      const reseau = !msg || /fetch|network|réseau|hors connexion|Failed/i.test(msg);
+      if (reseau) {
+        // ── HORS CONNEXION : enregistrement local + synchro automatique plus tard ──
+        try {
+          const temp = await queueProduitLocal(payloadProd);
+          setProducts(prev => [...prev, temp]);
+          ajouterALaReception(temp);
+          setNewProd({ ...NP_EMPTY });
+          refreshPendingMag();
+          addToast('📴 Hors connexion — produit enregistré sur cet ordinateur. Il sera envoyé au serveur dès le retour du réseau.', 'warning');
+        } catch {
+          addToast('❌ Échec — produit NON enregistré (stockage local indisponible).', 'error');
+        }
+      } else {
+        addToast(`❌ ${msg}`, 'error');
+      }
     }
     finally { setNewProdLoading(false); }
   };
@@ -438,15 +480,42 @@ export default function Magazinier() {
       .filter(r => r.productId && r.quantity > 0);
     if (validRows.length === 0) { addToast('Ajoutez au moins un produit', 'error'); return; }
     setRecLoading(true);
+
+    // Enregistre la réception en file locale + met à jour l'affichage du stock entrepôt
+    const enregistrerLocalement = async () => {
+      await queueReceptionLocale({ fournisseur: fournisseur.trim(), items: validRows, note });
+      setProducts(prev => prev.map(p => {
+        const it = validRows.find(r => r.productId === p._id);
+        return it ? { ...p, stockMagazin: (p.stockMagazin ?? 0) + it.quantity } : p;
+      }));
+      setFournisseur(''); setNote(''); setRows([{ productId: '', quantity: 1 }]); setRowBarcodes(['']);
+      refreshPendingMag();
+      addToast('📴 Hors connexion — réception enregistrée sur cet ordinateur. Elle sera envoyée au serveur dès le retour du réseau.', 'warning');
+    };
+
     try {
+      // Une ligne référence un produit créé hors-ligne (pas encore d'identifiant
+      // serveur) → la réception part en file locale, elle suivra le produit.
+      if (validRows.some(r => estIdTemporaire(r.productId)) || !navigator.onLine) {
+        await enregistrerLocalement();
+        lancerSyncMagazin(); // au cas où le réseau est déjà revenu
+        return;
+      }
       await createReception({ fournisseur: fournisseur.trim(), items: validRows, note });
       addToast(`Réception validée — ${validRows.length} produit(s) mis à jour`, 'success');
       setFournisseur(''); setNote(''); setRows([{ productId: '', quantity: 1 }]); setRowBarcodes(['']);
       loadProducts();   // rafraîchit les quantités (entrepôt) immédiatement
     } catch (e: unknown) {
-      addToast(e instanceof Error ? e.message : 'Erreur', 'error');
+      const msg = e instanceof Error ? e.message : '';
+      const reseau = !msg || /fetch|network|réseau|Failed/i.test(msg);
+      if (reseau) {
+        try { await enregistrerLocalement(); }
+        catch { addToast('❌ Échec — réception NON enregistrée (stockage local indisponible).', 'error'); }
+      } else {
+        addToast(msg || 'Erreur', 'error');
+      }
     } finally { setRecLoading(false); }
-  }, [fournisseur, rows, note, addToast, loadProducts]);
+  }, [fournisseur, rows, note, addToast, loadProducts, refreshPendingMag, lancerSyncMagazin]);
 
   // ── Envoi direct au gestionnaire ─────────────────────────────────────────
   interface EnvoiRow { produitId: string; quantite: number }
@@ -734,6 +803,22 @@ export default function Magazinier() {
             {tab === 'partenaires' ? 'Partenaires — commandes & livraisons' : TABS.find(t => t.key === tab)?.label}
           </h1>
         </div>
+
+        {/* Bandeau hors-ligne : opérations en attente de synchronisation */}
+        {(pendingMag.produits + pendingMag.receptions) > 0 && (
+          <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '8px 16px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>
+              ⏳ {pendingMag.produits > 0 ? `${pendingMag.produits} produit(s)` : ''}
+              {pendingMag.produits > 0 && pendingMag.receptions > 0 ? ' et ' : ''}
+              {pendingMag.receptions > 0 ? `${pendingMag.receptions} réception(s)` : ''}
+              {' '}enregistré(s) hors connexion — envoi automatique au retour du réseau.
+            </span>
+            <button onClick={() => lancerSyncMagazin(false)}
+              style={{ padding: '4px 12px', background: '#b45309', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+              Synchroniser maintenant
+            </button>
+          </div>
+        )}
 
         <div style={{ flex: 1, overflowY: tab === 'partenaires' ? 'hidden' : 'auto', padding: tab === 'partenaires' ? 0 : '24px 28px' }}>
 

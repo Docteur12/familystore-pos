@@ -19,6 +19,11 @@ export class Reception {
 
   @Prop({ default: '' })
   note: string;
+
+  /** Clé d'idempotence — évite d'enregistrer deux fois la même réception
+   *  lors de la synchronisation hors-ligne (rejeu réseau). */
+  @Prop({ unique: true, sparse: true })
+  idempotencyKey?: string;
 }
 
 export const ReceptionSchema = SchemaFactory.createForClass(Reception);

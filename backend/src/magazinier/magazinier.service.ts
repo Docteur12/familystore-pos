@@ -31,9 +31,16 @@ export class MagazinierService {
   // ── POST /magazinier/receptions ───────────────────────────────────────────
 
   async createReception(
-    body: { fournisseur: string; items: { productId: string; quantity: number }[]; note?: string },
+    body: { fournisseur: string; items: { productId: string; quantity: number }[]; note?: string; idempotencyKey?: string },
     userId: string,
   ) {
+    // Idempotence : si cette réception a déjà été enregistrée (rejeu de la
+    // synchronisation hors-ligne), on la renvoie SANS ré-incrémenter le stock.
+    if (body.idempotencyKey) {
+      const existing = await this.receptionModel.findOne({ idempotencyKey: body.idempotencyKey }).lean();
+      if (existing) return existing;
+    }
+
     const enriched: { productId: Types.ObjectId; productName: string; quantity: number }[] = [];
 
     for (const item of body.items) {
@@ -63,6 +70,7 @@ export class MagazinierService {
       items:       enriched,
       creePar:     new Types.ObjectId(userId),
       note:        body.note ?? '',
+      ...(body.idempotencyKey ? { idempotencyKey: body.idempotencyKey } : {}),
     });
   }
 

@@ -29,6 +29,7 @@ export async function createReception(data: {
   fournisseur: string;
   items: { productId: string; quantity: number }[];
   note?: string;
+  idempotencyKey?: string; // rejeu sans doublon (synchronisation hors-ligne)
 }): Promise<ReceptionRecord> {
   const res = await fetch('/api/magazinier/receptions', {
     method: 'POST', headers: authHeaders(), body: JSON.stringify(data),
