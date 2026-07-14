@@ -92,6 +92,19 @@ export default function StocksEcarts() {
           ))}
         </div>
 
+        {/* Explication de la procédure */}
+        <div style={{ margin: isNarrow ? '0 16px 12px' : '0 28px 12px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '10px 14px', flexShrink: 0 }}>
+          <p style={{ margin: 0, fontSize: 12, color: '#92400e', lineHeight: 1.55 }}>
+            <strong>Qu'est-ce qu'un écart ?</strong> La caissière a vendu un produit <strong>bien présent en boutique</strong> mais
+            dont le stock machine était insuffisant (réception non saisie ou inventaire pas à jour) — la vente a été forcée et
+            le stock machine est passé en négatif.
+            <br/>
+            <strong>Procédure :</strong> 1️⃣ compter le stock réel en rayon · 2️⃣ régulariser la machine (saisir la réception
+            oubliée ou corriger via l'Inventaire) · 3️⃣ cliquer alors « Marquer résolu ».
+            <em> Le bouton ne corrige pas le stock : il confirme que le cas a été traité.</em>
+          </p>
+        </div>
+
         {/* Table */}
         <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isNarrow ? '0 12px 16px' : '0 28px 28px', minHeight: isNarrow ? undefined : 0 }}>
           {loading ? (

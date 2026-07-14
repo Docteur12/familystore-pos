@@ -1164,9 +1164,10 @@ export default function Stocks() {
         {pendingDeliveries.length > 0 && (
           <div style={{ margin: '0 24px 10px', background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 10, padding: '12px 16px', flexShrink: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <I d={D.truck} size={12}/> Livraisons en transit — en attente de réception
+              <I d={D.truck} size={12}/> Livraisons en transit — en attente de réception ({pendingDeliveries.length})
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {/* Hauteur plafonnée + défilement interne : le bloc ne doit jamais écraser le tableau produits */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxHeight: 168, overflowY: 'auto', paddingRight: 4 }}>
               {pendingDeliveries.map(d => (
                 <div key={d._id} style={{ background: '#fff', border: `1px solid ${d.type === 'envoi' ? '#86efac' : '#bfdbfe'}`, borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div>
