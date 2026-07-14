@@ -1044,7 +1044,8 @@ export default function Stocks() {
       <StocksSidebar alertCount={lowCount}/>
 
       {/* ── Main ── */}
-      <main style={{ flex: 1, height: '100vh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)', minWidth: 0 }}>
+      {/* Toute la page défile verticalement (PC comme mobile) : le tableau du bas reste accessible en entier */}
+      <main style={{ flex: 1, height: '100vh', display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: 'auto', background: 'var(--fs-ivory)', minWidth: 0 }}>
 
         {/* Header */}
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0 }}>
@@ -1247,7 +1248,7 @@ export default function Stocks() {
         </div>
 
         {/* Table */}
-        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isNarrow ? '0 12px 16px' : '0 24px 24px', minHeight: isNarrow ? undefined : 0 }}>
+        <div style={{ flex: '0 0 auto', overflowY: 'visible', overflowX: 'auto', padding: isNarrow ? '0 12px 16px' : '0 24px 24px' }}>
           <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 720 : undefined, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#fff' }}>
