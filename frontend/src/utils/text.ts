@@ -82,6 +82,15 @@ export function normalizeName(s: string): string {
     .join(' ');
 }
 
+// Recherche tolérante : insensible à la casse ET aux accents.
+// « creme » trouve « Crème Solaire », « the » trouve « Thé Vert ».
+export function sansAccents(s: string): string {
+  return (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+export function contientTexte(texte: string | undefined | null, recherche: string): boolean {
+  return sansAccents(texte ?? '').includes(sansAccents(recherche));
+}
+
 // Nom de produit pour AFFICHAGE (rapports, tickets…) : applique la nomenclature
 // sans altérer les données — 1ʳᵉ lettre de chaque mot alphabétique en majuscule,
 // et laisse intacts les tokens contenant des chiffres (« 30ml », « 72 g », « 5en1 »).

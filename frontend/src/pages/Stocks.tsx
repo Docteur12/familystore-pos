@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getAllProducts, deleteProduct, updateProduct, Product } from '../api/products';
-import { normalizeName, formatProductName, extractVolume, getBrandColor } from '../utils/text';
+import { normalizeName, formatProductName, extractVolume, getBrandColor, contientTexte } from '../utils/text';
 import { inferCategoryFromName } from '../data/categories';
 import { ajusterStockEntrepot } from '../api/magazinier';
 import NouveauProduitModal from '../components/NouveauProduitModal';
@@ -712,10 +712,12 @@ export default function Stocks() {
   // ── Filtered products ──────────────────────────────────────────────────────
   const displayed = useMemo(() => {
     const filtered = products.filter(p => {
-      const q = search.toLowerCase().trim();
-      const matchSearch = !q || p.name.toLowerCase().includes(q)
-        || skuOf(p).toLowerCase().includes(q)
-        || supplierOf(p).toLowerCase().includes(q);
+      const q = search.trim();
+      // Recherche insensible aux accents (« creme » trouve « Crème »)
+      const matchSearch = !q || contientTexte(p.name, q)
+        || contientTexte(skuOf(p), q)
+        || contientTexte(supplierOf(p), q)
+        || contientTexte(p.barcode, q);
       const matchTab = tab === 'all' ? true
         : tab === 'low' ? p.stock <= p.alertThreshold
         : tab === 'dup' ? dupIds.has(p._id)
@@ -1034,7 +1036,13 @@ export default function Stocks() {
         <DemandeModal product={demandeProduct} onConfirm={handleDemande} onClose={() => setDemandeProduct(null)}/>
       )}
       {newProduct && (
-        <NouveauProduitModal knownCategories={derivedCategories} existingProducts={products} onClose={() => setNewProduct(false)} onCreated={fetchProducts} onUpdated={fetchProducts}/>
+        <NouveauProduitModal knownCategories={derivedCategories} existingProducts={products} onClose={() => setNewProduct(false)}
+          onCreated={created => {
+            // Visibilité garantie : le produit entre tout de suite dans la liste, même si le refresh réseau échoue
+            if (created) setProducts(prev => prev.some(p => p._id === created._id) ? prev : [...prev, created]);
+            fetchProducts();
+          }}
+          onUpdated={fetchProducts}/>
       )}
       {editProduct && (
         <NouveauProduitModal knownCategories={derivedCategories} existingProducts={products} product={editProduct} onClose={() => setEditProduct(null)} onUpdated={handleProductUpdated}/>

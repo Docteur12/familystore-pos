@@ -185,7 +185,8 @@ function CloseIcon() {
 
 interface Props {
   onClose:          () => void;
-  onCreated?:       () => void;
+  /** Reçoit le produit créé — permet de l'afficher immédiatement même si le rafraîchissement réseau échoue */
+  onCreated?:       (created?: Product) => void;
   onUpdated?:       () => void;
   product?:         Product;
   knownCategories?: string[];
@@ -393,8 +394,8 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
         await updateProduct((product ?? foundProduct)!._id, payload);
         onUpdated?.();
       } else {
-        await createProduct(payload);
-        onCreated?.();
+        const created = await createProduct(payload);
+        onCreated?.(created);
       }
       onClose();
     } catch (e: unknown) {

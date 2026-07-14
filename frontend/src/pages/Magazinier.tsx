@@ -3,7 +3,7 @@ import { getAllProducts, createProduct, updateProduct, setProductPrix, getProduc
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
 import QRScanner from '../components/QRScanner';
-import { formatProductName } from '../utils/text';
+import { formatProductName, contientTexte } from '../utils/text';
 import { useIsMobile }       from '../hooks/useIsMobile';
 import AutocompleteInput     from '../components/AutocompleteInput';
 import Partenaires           from './Partenaires';
@@ -207,8 +207,9 @@ function ProductSelect({ products, value, onChange, meta }: {
   const [search, setSearch] = useState('');
   const [open, setOpen]     = useState(false);
 
+  // Recherche insensible aux accents + par code-barres
   const filtered = products.filter(p =>
-    !search.trim() || p.name.toLowerCase().includes(search.toLowerCase())
+    !search.trim() || contientTexte(p.name, search) || contientTexte(p.barcode, search)
   );
 
   return (
@@ -311,7 +312,10 @@ export default function Magazinier() {
         // Si le magazinier a fixé le prix de vente, il est verrouillé pour le gestionnaire
         prixVerrouille:      (parseInt(newProd.prixVente) || 0) > 0,
       });
-      await loadProducts();
+      // Visibilité garantie : le produit créé entre TOUT DE SUITE dans la liste
+      // locale (recherche incluse), même si le rafraîchissement réseau échoue.
+      setProducts(prev => prev.some(p => p._id === created._id) ? prev : [...prev, created]);
+      await loadProducts().catch(() => {});
 
       // Ajoute automatiquement le produit créé à la réception en cours
       // (remplit la 1re ligne vide, sinon ajoute une ligne) → pas besoin de re-scanner.
@@ -504,8 +508,8 @@ export default function Magazinier() {
 
   const etiqDisplayed = products.filter(p =>
     !etiqSearch ||
-    p.name.toLowerCase().includes(etiqSearch.toLowerCase()) ||
-    skuOf(p).toLowerCase().includes(etiqSearch.toLowerCase())
+    contientTexte(p.name, etiqSearch) ||
+    contientTexte(skuOf(p), etiqSearch)
   );
 
   const etiqToggle = (id: string) => setEtiqSelected(prev => {
@@ -1109,12 +1113,12 @@ export default function Magazinier() {
               ONGLET 3 — HISTORIQUE
           ════════════════════════════════════════════════════════════════ */}
           {tab === 'historique' && (() => {
-            const q = histoSearch.trim().toLowerCase();
+            const q = histoSearch.trim();
             const recs = (histo?.receptions ?? []).filter(r => !q
-              || r.fournisseur.toLowerCase().includes(q)
-              || r.items.some(it => it.productName.toLowerCase().includes(q)));
+              || contientTexte(r.fournisseur, q)
+              || r.items.some(it => contientTexte(it.productName, q)));
             const envs = (histo?.envois ?? []).filter(e => !q
-              || (e.produit?.name ?? '').toLowerCase().includes(q));
+              || contientTexte(e.produit?.name, q));
             return (
             <div style={{ maxWidth: 740 }}>
               {hLoading ? (
@@ -1196,8 +1200,8 @@ export default function Magazinier() {
             const mesProduits = products
               .filter(p => (p.stockMagazin ?? 0) > 0)
               .filter(p => !dashSearch.trim()
-                || p.name.toLowerCase().includes(dashSearch.toLowerCase())
-                || (p.category ?? '').toLowerCase().includes(dashSearch.toLowerCase()));
+                || contientTexte(p.name, dashSearch)
+                || contientTexte(p.category, dashSearch));
             return (
             <div style={{ maxWidth: 880 }}>
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
