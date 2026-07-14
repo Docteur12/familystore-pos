@@ -251,7 +251,7 @@ export default function StocksFournisseurs() {
 
       <StocksSidebar/>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: 'auto', background: 'var(--fs-ivory)' }}>
         {/* Header */}
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', flexDirection: isNarrow ? 'column' : 'row', gap: isNarrow ? 10 : 0 }}>
@@ -273,7 +273,7 @@ export default function StocksFournisseurs() {
           </div>
         </div>
 
-        <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', overflowX: 'auto', padding: isMobile ? '14px' : isNarrow ? '16px' : '20px 24px', minHeight: isNarrow ? undefined : 0 }}>
+        <div style={{ flex: '0 0 auto', overflowY: 'visible', overflowX: 'auto', padding: isMobile ? '14px' : isNarrow ? '16px' : '20px 24px' }}>
           {isMobile ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {loading ? (
