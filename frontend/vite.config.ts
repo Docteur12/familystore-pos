@@ -39,14 +39,20 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         // Toute navigation hors-ligne retombe sur l'app (SPA)…
         navigateFallback: '/index.html',
-        // …SAUF les appels API, qui doivent toujours partir vers le réseau
-        // (le proxy Netlify les route vers le backend). La caisse gère
-        // elle-même le hors-ligne via IndexedDB ; on ne met JAMAIS l'API en cache.
-        navigateFallbackDenylist: [/^\/api\//],
+        // …SAUF les appels API (toujours réseau) et les FICHIERS (.pdf…) :
+        // sans cette exclusion, le service worker renvoyait index.html à la
+        // place du manuel PDF → page blanche chez le client.
+        navigateFallbackDenylist: [/^\/api\//, /\.pdf$/i],
         runtimeCaching: [
           {
             urlPattern: /\/api\//,
             handler: 'NetworkOnly',
+          },
+          {
+            // Manuel PDF : réseau d'abord, copie en cache → consultable même hors connexion
+            urlPattern: /\.pdf$/i,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'documents-pdf' },
           },
         ],
         // clientsClaim : le SW prend le contrôle dès la 1ʳᵉ visite (offline

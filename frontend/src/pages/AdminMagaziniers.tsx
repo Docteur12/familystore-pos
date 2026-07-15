@@ -5,6 +5,7 @@ import { getCaisses, CaisseRecord } from '../api/caisses';
 import { getAllProducts, deleteProduct, Product } from '../api/products';
 import NouveauProduitModal from '../components/NouveauProduitModal';
 import { getDemandes, DemandeStock, ajusterStockEntrepot, getAllReceptions, ReceptionFull } from '../api/magazinier';
+import { contientTexte } from '../utils/text';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -299,7 +300,10 @@ function StockEntrepotView({ products, demandes, onReload }: {
 }) {
   const [search, setSearch] = useState('');
   const [filtre, setFiltre] = useState<'tous' | 'bas'>('tous');
+  const [catFiltre, setCatFiltre] = useState('');
   const [adjusting, setAdjusting] = useState<string | null>(null);
+  // Garde-fou : confirmation avant d'appliquer une modification de quantité entrepôt
+  const [confirmAdj, setConfirmAdj] = useState<{ product: Product; from: number; to: number } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -328,15 +332,17 @@ function StockEntrepotView({ products, demandes, onReload }: {
 
   // Tableau : tous les produits (l'admin doit pouvoir corriger même ceux à 0)
   const displayed = products.filter(p => {
-    const q = search.toLowerCase();
-    const matchSearch = !q
-      || p.name.toLowerCase().includes(q)
-      || (p.localName ?? '').toLowerCase().includes(q)
-      || (p.category ?? '').toLowerCase().includes(q);
+    // Recherche insensible aux accents (« creme » trouve « Crème ») + code-barres
+    const matchSearch = !search.trim()
+      || contientTexte(p.name, search)
+      || contientTexte(p.localName, search)
+      || contientTexte(p.category, search)
+      || contientTexte(p.barcode, search);
+    const matchCat = !catFiltre || (p.category ?? '') === catFiltre;
     const mag   = p.stockMagazin ?? 0;
     const seuil = p.magazinierThreshold ?? 0;
     const matchFiltre = filtre === 'tous' ? true : seuil > 0 && mag <= seuil;
-    return matchSearch && matchFiltre;
+    return matchSearch && matchCat && matchFiltre;
   });
 
   const totalEntrepot = avecStock.reduce((s, p) => s + (p.stockMagazin ?? 0), 0);
@@ -354,6 +360,50 @@ function StockEntrepotView({ products, demandes, onReload }: {
           onClose={() => setEditProduct(null)}
           onUpdated={() => { setEditProduct(null); onReload(); }}
         />
+      )}
+
+      {/* Garde-fou : confirmation avant modification du stock entrepôt */}
+      {confirmAdj && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '28px 32px', maxWidth: 440, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#2563eb' }}>
+                <I d={D.warehouse} size={20}/>
+              </div>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)' }}>Modifier le stock entrepôt ?</div>
+                <div style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginTop: 2 }}>Vérifiez la quantité avant de confirmer.</div>
+              </div>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 8 }}>
+              <strong>{confirmAdj.product.name}</strong>
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, background: 'var(--fs-ivory)', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
+              <span style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-500)' }}>{fmtN(confirmAdj.from)}</span>
+              <span style={{ fontSize: 16, color: 'var(--fs-ink-400)' }}>→</span>
+              <span style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: '#2563eb' }}>{fmtN(confirmAdj.to)}</span>
+              <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>({confirmAdj.to > confirmAdj.from ? '+' : ''}{fmtN(confirmAdj.to - confirmAdj.from)})</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setConfirmAdj(null)} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
+                Annuler
+              </button>
+              <button
+                onClick={async () => {
+                  const { product, to } = confirmAdj;
+                  setConfirmAdj(null);
+                  setAdjusting(product._id);
+                  try { await ajusterStockEntrepot(product._id, to); onReload(); }
+                  catch { /* silencieux, l'admin peut réessayer */ }
+                  finally { setAdjusting(null); }
+                }}
+                disabled={adjusting !== null}
+                style={{ flex: 1, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#2563eb', color: '#fff', fontFamily: 'var(--fs-font-sans)' }}>
+                Confirmer la modification
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal confirmation suppression produit */}
@@ -429,6 +479,19 @@ function StockEntrepotView({ products, demandes, onReload }: {
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un produit…"
             style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff', width: '100%', boxSizing: 'border-box' }}/>
         </div>
+        {/* Filtre par catégorie */}
+        <select value={catFiltre} onChange={e => setCatFiltre(e.target.value)}
+          style={{ padding: '8px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, background: '#fff', cursor: 'pointer', color: catFiltre ? 'var(--fs-ink-800)' : 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
+          <option value="">Toutes les catégories</option>
+          {knownCategories.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        {(search || catFiltre || filtre !== 'tous') && (
+          <button onClick={() => { setSearch(''); setCatFiltre(''); setFiltre('tous'); }}
+            style={{ padding: '7px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, cursor: 'pointer', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
+            Réinitialiser
+          </button>
+        )}
+        <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{displayed.length} produit{displayed.length !== 1 ? 's' : ''} affiché{displayed.length !== 1 ? 's' : ''}</span>
       </div>
 
       {/* Tableau */}
@@ -492,13 +555,13 @@ function StockEntrepotView({ products, demandes, onReload }: {
                         key={p._id + '-' + mag}
                         defaultValue={mag}
                         disabled={adjusting === p._id}
-                        onBlur={async e => {
+                        onBlur={e => {
+                          // Garde-fou : la saisie ne s'applique JAMAIS directement —
+                          // une confirmation explicite est demandée (évite les erreurs).
                           const v = parseInt(e.target.value) || 0;
                           if (v === mag) return;
-                          setAdjusting(p._id);
-                          try { await ajusterStockEntrepot(p._id, v); onReload(); }
-                          catch { /* silencieux, l'admin peut réessayer */ }
-                          finally { setAdjusting(null); }
+                          e.target.value = String(mag); // restaure l'affichage en attendant la décision
+                          setConfirmAdj({ product: p, from: mag, to: v });
                         }}
                         style={{ width: 76, padding: '5px 8px', border: `1.5px solid ${bas ? '#dc2626' : '#2563eb44'}`, borderRadius: 7, fontSize: 18, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 800, color: bas ? '#dc2626' : '#15803d', background: bas ? '#fef9f9' : '#f0fdf4', opacity: adjusting === p._id ? 0.5 : 1 }}
                       />
