@@ -251,10 +251,10 @@ export default function AdminSidebar() {
       )}
 
       <aside className="fs-sidebar-drawer" style={sidebarStyle}>
-        {/* Logo Family Store (REC#8) */}
+        {/* Logo du magasin (personnalisé via Paramètres, sinon logo Family Store) */}
         <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ background: '#fdf9f0', borderRadius: 10, border: '1px solid var(--fs-gold-400)', padding: '6px 8px', overflow: 'hidden' }}>
-            <img src={logoFs} alt={settings.nomMagasin} style={{ width: '100%', display: 'block', borderRadius: 6 }}/>
+            <img src={settings.logoUrl || logoFs} alt={settings.nomMagasin} style={{ width: '100%', display: 'block', borderRadius: 6 }}/>
           </div>
           <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.14em', textTransform: 'uppercase', textAlign: 'center', marginTop: 6 }}>Administration</div>
         </div>
