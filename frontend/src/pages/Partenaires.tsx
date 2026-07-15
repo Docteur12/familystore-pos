@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { getTokenPayload } from '../api/dashboard';
-import { getBrandColor } from '../utils/text';
+import { getBrandColor, contientTexte } from '../utils/text';
 import { getAllProducts, Product } from '../api/products';
 import {
   getPartenaires, createPartenaire, updatePartenaire, deletePartenaire,
@@ -74,7 +74,11 @@ function ProductSelect({ products, value, onChange }: {
   const selected = products.find(p => p._id === value) ?? null;
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
-  const filtered = products.filter(p => !search.trim() || p.name.toLowerCase().includes(search.toLowerCase()));
+  // Recherche insensible aux accents ; TOUS les résultats affichés, triés par nom
+  // (une ancienne limite de 40 masquait des produits pourtant en entrepôt).
+  const filtered = products
+    .filter(p => !search.trim() || contientTexte(p.name, search) || contientTexte(p.barcode, search))
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   return (
     <div style={{ position: 'relative' }}>
       <input
@@ -88,7 +92,12 @@ function ProductSelect({ products, value, onChange }: {
       {open && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 8, boxShadow: 'var(--fs-shadow-md)', zIndex: 20, maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
           {filtered.length === 0 && <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fs-ink-400)' }}>Aucun produit en entrepôt</div>}
-          {filtered.slice(0, 40).map(p => (
+          {filtered.length > 20 && (
+            <div style={{ padding: '5px 12px', fontSize: 10, color: 'var(--fs-ink-400)', background: 'var(--fs-ivory)', position: 'sticky', top: 0 }}>
+              {filtered.length} produits — tapez pour filtrer
+            </div>
+          )}
+          {filtered.map(p => (
             <button key={p._id} type="button" onMouseDown={() => { onChange(p._id); setOpen(false); }}
               style={{ width: '100%', padding: '7px 12px', border: 'none', background: p._id === value ? 'var(--fs-ivory)' : '#fff', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--fs-line)', display: 'block' }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>

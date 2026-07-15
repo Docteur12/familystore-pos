@@ -208,10 +208,12 @@ function ProductSelect({ products, value, onChange, meta }: {
   const [search, setSearch] = useState('');
   const [open, setOpen]     = useState(false);
 
-  // Recherche insensible aux accents + par code-barres
-  const filtered = products.filter(p =>
-    !search.trim() || contientTexte(p.name, search) || contientTexte(p.barcode, search)
-  );
+  // Recherche insensible aux accents + par code-barres.
+  // TOUS les résultats sont affichés (triés par nom) — une ancienne limite de
+  // 40 rendait invisibles les produits suivants, pourtant bien en entrepôt.
+  const filtered = products
+    .filter(p => !search.trim() || contientTexte(p.name, search) || contientTexte(p.barcode, search))
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 
   return (
     <div style={{ position: 'relative' }}>
@@ -228,7 +230,12 @@ function ProductSelect({ products, value, onChange, meta }: {
           {filtered.length === 0 && (
             <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fs-ink-400)' }}>Aucun produit</div>
           )}
-          {filtered.slice(0, 40).map(p => (
+          {filtered.length > 20 && (
+            <div style={{ padding: '5px 12px', fontSize: 10, color: 'var(--fs-ink-400)', background: 'var(--fs-ivory)', position: 'sticky', top: 0 }}>
+              {filtered.length} produits — tapez pour filtrer
+            </div>
+          )}
+          {filtered.map(p => (
             <button key={p._id} type="button" onMouseDown={() => { onChange(p._id); setOpen(false); }}
               style={{ width: '100%', padding: '7px 12px', border: 'none', background: p._id === value ? 'var(--fs-ivory)' : '#fff', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--fs-line)', display: 'block' }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>

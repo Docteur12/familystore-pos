@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import AutocompleteInput from '../components/AutocompleteInput';
 import { getAllProducts, Product } from '../api/products';
+import { contientTexte } from '../utils/text';
 import ToastContainer, { useToast } from '../components/Toast';
 import { getAllReceptions, ReceptionFull } from '../api/magazinier';
 import { getFournisseurs } from '../api/fournisseurs';
@@ -178,9 +179,10 @@ function ProductPicker({ products, value, onChange }: {
 
   useEffect(() => { setSearch(value?.name ?? ''); }, [value]);
 
-  const filtered = products.filter(p =>
-    search.trim() && p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Recherche insensible aux accents + code-barres ; tous les résultats, triés par nom
+  const filtered = products
+    .filter(p => search.trim() && (contientTexte(p.name, search) || contientTexte(p.barcode, search)))
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 
   return (
     <div style={{ position: 'relative' }}>
@@ -192,7 +194,7 @@ function ProductPicker({ products, value, onChange }: {
         style={{ width: '100%', padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
       {open && filtered.length > 0 && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 8, boxShadow: 'var(--fs-shadow-md)', zIndex: 10, maxHeight: 160, overflowY: 'auto' }}>
-          {filtered.slice(0, 8).map(p => (
+          {filtered.map(p => (
             <button key={p._id} onMouseDown={() => { onChange(p); setOpen(false); }}
               style={{ width: '100%', padding: '7px 12px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--fs-line)', display: 'block' }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
