@@ -96,9 +96,16 @@ export class PartenairesService {
 
   async createLivraison(
     partenaireId: string,
-    body: { numeroBL?: string; date?: string; montantPaye?: number; modePaiement?: string; agenceId?: string | null; commandeId?: string | null; lignes: LigneInput[] },
+    body: { numeroBL?: string; date?: string; montantPaye?: number; modePaiement?: string; agenceId?: string | null; commandeId?: string | null; lignes: LigneInput[]; idempotencyKey?: string },
     userId: string,
   ) {
+    // Idempotence : si cette livraison a déjà été enregistrée (double-clic,
+    // rejeu réseau), on renvoie l'existante sans re-débiter le stock.
+    if (body.idempotencyKey) {
+      const deja = await this.livModel.findOne({ idempotencyKey: body.idempotencyKey });
+      if (deja) return deja;
+    }
+
     const partenaire = await this.partModel.findById(partenaireId).lean();
     if (!partenaire) throw new NotFoundException('Partenaire introuvable');
 
@@ -136,18 +143,163 @@ export class PartenairesService {
       });
     }
 
-    return this.livModel.create({
-      numeroBL:     body.numeroBL || `BLP-${Date.now().toString().slice(-6)}`,
-      partenaire:   new Types.ObjectId(partenaireId),
-      agence:       this.oid(body.agenceId),
-      commande:     this.oid(body.commandeId),
-      lignes,
-      total,
-      montantPaye:  Math.max(0, Math.round(Number(body.montantPaye) || 0)),
-      modePaiement: body.modePaiement || 'credit',
-      date:         body.date ?? '',
-      creePar:      new Types.ObjectId(userId),
-    });
+    try {
+      return await this.livModel.create({
+        numeroBL:     body.numeroBL || `BLP-${Date.now().toString().slice(-6)}`,
+        partenaire:   new Types.ObjectId(partenaireId),
+        agence:       this.oid(body.agenceId),
+        commande:     this.oid(body.commandeId),
+        lignes,
+        total,
+        montantPaye:  Math.max(0, Math.round(Number(body.montantPaye) || 0)),
+        modePaiement: body.modePaiement || 'credit',
+        date:         body.date ?? '',
+        creePar:      new Types.ObjectId(userId),
+        ...(body.idempotencyKey ? { idempotencyKey: body.idempotencyKey } : {}),
+      });
+    } catch (e: any) {
+      // Course extrême : deux requêtes identiques strictement simultanées.
+      // L'index unique bloque la seconde → on restitue le stock qu'elle vient
+      // de débiter et on renvoie la livraison déjà créée.
+      if (e?.code === 11000 && body.idempotencyKey) {
+        for (const l of lignes) {
+          await this.productModel.findByIdAndUpdate(l.productId, { $inc: { stockMagazin: l.quantite } });
+          await this.movementModel.create({
+            productId: l.productId, type: 'IN', quantity: l.quantite, reason: 'retour_partenaire',
+            note: `Doublon évité · BL ${body.numeroBL || '—'} · ${partenaire.name}`,
+          });
+        }
+        const deja = await this.livModel.findOne({ idempotencyKey: body.idempotencyKey });
+        if (deja) return deja;
+      }
+      throw e;
+    }
+  }
+
+  // Recalcule le cumul livré et le statut d'une commande après modification /
+  // suppression d'une de ses livraisons (delta par produit, jamais négatif).
+  private async ajusterCommandeApresLivraison(commandeId: Types.ObjectId | null, deltas: Map<string, number>) {
+    if (!commandeId) return;
+    const cmd = await this.cmdModel.findById(commandeId);
+    if (!cmd) return;
+    for (const ref of cmd.lignes) {
+      const d = deltas.get(String(ref.productId));
+      if (d) ref.quantiteLivree = Math.max(0, (ref.quantiteLivree ?? 0) + d);
+    }
+    const reste = cmd.lignes.reduce((s, c) => s + Math.max(0, (c.quantite ?? 0) - (c.quantiteLivree ?? 0)), 0);
+    const dejaLivre = cmd.lignes.some(c => (c.quantiteLivree ?? 0) > 0);
+    cmd.statut = reste === 0 ? 'livree' : (dejaLivre ? 'partielle' : 'recue');
+    cmd.markModified('lignes');
+    await cmd.save();
+  }
+
+  // Supprime un bon de livraison : le stock entrepôt est restitué (mouvement IN),
+  // la dette disparaît (recalculée depuis les livraisons) et la commande liée
+  // retrouve son reliquat à livrer.
+  async deleteLivraison(livraisonId: string) {
+    const liv = await this.livModel.findById(livraisonId).lean();
+    if (!liv) throw new NotFoundException('Livraison introuvable');
+
+    const deltas = new Map<string, number>();
+    let produitsRestitues = 0;
+    for (const l of liv.lignes ?? []) {
+      const q = Math.floor(Number(l.quantite) || 0);
+      if (q <= 0) continue;
+      await this.productModel.findByIdAndUpdate(l.productId, { $inc: { stockMagazin: q } });
+      await this.movementModel.create({
+        productId: l.productId, type: 'IN', quantity: q, reason: 'retour_partenaire',
+        note: `Suppression BL ${liv.numeroBL}`,
+      });
+      deltas.set(String(l.productId), -q);
+      produitsRestitues += q;
+    }
+
+    await this.ajusterCommandeApresLivraison(liv.commande as any, deltas);
+    if (liv.commande) {
+      await this.cmdModel.updateOne({ _id: liv.commande, livraison: liv._id }, { $set: { livraison: null } });
+    }
+    await this.livModel.findByIdAndDelete(livraisonId);
+    return { ok: true, produitsRestitues };
+  }
+
+  // Modifie un bon de livraison (quantités, prix, montant payé, date, n° BL).
+  // Le stock entrepôt est ajusté par différence produit par produit.
+  async updateLivraison(
+    livraisonId: string,
+    dto: Partial<{ lignes: LigneInput[]; montantPaye: number; date: string; numeroBL: string }>,
+  ) {
+    const liv = await this.livModel.findById(livraisonId);
+    if (!liv) throw new NotFoundException('Livraison introuvable');
+
+    if (dto.lignes !== undefined) {
+      const nouvelles = (dto.lignes ?? [])
+        .filter(l => l.productId && Number(l.quantite) > 0)
+        .map(l => ({
+          productId:    String(l.productId),
+          quantite:     Math.floor(Number(l.quantite)),
+          prixUnitaire: Math.max(0, Math.round(Number(l.prixUnitaire) || 0)),
+        }));
+      if (nouvelles.length === 0) throw new BadRequestException('Une livraison doit garder au moins un produit — utilisez plutôt la suppression.');
+
+      const anciennes = new Map((liv.lignes ?? []).map(l => [String(l.productId), l.quantite]));
+      const ids = new Set([...anciennes.keys(), ...nouvelles.map(n => n.productId)]);
+
+      // Contrôle du stock AVANT toute écriture (les augmentations sortent de l'entrepôt)
+      for (const id of ids) {
+        const delta = (nouvelles.find(n => n.productId === id)?.quantite ?? 0) - (anciennes.get(id) ?? 0);
+        if (delta > 0) {
+          const product = await this.productModel.findById(id).lean();
+          const dispo = product?.stockMagazin ?? 0;
+          if (delta > dispo) {
+            throw new BadRequestException(`Stock entrepôt insuffisant pour « ${product?.name ?? 'produit'} » : ${dispo} disponible(s), ${delta} de plus demandé(s).`);
+          }
+        }
+      }
+
+      const deltas = new Map<string, number>();
+      const lignesFinales: typeof liv.lignes = [] as any;
+      for (const id of ids) {
+        const ancienne = anciennes.get(id) ?? 0;
+        const nouvelle = nouvelles.find(n => n.productId === id);
+        const delta = (nouvelle?.quantite ?? 0) - ancienne;
+
+        if (delta !== 0) {
+          const product = await this.productModel.findByIdAndUpdate(id, { $inc: { stockMagazin: -delta } }, { new: true });
+          if (!product) throw new NotFoundException(`Produit introuvable : ${id}`);
+          await this.movementModel.create({
+            productId: new Types.ObjectId(id),
+            type:      delta > 0 ? 'OUT' : 'IN',
+            quantity:  Math.abs(delta),
+            reason:    delta > 0 ? 'livraison_partenaire' : 'retour_partenaire',
+            note:      `Modification BL ${liv.numeroBL}`,
+          });
+          deltas.set(id, delta);
+        }
+        if (nouvelle) {
+          const ref = (liv.lignes ?? []).find(l => String(l.productId) === id);
+          const product = ref ? null : await this.productModel.findById(id).lean();
+          lignesFinales.push({
+            productId:    new Types.ObjectId(id),
+            productName:  ref?.productName ?? product?.name ?? '—',
+            unit:         ref?.unit ?? product?.unit ?? '',
+            quantite:     nouvelle.quantite,
+            prixUnitaire: nouvelle.prixUnitaire,
+          } as any);
+        }
+      }
+
+      liv.lignes = lignesFinales;
+      liv.total = lignesFinales.reduce((s, l) => s + l.quantite * l.prixUnitaire, 0);
+      liv.markModified('lignes');
+      await this.ajusterCommandeApresLivraison(liv.commande as any, deltas);
+    }
+
+    if (dto.montantPaye !== undefined) liv.montantPaye = Math.max(0, Math.round(Number(dto.montantPaye) || 0));
+    if (dto.date !== undefined)        liv.date = dto.date;
+    if (dto.numeroBL !== undefined && dto.numeroBL.trim()) liv.numeroBL = dto.numeroBL.trim();
+
+    await liv.save();
+    return liv;
   }
 
   // ── Commandes (demande du grossiste) ───────────────────────────────────────
@@ -466,14 +618,31 @@ export class PartenairesService {
   // (≤ ou < commandées). Met à jour le cumul livré + le statut (reliquat ouvert).
   async preparerCommande(
     commandeId: string,
-    body: { lignes: { productId: string; quantite: number; prixUnitaire?: number }[]; montantPaye?: number; date?: string; numeroBL?: string },
+    body: { lignes: { productId: string; quantite: number; prixUnitaire?: number }[]; montantPaye?: number; date?: string; numeroBL?: string; idempotencyKey?: string },
     userId: string,
   ) {
     const cmd = await this.cmdModel.findById(commandeId);
     if (!cmd) throw new NotFoundException('Commande introuvable');
 
+    // Idempotence : la même validation (double-clic / rejeu) renvoie la
+    // livraison déjà créée au lieu d'en créer une deuxième.
+    if (body.idempotencyKey) {
+      const deja = await this.livModel.findOne({ idempotencyKey: body.idempotencyKey });
+      if (deja) return { livraison: deja, commande: cmd.toObject() };
+    }
+
     const servies = (body.lignes ?? []).filter(l => l.productId && Number(l.quantite) > 0);
     if (servies.length === 0) throw new NotFoundException('Aucune quantité à livrer');
+
+    // Garde anti-doublon : si plus rien n'est à livrer sur les lignes demandées,
+    // c'est presque toujours un second clic sur une commande déjà servie.
+    const resteALivrer = servies.some(l => {
+      const ref = cmd.lignes.find(c => String(c.productId) === String(l.productId));
+      return !ref || (ref.quantite ?? 0) - (ref.quantiteLivree ?? 0) > 0;
+    });
+    if (!resteALivrer) {
+      throw new BadRequestException('Cette commande a déjà été entièrement livrée — la livraison existe déjà (doublon évité).');
+    }
 
     // Prix par défaut : celui de la ligne de commande si non fourni
     const lignesLiv = servies.map(l => {
@@ -505,6 +674,7 @@ export class PartenairesService {
         agenceId:     cmd.agence ? String(cmd.agence) : null,
         commandeId:   String(cmd._id),
         lignes:       lignesLiv,
+        idempotencyKey: body.idempotencyKey,
       },
       userId,
     );
@@ -653,7 +823,7 @@ export class PartenairesService {
     const nomAgence = (a: any) => a ? `${a.nom}${a.ville ? ' · ' + a.ville : ''}` : '';
     const ops: any[] = [];
     for (const l of livs) ops.push({
-      type: 'livraison', date: (l as any).createdAt,
+      type: 'livraison', id: String(l._id), date: (l as any).createdAt,
       partenaire: (l.partenaire as any)?.name ?? '—', agence: nomAgence(l.agence),
       montant: l.total ?? 0, ref: l.numeroBL,
       lignes: (l.lignes ?? []).map((x: any) => ({ productName: x.productName, quantite: x.quantite })),

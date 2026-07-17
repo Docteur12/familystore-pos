@@ -90,6 +90,7 @@ export interface LivraisonInput {
   agenceId?: string | null;
   commandeId?: string | null;
   lignes: { productId: string; quantite: number; prixUnitaire: number }[];
+  idempotencyKey?: string;
 }
 
 // ── Commandes (demande du grossiste) ──────────────────────────────────────────
@@ -108,7 +109,7 @@ export interface CommandePartenaire {
 }
 
 // Préparation/livraison par le magasinier : quantités réellement servies
-export async function preparerCommande(commandeId: string, data: { lignes: { productId: string; quantite: number; prixUnitaire?: number }[]; montantPaye?: number; date?: string; numeroBL?: string }): Promise<{ livraison: LivraisonPartenaire; commande: CommandePartenaire }> {
+export async function preparerCommande(commandeId: string, data: { lignes: { productId: string; quantite: number; prixUnitaire?: number }[]; montantPaye?: number; date?: string; numeroBL?: string; idempotencyKey?: string }): Promise<{ livraison: LivraisonPartenaire; commande: CommandePartenaire }> {
   const res = await fetch(`/api/partenaires/commandes/${commandeId}/preparer`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(data) });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur préparation de la commande');
   return res.json();
@@ -192,6 +193,22 @@ export async function createLivraison(partenaireId: string, data: LivraisonInput
     method: 'POST', headers: authHeaders(), body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur création livraison');
+  return res.json();
+}
+
+// Modification d'un bon de livraison : le stock entrepôt est ajusté par différence.
+export async function updateLivraison(id: string, dto: Partial<{ lignes: { productId: string; quantite: number; prixUnitaire: number }[]; montantPaye: number; date: string; numeroBL: string }>): Promise<LivraisonPartenaire> {
+  const res = await fetch(`/api/partenaires/livraisons/${id}`, {
+    method: 'PATCH', headers: authHeaders(), body: JSON.stringify(dto),
+  });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur modification de la livraison');
+  return res.json();
+}
+
+// Suppression d'un bon de livraison : stock restitué, commande liée réouverte.
+export async function deleteLivraison(id: string): Promise<{ ok: boolean; produitsRestitues: number }> {
+  const res = await fetch(`/api/partenaires/livraisons/${id}`, { method: 'DELETE', headers: authHeaders() });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur suppression de la livraison');
   return res.json();
 }
 
@@ -301,6 +318,7 @@ export async function getStatsAgences(): Promise<StatsAgences> {
 // ── Historique global (livraisons + versements + retours) ──────────────────────
 export interface Operation {
   type: 'livraison' | 'versement' | 'retour';
+  id?: string;           // _id du bon de livraison (type 'livraison' uniquement)
   date: string;
   partenaire: string;
   agence: string;

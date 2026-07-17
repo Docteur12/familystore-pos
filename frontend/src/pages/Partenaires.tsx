@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { getTokenPayload } from '../api/dashboard';
@@ -6,7 +6,7 @@ import { getBrandColor, contientTexte } from '../utils/text';
 import { getAllProducts, Product } from '../api/products';
 import {
   getPartenaires, createPartenaire, updatePartenaire, deletePartenaire,
-  getLivraisons, createLivraison, getDernierPrix,
+  getLivraisons, createLivraison, updateLivraison, deleteLivraison, getDernierPrix,
   getCompte, createPaiement, getPartenairesStats, getCompteAgences, CompteAgences,
   getStatsAgences, StatsAgences, getOperations, Operation,
   getCommandes, createCommande, updateCommande, deleteCommande, createRetour,
@@ -113,6 +113,81 @@ function ProductSelect({ products, value, onChange }: {
 type Tab = 'dashboard' | 'commandes' | 'preparer' | 'livraisons' | 'comptes' | 'rapport' | 'historique' | 'partenaires' | 'acces';
 interface Row { productId: string; quantite: string; prix: string }
 
+// Modal de modification d'un bon de livraison : quantités, prix, montant payé.
+// Le stock entrepôt est ajusté automatiquement par différence côté serveur.
+function EditLivraisonModal({ livraison, onClose, onSaved, onError }: {
+  livraison: LivraisonPartenaire;
+  onClose: () => void;
+  onSaved: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [lignes, setLignes] = useState(livraison.lignes.map(l => ({
+    productId: String(l.productId), productName: l.productName,
+    quantite: String(l.quantite), prix: String(l.prixUnitaire),
+  })));
+  const [paye, setPaye] = useState(String(livraison.montantPaye ?? 0));
+  const [busy, setBusy] = useState(false);
+
+  const setLigne = (i: number, patch: Partial<{ quantite: string; prix: string }>) =>
+    setLignes(prev => prev.map((l, j) => j === i ? { ...l, ...patch } : l));
+  const retirer = (i: number) => setLignes(prev => prev.filter((_, j) => j !== i));
+
+  const total = lignes.reduce((s, l) => s + (parseInt(l.quantite) || 0) * (parseInt(l.prix) || 0), 0);
+
+  const enregistrer = async () => {
+    const valides = lignes
+      .map(l => ({ productId: l.productId, quantite: parseInt(l.quantite) || 0, prixUnitaire: parseInt(l.prix) || 0 }))
+      .filter(l => l.quantite > 0);
+    if (valides.length === 0) { onError('Gardez au moins un produit avec une quantité — sinon supprimez la livraison'); return; }
+    setBusy(true);
+    try {
+      await updateLivraison(livraison._id, { lignes: valides, montantPaye: Math.max(0, parseInt(paye) || 0) });
+      onSaved();
+    } catch (e: unknown) { onError(e instanceof Error ? e.message : 'Erreur modification'); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: '24px 26px', maxWidth: 560, width: '100%', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800, color: 'var(--fs-ink-900)' }}>Modifier la livraison {livraison.numeroBL}</p>
+        <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--fs-ink-500)' }}>
+          {typeof livraison.partenaire === 'object' ? livraison.partenaire.name : ''} — le stock entrepôt sera ajusté automatiquement (différence entre l'ancienne et la nouvelle quantité).
+        </p>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 76px 100px 32px', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+          <span>Produit</span><span style={{ textAlign: 'center' }}>Qté</span><span style={{ textAlign: 'center' }}>Prix U.</span><span/>
+        </div>
+        {lignes.map((l, i) => (
+          <div key={l.productId} style={{ display: 'grid', gridTemplateColumns: '1fr 76px 100px 32px', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+            <div style={{ fontSize: 12.5, color: 'var(--fs-ink-800)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={l.productName}>{l.productName}</div>
+            <input type="number" min={0} value={l.quantite} onChange={e => setLigne(i, { quantite: e.target.value })} style={{ ...INPUT, textAlign: 'center', padding: '7px 6px' }}/>
+            <input type="number" min={0} value={l.prix} onChange={e => setLigne(i, { prix: e.target.value })} style={{ ...INPUT, textAlign: 'center', padding: '7px 6px' }}/>
+            <button onClick={() => retirer(i)} title="Retirer ce produit (quantité remise en entrepôt)"
+              style={{ padding: 6, border: '1px solid rgba(194,62,36,0.25)', borderRadius: 7, background: '#fef2f2', color: 'var(--fs-danger-700)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✕</button>
+          </div>
+        ))}
+
+        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--fs-line)' }}>
+          <div style={{ width: 150 }}>
+            <label style={LABEL}>Montant payé (XAF)</label>
+            <input type="number" min={0} value={paye} onChange={e => setPaye(e.target.value)} style={{ ...INPUT, textAlign: 'center' }}/>
+          </div>
+          <div style={{ flex: 1, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--fs-ink-500)' }}>Nouveau total</span><strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(total)} XAF</strong></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--fs-ink-500)' }}>Reste dû</span><strong style={{ fontFamily: 'var(--fs-font-mono)', color: (total - (parseInt(paye) || 0)) > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(Math.max(0, total - (parseInt(paye) || 0)))} XAF</strong></div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
+          <button onClick={onClose} disabled={busy} style={{ padding: '9px 18px', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Annuler</button>
+          <button onClick={enregistrer} disabled={busy} style={{ ...BTN_PRIMARY, opacity: busy ? 0.6 : 1 }}>{busy ? 'Enregistrement…' : 'Enregistrer les modifications'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Partenaires({ embedded = false, allowedTabs, initialTab }: { embedded?: boolean; allowedTabs?: Tab[]; initialTab?: Tab } = {}) {
   const navigate = useNavigate();
   const brand = getBrandColor();
@@ -168,6 +243,15 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
   // Onglet « À préparer » : quantités servies par le magasinier
   const [prepQty, setPrepQty] = useState<Record<string, string>>({}); // clé `${cmdId}|${productId}`
   const [prepLoading, setPrepLoading] = useState<string | null>(null);
+
+  // Anti double-clic : verrou synchrone (le state React est trop lent pour deux
+  // clics dans la même frame) + clé d'idempotence réutilisée en cas de retry —
+  // le serveur ne créera JAMAIS deux livraisons pour la même validation.
+  const envoiEnCoursRef = useRef(false);
+  const idemKeysRef = useRef<Record<string, string>>({});
+  const genKey = () => (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const resteLigne = (l: { quantite: number; quantiteLivree?: number }) => Math.max(0, (l.quantite ?? 0) - (l.quantiteLivree ?? 0));
 
   // Impression d'un bon (commande ou livraison)
@@ -217,9 +301,14 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       addToast(`Stock entrepôt insuffisant pour « ${nom} » — réduisez la quantité à servir`, 'error');
       return;
     }
+    if (envoiEnCoursRef.current) return; // double-clic : le 2ᵉ clic est ignoré
+    envoiEnCoursRef.current = true;
     setPrepLoading(cmd._id);
+    // Même clé si l'on re-valide après une erreur réseau → jamais de doublon
+    const idemKey = idemKeysRef.current[cmd._id] ?? (idemKeysRef.current[cmd._id] = genKey());
     try {
-      const res = await preparerCommande(cmd._id, { lignes });
+      const res = await preparerCommande(cmd._id, { lignes, idempotencyKey: idemKey });
+      delete idemKeysRef.current[cmd._id];
       addToast('Livraison enregistrée ✓ — stock entrepôt mis à jour', 'success');
       const partNom = typeof cmd.partenaire === 'object' ? cmd.partenaire.name : '—';
       imprimerLivraison(res.livraison, partNom, agenceLabel(cmd.agence));
@@ -228,7 +317,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       getAllProducts().then(setProducts).catch(() => {});
       getLivraisons().then(setLivraisons).catch(() => {});
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
-    finally { setPrepLoading(null); }
+    finally { envoiEnCoursRef.current = false; setPrepLoading(null); }
   };
 
   // Retour d'invendus (comptes)
@@ -527,9 +616,13 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       .filter(r => r.productId && (parseInt(r.quantite) || 0) > 0)
       .map(r => ({ productId: r.productId, quantite: parseInt(r.quantite) || 0, prixUnitaire: parseInt(r.prix) || 0 }));
     if (lignes.length === 0) { addToast('Ajoutez au moins un produit', 'error'); return; }
+    if (envoiEnCoursRef.current) return; // double-clic ignoré
+    envoiEnCoursRef.current = true;
     setLoadingLiv(true);
+    const idemKey = idemKeysRef.current['liv-directe'] ?? (idemKeysRef.current['liv-directe'] = genKey());
     try {
-      await createLivraison(partId, { lignes, montantPaye: parseInt(montantPaye) || 0, modePaiement: livMode });
+      await createLivraison(partId, { lignes, montantPaye: parseInt(montantPaye) || 0, modePaiement: livMode, idempotencyKey: idemKey });
+      delete idemKeysRef.current['liv-directe'];
       addToast('Bon de livraison validé ✓ — stock entrepôt mis à jour', 'success');
       setRows([{ productId: '', quantite: '1', prix: '' }]);
       setMontantPaye('');
@@ -537,7 +630,40 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       getLivraisons().then(setLivraisons).catch(() => {});
     } catch (e: unknown) {
       addToast(e instanceof Error ? e.message : 'Erreur', 'error');
-    } finally { setLoadingLiv(false); }
+    } finally { envoiEnCoursRef.current = false; setLoadingLiv(false); }
+  };
+
+  // ── Suppression / modification d'un bon de livraison ─────────────────────────
+  const [confirmDelLivId, setConfirmDelLivId] = useState<string | null>(null);
+  const [editLiv, setEditLiv] = useState<LivraisonPartenaire | null>(null);
+
+  const rechargerApresLivraison = () => {
+    getAllProducts().then(setProducts).catch(() => {});
+    getLivraisons().then(setLivraisons).catch(() => {});
+    getOperations().then(setOps).catch(() => {});
+    loadCommandes();
+    getStatsAgences().then(setStatsAg).catch(() => {});
+  };
+
+  const supprimerLivraison = async (id: string) => {
+    try {
+      const r = await deleteLivraison(id);
+      addToast(`Livraison supprimée ✓ — ${r.produitsRestitues} article(s) remis en stock entrepôt`, 'success');
+      setConfirmDelLivId(null);
+      rechargerApresLivraison();
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur suppression', 'error'); }
+  };
+
+  // Retrouve la livraison complète depuis son id (l'historique n'a que l'id)
+  const ouvrirEditLivraison = (id: string) => {
+    const liv = livraisons.find(l => l._id === id);
+    if (liv) { setEditLiv(liv); return; }
+    getLivraisons().then(ls => {
+      setLivraisons(ls);
+      const found = ls.find(l => l._id === id);
+      if (found) setEditLiv(found);
+      else addToast('Livraison introuvable', 'error');
+    }).catch(() => addToast('Erreur chargement', 'error'));
   };
 
   const savePartenaire = async () => {
@@ -585,6 +711,16 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       ? { display: 'flex', width: '100%', height: '100%', overflow: 'hidden', fontFamily: 'var(--fs-font-sans)' }
       : { display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* Modal de modification d'un bon de livraison */}
+      {editLiv && (
+        <EditLivraisonModal
+          livraison={editLiv}
+          onClose={() => setEditLiv(null)}
+          onSaved={() => { setEditLiv(null); addToast('Livraison modifiée ✓ — stock entrepôt ajusté', 'success'); rechargerApresLivraison(); }}
+          onError={m => addToast(m, 'error')}
+        />
+      )}
 
       {/* Bouton hamburger (mobile, hors mode intégré) */}
       {mobileNav && (
@@ -1045,7 +1181,18 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>
                       {typeof l.partenaire === 'object' ? l.partenaire.name : '—'} · <span style={{ fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>{fmtN(l.total)} XAF</span>
                     </div>
-                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{l.numeroBL} · {fmtDateTime(l.createdAt)}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{l.numeroBL} · {fmtDateTime(l.createdAt)}</div>
+                      <button onClick={() => ouvrirEditLivraison(l._id)} title="Modifier cette livraison"
+                        style={{ padding: '4px 9px', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✎ Modifier</button>
+                      {confirmDelLivId === l._id ? (
+                        <button onClick={() => supprimerLivraison(l._id)} title="Confirmer la suppression"
+                          style={{ padding: '4px 9px', border: 'none', borderRadius: 7, background: 'var(--fs-danger-700)', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Confirmer ?</button>
+                      ) : (
+                        <button onClick={() => setConfirmDelLivId(l._id)} title="Supprimer (stock restitué à l'entrepôt)"
+                          style={{ padding: '4px 9px', border: '1px solid rgba(194,62,36,0.25)', borderRadius: 7, background: '#fef2f2', color: 'var(--fs-danger-700)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>🗑</button>
+                      )}
+                    </div>
                   </div>
                   <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {l.lignes.map((lg, i) => (
@@ -1435,7 +1582,22 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                                 </div>
                               ) : <span style={{ fontSize: 12, color: 'var(--fs-ink-500)' }}>{o.note || (o.ref ?? '—')}</span>}
                             </td>
-                            <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: o.type === 'versement' ? 'var(--fs-success-700)' : 'var(--fs-ink-900)', whiteSpace: 'nowrap' }}>{cfg.sign}{fmtN(o.montant)}</td>
+                            <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: o.type === 'versement' ? 'var(--fs-success-700)' : 'var(--fs-ink-900)', whiteSpace: 'nowrap' }}>
+                              {cfg.sign}{fmtN(o.montant)}
+                              {o.type === 'livraison' && o.id && (
+                                <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', marginTop: 5 }}>
+                                  <button onClick={() => ouvrirEditLivraison(o.id!)} title="Modifier cette livraison"
+                                    style={{ padding: '3px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>✎</button>
+                                  {confirmDelLivId === o.id ? (
+                                    <button onClick={() => supprimerLivraison(o.id!)} title="Confirmer la suppression"
+                                      style={{ padding: '3px 8px', border: 'none', borderRadius: 6, background: 'var(--fs-danger-700)', color: '#fff', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Confirmer ?</button>
+                                  ) : (
+                                    <button onClick={() => setConfirmDelLivId(o.id!)} title="Supprimer (stock restitué à l'entrepôt)"
+                                      style={{ padding: '3px 8px', border: '1px solid rgba(194,62,36,0.25)', borderRadius: 6, background: '#fef2f2', color: 'var(--fs-danger-700)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>🗑</button>
+                                  )}
+                                </div>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}

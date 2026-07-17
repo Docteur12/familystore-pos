@@ -68,6 +68,21 @@ export class PartenairesController {
     return this.service.getLivraisons(partenaireId);
   }
 
+  // Modification d'un bon de livraison (stock ajusté par différence)
+  @Patch('livraisons/:lid')
+  updateLivraison(
+    @Param('lid') lid: string,
+    @Body() dto: Partial<{ lignes: { productId: string; quantite: number; prixUnitaire: number }[]; montantPaye: number; date: string; numeroBL: string }>,
+  ) {
+    return this.service.updateLivraison(lid, dto);
+  }
+
+  // Suppression d'un bon de livraison (stock restitué, commande réouverte)
+  @Delete('livraisons/:lid')
+  deleteLivraison(@Param('lid') lid: string) {
+    return this.service.deleteLivraison(lid);
+  }
+
   // ── Commandes (demande du grossiste) ───────────────────────────────────────
   @Get('commandes')
   commandes(@Query('statut') statut?: string) {

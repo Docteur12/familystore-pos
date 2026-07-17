@@ -52,6 +52,12 @@ export class LivraisonPartenaire {
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   creePar: Types.ObjectId;
+
+  // Clé d'idempotence : un double-clic sur « Valider la livraison » ne peut
+  // jamais créer deux bons de livraison (index unique, absent si non fournie).
+  @Prop({ type: String, required: false })
+  idempotencyKey?: string;
 }
 
 export const LivraisonPartenaireSchema = SchemaFactory.createForClass(LivraisonPartenaire);
+LivraisonPartenaireSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
