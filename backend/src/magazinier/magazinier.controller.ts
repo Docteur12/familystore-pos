@@ -57,6 +57,22 @@ export class MagazinierController {
     return this.svc.marquerRecu(id);
   }
 
+  // Annulation d'un envoi en transit (gestionnaire ou magazinier) → stock restitué à l'entrepôt
+  @Patch('demandes/:id/annuler')
+  @UseGuards(RolesGuard)
+  @Roles('magazinier', 'gestionnaire', 'patron')
+  annulerEnvoi(@Param('id') id: string) {
+    return this.svc.annulerEnvoi(id);
+  }
+
+  // Retour boutique → entrepôt (gestionnaire) : stock caisse −N, stock entrepôt +N
+  @Post('retour-entrepot')
+  @UseGuards(RolesGuard)
+  @Roles('gestionnaire', 'patron')
+  retourEntrepot(@Body() body: { produitId: string; quantite: number }, @Req() req: any) {
+    return this.svc.retourEntrepot(body, req.user.sub);
+  }
+
   // Envoi direct du magazinier vers le gestionnaire
   @Post('envois')
   @UseGuards(RolesGuard)

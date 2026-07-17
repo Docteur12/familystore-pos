@@ -15,7 +15,7 @@ import StocksSidebar                           from '../components/StocksSidebar
 import { useIsMobile }                         from '../hooks/useIsMobile';
 import OfflineSyncBanner                       from '../components/OfflineSyncBanner';
 import { queueAjoutStock }                     from '../services/offlineMagazin';
-import { createDemande, getDemandes, marquerRecu, DemandeStock } from '../api/magazinier';
+import { createDemande, getDemandes, marquerRecu, annulerEnvoi, retourEntrepot, DemandeStock } from '../api/magazinier';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -350,10 +350,75 @@ function DemandeModal({ product, onConfirm, onClose }:
   );
 }
 
+// ── Retour boutique → entrepôt modal ─────────────────────────────────────────
+
+function RetourModal({ product, onConfirm, onClose }:
+  { product: Product; onConfirm: (qty: number) => Promise<void>; onClose: () => void }) {
+  const [qty,     setQty]   = useState('');
+  const [loading, setLoad]  = useState(false);
+  const max = product.stock;
+
+  const n = parseInt(qty) || 0;
+  const valid = n > 0 && n <= max;
+
+  const confirm = async () => {
+    if (!valid || loading) return;
+    setLoad(true);
+    await onConfirm(n);
+    setLoad(false);
+  };
+
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: 14, width: 400, overflow: 'hidden', boxShadow: 'var(--fs-shadow-lg)' }}>
+        <div style={{ background: '#b45309', padding: '16px 20px' }}>
+          <p style={{ fontWeight: 700, color: '#fff', fontSize: 15, margin: 0 }}>↩ Retour à l'entrepôt</p>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, margin: '3px 0 0' }}>{product.name}{product.localName ? ` · ${product.localName}` : ''}</p>
+        </div>
+        <div style={{ padding: '20px' }}>
+          <div style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 20 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Stock boutique</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-mono)' }}>{product.stock}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Entrepôt</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: '#15803d', fontFamily: 'var(--fs-font-mono)' }}>{product.stockMagazin ?? 0}</div>
+            </div>
+          </div>
+          <div style={{ marginBottom: 6 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>
+              Quantité à retourner à l'entrepôt
+            </label>
+            <input
+              type="number" min={1} max={max} value={qty}
+              onChange={e => setQty(e.target.value)}
+              placeholder={`1 – ${max}`}
+              autoFocus
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${!qty ? 'var(--fs-line-2)' : valid ? '#86efac' : '#fca5a5'}`, outline: 'none', fontSize: 16, fontWeight: 700, textAlign: 'center', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', marginBottom: 4 }}
+            />
+            {n > max && <p style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, margin: '2px 0 0' }}>⚠ Quantité supérieure au stock boutique ({max})</p>}
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+            <button onClick={confirm} disabled={!valid || loading}
+              style={{ flex: 2, padding: '11px', background: valid ? '#b45309' : 'var(--fs-line-2)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: valid ? 'pointer' : 'not-allowed', opacity: loading ? 0.7 : 1 }}>
+              {loading ? 'Retour…' : 'Confirmer le retour'}
+            </button>
+            <button onClick={onClose} style={{ flex: 1, padding: '11px', background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Detail panel ──────────────────────────────────────────────────────────────
 
-function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdit, onDelete, onDemande, pendingDelivery, onRecu }:
-  { product: Product; isMobile: boolean; onClose: () => void; onReception: () => void; onRefresh: () => void; onEdit: () => void; onDelete: () => Promise<void>; onDemande?: () => void; pendingDelivery?: DemandeStock | null; onRecu?: (id: string) => void }) {
+function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdit, onDelete, onDemande, onRetour, pendingDelivery, onRecu }:
+  { product: Product; isMobile: boolean; onClose: () => void; onReception: () => void; onRefresh: () => void; onEdit: () => void; onDelete: () => Promise<void>; onDemande?: () => void; onRetour?: () => void; pendingDelivery?: DemandeStock | null; onRecu?: (id: string) => void }) {
   const [movements, setMovements]     = useState<StockMovement[]>([]);
   const [confirmDel, setConfirmDel]   = useState(false);
   const [deleting,   setDeleting]     = useState(false);
@@ -474,14 +539,24 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
                     {product.stockMagazin}
                   </div>
                 </div>
-                {onDemande && (product.stockMagazin ?? 0) > 0 && lowStock && (
-                  <button onClick={onDemande} style={{
-                    padding: '7px 12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8,
-                    fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
-                  }}>
-                    <I d={D.truck} size={12}/> Demander
-                  </button>
-                )}
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  {onDemande && (product.stockMagazin ?? 0) > 0 && lowStock && (
+                    <button onClick={onDemande} style={{
+                      padding: '7px 12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8,
+                      fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+                    }}>
+                      <I d={D.truck} size={12}/> Demander
+                    </button>
+                  )}
+                  {onRetour && product.stock > 0 && (
+                    <button onClick={onRetour} title="Retourner des produits de la boutique vers l'entrepôt" style={{
+                      padding: '7px 12px', background: '#fff7ed', color: '#b45309', border: '1px solid #fdba74', borderRadius: 8,
+                      fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+                    }}>
+                      ↩ Retour entrepôt
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -685,6 +760,37 @@ export default function Stocks() {
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Erreur', 'error');
     } finally { setRecuLoading(null); }
+  };
+
+  // Annulation d'un envoi en transit — confirmation en 2 clics (garde-fou)
+  const [confirmAnnulId, setConfirmAnnulId] = useState<string | null>(null);
+  const handleAnnuler = async (demandeId: string) => {
+    if (confirmAnnulId !== demandeId) { setConfirmAnnulId(demandeId); return; }
+    setConfirmAnnulId(null);
+    setRecuLoading(demandeId);
+    const delivery = pendingDeliveries.find(d => d._id === demandeId);
+    try {
+      await annulerEnvoi(demandeId);
+      setPendingDeliveries(prev => prev.filter(d => d._id !== demandeId));
+      addToast(`Envoi annulé — ${delivery?.quantiteDemandee ?? ''} ${delivery?.produit?.name ?? ''} remis dans le stock entrepôt du magazinier`, 'success');
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+    } finally { setRecuLoading(null); }
+  };
+
+  // Retour boutique → entrepôt
+  const [retourProduct, setRetourProduct] = useState<Product | null>(null);
+  const handleRetour = async (qty: number) => {
+    if (!retourProduct) return;
+    try {
+      const r = await retourEntrepot({ produitId: retourProduct._id, quantite: qty });
+      setProducts(prev => prev.map(p => p._id === retourProduct._id ? { ...p, stock: r.stock, stockMagazin: r.stockMagazin } : p));
+      setSelected(prev => prev && prev._id === retourProduct._id ? { ...prev, stock: r.stock, stockMagazin: r.stockMagazin } : prev);
+      addToast(`↩ ${qty} ${retourProduct.name} retourné(s) à l'entrepôt`, 'success');
+      setRetourProduct(null);
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+    }
   };
 
   // ── Derived metrics ────────────────────────────────────────────────────────
@@ -1053,6 +1159,9 @@ export default function Stocks() {
       {demandeProduct && (
         <DemandeModal product={demandeProduct} onConfirm={handleDemande} onClose={() => setDemandeProduct(null)}/>
       )}
+      {retourProduct && (
+        <RetourModal product={retourProduct} onConfirm={handleRetour} onClose={() => setRetourProduct(null)}/>
+      )}
       {newProduct && (
         <NouveauProduitModal knownCategories={derivedCategories} existingProducts={products} onClose={() => setNewProduct(false)}
           onCreated={created => {
@@ -1219,12 +1328,23 @@ export default function Stocks() {
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleRecu(d._id)}
-                    disabled={recuLoading === d._id}
-                    style={{ padding: '6px 14px', background: d.type === 'envoi' ? '#16a34a' : '#2563eb', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: recuLoading === d._id ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-                    <I d={D.check} size={11}/> {recuLoading === d._id ? '…' : 'Reçu ✓'}
-                  </button>
+                  <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <button
+                      onClick={() => handleRecu(d._id)}
+                      disabled={recuLoading === d._id}
+                      style={{ padding: '6px 14px', background: d.type === 'envoi' ? '#16a34a' : '#2563eb', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: recuLoading === d._id ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <I d={D.check} size={11}/> {recuLoading === d._id ? '…' : 'Reçu ✓'}
+                    </button>
+                    {/* Annulation : 1er clic = demande de confirmation, 2e clic = annule (stock restitué à l'entrepôt) */}
+                    <button
+                      onClick={() => handleAnnuler(d._id)}
+                      onMouseLeave={() => { if (confirmAnnulId === d._id) setConfirmAnnulId(null); }}
+                      disabled={recuLoading === d._id}
+                      title="Refuser cet envoi — les quantités retournent dans le stock entrepôt du magazinier"
+                      style={{ padding: '6px 12px', background: confirmAnnulId === d._id ? '#dc2626' : '#fff', color: confirmAnnulId === d._id ? '#fff' : '#dc2626', border: '1px solid #fca5a5', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      {confirmAnnulId === d._id ? 'Confirmer l\'annulation ?' : '✕ Annuler'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -1418,6 +1538,7 @@ export default function Stocks() {
           onEdit={() => { if (isMobile) setSelected(null); setEditProduct(selected); }}
           onDelete={handleDeleteProduct}
           onDemande={() => setDemandeProduct(selected)}
+          onRetour={() => setRetourProduct(selected)}
           pendingDelivery={pendingDeliveries.find(d => d.produit._id === selected._id) ?? null}
           onRecu={handleRecu}
         />

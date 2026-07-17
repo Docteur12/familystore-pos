@@ -5,8 +5,8 @@ export interface DemandeStock {
   produit: { _id: string; name: string; unit: string; stock: number; stockMagazin?: number };
   quantiteDemandee: number;
   demandePar: { _id: string; name: string };
-  statut: 'en_attente' | 'envoyé' | 'reçu';
-  type?: 'demande' | 'envoi';
+  statut: 'en_attente' | 'envoyé' | 'reçu' | 'annulé';
+  type?: 'demande' | 'envoi' | 'retour';
   createdAt: string;
   dateEnvoi?: string;
 }
@@ -50,6 +50,24 @@ export async function marquerRecu(demandeId: string): Promise<DemandeStock> {
     method: 'PATCH', headers: authHeaders(),
   });
   if (!res.ok) throw new Error((await res.json()).message ?? 'Erreur');
+  return res.json();
+}
+
+// Annule un envoi en transit — les quantités retournent dans le stock entrepôt
+export async function annulerEnvoi(demandeId: string): Promise<DemandeStock> {
+  const res = await fetch(`/api/magazinier/demandes/${demandeId}/annuler`, {
+    method: 'PATCH', headers: authHeaders(),
+  });
+  if (!res.ok) throw new Error((await res.json()).message ?? 'Erreur');
+  return res.json();
+}
+
+// Retour boutique → entrepôt (gestionnaire) : stock caisse −N, stock entrepôt +N
+export async function retourEntrepot(data: { produitId: string; quantite: number }): Promise<{ ok: boolean; stock: number; stockMagazin: number }> {
+  const res = await fetch('/api/magazinier/retour-entrepot', {
+    method: 'POST', headers: authHeaders(), body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error((await res.json()).message ?? 'Erreur retour entrepôt');
   return res.json();
 }
 

@@ -1264,19 +1264,30 @@ export default function Magazinier() {
                   </p>
                   {envs.length === 0 ? (
                     <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucun envoi enregistré</div>
-                  ) : envs.map(e => (
+                  ) : envs.map(e => {
+                    // Badge selon le devenir de l'envoi (annulé = stock déjà restitué à l'entrepôt)
+                    const badge = e.type === 'retour' ? { txt: '↩ Retour boutique', color: '#b45309', bg: '#fff7ed' }
+                      : e.statut === 'annulé'         ? { txt: '✕ Annulé',          color: '#dc2626', bg: '#fef2f2' }
+                      : e.statut === 'reçu'           ? { txt: 'Reçu ✓',            color: '#15803d', bg: '#f0fdf4' }
+                      :                                 { txt: 'Envoyé',             color: '#2563eb', bg: '#eff6ff' };
+                    return (
                     <div key={e._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '14px 18px', marginBottom: 8, boxShadow: 'var(--fs-shadow-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{e.produit?.name ?? '—'}</div>
                         <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
-                          {e.quantiteDemandee}{qtyUnitLabel(e.produit?.unit) && ` ${qtyUnitLabel(e.produit?.unit)}`} · demandé par {e.demandePar?.name ?? '?'} · envoyé le {e.dateEnvoi ? fmtDateTime(e.dateEnvoi) : '—'}
+                          {e.quantiteDemandee}{qtyUnitLabel(e.produit?.unit) && ` ${qtyUnitLabel(e.produit?.unit)}`}
+                          {e.type === 'retour'
+                            ? <> · retourné à l'entrepôt par {e.demandePar?.name ?? '?'} le {e.dateEnvoi ? fmtDateTime(e.dateEnvoi) : '—'}</>
+                            : <> · demandé par {e.demandePar?.name ?? '?'} · envoyé le {e.dateEnvoi ? fmtDateTime(e.dateEnvoi) : '—'}</>}
+                          {e.statut === 'annulé' && <> · <strong style={{ color: '#dc2626' }}>quantités remises en entrepôt</strong></>}
                         </div>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', background: '#eff6ff', padding: '3px 10px', borderRadius: 20 }}>
-                        Envoyé
+                      <span style={{ fontSize: 11, fontWeight: 700, color: badge.color, background: badge.bg, padding: '3px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+                        {badge.txt}
                       </span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </>
               )}
             </div>

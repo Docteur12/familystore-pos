@@ -14,11 +14,11 @@ export class DemandeStock {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   demandePar: Types.ObjectId;
 
-  @Prop({ enum: ['en_attente', 'envoyé', 'reçu'], default: 'en_attente' })
-  statut: string;
+  @Prop({ enum: ['en_attente', 'envoyé', 'reçu', 'annulé'], default: 'en_attente' })
+  statut: string;  // 'annulé' = refusé par le gestionnaire → stock restitué à l'entrepôt
 
-  @Prop({ enum: ['demande', 'envoi'], default: 'demande' })
-  type: string;  // 'demande' = gestionnaire demande | 'envoi' = magazinier envoie directement
+  @Prop({ enum: ['demande', 'envoi', 'retour'], default: 'demande' })
+  type: string;  // 'demande' = gestionnaire demande | 'envoi' = magazinier envoie | 'retour' = boutique → entrepôt
 
   @Prop()
   dateEnvoi: Date;

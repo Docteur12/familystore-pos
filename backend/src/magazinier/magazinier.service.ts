@@ -149,6 +149,70 @@ export class MagazinierService {
     return { ok: true };
   }
 
+  // ── PATCH /magazinier/demandes/:id/annuler ────────────────────────────────
+  // Le gestionnaire (ou le magazinier) annule un envoi non encore reçu :
+  // les quantités retournent dans le stock ENTREPÔT.
+  async annulerEnvoi(demandeId: string) {
+    const demande = await this.demandeModel.findById(demandeId);
+    if (!demande) throw new NotFoundException('Envoi introuvable');
+    if (demande.statut !== 'envoyé') throw new ForbiddenException("Seul un envoi en transit (non reçu) peut être annulé");
+
+    // Restitution du stock entrepôt (il avait été décrémenté à l'envoi)
+    await this.productModel.findByIdAndUpdate(
+      demande.produit,
+      { $inc: { stockMagazin: demande.quantiteDemandee } },
+    );
+
+    demande.statut = 'annulé';
+    await demande.save();
+
+    return this.demandeModel
+      .findById(demandeId)
+      .populate('produit', 'name unit stock stockMagazin')
+      .populate('demandePar', 'name')
+      .lean();
+  }
+
+  // ── POST /magazinier/retour-entrepot ──────────────────────────────────────
+  // Le gestionnaire renvoie des produits de la BOUTIQUE vers l'ENTREPÔT
+  // (invendus, surplus, erreur d'envoi…) : stock caisse −N, stock entrepôt +N.
+  async retourEntrepot(body: { produitId: string; quantite: number }, userId: string) {
+    const q = Math.floor(Number(body.quantite) || 0);
+    if (q <= 0) throw new BadRequestException('Quantité invalide');
+
+    const product = await this.productModel.findById(body.produitId);
+    if (!product) throw new NotFoundException('Produit introuvable');
+    if (product.stock < q) {
+      throw new BadRequestException(`Stock boutique insuffisant pour « ${product.name} » : ${product.stock} en stock, ${q} à retourner.`);
+    }
+
+    await this.productModel.findByIdAndUpdate(
+      body.produitId,
+      { $inc: { stock: -q, stockMagazin: q } },
+    );
+
+    await this.movementModel.create({
+      productId: new Types.ObjectId(body.produitId),
+      type:      'OUT',
+      quantity:  q,
+      reason:    'retour_entrepot',
+      note:      'Retour boutique → entrepôt',
+    });
+
+    // Trace visible dans l'historique du magazinier
+    await this.demandeModel.create({
+      produit:          new Types.ObjectId(body.produitId),
+      quantiteDemandee: q,
+      demandePar:       new Types.ObjectId(userId),
+      statut:           'reçu',
+      type:             'retour',
+      dateEnvoi:        new Date(),
+    });
+
+    const updated = await this.productModel.findById(body.produitId).lean();
+    return { ok: true, stock: updated?.stock ?? 0, stockMagazin: updated?.stockMagazin ?? 0 };
+  }
+
   // ── PATCH /magazinier/demandes/:id/recevoir ───────────────────────────────
 
   async marquerRecu(demandeId: string) {
@@ -237,7 +301,7 @@ export class MagazinierService {
         .limit(50)
         .lean(),
       this.demandeModel
-        .find({ statut: { $in: ['envoyé', 'reçu'] } })
+        .find({ statut: { $in: ['envoyé', 'reçu', 'annulé'] } })
         .populate('produit', 'name unit')
         .populate('demandePar', 'name')
         .sort({ dateEnvoi: -1 })

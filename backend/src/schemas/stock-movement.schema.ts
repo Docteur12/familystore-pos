@@ -6,11 +6,13 @@ export type StockMovementDocument = HydratedDocument<StockMovement>;
 export type MovementType   = 'IN' | 'OUT';
 export type MovementReason =
   | 'restock' | 'sale' | 'adjustment' | 'reception'
-  | 'annulation_vente' | 'livraison_partenaire' | 'retour_partenaire';
+  | 'annulation_vente' | 'livraison_partenaire' | 'retour_partenaire'
+  | 'retour_entrepot';
 
 const MOVEMENT_REASONS: MovementReason[] = [
   'restock', 'sale', 'adjustment', 'reception',
   'annulation_vente', 'livraison_partenaire', 'retour_partenaire',
+  'retour_entrepot',
 ];
 
 @Schema({ timestamps: { createdAt: true, updatedAt: false } })
