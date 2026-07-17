@@ -14,6 +14,7 @@ import ToastContainer, { useToast }            from '../components/Toast';
 import StocksSidebar                           from '../components/StocksSidebar';
 import { useIsMobile }                         from '../hooks/useIsMobile';
 import OfflineSyncBanner                       from '../components/OfflineSyncBanner';
+import ImportExportProduits                    from '../components/ImportExportProduits';
 import { queueAjoutStock }                     from '../services/offlineMagazin';
 import { createDemande, getDemandes, marquerRecu, annulerEnvoi, retourEntrepot, DemandeStock } from '../api/magazinier';
 
@@ -1268,7 +1269,7 @@ export default function Stocks() {
               }}>
                 <I d={D.export} size={13}/> PDF
               </button>
-              <button onClick={handleExportExcel} title="Exporter le catalogue en Excel" style={{
+              <button onClick={handleExportExcel} title="Exporter le catalogue en Excel (consultation)" style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
                 border: '1.5px solid var(--fs-wine-700)', borderRadius: 'var(--fs-r-md)',
                 background: 'none', color: 'var(--fs-wine-700)', fontSize: 13, fontWeight: 600,
@@ -1276,6 +1277,8 @@ export default function Stocks() {
               }}>
                 <I d={D.export} size={13}/> Excel
               </button>
+              {/* Export/Import de la liste complète des produits (fichier réimportable) */}
+              <ImportExportProduits products={products} onImported={fetchProducts} addToast={addToast}/>
               <button onClick={() => setNewProduct(true)} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
                 border: 'none', borderRadius: 'var(--fs-r-md)',

@@ -128,4 +128,71 @@ export class ProductsService {
     }
     return product;
   }
+
+  // ── Import en masse depuis un fichier Excel/CSV ─────────────────────────────
+  // Correspondance : code-barres d'abord, sinon nom exact (insensible à la casse).
+  // Une cellule VIDE ne modifie rien (aucun risque d'effacer des données) ;
+  // une ligne sans correspondance crée le produit (nom requis).
+  async importBulk(rows: Array<Record<string, unknown>>) {
+    let crees = 0;
+    let modifies = 0;
+    const erreurs: { ligne: number; nom: string; message: string }[] = [];
+    const clean = (v: unknown) => String(v ?? '').trim();
+    const num = (v: unknown): number | undefined => {
+      const t = clean(v).replace(/\s/g, '').replace(',', '.');
+      if (t === '') return undefined;
+      const n = Number(t);
+      return isNaN(n) ? undefined : n;
+    };
+    const escapeRegex = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      const nom = clean(r.name);
+      const barcode = clean(r.barcode);
+      try {
+        if (!nom && !barcode) continue; // ligne vide
+
+        // Seules les cellules remplies sont appliquées
+        const set: Record<string, unknown> = {};
+        if (nom) set.name = nom;
+        if (barcode) set.barcode = barcode;
+        for (const k of ['localName', 'category', 'subCategory', 'unit', 'valeur', 'fournisseur'] as const) {
+          const v = clean(r[k]);
+          if (v) set[k] = v;
+        }
+        for (const k of ['price', 'costPrice', 'discount', 'stock', 'stockMagazin', 'alertThreshold', 'magazinierThreshold'] as const) {
+          const v = num(r[k]);
+          if (v !== undefined) set[k] = Math.max(0, v);
+        }
+        const exp = clean(r.expiryDate);
+        if (exp) {
+          const d = new Date(exp);
+          if (!isNaN(d.getTime())) set.expiryDate = d;
+        }
+
+        let existing: { _id: unknown } | null = null;
+        if (barcode) existing = await this.productModel.findOne({ barcode }).lean();
+        if (!existing && nom) {
+          existing = await this.productModel.findOne({ name: { $regex: `^${escapeRegex(nom)}$`, $options: 'i' } }).lean();
+        }
+
+        if (existing) {
+          await this.productModel.updateOne({ _id: existing._id }, { $set: set });
+          modifies++;
+        } else {
+          if (!nom) { erreurs.push({ ligne: i + 2, nom: barcode, message: 'produit introuvable et pas de nom pour le créer' }); continue; }
+          await this.productModel.create({
+            price: 0, costPrice: 0, stock: 0,
+            ...set,
+            name: nom,
+          });
+          crees++;
+        }
+      } catch (e: any) {
+        erreurs.push({ ligne: i + 2, nom: nom || barcode, message: String(e?.message ?? 'erreur').slice(0, 140) });
+      }
+    }
+    return { crees, modifies, erreurs };
+  }
 }

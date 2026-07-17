@@ -45,6 +45,22 @@ export class ProductsController {
     return this.productsService.findById(id);
   }
 
+  // POST /api/products/import-bulk — import Excel/CSV en masse
+  @Post('import-bulk')
+  @UseGuards(RolesGuard)
+  @Roles('patron', 'gestionnaire', 'magazinier')
+  async importBulk(@Body() body: { rows: Array<Record<string, unknown>> }, @Req() req: Request) {
+    const actor = (req as any)['user'];
+    const result = await this.productsService.importBulk(Array.isArray(body?.rows) ? body.rows : []);
+    this.auditService.log({
+      type: 'modification', module: 'produits',
+      actorName: actor.name, actorRole: actor.role,
+      detail: `Import produits en masse : ${result.crees} créé(s), ${result.modifies} modifié(s), ${result.erreurs.length} erreur(s)`,
+      meta: { crees: result.crees, modifies: result.modifies, erreurs: result.erreurs.length },
+    });
+    return result;
+  }
+
   // POST /api/products — patron + gestionnaire + magazinier
   @Post()
   @UseGuards(RolesGuard)

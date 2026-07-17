@@ -7,6 +7,7 @@ import { formatProductName, contientTexte } from '../utils/text';
 import { queueProduitLocal, queueReceptionLocale, getPendingMagazin, syncMagazin, estIdTemporaire } from '../services/offlineMagazin';
 import { useIsMobile }       from '../hooks/useIsMobile';
 import AutocompleteInput     from '../components/AutocompleteInput';
+import ImportExportProduits  from '../components/ImportExportProduits';
 import Partenaires           from './Partenaires';
 import {
   createReception, getDemandes, marquerEnvoye, getHistorique, createEnvoi,
@@ -1311,10 +1312,18 @@ export default function Magazinier() {
             <div style={{ maxWidth: 880 }}>
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                 <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--fs-line)' }}>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>
-                    Mes produits — {mesProduits.length} référence{mesProduits.length !== 1 ? 's' : ''}
-                  </p>
-                  <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--fs-ink-400)' }}>Produits en entrepôt</p>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>
+                        Mes produits — {mesProduits.length} référence{mesProduits.length !== 1 ? 's' : ''}
+                      </p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--fs-ink-400)' }}>Produits en entrepôt</p>
+                    </div>
+                    {/* Export/Import de la liste complète des produits (Excel) */}
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      <ImportExportProduits products={products} onImported={loadProducts} addToast={addToast}/>
+                    </div>
+                  </div>
                   <input
                     value={dashSearch}
                     onChange={e => setDashSearch(e.target.value)}
