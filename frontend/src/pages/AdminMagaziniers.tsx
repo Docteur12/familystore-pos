@@ -227,7 +227,7 @@ function CreatePanel({ caisses, onCreated, onCancel, isNarrow }: { caisses: Cais
     <div style={{ width: isNarrow ? '100%' : 320, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', borderTop: isNarrow ? '1px solid var(--fs-line)' : 'none', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>+ Nouveau magazinier</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>+ Nouveau magasinier</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Créer un compte</div>
         </div>
         <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}><I d={D.close} size={16}/></button>
@@ -499,7 +499,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
         {products.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>
             <I d={D.warehouse} size={36}/><br/><br/>
-            Aucun produit — le magazinier n'a pas encore enregistré de réception.
+            Aucun produit — le magasinier n'a pas encore enregistré de réception.
           </div>
         ) : (
           <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 820 : undefined, borderCollapse: 'collapse', background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
@@ -615,7 +615,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
         <div style={{ marginTop: 20, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
           <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <I d={D.truck} size={14}/>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Envois du magazinier au gestionnaire</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Envois du magasinier au gestionnaire</span>
             <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 20, padding: '2px 10px', color: 'var(--fs-ink-500)' }}>
               {demandes.length} envoi{demandes.length !== 1 ? 's' : ''}
             </span>
@@ -700,7 +700,7 @@ export default function AdminMagaziniers() {
     reloadStock();
   }, []);
 
-  // Produits qui ont été reçus au moins une fois par le magazinier
+  // Produits qui ont été reçus au moins une fois par le magasinier
   const receivedIds = new Set(
     receptions.flatMap(r => r.items.map(it => String(it.productId)))
   );
@@ -748,7 +748,7 @@ export default function AdminMagaziniers() {
             {viewMode === 'equipe' && (
               <button onClick={() => setPanel({ type: 'create' })}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                <I d={D.plus} size={13}/> Ajouter un magazinier
+                <I d={D.plus} size={13}/> Ajouter un magasinier
               </button>
             )}
           </div>
@@ -761,7 +761,7 @@ export default function AdminMagaziniers() {
               {users.length === 0 ? (
                 <div style={{ textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, padding: '60px 0' }}>
                   <I d={D.pkg} size={36}/><br/><br/>
-                  Aucun magazinier — cliquez sur <strong>Ajouter</strong> pour créer le premier compte.
+                  Aucun magasinier — cliquez sur <strong>Ajouter</strong> pour créer le premier compte.
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 14 }}>

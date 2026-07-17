@@ -36,7 +36,7 @@ const ROLE_META: Record<RoleKey, { label: string; desc: string; bg: string; colo
   patron:       { label: 'Patron',       desc: 'Accès total',               bg: 'var(--fs-wine-50)', color: 'var(--fs-wine-700)', border: 'rgba(122,29,46,0.2)'  },
   gestionnaire: { label: 'Gestionnaire', desc: 'Stock & approvisionnement', bg: '#E8F0E5',           color: '#3F6B3A',            border: 'rgba(90,139,83,0.2)'  },
   caissier:     { label: 'Caissier',     desc: 'Caisse uniquement',         bg: '#EEF3FA',           color: '#3A5E8F',            border: 'rgba(58,94,143,0.2)'  },
-  magazinier:   { label: 'Magazinier',   desc: 'Entrepôt & réceptions',     bg: '#FEF3C7',           color: '#B45309',            border: 'rgba(180,83,9,0.2)'   },
+  magazinier:   { label: 'Magasinier',   desc: 'Entrepôt & réceptions',     bg: '#FEF3C7',           color: '#B45309',            border: 'rgba(180,83,9,0.2)'   },
 };
 
 const ROLE_ORDER: RoleKey[] = ['patron', 'gestionnaire', 'caissier', 'magazinier'];
@@ -227,7 +227,7 @@ export default function AdminRoles() {
             {([
               { label: 'Caissiers',     count: byRole('caissier').length,    bg: ROLE_META.caissier.bg,     color: ROLE_META.caissier.color,     border: ROLE_META.caissier.border     },
               { label: 'Gestionnaires', count: byRole('gestionnaire').length, bg: ROLE_META.gestionnaire.bg, color: ROLE_META.gestionnaire.color, border: ROLE_META.gestionnaire.border },
-              { label: 'Magaziniers',   count: byRole('magazinier').length,   bg: ROLE_META.magazinier.bg,   color: ROLE_META.magazinier.color,   border: ROLE_META.magazinier.border   },
+              { label: 'Magasiniers',   count: byRole('magazinier').length,   bg: ROLE_META.magazinier.bg,   color: ROLE_META.magazinier.color,   border: ROLE_META.magazinier.border   },
               { label: 'Total membres', count: nonPatron,   bg: '#fff',    color: 'var(--fs-ink-700)', border: 'var(--fs-line)'             },
               { label: 'Actifs auj.',   count: activeToday, bg: '#F0FDF4', color: '#166534',           border: 'rgba(34,197,94,0.3)'         },
             ] as { label: string; count: number; bg: string; color: string; border: string }[]).map(k => (

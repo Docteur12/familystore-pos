@@ -150,7 +150,7 @@ export class MagazinierService {
   }
 
   // ── PATCH /magazinier/demandes/:id/annuler ────────────────────────────────
-  // Le gestionnaire (ou le magazinier) annule un envoi non encore reçu :
+  // Le gestionnaire (ou le magasinier) annule un envoi non encore reçu :
   // les quantités retournent dans le stock ENTREPÔT.
   async annulerEnvoi(demandeId: string) {
     const demande = await this.demandeModel.findById(demandeId);
@@ -199,7 +199,7 @@ export class MagazinierService {
       note:      'Retour boutique → entrepôt',
     });
 
-    // Trace visible dans l'historique du magazinier
+    // Trace visible dans l'historique du magasinier
     await this.demandeModel.create({
       produit:          new Types.ObjectId(body.produitId),
       quantiteDemandee: q,
@@ -220,7 +220,7 @@ export class MagazinierService {
     if (!demande) throw new NotFoundException('Demande introuvable');
     if (demande.statut !== 'envoyé') throw new ForbiddenException('Demande non encore envoyée');
 
-    // Envoi direct du magazinier : mise à jour automatique du stock caisse
+    // Envoi direct du magasinier : mise à jour automatique du stock caisse
     if (demande.type === 'envoi') {
       await this.productModel.findByIdAndUpdate(
         demande.produit,
@@ -291,7 +291,7 @@ export class MagazinierService {
   // ── GET /magazinier/historique ────────────────────────────────────────────
 
   async getHistorique(userId: string, role?: string) {
-    // Le patron (supervision) voit TOUT l'historique ; un magazinier voit le sien.
+    // Le patron (supervision) voit TOUT l'historique ; un magasinier voit le sien.
     const recFilter = role === 'patron' ? {} : { creePar: new Types.ObjectId(userId) };
     const [receptions, envois] = await Promise.all([
       this.receptionModel

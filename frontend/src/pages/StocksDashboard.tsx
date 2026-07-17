@@ -50,7 +50,7 @@ export default function StocksDashboard() {
   const [topProds, setTopProds] = useState<TopProduct[]>([]);
   const [loading,  setLoading]  = useState(true);
 
-  // Demande magazinier modal
+  // Demande magasinier modal
   const [demandeModal, setDemandeModal] = useState<{ product: Product } | null>(null);
   const [demandeQty,   setDemandeQty]   = useState('');
   const [dSending,     setDSending]     = useState(false);
@@ -63,7 +63,7 @@ export default function StocksDashboard() {
     setDSending(true);
     try {
       await createDemande({ produitId: demandeModal.product._id, quantiteDemandee: qty });
-      addToast(`Demande envoyée au magazinier — ${demandeModal.product.name}`, 'success');
+      addToast(`Demande envoyée au magasinier — ${demandeModal.product.name}`, 'success');
       setDemandeModal(null); setDemandeQty('');
     } catch (e: unknown) {
       addToast(e instanceof Error ? e.message : 'Erreur', 'error');
@@ -113,13 +113,13 @@ export default function StocksDashboard() {
       <ToastContainer toasts={toasts} onRemove={removeToast}/>
       <StocksSidebar alertCount={lowCount}/>
 
-      {/* ── Modal demande magazinier ───────────────────────────────────── */}
+      {/* ── Modal demande magasinier ───────────────────────────────────── */}
       {demandeModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setDemandeModal(null)}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}
             onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>Demande au magazinier</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>Demande au magasinier</p>
             <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', margin: '0 0 16px' }}>{demandeModal.product.name}</h3>
             <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: '0 0 14px' }}>
               Stock actuel : <strong style={{ color: 'var(--fs-danger-700)' }}>{demandeModal.product.stock}</strong>

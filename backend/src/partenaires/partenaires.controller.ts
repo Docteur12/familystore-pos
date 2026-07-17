@@ -83,7 +83,7 @@ export class PartenairesController {
     return this.service.createCommande(body, actor?.sub);
   }
 
-  // Préparation / livraison par le magazinier (quantités réellement servies)
+  // Préparation / livraison par le magasinier (quantités réellement servies)
   @Post('commandes/:cid/preparer')
   preparerCommande(
     @Param('cid') cid: string,

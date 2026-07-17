@@ -461,7 +461,7 @@ export class PartenairesService {
     return { archived: false, deleted: true };
   }
 
-  // ── Préparation / livraison par le magazinier (quantités réellement servies) ──
+  // ── Préparation / livraison par le magasinier (quantités réellement servies) ──
   // Crée un bon de livraison à partir d'une commande, avec les quantités servies
   // (≤ ou < commandées). Met à jour le cumul livré + le statut (reliquat ouvert).
   async preparerCommande(

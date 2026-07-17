@@ -1,4 +1,4 @@
-// File hors-ligne du MAGAZINIER : créations de produits et réceptions
+// File hors-ligne du MAGASINIER : créations de produits et réceptions
 // enregistrées en local (IndexedDB) quand le réseau manque, puis
 // synchronisées automatiquement au retour de la connexion.
 //

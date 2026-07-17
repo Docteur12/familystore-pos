@@ -8,7 +8,7 @@ import { sansAccents } from '../utils/text';
  * - Export : toutes les caractéristiques, fichier qui s'ouvre en colonnes dans Excel.
  * - Import : correspondance par code-barres puis nom ; une cellule vide ne modifie
  *   rien ; une ligne inconnue crée le produit. Confirmation avant application.
- * Utilisé par le catalogue du gestionnaire ET l'espace magazinier.
+ * Utilisé par le catalogue du gestionnaire ET l'espace magasinier.
  */
 
 const COLONNES = [

@@ -245,7 +245,7 @@ export default function AdminParametres() {
   // ── Réinitialisation ─────────────────────────────────────────────────────
   const [resetLoading, setResetLoading] = useState(false);
   const [resetText,    setResetText]    = useState('');   // mot-clé « TOUT SUPPRIMER »
-  // Réinitialisation du magazin (entrepôt) — déplacée ici depuis la page Magaziniers.
+  // Réinitialisation du magazin (entrepôt) — déplacée ici depuis la page Magasiniers.
   const [magResetText,    setMagResetText]    = useState('');
   const [magResetLoading, setMagResetLoading] = useState(false);
   const [magResetDone,    setMagResetDone]    = useState(false);

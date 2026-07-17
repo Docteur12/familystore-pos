@@ -61,7 +61,7 @@ export class ProductsController {
     return result;
   }
 
-  // POST /api/products — patron + gestionnaire + magazinier
+  // POST /api/products — patron + gestionnaire + magasinier
   @Post()
   @UseGuards(RolesGuard)
   @Roles('patron', 'gestionnaire', 'magazinier')
@@ -109,7 +109,7 @@ export class ProductsController {
     return result;
   }
 
-  // PATCH /api/products/:id/prix — magazinier + gestionnaire + patron
+  // PATCH /api/products/:id/prix — magasinier + gestionnaire + patron
   // Fixe les prix et les verrouille (le gestionnaire ne pourra plus les changer)
   @Patch(':id/prix')
   @UseGuards(RolesGuard)

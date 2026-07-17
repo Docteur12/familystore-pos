@@ -48,7 +48,7 @@ const FACTURE_COLS: { key: FSortKey | null; label: string; align: 'left' | 'righ
   { key: 'numero',   label: 'Ticket #', align: 'left' },
   { key: 'date',     label: 'Date',     align: 'left' },
   { key: 'caissier', label: 'Caissier', align: 'left' },
-  { key: 'pm',       label: 'Mode',     align: 'left' },
+  { key: 'pm',       label: 'Mode de paiement', align: 'left' },
   { key: 'articles', label: 'Articles', align: 'left' },
   { key: 'montant',  label: 'Montant',  align: 'right' },
   { key: null,       label: 'PDF',      align: 'right' },
@@ -80,6 +80,16 @@ export default function AdminFactures() {
   const [period,    setPeriod]    = useState<'today' | 'week' | 'month' | 'custom' | 'all'>('all');
   const [caissier,  setCaissier]  = useState('');
   const [caissiers, setCaissiers] = useState<string[]>([]);
+  const [modePaiement,  setModePaiement]  = useState('');
+  const [modesPaiement, setModesPaiement] = useState<string[]>([]);
+  const [caTotal, setCaTotal] = useState(0); // CA du filtre complet (toutes pages)
+  // Détail dépliable : clic sur une facture → liste de ses articles
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) => setExpanded(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const [sort,     setSort]     = useState<{ key: FSortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'desc' });
   const [deleteTarget, setDeleteTarget] = useState<FactureRecord | null>(null);
   const [deleting,     setDeleting]     = useState(false);
@@ -122,23 +132,25 @@ export default function AdminFactures() {
         dateFrom: from,
         dateTo:   to,
         caissier: caissier || undefined,
+        paymentMethod: modePaiement || undefined,
         page: p,
         limit: PAGE_SIZE,
       });
       setFactures(res.data);
       setTotal(res.total);
+      setCaTotal(res.totalMontant ?? res.data.reduce((s, f) => s + f.montant, 0));
       if (res.caissiers?.length) setCaissiers(res.caissiers);
+      if (res.modesPaiement?.length) setModesPaiement(res.modesPaiement);
       setPage(p);
     } catch {
       addToast('Erreur chargement des factures', 'error');
     } finally {
       setLoading(false);
     }
-  }, [periodDates, caissier, addToast]);
+  }, [periodDates, caissier, modePaiement, addToast]);
 
   useEffect(() => { load(0); }, [load]);
 
-  const totalMontant = factures.reduce((s, f) => s + f.montant, 0);
   const pages        = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const sortDir = sort.dir === 'asc' ? 1 : -1;
@@ -217,7 +229,13 @@ export default function AdminFactures() {
                 <option value="">Toutes les caissières</option>
                 {caissiers.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <button onClick={() => { setPeriod('all'); setCaissier(''); setDateFrom(''); setDateTo(''); }}
+              {/* Filtre par mode de paiement — le « CA affiché » suit ce filtre */}
+              <select value={modePaiement} onChange={e => setModePaiement(e.target.value)}
+                style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-700)' }}>
+                <option value="">Tous les modes de paiement</option>
+                {modesPaiement.map(m => <option key={m} value={m}>{PM_LABELS[m] ?? m}</option>)}
+              </select>
+              <button onClick={() => { setPeriod('all'); setCaissier(''); setModePaiement(''); setDateFrom(''); setDateTo(''); }}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
                 Réinitialiser
               </button>
@@ -233,7 +251,7 @@ export default function AdminFactures() {
           </div>
           <div>
             <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>CA affiché </span>
-            <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>{fmtN(totalMontant)} XAF</span>
+            <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>{fmtN(caTotal)} XAF</span>
           </div>
           <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fs-ink-400)' }}>
             Page {page + 1} / {pages}
@@ -270,10 +288,17 @@ export default function AdminFactures() {
                         Aucune facture enregistrée sur cette période.
                       </td>
                     </tr>
-                  ) : sortedFactures.map((f, i) => (
-                    <tr key={f._id} style={{ background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
-                      <td style={{ padding: '10px 12px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', fontWeight: 800, color: 'var(--fs-wine-700)' }}>
-                        #{f.numero}
+                  ) : sortedFactures.map((f, i) => {
+                    const isExp = expanded.has(f._id);
+                    return (
+                    <React.Fragment key={f._id}>
+                    <tr onClick={() => toggleExpand(f._id)}
+                      style={{ background: isExp ? 'var(--fs-wine-50)' : i % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: isExp ? 'none' : '1px solid var(--fs-line)', cursor: 'pointer' }}>
+                      <td style={{ padding: '10px 12px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', fontWeight: 800, color: 'var(--fs-wine-700)', whiteSpace: 'nowrap' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <I d={isExp ? 'M18 15l-6-6-6 6' : 'M6 9l6 6 6-6'} size={11}/>
+                          #{f.numero}
+                        </span>
                       </td>
                       <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--fs-ink-600)', whiteSpace: 'nowrap' }}>
                         {fmtDate(f.date || f.createdAt)}
@@ -290,7 +315,7 @@ export default function AdminFactures() {
                       <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)', whiteSpace: 'nowrap' }}>
                         {fmtN(f.montant)} XAF
                       </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                      <td style={{ padding: '10px 12px', textAlign: 'right' }} onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <button onClick={() => downloadPDF(f)}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', background: 'var(--fs-wine-50)', color: 'var(--fs-wine-700)', border: '1px solid var(--fs-wine-200)', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
@@ -304,7 +329,42 @@ export default function AdminFactures() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    {/* Détail de la facture (articles) — visible d'un clic, sans télécharger le PDF */}
+                    {isExp && (
+                      <tr>
+                        <td colSpan={7} style={{ background: 'var(--fs-ivory)', padding: '0 0 4px' }}>
+                          <div style={{ margin: '0 40px 10px', border: '1px solid var(--fs-line)', borderRadius: 8, overflow: 'hidden', background: '#fff' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr style={{ background: 'var(--fs-wine-50)' }}>
+                                  {['Article', 'Qté', 'Prix unit.', 'Sous-total'].map((h, hi) => (
+                                    <th key={h} style={{ padding: '6px 12px', textAlign: hi >= 1 ? 'right' : 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {f.items.map((it, idx) => (
+                                  <tr key={idx} style={{ borderTop: '1px solid var(--fs-line)', background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
+                                    <td style={{ padding: '6px 12px', fontSize: 12, color: 'var(--fs-ink-800)' }}>{it.name}</td>
+                                    <td style={{ padding: '6px 12px', textAlign: 'right', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-600)' }}>×{it.quantity}</td>
+                                    <td style={{ padding: '6px 12px', textAlign: 'right', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-600)' }}>{fmtN(it.unitPrice)} XAF</td>
+                                    <td style={{ padding: '6px 12px', textAlign: 'right', fontSize: 12, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{fmtN(it.unitPrice * it.quantity)} XAF</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px', background: 'var(--fs-wine-50)', borderTop: '1px solid var(--fs-line)' }}>
+                              <span style={{ fontSize: 12, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>
+                                Total : {fmtN(f.montant)} XAF
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -48,7 +48,7 @@ export class Product {
   discount: number;
 
   @Prop({ default: 0 })
-  stockMagazin: number;  // stock entrepôt (magazinier) — indépendant du stock caisse
+  stockMagazin: number;  // stock entrepôt (magasinier) — indépendant du stock caisse
 
   @Prop({ default: false })
   stockMagazinAjuste: boolean;  // true si la dernière modification vient de l'admin
@@ -60,7 +60,7 @@ export class Product {
   magazinierThreshold: number;
 
   @Prop({ default: false })
-  prixVerrouille: boolean;  // prix fixé par le magazinier → non modifiable par le gestionnaire
+  prixVerrouille: boolean;  // prix fixé par le magasinier → non modifiable par le gestionnaire
 
   @Prop({ default: '' })
   prixModifiePar: string;   // nom de la personne qui a fixé le prix

@@ -61,7 +61,7 @@ const SECTIONS = [
       { id: 'equipe',        label: 'Équipe',            icon: D.equipe,        path: '/admin/equipe'        },
       { id: 'caissiers',     label: 'Caissiers',          icon: D.caissiers,     path: '/admin/caissiers'     },
       { id: 'gestionnaires', label: 'Gestionnaires',      icon: D.gestionnaires, path: '/admin/gestionnaires' },
-      { id: 'magaziniers',   label: 'Magaziniers',        icon: D.equipe,        path: '/admin/magaziniers'   },
+      { id: 'magaziniers',   label: 'Magasiniers',        icon: D.equipe,        path: '/admin/magaziniers'   },
       { id: 'partenaires',   label: 'Partenaires',        icon: D.caissiers,     path: '/admin/partenaires'   },
       { id: 'sessions',      label: 'Sessions de travail', icon: D.sessions,      path: '/admin/sessions'      },
       { id: 'roles',         label: 'Rôles & accès',      icon: D.roles,         path: '/admin/roles'         },
@@ -83,7 +83,7 @@ const SECTIONS = [
     items: [
       { id: 'go-caisse',     label: 'Caisse',           icon: D.caisseSpace, path: '/caisse'     },
       { id: 'go-stock',      label: 'Gestion de stock', icon: D.stockSpace,  path: '/stocks'     },
-      { id: 'go-magazinier', label: 'Magazinier',       icon: D.magSpace,    path: '/magazinier' },
+      { id: 'go-magazinier', label: 'Magasinier',       icon: D.magSpace,    path: '/magazinier' },
       { id: 'go-partenaires',label: 'Partenaires',      icon: D.equipe,      path: '/partenaires' },
     ],
   },

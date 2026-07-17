@@ -24,7 +24,7 @@ export class User {
   @Prop({ type: Types.ObjectId, ref: 'Caisse', default: null })
   caisseId: Types.ObjectId | null;
 
-  // Dépôt/magasin assigné (gestionnaire et magazinier)
+  // Dépôt/magasin assigné (gestionnaire et magasinier)
   @Prop({ default: '' })
   assignedLocation: string;
 }

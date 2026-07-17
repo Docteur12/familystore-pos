@@ -26,10 +26,11 @@ export class FacturesController {
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo')   dateTo?:   string,
     @Query('caissier') caissier?: string,
+    @Query('paymentMethod') paymentMethod?: string,
     @Query('page')     page?:     string,
     @Query('limit')    limit?:    string,
   ) {
-    return this.facturesService.findAll({ dateFrom, dateTo, caissier, page: Number(page), limit: Number(limit) });
+    return this.facturesService.findAll({ dateFrom, dateTo, caissier, paymentMethod, page: Number(page), limit: Number(limit) });
   }
 
   // GET /api/factures/:id — patron only

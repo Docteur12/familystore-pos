@@ -248,7 +248,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
   const [markupPct,       setMarkupPct]       = useState('');
   // Seuls les administrateurs (patron) peuvent ajouter une catégorie/sous-catégorie hors liste.
   const isPatron = getTokenPayload()?.role === 'patron';
-  // Prix fixé par le magazinier → non modifiable par le gestionnaire.
+  // Prix fixé par le magasinier → non modifiable par le gestionnaire.
   // L'administrateur (patron) peut tout modifier, le verrou ne s'applique pas à lui.
   const priceLocked = !!product?.prixVerrouille && getTokenPayload()?.role !== 'patron';
   const [foundProduct,    setFoundProduct]    = useState<Product | null>(null);
@@ -572,7 +572,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
           {/* Prix achat + marge → prix vente */}
           {priceLocked && (
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-wine-700)', background: 'var(--fs-wine-50)', border: '1px solid rgba(122,29,46,0.15)', borderRadius: 8, padding: '8px 12px', marginBottom: 4 }}>
-              🔒 Prix {product?.prixModifiePar ? `ajouté/modifié par ${product.prixModifiePar}` : 'fixé par le magazinier'}
+              🔒 Prix {product?.prixModifiePar ? `ajouté/modifié par ${product.prixModifiePar}` : 'fixé par le magasinier'}
               {product?.prixModifieParRole ? ` (${product.prixModifieParRole})` : ''}
               {product?.prixModifieLe ? ` le ${new Date(product.prixModifieLe).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })} à ${new Date(product.prixModifieLe).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}
               {' '}— non modifiable.

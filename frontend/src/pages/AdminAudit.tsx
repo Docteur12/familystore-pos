@@ -28,7 +28,7 @@ const ROLE_COLORS: Record<string, { bg: string; color: string }> = {
   patron:       { bg: 'var(--fs-wine-50)',  color: 'var(--fs-wine-700)'    },
   gestionnaire: { bg: '#E8F0E5',            color: '#3F6B3A'               },
   caissier:     { bg: '#EEF3FA',            color: '#3A5E8F'               },
-  magazinier:   { bg: '#E8EFF7',            color: '#1D4E7A'               },
+  magasinier:   { bg: '#E8EFF7',            color: '#1D4E7A'               },
 };
 
 function I({ d, size = 12 }: { d: string; size?: number }) {

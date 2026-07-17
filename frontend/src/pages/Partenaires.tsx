@@ -165,7 +165,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
     return a ? `${a.nom}${a.ville ? ' · ' + a.ville : ''}` : '';
   };
 
-  // Onglet « À préparer » : quantités servies par le magazinier
+  // Onglet « À préparer » : quantités servies par le magasinier
   const [prepQty, setPrepQty] = useState<Record<string, string>>({}); // clé `${cmdId}|${productId}`
   const [prepLoading, setPrepLoading] = useState<string | null>(null);
   const resteLigne = (l: { quantite: number; quantiteLivree?: number }) => Math.max(0, (l.quantite ?? 0) - (l.quantiteLivree ?? 0));
@@ -676,7 +676,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
           <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--fs-gold-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{initials}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
-            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>{isPatron ? 'Administrateur' : payload?.role === 'commercial' ? 'Compte Partenaires' : 'Magazinier'}</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>{isPatron ? 'Administrateur' : payload?.role === 'commercial' ? 'Compte Partenaires' : 'Magasinier'}</div>
           </div>
           <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
             style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', padding: 2 }} title="Déconnexion">
@@ -895,7 +895,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
             </div>
           )}
 
-          {/* ── Onglet À préparer (magazinier) ── */}
+          {/* ── Onglet À préparer (magasinier) ── */}
           {tab === 'preparer' && (
             <div style={{ maxWidth: 880 }}>
               <div style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 12, color: 'var(--fs-ink-600)' }}>

@@ -6,7 +6,7 @@ export interface Product {
   price:          number;
   costPrice:      number;
   stock:          number;         // ← stock caisse (point de vente)
-  stockMagazin?:       number;         // ← stock entrepôt magazinier (indépendant)
+  stockMagazin?:       number;         // ← stock entrepôt magasinier (indépendant)
   stockMagazinAjuste?: boolean;        // ← true si dernière modif vient de l'admin
   alertThreshold: number;
   initialStock?:  number;
@@ -19,7 +19,7 @@ export interface Product {
   expiryDate?:           string | null;
   magazinierThreshold?:  number;
   divers?:        boolean;   // article « divers » synthétique (non référencé)
-  prixVerrouille?: boolean;  // prix fixé par le magazinier → non modifiable par le gestionnaire
+  prixVerrouille?: boolean;  // prix fixé par le magasinier → non modifiable par le gestionnaire
   prixModifiePar?: string;
   prixModifieParRole?: string;
   prixModifieLe?: string | null;
@@ -169,7 +169,7 @@ export async function updateProduct(id: string, data: Partial<ProductPayload>): 
   return res.json();
 }
 
-// Fixe les prix d'un produit (magazinier/gestionnaire/patron) et les verrouille.
+// Fixe les prix d'un produit (magasinier/gestionnaire/patron) et les verrouille.
 export async function setProductPrix(id: string, price: number, costPrice: number): Promise<Product> {
   const res = await fetch(`/api/products/${id}/prix`, {
     method: 'PATCH',

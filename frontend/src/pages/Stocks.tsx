@@ -290,7 +290,7 @@ function ReceptionModal({ product, onConfirm, onClose }:
   );
 }
 
-// ── Demande magazinier modal ──────────────────────────────────────────────────
+// ── Demande magasinier modal ──────────────────────────────────────────────────
 
 function DemandeModal({ product, onConfirm, onClose }:
   { product: Product; onConfirm: (qty: number) => Promise<void>; onClose: () => void }) {
@@ -313,7 +313,7 @@ function DemandeModal({ product, onConfirm, onClose }:
       style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: '#fff', borderRadius: 14, width: 400, overflow: 'hidden', boxShadow: 'var(--fs-shadow-lg)' }}>
         <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px' }}>
-          <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>Demande au magazinier</p>
+          <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>Demande au magasinier</p>
           <p style={{ color: 'rgba(245,235,217,0.7)', fontSize: 12, margin: '3px 0 0' }}>{product.name}{product.localName ? ` · ${product.localName}` : ''}</p>
         </div>
         <div style={{ padding: '20px' }}>
@@ -512,7 +512,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
           <StockBar stock={product.stock} threshold={product.alertThreshold} max={maxStock}/>
         </div>
 
-        {/* Entrepôt magazinier */}
+        {/* Entrepôt magasinier */}
         {(product.stockMagazin !== undefined || pendingDelivery) && (
           <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--fs-line)', background: pendingDelivery ? '#eff6ff' : '#f8faf7' }}>
             {pendingDelivery ? (
@@ -520,7 +520,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 2 }}>Livraison en transit</div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#1e40af' }}>
-                    {pendingDelivery.quantiteDemandee} envoyé{pendingDelivery.quantiteDemandee > 1 ? 's' : ''} par le magazinier
+                    {pendingDelivery.quantiteDemandee} envoyé{pendingDelivery.quantiteDemandee > 1 ? 's' : ''} par le magasinier
                   </div>
                 </div>
                 {onRecu && (
@@ -739,7 +739,7 @@ export default function Stocks() {
     try {
       await createDemande({ produitId: demandeProduct._id, quantiteDemandee: qty });
       setDemandeProduct(null);
-      addToast(`Demande envoyée au magazinier — ${qty} unités`, 'success');
+      addToast(`Demande envoyée au magasinier — ${qty} unités`, 'success');
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Erreur', 'error');
     }
@@ -773,7 +773,7 @@ export default function Stocks() {
     try {
       await annulerEnvoi(demandeId);
       setPendingDeliveries(prev => prev.filter(d => d._id !== demandeId));
-      addToast(`Envoi annulé — ${delivery?.quantiteDemandee ?? ''} ${delivery?.produit?.name ?? ''} remis dans le stock entrepôt du magazinier`, 'success');
+      addToast(`Envoi annulé — ${delivery?.quantiteDemandee ?? ''} ${delivery?.produit?.name ?? ''} remis dans le stock entrepôt du magasinier`, 'success');
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Erreur', 'error');
     } finally { setRecuLoading(null); }
@@ -1323,7 +1323,7 @@ export default function Stocks() {
                     </div>
                     <div style={{ fontSize: 11, color: d.type === 'envoi' ? '#16a34a' : '#3b82f6', marginTop: 2 }}>
                       {d.quantiteDemandee}
-                      {d.type === 'envoi' ? ' · envoyé spontanément par le magazinier' : ' · en réponse à votre demande'}
+                      {d.type === 'envoi' ? ' · envoyé spontanément par le magasinier' : ' · en réponse à votre demande'}
                     </div>
                     {d.type === 'envoi' && (
                       <div style={{ fontSize: 10, color: '#16a34a', marginTop: 1, fontStyle: 'italic' }}>
@@ -1343,7 +1343,7 @@ export default function Stocks() {
                       onClick={() => handleAnnuler(d._id)}
                       onMouseLeave={() => { if (confirmAnnulId === d._id) setConfirmAnnulId(null); }}
                       disabled={recuLoading === d._id}
-                      title="Refuser cet envoi — les quantités retournent dans le stock entrepôt du magazinier"
+                      title="Refuser cet envoi — les quantités retournent dans le stock entrepôt du magasinier"
                       style={{ padding: '6px 12px', background: confirmAnnulId === d._id ? '#dc2626' : '#fff', color: confirmAnnulId === d._id ? '#fff' : '#dc2626', border: '1px solid #fca5a5', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
                       {confirmAnnulId === d._id ? 'Confirmer l\'annulation ?' : '✕ Annuler'}
                     </button>

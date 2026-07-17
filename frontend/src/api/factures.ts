@@ -29,13 +29,15 @@ export async function getFactures(params: {
   dateFrom?: string;
   dateTo?:   string;
   caissier?: string;
+  paymentMethod?: string;
   page?:     number;
   limit?:    number;
-} = {}): Promise<{ data: FactureRecord[]; total: number; caissiers?: string[] }> {
+} = {}): Promise<{ data: FactureRecord[]; total: number; totalMontant?: number; caissiers?: string[]; modesPaiement?: string[] }> {
   const qs = new URLSearchParams();
   if (params.dateFrom) qs.set('dateFrom', params.dateFrom);
   if (params.dateTo)   qs.set('dateTo',   params.dateTo);
   if (params.caissier) qs.set('caissier', params.caissier);
+  if (params.paymentMethod) qs.set('paymentMethod', params.paymentMethod);
   if (params.page !== undefined) qs.set('page',  String(params.page));
   if (params.limit)    qs.set('limit', String(params.limit));
 

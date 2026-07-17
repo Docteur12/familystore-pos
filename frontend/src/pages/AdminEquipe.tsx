@@ -20,12 +20,12 @@ const initials    = (name: string) => name.split(' ').map(w => w[0]).slice(0, 2)
 const ROLE_LABEL: Record<string, string> = {
   caissier:     'Caissier',
   gestionnaire: 'Gestionnaire',
-  magazinier:   'Magazinier',
+  magasinier:   'Magasinier',
 };
 const ROLE_COLOR: Record<string, { bg: string; color: string }> = {
   caissier:     { bg: 'var(--fs-wine-50)',  color: 'var(--fs-wine-700)'    },
   gestionnaire: { bg: '#E8F0E5',            color: '#3F6B3A'               },
-  magazinier:   { bg: '#E8EFF7',            color: '#1D4E7A'               },
+  magasinier:   { bg: '#E8EFF7',            color: '#1D4E7A'               },
 };
 
 export default function AdminEquipe() {
@@ -94,7 +94,7 @@ export default function AdminEquipe() {
           {[
             { label: 'Caissiers',     count: byRole('caissier'),     ...ROLE_COLOR.caissier     },
             { label: 'Gestionnaires', count: byRole('gestionnaire'), ...ROLE_COLOR.gestionnaire },
-            { label: 'Magaziniers',   count: byRole('magazinier'),   ...ROLE_COLOR.magazinier   },
+            { label: 'Magasiniers',   count: byRole('magazinier'),   ...ROLE_COLOR.magazinier   },
             { label: 'Total',         count: users.length, bg: '#fff', color: 'var(--fs-ink-700)' },
           ].map(s => (
             <div key={s.label} style={{ background: s.bg, border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 18px', minWidth: 110, flex: isMobile ? '1 1 40%' : undefined }}>

@@ -34,9 +34,10 @@ export class FacturesService {
     dateFrom?: string;
     dateTo?:   string;
     caissier?: string;
+    paymentMethod?: string;
     page?:     number;
     limit?:    number;
-  } = {}): Promise<{ data: FactureDocument[]; total: number; caissiers: string[] }> {
+  } = {}): Promise<{ data: FactureDocument[]; total: number; totalMontant: number; caissiers: string[]; modesPaiement: string[] }> {
     const filter: Record<string, unknown> = {};
     // Accepte « YYYY-MM-DD » (on complète l'heure) ou un ISO complet (tel quel)
     const parseDate = (v: string, suffix: string) => new Date(v.includes('T') ? v : v + suffix);
@@ -46,16 +47,25 @@ export class FacturesService {
       if (query.dateTo)   (filter['createdAt'] as any)['$lte'] = parseDate(query.dateTo,   'T23:59:59');
     }
     if (query.caissier) filter['caissier'] = query.caissier;
+    if (query.paymentMethod) filter['paymentMethod'] = query.paymentMethod;
 
     const limit = Math.min(Number(query.limit) || 50, 100);
     const skip  = (Number(query.page) || 0) * limit;
 
-    const [data, total, caissiers] = await Promise.all([
+    const [data, total, sommes, caissiers, modesPaiement] = await Promise.all([
       this.factureModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
       this.factureModel.countDocuments(filter).exec(),
+      // CA TOTAL du filtre (toutes pages confondues) — pas seulement la page affichée
+      this.factureModel.aggregate([{ $match: filter }, { $group: { _id: null, montant: { $sum: '$montant' } } }]).exec(),
       this.factureModel.distinct('caissier').exec(),
+      this.factureModel.distinct('paymentMethod').exec(),
     ]);
-    return { data, total, caissiers: (caissiers as string[]).filter(Boolean).sort() };
+    return {
+      data, total,
+      totalMontant: sommes[0]?.montant ?? 0,
+      caissiers: (caissiers as string[]).filter(Boolean).sort(),
+      modesPaiement: (modesPaiement as string[]).filter(Boolean).sort(),
+    };
   }
 
   async findOne(id: string): Promise<FactureDocument | null> {

@@ -107,7 +107,7 @@ export interface CommandePartenaire {
   createdAt: string;
 }
 
-// Préparation/livraison par le magazinier : quantités réellement servies
+// Préparation/livraison par le magasinier : quantités réellement servies
 export async function preparerCommande(commandeId: string, data: { lignes: { productId: string; quantite: number; prixUnitaire?: number }[]; montantPaye?: number; date?: string; numeroBL?: string }): Promise<{ livraison: LivraisonPartenaire; commande: CommandePartenaire }> {
   const res = await fetch(`/api/partenaires/commandes/${commandeId}/preparer`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(data) });
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur préparation de la commande');

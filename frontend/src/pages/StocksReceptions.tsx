@@ -242,7 +242,7 @@ export default function StocksReceptions() {
     getBonsLivraison().then(setBls).catch(() => {});
   }, []);
 
-  // Charge les réceptions magazinier + marque comme vu
+  // Charge les réceptions magasinier + marque comme vu
   useEffect(() => {
     getAllReceptions().then(recs => {
       setMagRecs(recs);
@@ -438,7 +438,7 @@ export default function StocksReceptions() {
 
             {/* Filtre */}
             <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-              {([['tous', 'Tous'], ['moi', 'Par moi'], ['magazinier', 'Par magazinier']] as [HistoFilter, string][]).map(([key, label]) => (
+              {([['tous', 'Tous'], ['moi', 'Par moi'], ['magazinier', 'Par magasinier']] as [HistoFilter, string][]).map(([key, label]) => (
                 <button key={key} onClick={() => setHistoFilter(key)} style={{
                   padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)',
                   border: histoFilter === key ? 'none' : '1.5px solid var(--fs-line-2)',
@@ -455,12 +455,12 @@ export default function StocksReceptions() {
               ))}
             </div>
 
-            {/* Réceptions magazinier (backend) */}
+            {/* Réceptions magasinier (backend) */}
             {(histoFilter === 'tous' || histoFilter === 'magazinier') && magRecs.length > 0 && (
               <div style={{ marginBottom: 20 }}>
                 {histoFilter === 'tous' && (
                   <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 10px' }}>
-                    Réceptions magazinier
+                    Réceptions magasinier
                   </p>
                 )}
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
@@ -484,7 +484,7 @@ export default function StocksReceptions() {
                             <td style={{ padding: '9px 14px', textAlign: 'left' }}>
                               {isGest
                                 ? <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-wine-900)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Gestionnaire</span>
-                                : <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-gold-500)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Magazinier · {r.creePar?.name ?? '—'}</span>}
+                                : <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-gold-500)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Magasinier · {r.creePar?.name ?? '—'}</span>}
                             </td>
                           </tr>
                         );

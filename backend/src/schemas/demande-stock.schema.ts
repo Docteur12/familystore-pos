@@ -18,7 +18,7 @@ export class DemandeStock {
   statut: string;  // 'annulé' = refusé par le gestionnaire → stock restitué à l'entrepôt
 
   @Prop({ enum: ['demande', 'envoi', 'retour'], default: 'demande' })
-  type: string;  // 'demande' = gestionnaire demande | 'envoi' = magazinier envoie | 'retour' = boutique → entrepôt
+  type: string;  // 'demande' = gestionnaire demande | 'envoi' = magasinier envoie | 'retour' = boutique → entrepôt
 
   @Prop()
   dateEnvoi: Date;

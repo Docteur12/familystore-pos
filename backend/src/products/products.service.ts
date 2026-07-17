@@ -62,7 +62,7 @@ export class ProductsService {
     const oneYearFromNow = new Date();
     oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
     const expiryDate = dto.expiryDate ?? oneYearFromNow.toISOString().slice(0, 10);
-    // Si le prix est verrouillé (fixé par le magazinier à la création), on trace l'auteur.
+    // Si le prix est verrouillé (fixé par le magasinier à la création), on trace l'auteur.
     const trace = dto.prixVerrouille
       ? { prixModifiePar: actor?.name ?? '', prixModifieParRole: actor?.role ?? '', prixModifieLe: new Date() }
       : {};
@@ -91,7 +91,7 @@ export class ProductsService {
     return product;
   }
 
-  // Le magazinier (ou patron) fixe les prix d'un produit existant.
+  // Le magasinier (ou patron) fixe les prix d'un produit existant.
   // Verrouille le prix → le gestionnaire ne peut plus le modifier.
   async setPrix(id: string, price: number, costPrice: number, actorName = '', actorRole = '') {
     const product = await this.productModel.findByIdAndUpdate(

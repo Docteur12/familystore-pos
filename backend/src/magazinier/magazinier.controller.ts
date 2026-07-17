@@ -9,7 +9,7 @@ import { Roles } from '../auth/roles.decorator';
 export class MagazinierController {
   constructor(private readonly svc: MagazinierService) {}
 
-  // Accessible par magazinier + gestionnaire + patron
+  // Accessible par magasinier + gestionnaire + patron
   @Post('receptions')
   @UseGuards(RolesGuard)
   @Roles('magazinier', 'gestionnaire', 'patron')
@@ -57,7 +57,7 @@ export class MagazinierController {
     return this.svc.marquerRecu(id);
   }
 
-  // Annulation d'un envoi en transit (gestionnaire ou magazinier) → stock restitué à l'entrepôt
+  // Annulation d'un envoi en transit (gestionnaire ou magasinier) → stock restitué à l'entrepôt
   @Patch('demandes/:id/annuler')
   @UseGuards(RolesGuard)
   @Roles('magazinier', 'gestionnaire', 'patron')
@@ -73,7 +73,7 @@ export class MagazinierController {
     return this.svc.retourEntrepot(body, req.user.sub);
   }
 
-  // Envoi direct du magazinier vers le gestionnaire
+  // Envoi direct du magasinier vers le gestionnaire
   @Post('envois')
   @UseGuards(RolesGuard)
   @Roles('magazinier', 'gestionnaire', 'patron')
@@ -89,7 +89,7 @@ export class MagazinierController {
     return this.svc.resetEntrepot();
   }
 
-  // Ajustement manuel du stock entrepôt (admin/patron uniquement, pas le magazinier)
+  // Ajustement manuel du stock entrepôt (admin/patron uniquement, pas le magasinier)
   @Patch('produits/:id/stock-entrepot')
   @UseGuards(RolesGuard)
   @Roles('gestionnaire', 'patron')
@@ -97,7 +97,7 @@ export class MagazinierController {
     return this.svc.ajusterStockEntrepot(id, body.stockMagazin);
   }
 
-  // Historique du magazinier
+  // Historique du magasinier
   @Get('historique')
   @UseGuards(RolesGuard)
   @Roles('magazinier', 'gestionnaire', 'patron')

@@ -342,7 +342,7 @@ export default function Magazinier() {
       stock:               0,
       expiryDate:          newProd.expiryDate || null,
       magazinierThreshold: parseInt(newProd.seuilCommande) || 0,
-      // Si le magazinier a fixé le prix de vente, il est verrouillé pour le gestionnaire
+      // Si le magasinier a fixé le prix de vente, il est verrouillé pour le gestionnaire
       prixVerrouille:      (parseInt(newProd.prixVente) || 0) > 0,
     };
 
@@ -659,7 +659,7 @@ export default function Magazinier() {
   const [hLoading, setHLoading] = useState(false);
   const [histoSearch, setHistoSearch] = useState('');
   const [dashSearch,  setDashSearch]  = useState('');
-  // Édition des prix par produit (tableau de bord magazinier)
+  // Édition des prix par produit (tableau de bord magasinier)
   const [prixEdits, setPrixEdits] = useState<Record<string, { achat: string; vente: string }>>({});
   const savePrix = useCallback(async (p: Product) => {
     const e = prixEdits[p._id];
@@ -742,7 +742,7 @@ export default function Magazinier() {
       }}>
         <div style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>Family Store</div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Magazinier</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Magasinier</div>
         </div>
 
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
@@ -763,7 +763,7 @@ export default function Magazinier() {
             </button>
           ))}
 
-          {/* Commandes & livraisons partenaires (intégré à l'espace Magazinier) */}
+          {/* Commandes & livraisons partenaires (intégré à l'espace Magasinier) */}
           <button onClick={() => { setTab('partenaires'); setSideOpen(false); }} style={{
             width: '100%', display: 'flex', alignItems: 'center', gap: 9,
             padding: '9px 10px', marginTop: 8, borderRadius: 8, border: 'none',
@@ -793,7 +793,7 @@ export default function Magazinier() {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name?.split(' ')[0] ?? '—'}</div>
-            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>Magazinier</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>Magasinier</div>
           </div>
           <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
             style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', padding: 2 }} title="Déconnexion">
@@ -807,7 +807,7 @@ export default function Magazinier() {
 
         {/* Header */}
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '12px 14px 12px 58px' : '12px 28px', flexShrink: 0 }}>
-          <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Magazinier</p>
+          <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Magasinier</p>
           <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>
             {tab === 'partenaires' ? 'Partenaires — commandes & livraisons' : TABS.find(t => t.key === tab)?.label}
           </h1>
@@ -1296,13 +1296,13 @@ export default function Magazinier() {
           })()}
 
           {/* ════════════════════════════════════════════════════════════════
-              ONGLET 4 — TABLEAU DE BORD MAGAZINIER
+              ONGLET 4 — TABLEAU DE BORD MAGASINIER
           ════════════════════════════════════════════════════════════════ */}
           {tab === 'dashboard' && (() => {
-            // Magazinier : ses produits réceptionnés. Patron (en supervision) :
+            // Magasinier : ses produits réceptionnés. Patron (en supervision) :
             // tout l'entrepôt (produits avec stock entrepôt), pas ses propres réceptions.
             // Tout l'entrepôt (produits avec stock entrepôt), peu importe qui a
-            // réceptionné — un seul entrepôt partagé (magazinier + patron).
+            // réceptionné — un seul entrepôt partagé (magasinier + patron).
             const mesProduits = products
               .filter(p => (p.stockMagazin ?? 0) > 0)
               .filter(p => !dashSearch.trim()
