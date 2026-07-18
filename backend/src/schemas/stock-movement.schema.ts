@@ -7,12 +7,12 @@ export type MovementType   = 'IN' | 'OUT';
 export type MovementReason =
   | 'restock' | 'sale' | 'adjustment' | 'reception'
   | 'annulation_vente' | 'livraison_partenaire' | 'retour_partenaire'
-  | 'retour_entrepot';
+  | 'retour_entrepot' | 'retour_fournisseur';
 
 const MOVEMENT_REASONS: MovementReason[] = [
   'restock', 'sale', 'adjustment', 'reception',
   'annulation_vente', 'livraison_partenaire', 'retour_partenaire',
-  'retour_entrepot',
+  'retour_entrepot', 'retour_fournisseur',
 ];
 
 @Schema({ timestamps: { createdAt: true, updatedAt: false } })
