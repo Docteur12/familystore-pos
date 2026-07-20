@@ -986,7 +986,12 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
               </div>
 
               {/* Liste des commandes */}
-              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Commandes</p>
+              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Commandes</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 11, color: 'var(--fs-ink-500)', marginBottom: 10 }}>
+                <span><span style={{ fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef9e7', color: '#a16207' }}>Reçue</span> = enregistrée, rien n'est encore livré</span>
+                <span><span style={{ fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#eff6ff', color: '#2563eb' }}>Partielle</span> = une partie livrée, les produits en rouge restent à servir</span>
+                <span><span style={{ fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#f0fdf4', color: '#16a34a' }}>Livrée</span> = tout est servi (ou clôturée)</span>
+              </div>
               {commandes.length === 0 ? (
                 <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune commande</div>
               ) : (
@@ -1016,11 +1021,28 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                             </td>
                             <td style={{ padding: '9px 12px' }}>
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxWidth: 280 }}>
-                                {c.lignes.map((lg, i) => <span key={i} style={{ fontSize: 11, background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 6, padding: '2px 8px', color: 'var(--fs-ink-700)' }}>{lg.productName} × <strong>{lg.quantite}</strong></span>)}
+                                {c.lignes.map((lg, i) => {
+                                  const resteLg = Math.max(0, (lg.quantite ?? 0) - (lg.quantiteLivree ?? 0));
+                                  const enAttente = c.statut === 'partielle' && resteLg > 0;
+                                  return (
+                                    <span key={i} title={enAttente ? `${resteLg} sur ${lg.quantite} pas encore servi(s) — c'est pour ça que la commande est « Partielle »` : undefined}
+                                      style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px',
+                                        background: enAttente ? '#fef2f2' : 'var(--fs-ivory)',
+                                        border: enAttente ? '1px solid rgba(194,62,36,0.35)' : '1px solid var(--fs-line)',
+                                        color: enAttente ? 'var(--fs-danger-700)' : 'var(--fs-ink-700)',
+                                        fontWeight: enAttente ? 700 : 400 }}>
+                                      {lg.productName} × <strong>{lg.quantite}</strong>{enAttente && <> · reste {resteLg}</>}
+                                    </span>
+                                  );
+                                })}
                               </div>
                             </td>
                             <td style={{ padding: '9px 12px' }}>
                               <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: statutCfg.bg, color: statutCfg.col }}>{statutCfg.txt}</span>
+                              {c.statut === 'partielle' && (() => {
+                                const resteTot = c.lignes.reduce((s, l) => s + Math.max(0, (l.quantite ?? 0) - (l.quantiteLivree ?? 0)), 0);
+                                return <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-danger-700)', marginTop: 3 }}>{fmtN(resteTot)} article(s) à servir</div>;
+                              })()}
                               <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 3 }}>{MODE_LABELS[c.modePaiement]}</div>
                             </td>
                             <td style={{ padding: '9px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, whiteSpace: 'nowrap' }}>{fmtN(tot)}</td>
