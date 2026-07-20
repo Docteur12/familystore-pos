@@ -225,9 +225,13 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
   const [cmdDelai, setCmdDelai] = useState('');
   const [cmdDernierPrix, setCmdDernierPrix] = useState<Record<string, number>>({});
 
-  // Charge les agences (actives) du partenaire choisi pour la commande
+  // Charge les agences (actives) du partenaire choisi pour la commande.
+  // agenceARestaurer : posée par la restauration de brouillon pour que le
+  // changement de partenaire ne remette pas l'agence à zéro à ce moment-là.
+  const agenceARestaurer = useRef<string | null>(null);
   useEffect(() => {
-    setCmdAgenceId('');
+    setCmdAgenceId(agenceARestaurer.current ?? '');
+    agenceARestaurer.current = null;
     if (cmdPartId) getAgences(cmdPartId).then(list => setCmdAgences(list.filter(a => !a.archivee))).catch(() => setCmdAgences([]));
     else setCmdAgences([]);
   }, [cmdPartId]);
@@ -530,6 +534,50 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
 
   const [editingCmd, setEditingCmd] = useState<string | null>(null); // id de la commande en cours de modification
 
+  // ── Brouillons automatiques ──────────────────────────────────────────────────
+  // La saisie (commande / livraison) est enregistrée sur l'appareil à chaque
+  // frappe : si la page se recharge (appel téléphonique, app en arrière-plan,
+  // veille…), tout est restauré automatiquement au retour.
+  const BROUILLON_CMD = 'fs_brouillon_commande_partenaire';
+  const BROUILLON_LIV = 'fs_brouillon_livraison_partenaire';
+  const brouillonPret = useRef(false);
+
+  useEffect(() => {
+    try {
+      const c = JSON.parse(localStorage.getItem(BROUILLON_CMD) ?? 'null');
+      if (c && Date.now() - (c.ts ?? 0) < 24 * 3600e3 && (c.cmdRows ?? []).some((r: Row) => r.productId)) {
+        agenceARestaurer.current = c.cmdAgenceId ?? '';
+        setCmdPartId(c.cmdPartId ?? '');
+        setCmdMode(c.cmdMode ?? 'credit');
+        setCmdDelai(c.cmdDelai ?? '');
+        if (Array.isArray(c.cmdRows) && c.cmdRows.length) setCmdRows(c.cmdRows);
+        if (c.editingCmd) setEditingCmd(c.editingCmd);
+        addToast('Saisie de commande interrompue récupérée ✓ — vous pouvez continuer', 'success');
+      }
+      const l = JSON.parse(localStorage.getItem(BROUILLON_LIV) ?? 'null');
+      if (l && Date.now() - (l.ts ?? 0) < 24 * 3600e3 && (l.rows ?? []).some((r: Row) => r.productId)) {
+        setPartId(l.partId ?? '');
+        if (Array.isArray(l.rows) && l.rows.length) setRows(l.rows);
+        setMontantPaye(l.montantPaye ?? '');
+        setLivMode(l.livMode ?? 'credit');
+        addToast('Saisie de livraison interrompue récupérée ✓', 'success');
+      }
+    } catch { /* brouillon illisible : ignoré */ }
+    brouillonPret.current = true;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!brouillonPret.current) return;
+    if (!cmdRows.some(r => r.productId)) localStorage.removeItem(BROUILLON_CMD);
+    else localStorage.setItem(BROUILLON_CMD, JSON.stringify({ cmdPartId, cmdAgenceId, cmdMode, cmdDelai, cmdRows, editingCmd, ts: Date.now() }));
+  }, [cmdPartId, cmdAgenceId, cmdMode, cmdDelai, cmdRows, editingCmd]);
+
+  useEffect(() => {
+    if (!brouillonPret.current) return;
+    if (!rows.some(r => r.productId)) localStorage.removeItem(BROUILLON_LIV);
+    else localStorage.setItem(BROUILLON_LIV, JSON.stringify({ partId, rows, montantPaye, livMode, ts: Date.now() }));
+  }, [partId, rows, montantPaye, livMode]);
+
   const chargerCommandePourEdition = (c: CommandePartenaire) => {
     setEditingCmd(c._id);
     setCmdPartId(typeof c.partenaire === 'object' ? c.partenaire._id : c.partenaire);
@@ -559,6 +607,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
         addToast('Commande enregistrée ✓', 'success');
       }
       setCmdRows([{ productId: '', quantite: '1', prix: '' }]); setCmdDelai(''); setCmdAgenceId('');
+      localStorage.removeItem(BROUILLON_CMD);
       loadCommandes();
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
   };
@@ -638,6 +687,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       addToast('Bon de livraison validé ✓ — stock entrepôt mis à jour', 'success');
       setRows([{ productId: '', quantite: '1', prix: '' }]);
       setMontantPaye('');
+      localStorage.removeItem(BROUILLON_LIV);
       getAllProducts().then(setProducts).catch(() => {});
       getLivraisons().then(setLivraisons).catch(() => {});
     } catch (e: unknown) {
