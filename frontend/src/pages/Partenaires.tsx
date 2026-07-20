@@ -563,6 +563,18 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
   };
 
+  // Clôture d'une commande partielle : le reliquat non servi ne sera jamais livré
+  // (rupture, produit remplacé…) — la commande passe en « Livrée » sans mouvement.
+  const [confirmClotureId, setConfirmClotureId] = useState<string | null>(null);
+  const cloturerCommande = async (c: CommandePartenaire) => {
+    try {
+      await updateCommande(c._id, { statut: 'livree' });
+      addToast(`Commande ${c.numero} clôturée ✓ — le reliquat non servi est abandonné`, 'success');
+      setConfirmClotureId(null);
+      loadCommandes();
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+  };
+
   const supprimerCommande = async (c: CommandePartenaire) => {
     const livree = c.statut === 'livree' || c.statut === 'partielle';
     const msg = livree
@@ -1017,6 +1029,15 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                               {c.statut !== 'livree'
                                 ? <button onClick={() => setTab('preparer')} title="Préparer / livrer" style={{ padding: '5px 10px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Préparer →</button>
                                 : <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓</span>}
+                              {c.statut === 'partielle' && (
+                                confirmClotureId === c._id ? (
+                                  <button onClick={() => cloturerCommande(c)} title="Confirmer : le reste ne sera pas livré"
+                                    style={{ marginLeft: 6, padding: '5px 10px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Confirmer ?</button>
+                                ) : (
+                                  <button onClick={() => setConfirmClotureId(c._id)} title="Clôturer : marquer comme livrée même si un reliquat n'a pas été servi (rupture, remplacement…)"
+                                    style={{ marginLeft: 6, padding: '5px 10px', background: '#fff', color: '#16a34a', border: '1.5px solid #16a34a', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✓ Clôturer</button>
+                                )
+                              )}
                               {c.statut === 'recue' && <button onClick={() => chargerCommandePourEdition(c)} title="Modifier la commande" style={{ marginLeft: 6, padding: '5px 8px', background: 'var(--fs-ivory)', color: 'var(--fs-ink-600)', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.edit} size={13}/></button>}
                               <button onClick={() => imprimerCommande(c)} title="Imprimer le bon de commande" style={{ marginLeft: 6, padding: '5px 8px', background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.print} size={13}/></button>
                               <button onClick={() => supprimerCommande(c)} title={c.statut === 'livree' || c.statut === 'partielle' ? 'Annuler (restitue le stock)' : 'Supprimer'} style={{ marginLeft: 6, padding: '5px 8px', background: '#fef2f2', color: 'var(--fs-danger-700)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.trash} size={13}/></button>
@@ -1100,6 +1121,15 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                         {enRupture
                           ? <span style={{ fontSize: 12, color: 'var(--fs-danger-700)', fontWeight: 700 }}>⚠ Stock entrepôt insuffisant — réduisez les quantités à servir</span>
                           : <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>Vide = on sert tout le reste</span>}
+                        {c.statut === 'partielle' && (
+                          confirmClotureId === c._id ? (
+                            <button onClick={() => cloturerCommande(c)} title="Confirmer : le reste ne sera pas livré"
+                              style={{ padding: '9px 16px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 9, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>Confirmer la clôture ?</button>
+                          ) : (
+                            <button onClick={() => setConfirmClotureId(c._id)} title="Le reliquat ne sera jamais servi (rupture, remplacement…) : marquer la commande comme livrée"
+                              style={{ padding: '9px 16px', background: '#fff', color: '#16a34a', border: '1.5px solid #16a34a', borderRadius: 9, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>✓ Clôturer sans livrer le reste</button>
+                          )
+                        )}
                         <button onClick={() => validerPreparation(c)} disabled={prepLoading === c._id || enRupture} style={{ ...BTN_PRIMARY, opacity: (prepLoading === c._id || enRupture) ? 0.5 : 1, cursor: enRupture ? 'not-allowed' : 'pointer' }}>
                           {prepLoading === c._id ? 'Validation…' : 'Valider la livraison'}
                         </button>
