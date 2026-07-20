@@ -57,9 +57,20 @@ export default function ImportExportProduits({ products, onImported, addToast }:
   const [aConfirmer, setAConfirmer] = useState<Array<Record<string, string>> | null>(null);
   const [rapport, setRapport] = useState<Rapport | null>(null);
 
-  // ── Export ──────────────────────────────────────────────────────────────────
-  const exporter = () => {
-    if (products.length === 0) { addToast('Aucun produit à exporter', 'error'); return; }
+  // ── Export : vrai fichier Excel (.xlsx) généré par le serveur ──────────────
+  // (repli : CSV local si le serveur est injoignable, pour ne jamais bloquer)
+  const [exporting, setExporting] = useState(false);
+  const telecharger = (blob: Blob, nomFichier: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = nomFichier;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
+  const exporterCsvLocal = () => {
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const dateStr = (d?: string | Date | null) => {
       if (!d) return '';
@@ -73,17 +84,55 @@ export default function ImportExportProduits({ products, onImported, addToast }:
       dateStr(p.expiryDate), p.fournisseur ?? '',
     ].map(esc).join(';'));
     const csv = [COLONNES.map(c => `"${c}"`).join(';'), ...lignes].join('\r\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `produits_${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-    addToast(`Export prêt — ${products.length} produits (s'ouvre dans Excel)`, 'success');
+    telecharger(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' }), `produits_${new Date().toISOString().slice(0, 10)}.csv`);
+    addToast(`Export prêt — ${products.length} produits (fichier CSV)`, 'success');
+  };
+
+  const exporter = async () => {
+    if (products.length === 0) { addToast('Aucun produit à exporter', 'error'); return; }
+    setExporting(true);
+    try {
+      const res = await fetch('/api/products/export-excel', { headers: authHeaders() });
+      if (!res.ok) throw new Error('export serveur indisponible');
+      telecharger(await res.blob(), `produits_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      addToast(`Export prêt — ${products.length} produits (fichier Excel, dans Téléchargements)`, 'success');
+    } catch {
+      exporterCsvLocal();
+    } finally { setExporting(false); }
   };
 
   // ── Import : lecture + préparation ─────────────────────────────────────────
+  // Accepte le vrai format Excel (.xlsx, lu par le serveur) ET le CSV.
   const lireFichier = async (file: File) => {
+    const nom = file.name.toLowerCase();
     try {
+      if (nom.endsWith('.xls') && !nom.endsWith('.xlsx')) {
+        addToast('Ancien format Excel (.xls) non pris en charge — dans Excel, faites « Enregistrer sous » → « Classeur Excel (.xlsx) »', 'error');
+        return;
+      }
+      if (nom.endsWith('.xlsx')) {
+        // Fichier Excel : lecture côté serveur
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(String(fr.result).split(',')[1] ?? '');
+          fr.onerror = () => reject(new Error('lecture impossible'));
+          fr.readAsDataURL(file);
+        });
+        const res = await fetch('/api/products/parse-excel', {
+          method: 'POST', headers: authHeaders(), body: JSON.stringify({ fileBase64: base64 }),
+        });
+        if (!res.ok) {
+          const msg = (await res.json().catch(() => ({}))).message;
+          addToast(typeof msg === 'string' ? msg : 'Fichier Excel illisible', 'error');
+          return;
+        }
+        const { rows } = await res.json();
+        if (!rows?.length) { addToast('Aucune ligne exploitable dans le fichier', 'error'); return; }
+        setAConfirmer(rows);
+        return;
+      }
+
+      // CSV : lecture locale
       const texte = (await file.text()).replace(/^﻿/, '');
       const lignes = texte.split(/\r?\n/).filter(l => l.trim());
       if (lignes.length < 2) { addToast('Fichier vide — exportez d\'abord un modèle puis remplissez-le', 'error'); return; }
@@ -136,12 +185,12 @@ export default function ImportExportProduits({ products, onImported, addToast }:
 
   return (
     <>
-      <input ref={fileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
+      <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style={{ display: 'none' }}
         onChange={e => { const f = e.target.files?.[0]; if (f) lireFichier(f); }}/>
-      <button onClick={exporter} title="Télécharger tous les produits et leurs caractéristiques (s'ouvre dans Excel)" style={BTN}>
-        ⬇ Export produits
+      <button onClick={exporter} disabled={exporting} title="Télécharger tous les produits en fichier Excel (.xlsx), dans le dossier Téléchargements" style={{ ...BTN, opacity: exporting ? 0.6 : 1 }}>
+        ⬇ {exporting ? 'Export…' : 'Export produits'}
       </button>
-      <button onClick={() => fileRef.current?.click()} disabled={busy} title="Importer un fichier Excel/CSV : met à jour les produits existants et crée les nouveaux" style={{ ...BTN, opacity: busy ? 0.6 : 1 }}>
+      <button onClick={() => fileRef.current?.click()} disabled={busy} title="Importer un fichier Excel (.xlsx) ou CSV : met à jour les produits existants et crée les nouveaux" style={{ ...BTN, opacity: busy ? 0.6 : 1 }}>
         ⬆ {busy ? 'Import…' : 'Import produits'}
       </button>
 

@@ -7,9 +7,27 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import * as ExcelJS from 'exceljs';
 import { Product, ProductDocument } from '../schemas/product.schema';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+
+// En-tête de colonne (normalisé sans accents/minuscules) → clé produit.
+// Doit rester aligné avec le composant frontend ImportExportProduits.
+const CLE_PAR_ENTETE: Record<string, string> = {
+  'code-barres': 'barcode', 'code barres': 'barcode', 'barcode': 'barcode',
+  'nom': 'name', 'nom local': 'localName',
+  'categorie': 'category', 'sous-categorie': 'subCategory', 'sous categorie': 'subCategory',
+  'unite': 'unit', 'valeur': 'valeur',
+  'prix vente': 'price', 'prix achat': 'costPrice', 'reduction %': 'discount', 'reduction': 'discount',
+  'stock boutique': 'stock', 'stock': 'stock', 'stock entrepot': 'stockMagazin',
+  'seuil alerte': 'alertThreshold', 'seuil commande': 'magazinierThreshold',
+  'peremption (aaaa-mm-jj)': 'expiryDate', 'peremption': 'expiryDate',
+  'fournisseur': 'fournisseur',
+};
+
+const sansAccents = (t: string) =>
+  t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 
 @Injectable()
 export class ProductsService {
@@ -194,5 +212,94 @@ export class ProductsService {
       }
     }
     return { crees, modifies, erreurs };
+  }
+
+  // ── Export de tout le catalogue en VRAI fichier Excel (.xlsx) ───────────────
+  async exportExcel(): Promise<Buffer> {
+    const products = await this.productModel.find().sort({ name: 1 }).lean();
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Produits');
+    ws.columns = [
+      { header: 'Code-barres', key: 'barcode', width: 16 },
+      { header: 'Nom', key: 'name', width: 36 },
+      { header: 'Nom local', key: 'localName', width: 20 },
+      { header: 'Catégorie', key: 'category', width: 16 },
+      { header: 'Sous-catégorie', key: 'subCategory', width: 16 },
+      { header: 'Unité', key: 'unit', width: 10 },
+      { header: 'Valeur', key: 'valeur', width: 10 },
+      { header: 'Prix vente', key: 'price', width: 12 },
+      { header: 'Prix achat', key: 'costPrice', width: 12 },
+      { header: 'Réduction %', key: 'discount', width: 12 },
+      { header: 'Stock boutique', key: 'stock', width: 14 },
+      { header: 'Stock entrepôt', key: 'stockMagazin', width: 14 },
+      { header: 'Seuil alerte', key: 'alertThreshold', width: 12 },
+      { header: 'Seuil commande', key: 'magazinierThreshold', width: 14 },
+      { header: 'Péremption (AAAA-MM-JJ)', key: 'expiryDate', width: 22 },
+      { header: 'Fournisseur', key: 'fournisseur', width: 20 },
+    ];
+    ws.getRow(1).font = { bold: true };
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    for (const p of products) {
+      ws.addRow({
+        barcode: p.barcode ?? '', name: p.name, localName: p.localName ?? '',
+        category: p.category ?? '', subCategory: p.subCategory ?? '',
+        unit: p.unit ?? '', valeur: p.valeur ?? '',
+        price: p.price ?? 0, costPrice: p.costPrice ?? 0, discount: p.discount ?? 0,
+        stock: p.stock ?? 0, stockMagazin: p.stockMagazin ?? 0,
+        alertThreshold: p.alertThreshold ?? 0, magazinierThreshold: p.magazinierThreshold ?? 0,
+        expiryDate: p.expiryDate ? new Date(p.expiryDate).toISOString().slice(0, 10) : '',
+        fournisseur: p.fournisseur ?? '',
+      });
+    }
+    return Buffer.from(await wb.xlsx.writeBuffer());
+  }
+
+  // ── Lecture d'un fichier Excel (.xlsx) envoyé en base64 ─────────────────────
+  // Renvoie les lignes mappées sur les clés produit — l'application les montre
+  // pour confirmation avant d'appeler importBulk.
+  async parseExcel(fileBase64: string) {
+    if (!fileBase64) throw new BadRequestException('Fichier manquant');
+    const wb = new ExcelJS.Workbook();
+    try {
+      await wb.xlsx.load(Buffer.from(fileBase64, 'base64') as any);
+    } catch {
+      throw new BadRequestException("Ce fichier n'est pas un classeur Excel (.xlsx) lisible. Dans Excel, utilisez « Enregistrer sous » → format « Classeur Excel (.xlsx) ».");
+    }
+    const ws = wb.worksheets[0];
+    if (!ws) throw new BadRequestException('Classeur Excel vide');
+
+    // En-têtes (ligne 1) → clés produit
+    const cles: (string | null)[] = [];
+    ws.getRow(1).eachCell({ includeEmpty: true }, (cell, col) => {
+      cles[col] = CLE_PAR_ENTETE[sansAccents(String(cell.text ?? ''))] ?? null;
+    });
+    if (!cles.includes('name') && !cles.includes('barcode')) {
+      throw new BadRequestException('Colonnes non reconnues — gardez les en-têtes du fichier exporté (Nom, Code-barres…)');
+    }
+
+    const texteCellule = (cell: ExcelJS.Cell): string => {
+      const v = cell.value as any;
+      if (v === null || v === undefined) return '';
+      if (v instanceof Date) return v.toISOString().slice(0, 10);
+      if (typeof v === 'object') {
+        if ('result' in v) return String(v.result ?? '');                        // formule
+        if ('richText' in v) return v.richText.map((x: any) => x.text).join(''); // texte enrichi
+        if ('text' in v) return String(v.text ?? '');                            // lien
+        return String(cell.text ?? '');
+      }
+      return String(v);
+    };
+
+    const rows: Record<string, string>[] = [];
+    ws.eachRow((row, n) => {
+      if (n === 1) return;
+      const r: Record<string, string> = {};
+      row.eachCell({ includeEmpty: false }, (cell, col) => {
+        const k = cles[col];
+        if (k) r[k] = texteCellule(cell).trim();
+      });
+      if ((r.name ?? '') !== '' || (r.barcode ?? '') !== '') rows.push(r);
+    });
+    return { rows };
   }
 }

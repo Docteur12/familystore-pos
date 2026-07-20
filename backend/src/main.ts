@@ -11,8 +11,8 @@ async function bootstrap() {
   // la limite Express par défaut (100 Ko) rejetait le logo du magasin en
   // base64 (413) et pouvait faire échouer l'archivage des factures PDF.
   const app = await NestFactory.create(AppModule, { bodyParser: false });
-  app.use(json({ limit: '2mb' }));
-  app.use(urlencoded({ extended: true, limit: '2mb' }));
+  app.use(json({ limit: '10mb' }));
+  app.use(urlencoded({ extended: true, limit: '10mb' }));
   app.enableCors();
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));

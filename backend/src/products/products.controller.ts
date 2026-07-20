@@ -8,9 +8,10 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -37,6 +38,25 @@ export class ProductsController {
   @Get('barcode/:code')
   findByBarcode(@Param('code') code: string) {
     return this.productsService.findByBarcode(code);
+  }
+
+  // GET /api/products/export-excel — catalogue complet en fichier Excel (.xlsx)
+  @Get('export-excel')
+  @UseGuards(RolesGuard)
+  @Roles('patron', 'gestionnaire', 'magazinier')
+  async exportExcel(@Res() res: Response) {
+    const buf = await this.productsService.exportExcel();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=produits_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    res.send(buf);
+  }
+
+  // POST /api/products/parse-excel — lit un .xlsx (base64) et renvoie les lignes
+  @Post('parse-excel')
+  @UseGuards(RolesGuard)
+  @Roles('patron', 'gestionnaire', 'magazinier')
+  parseExcel(@Body() body: { fileBase64: string }) {
+    return this.productsService.parseExcel(body?.fileBase64 ?? '');
   }
 
   // GET /api/products/:id — tous les rôles
