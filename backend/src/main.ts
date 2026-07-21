@@ -17,9 +17,16 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
+  // Réponse minimale avec taille annoncée (Content-Length) et fin de connexion :
+  // sans cela la réponse partait en « Transfer-Encoding: chunked », que le
+  // robot keep-alive (cron-job.org) rejetait en « sortie trop grande ».
   app.use('/api/health', (_req, res) => {
-    res.set('Content-Type', 'text/plain');
-    res.send('ok');
+    res.writeHead(200, {
+      'Content-Type': 'text/plain',
+      'Content-Length': '2',
+      'Connection': 'close',
+    });
+    res.end('ok');
   });
 
   const port = process.env.PORT || 3000;
