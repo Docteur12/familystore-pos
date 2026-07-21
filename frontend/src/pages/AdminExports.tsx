@@ -1,6 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
+import ImportExportProduits from '../components/ImportExportProduits';
+import { getAllProducts, Product } from '../api/products';
 import { useIsMobile } from '../hooks/useIsMobile';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -57,8 +59,20 @@ const EXPORTS: ExportItem[] = [
     url: `/api/reports/monthly/pdf?month=${prevMon}&year=${prevYear}`,
     filename: `rapport-mensuel-${prevYear}-${PAD(prevMon)}.pdf`,
   },
-  { id: 'e5',  title: 'Catalogue produits',       desc: 'Tous les produits avec prix, codes et catégories',  format: 'xlsx', section: 'Stock',        size: '~180 Ko', updated: 'Hier 22:00' },
-  { id: 'e6',  title: 'État du stock',             desc: 'Quantités en stock par produit et dépôt',           format: 'xlsx', section: 'Stock',        size: '~95 Ko',  updated: "Aujourd'hui 08:00" },
+  {
+    id: 'e5', title: 'Catalogue produits', section: 'Stock',
+    desc: 'Tous les produits avec prix, codes-barres, catégories, stocks et fournisseurs',
+    format: 'xlsx', size: 'Excel', updated: 'Temps réel',
+    url: '/api/products/export-excel',
+    filename: `produits_${today}.xlsx`,
+  },
+  {
+    id: 'e6', title: 'État du stock', section: 'Stock',
+    desc: 'Quantités en stock par produit (boutique + entrepôt) — même fichier que le catalogue',
+    format: 'xlsx', size: 'Excel', updated: 'Temps réel',
+    url: '/api/products/export-excel',
+    filename: `etat-stock_${today}.xlsx`,
+  },
   { id: 'e7',  title: 'Mouvements de stock',       desc: 'Entrées et sorties des 30 derniers jours',          format: 'csv',  section: 'Stock',        size: '~220 Ko', updated: "Aujourd'hui 08:00" },
   { id: 'e8',  title: `Fiche comptable — ${MON_LABEL(thisYear, thisMon)}`,  desc: 'Compte de résultat, charges et bénéfice',     format: 'pdf',  section: 'Comptabilité', size: '~650 Ko', updated: "Aujourd'hui 00:00" },
   { id: 'e10', title: 'Liste des collaborateurs',  desc: 'Noms, rôles, postes et performances',               format: 'xlsx', section: 'Personnel',    size: '~60 Ko',  updated: 'Hier 18:00' },
@@ -100,6 +114,10 @@ export default function AdminExports() {
   const { toasts, addToast, removeToast } = useToast();
   const isMobile = useIsMobile();
   const isNarrow = useIsMobile(1024);
+
+  // Liste des produits (pour l'import/export de la section Stock)
+  const [products, setProducts] = useState<Product[]>([]);
+  useEffect(() => { getAllProducts().then(setProducts).catch(() => {}); }, []);
 
   const visible = section === 'Tous' ? EXPORTS : EXPORTS.filter(e => e.section === section);
 
@@ -183,6 +201,21 @@ export default function AdminExports() {
 
         {/* Content */}
         <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '0 16px 28px' : '0 28px 28px' }}>
+
+          {/* Import / export de la liste des produits (fichier Excel) */}
+          {(section === 'Tous' || section === 'Stock') && (
+            <div style={{ background: '#fff', border: '1.5px solid var(--fs-wine-700)', borderRadius: 12, padding: '14px 16px', marginBottom: 24, boxShadow: 'var(--fs-shadow-sm)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--fs-ink-900)' }}>📦 Liste des produits — exporter / importer (Excel)</div>
+                <p style={{ fontSize: 11, color: 'var(--fs-ink-500)', margin: '4px 0 0', lineHeight: 1.5 }}>
+                  <strong>Export</strong> : fichier Excel (.xlsx) avec tous les produits, dans Téléchargements.
+                  <strong> Import</strong> : rouvrez ce fichier modifié — les produits existants sont mis à jour, les nouvelles lignes créent des produits, une cellule vide ne change rien. Confirmation avant application.
+                </p>
+              </div>
+              <ImportExportProduits products={products} onImported={() => getAllProducts().then(setProducts).catch(() => {})} addToast={addToast}/>
+            </div>
+          )}
+
           {Object.entries(toRender).map(([sec, items]) => (
             <div key={sec} style={{ marginBottom: 24 }}>
               <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.12em', margin: '0 0 10px' }}>{sec}</p>
@@ -227,7 +260,7 @@ export default function AdminExports() {
                           }}>
                           {isLoading
                             ? <><Spinner/> Génération…</>
-                            : <><DownloadIcon/> Télécharger</>}
+                            : hasApi ? <><DownloadIcon/> Télécharger</> : <>Bientôt disponible</>}
                         </button>
                       </div>
                     </div>
