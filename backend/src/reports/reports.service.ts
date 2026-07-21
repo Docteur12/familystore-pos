@@ -5,6 +5,8 @@ import { Sale, SaleDocument } from '../schemas/sale.schema';
 import { Expense, ExpenseDocument } from '../schemas/expense.schema';
 import { AuditLog, AuditLogDocument } from '../schemas/audit-log.schema';
 import { Settings, SettingsDocument } from '../settings/settings.schema';
+import { User, UserDocument } from '../schemas/user.schema';
+import { StockMovement, StockMovementDocument } from '../schemas/stock-movement.schema';
 
 // ── Types internes ─────────────────────────────────────────────────────────────
 
@@ -42,6 +44,8 @@ export class ReportsService {
     @InjectModel(Expense.name)  private expenseModel:  Model<ExpenseDocument>,
     @InjectModel(AuditLog.name) private auditLogModel: Model<AuditLogDocument>,
     @InjectModel(Settings.name) private settingsModel: Model<SettingsDocument>,
+    @InjectModel(User.name)     private userModel:     Model<UserDocument>,
+    @InjectModel(StockMovement.name) private movementModel: Model<StockMovementDocument>,
   ) {}
 
   // Couleur de la boutique (RGB) pour les PDF — lue depuis les paramètres.
@@ -1148,5 +1152,255 @@ export class ReportsService {
 
     const ab = await wb.xlsx.writeBuffer();
     return Buffer.isBuffer(ab) ? ab : Buffer.from(ab as ArrayBuffer);
+  }
+
+  // ── Export : mouvements de stock des 30 derniers jours (Excel) ─────────────
+  async generateMouvementsExcel(): Promise<Buffer> {
+    const depuis = new Date(Date.now() - 30 * 864e5);
+    const movements = await this.movementModel
+      .find({ createdAt: { $gte: depuis } })
+      .populate('productId', 'name unit')
+      .sort({ createdAt: -1 })
+      .limit(5000)
+      .lean();
+
+    const MOTIFS: Record<string, string> = {
+      restock: 'Réapprovisionnement', sale: 'Vente', adjustment: 'Ajustement / inventaire',
+      reception: 'Réception fournisseur', annulation_vente: 'Annulation de vente',
+      livraison_partenaire: 'Livraison partenaire', retour_partenaire: 'Retour partenaire',
+      retour_entrepot: 'Retour boutique vers entrepôt', retour_fournisseur: 'Retour au fournisseur',
+    };
+
+    const ExcelJS = require('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Mouvements');
+    ws.columns = [
+      { header: 'Date', key: 'date', width: 18 },
+      { header: 'Produit', key: 'produit', width: 36 },
+      { header: 'Type', key: 'type', width: 10 },
+      { header: 'Quantité', key: 'qte', width: 10 },
+      { header: 'Motif', key: 'motif', width: 26 },
+      { header: 'Note', key: 'note', width: 42 },
+    ];
+    ws.getRow(1).font = { bold: true };
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    for (const m of movements as any[]) {
+      ws.addRow({
+        date: new Date(m.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        produit: m.productId?.name ?? '(produit supprimé)',
+        type: m.type === 'IN' ? 'Entrée' : 'Sortie',
+        qte: m.quantity,
+        motif: MOTIFS[m.reason] ?? m.reason,
+        note: m.note ?? '',
+      });
+    }
+    const ab = await wb.xlsx.writeBuffer();
+    return Buffer.isBuffer(ab) ? ab : Buffer.from(ab as ArrayBuffer);
+  }
+
+  // ── Export : liste des collaborateurs (Excel) ──────────────────────────────
+  async generateEquipeExcel(): Promise<Buffer> {
+    const users = await this.userModel.find().sort({ role: 1, name: 1 }).lean();
+    const ROLES: Record<string, string> = {
+      patron: 'Patron', gestionnaire: 'Gestionnaire', caissier: 'Caissier',
+      magazinier: 'Magasinier', commercial: 'Partenaires',
+    };
+    const ExcelJS = require('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Équipe');
+    ws.columns = [
+      { header: 'Nom', key: 'nom', width: 28 },
+      { header: 'Rôle', key: 'role', width: 16 },
+      { header: 'Email (identifiant)', key: 'email', width: 32 },
+      { header: 'Téléphone', key: 'phone', width: 16 },
+      { header: 'Affectation', key: 'lieu', width: 20 },
+      { header: 'Compte créé le', key: 'cree', width: 16 },
+    ];
+    ws.getRow(1).font = { bold: true };
+    for (const u of users as any[]) {
+      ws.addRow({
+        nom: u.name, role: ROLES[u.role] ?? u.role, email: u.email,
+        phone: u.phone ?? '', lieu: u.assignedLocation ?? '',
+        cree: u.createdAt ? new Date(u.createdAt).toLocaleDateString('fr-FR') : '',
+      });
+    }
+    const ab = await wb.xlsx.writeBuffer();
+    return Buffer.isBuffer(ab) ? ab : Buffer.from(ab as ArrayBuffer);
+  }
+
+  // ── Export : performance des caissiers sur 30 jours (Excel) ────────────────
+  async generateCaissiersExcel(): Promise<Buffer> {
+    const depuis = new Date(Date.now() - 30 * 864e5);
+    const sales = await this.saleModel.find({ createdAt: { $gte: depuis } }).lean();
+
+    const parCaissier = new Map<string, { nb: number; articles: number; ca: number; derniere: Date }>();
+    for (const s of sales as any[]) {
+      const nom = s.cashierName || '(inconnu)';
+      const cur = parCaissier.get(nom) ?? { nb: 0, articles: 0, ca: 0, derniere: new Date(0) };
+      cur.nb += 1;
+      cur.ca += s.total ?? 0;
+      cur.articles += (s.items ?? []).reduce((t: number, i: any) => t + (i.quantity ?? 0), 0);
+      const d = new Date(s.dateVente ?? s.createdAt);
+      if (d > cur.derniere) cur.derniere = d;
+      parCaissier.set(nom, cur);
+    }
+
+    const ExcelJS = require('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Caissiers 30 jours');
+    ws.columns = [
+      { header: 'Caissier', key: 'nom', width: 26 },
+      { header: 'Nb de ventes', key: 'nb', width: 13 },
+      { header: 'Articles vendus', key: 'articles', width: 15 },
+      { header: 'CA (XAF)', key: 'ca', width: 16 },
+      { header: 'Panier moyen (XAF)', key: 'panier', width: 18 },
+      { header: 'Dernière vente', key: 'derniere', width: 18 },
+    ];
+    ws.getRow(1).font = { bold: true };
+    [...parCaissier.entries()]
+      .sort((a, b) => b[1].ca - a[1].ca)
+      .forEach(([nom, d]) => {
+        ws.addRow({
+          nom, nb: d.nb, articles: d.articles, ca: d.ca,
+          panier: d.nb ? Math.round(d.ca / d.nb) : 0,
+          derniere: d.derniere.getTime() ? d.derniere.toLocaleDateString('fr-FR') : '',
+        });
+      });
+    const totaux = [...parCaissier.values()];
+    const rTot = ws.addRow({
+      nom: 'TOTAL', nb: totaux.reduce((s2, d) => s2 + d.nb, 0),
+      articles: totaux.reduce((s2, d) => s2 + d.articles, 0),
+      ca: totaux.reduce((s2, d) => s2 + d.ca, 0), panier: '', derniere: '',
+    });
+    rTot.font = { bold: true };
+    const ab = await wb.xlsx.writeBuffer();
+    return Buffer.isBuffer(ab) ? ab : Buffer.from(ab as ArrayBuffer);
+  }
+
+  // ── Export : journal d'audit (Excel) ───────────────────────────────────────
+  async generateAuditExcel(): Promise<Buffer> {
+    const logs = await this.auditLogModel.find().sort({ createdAt: -1 }).limit(5000).lean();
+    const ExcelJS = require('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Audit');
+    ws.columns = [
+      { header: 'Date', key: 'date', width: 18 },
+      { header: 'Type', key: 'type', width: 14 },
+      { header: 'Module', key: 'module', width: 14 },
+      { header: 'Acteur', key: 'acteur', width: 22 },
+      { header: 'Rôle', key: 'role', width: 14 },
+      { header: 'Détail', key: 'detail', width: 70 },
+    ];
+    ws.getRow(1).font = { bold: true };
+    ws.views = [{ state: 'frozen', ySplit: 1 }];
+    for (const l of logs as any[]) {
+      ws.addRow({
+        date: new Date(l.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        type: l.type, module: l.module, acteur: l.actorName, role: l.actorRole, detail: l.detail,
+      });
+    }
+    const ab = await wb.xlsx.writeBuffer();
+    return Buffer.isBuffer(ab) ? ab : Buffer.from(ab as ArrayBuffer);
+  }
+
+  // ── Export : fiche comptable du mois (PDF) ─────────────────────────────────
+  async generateComptaPdf(year: number, month: number): Promise<Buffer> {
+    const stats = await this.statsComptaMonth(year, month);
+    const { jsPDF } = require('jspdf');
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const W = 595, ML = 40, MR = W - 40, UW = MR - ML;
+    const bordeaux = await this.brandRgb();
+    // Espace insécable fin (fr-FR) remplacé : la police Helvetica de jsPDF le rend en « / »
+    const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR').replace(/[  ]/g, ' ');
+
+    // Bandeau titre
+    doc.setFillColor(bordeaux[0], bordeaux[1], bordeaux[2]);
+    doc.rect(0, 0, W, 86, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(19);
+    doc.text('Fiche comptable', ML, 38);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.text(stats.label.charAt(0).toUpperCase() + stats.label.slice(1), ML, 60);
+    doc.setFontSize(9);
+    doc.text(`Éditée le ${new Date().toLocaleDateString('fr-FR')} · Family Store`, MR, 60, { align: 'right' });
+
+    // Compte de résultat
+    let y = 116;
+    doc.setTextColor(30, 30, 30);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('Compte de résultat', ML, y);
+    y += 14;
+    const lignes: [string, number, boolean?][] = [
+      [`Chiffre d'affaires (${stats.nbVentes} ventes)`, stats.ca],
+      ["Coût d'achat des marchandises vendues", -stats.coutAchats],
+      ['Marge brute', stats.margesBrute, true],
+      ['Dépenses / charges', -stats.depenses],
+      ['BÉNÉFICE NET', stats.beneficeNet, true],
+    ];
+    for (const [label, montant, gras] of lignes) {
+      doc.setFillColor(gras ? 245 : 250, gras ? 240 : 250, gras ? 232 : 251);
+      doc.rect(ML, y, UW, 26, 'F');
+      doc.setFont('helvetica', gras ? 'bold' : 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(30, 30, 30);
+      doc.text(label, ML + 10, y + 17);
+      if (montant < 0) doc.setTextColor(220, 53, 69);
+      else if (gras) doc.setTextColor(22, 163, 74);
+      doc.text(`${montant < 0 ? '-' : ''}${fmtN(Math.abs(montant))} XAF`, MR - 10, y + 17, { align: 'right' });
+      y += 30;
+    }
+
+    // Dépenses par catégorie
+    y += 18;
+    doc.setTextColor(30, 30, 30);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text('Dépenses par catégorie', ML, y);
+    y += 10;
+    if (stats.depensesParCategorie.length === 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(107, 114, 128);
+      y += 14;
+      doc.text('Aucune dépense enregistrée ce mois.', ML, y);
+      y += 10;
+    }
+    for (const d of stats.depensesParCategorie.slice(0, 14)) {
+      y += 4;
+      doc.setFillColor(250, 250, 251);
+      doc.rect(ML, y, UW, 22, 'F');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(30, 30, 30);
+      doc.text(`${d.category}  (${d.count})`, ML + 10, y + 15);
+      doc.text(`${fmtN(d.total)} XAF`, MR - 10, y + 15, { align: 'right' });
+      y += 22;
+    }
+
+    // Ventes par mode de paiement
+    y += 22;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(30, 30, 30);
+    doc.text('Ventes par mode de paiement', ML, y);
+    y += 10;
+    for (const v of stats.ventesParPaiement.slice(0, 10)) {
+      y += 4;
+      doc.setFillColor(250, 250, 251);
+      doc.rect(ML, y, UW, 22, 'F');
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(String(v.mode), ML + 10, y + 15);
+      doc.text(`${fmtN(v.total)} XAF`, MR - 10, y + 15, { align: 'right' });
+      y += 22;
+    }
+
+    doc.setFontSize(8);
+    doc.setTextColor(107, 114, 128);
+    doc.text('Document généré automatiquement par Family Store POS', ML, 812);
+    return Buffer.from(doc.output('arraybuffer'));
   }
 }

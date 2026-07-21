@@ -51,6 +51,54 @@ export class ReportsController {
     return this.reportsService.statsComptaMonth(year, month);
   }
 
+  // GET /api/reports/mouvements-stock/excel — entrées/sorties 30 derniers jours
+  @Get('mouvements-stock/excel')
+  async mouvementsExcel(@Res() res: Response) {
+    const buffer = await this.reportsService.generateMouvementsExcel();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=mouvements-stock_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    res.send(buffer);
+  }
+
+  // GET /api/reports/equipe/excel — liste des collaborateurs
+  @Get('equipe/excel')
+  async equipeExcel(@Res() res: Response) {
+    const buffer = await this.reportsService.generateEquipeExcel();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=equipe_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    res.send(buffer);
+  }
+
+  // GET /api/reports/caissiers/excel — performance caissiers 30 derniers jours
+  @Get('caissiers/excel')
+  async caissiersExcel(@Res() res: Response) {
+    const buffer = await this.reportsService.generateCaissiersExcel();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=caissiers-30j_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    res.send(buffer);
+  }
+
+  // GET /api/reports/audit/excel — journal d'audit complet
+  @Get('audit/excel')
+  async auditExcel(@Res() res: Response) {
+    const buffer = await this.reportsService.generateAuditExcel();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=journal-audit_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    res.send(buffer);
+  }
+
+  // GET /api/reports/compta/pdf?year=2026&month=7 — fiche comptable du mois
+  @Get('compta/pdf')
+  async comptaPdf(@Query('year') yearQ: string, @Query('month') monthQ: string, @Res() res: Response) {
+    const now = new Date();
+    const year = yearQ ? parseInt(yearQ) : now.getFullYear();
+    const month = monthQ ? parseInt(monthQ) : now.getMonth() + 1;
+    const buffer = await this.reportsService.generateComptaPdf(year, month);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=fiche-comptable_${year}-${String(month).padStart(2, '0')}.pdf`);
+    res.send(buffer);
+  }
+
   // GET /api/reports/daily/pdf?date=2026-04-24
   @Get('daily/pdf')
   async dailyPdf(@Query('date') date: string, @Res() res: Response) {

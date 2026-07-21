@@ -73,11 +73,48 @@ const EXPORTS: ExportItem[] = [
     url: '/api/products/export-excel',
     filename: `etat-stock_${today}.xlsx`,
   },
-  { id: 'e7',  title: 'Mouvements de stock',       desc: 'Entrées et sorties des 30 derniers jours',          format: 'csv',  section: 'Stock',        size: '~220 Ko', updated: "Aujourd'hui 08:00" },
-  { id: 'e8',  title: `Fiche comptable — ${MON_LABEL(thisYear, thisMon)}`,  desc: 'Compte de résultat, charges et bénéfice',     format: 'pdf',  section: 'Comptabilité', size: '~650 Ko', updated: "Aujourd'hui 00:00" },
-  { id: 'e10', title: 'Liste des collaborateurs',  desc: 'Noms, rôles, postes et performances',               format: 'xlsx', section: 'Personnel',    size: '~60 Ko',  updated: 'Hier 18:00' },
-  { id: 'e11', title: 'Performance caissiers',     desc: 'Ventes, CA et notation sur 30 jours',               format: 'xlsx', section: 'Personnel',    size: '~75 Ko',  updated: "Aujourd'hui 00:00" },
-  { id: 'e12', title: "Journal d'audit",           desc: 'Toutes les actions sensibles tracées',              format: 'csv',  section: 'Système',      size: '~40 Ko',  updated: 'Temps réel' },
+  {
+    id: 'e7', title: 'Mouvements de stock', section: 'Stock',
+    desc: 'Entrées et sorties des 30 derniers jours (produit, quantité, motif)',
+    format: 'xlsx', size: 'Excel', updated: 'Temps réel',
+    url: '/api/reports/mouvements-stock/excel',
+    filename: `mouvements-stock_${today}.xlsx`,
+  },
+  {
+    id: 'e8', title: `Fiche comptable — ${MON_LABEL(thisYear, thisMon)}`, section: 'Comptabilité',
+    desc: 'Compte de résultat, dépenses par catégorie, ventes par mode de paiement',
+    format: 'pdf', size: 'PDF', updated: 'Temps réel',
+    url: `/api/reports/compta/pdf?month=${thisMon}&year=${thisYear}`,
+    filename: `fiche-comptable_${thisYear}-${PAD(thisMon)}.pdf`,
+  },
+  {
+    id: 'e9', title: `Fiche comptable — ${MON_LABEL(prevYear, prevMon)}`, section: 'Comptabilité',
+    desc: `Compte de résultat, charges et bénéfice de ${MON_LABEL(prevYear, prevMon)}`,
+    format: 'pdf', size: 'PDF', updated: 'Temps réel',
+    url: `/api/reports/compta/pdf?month=${prevMon}&year=${prevYear}`,
+    filename: `fiche-comptable_${prevYear}-${PAD(prevMon)}.pdf`,
+  },
+  {
+    id: 'e10', title: 'Liste des collaborateurs', section: 'Personnel',
+    desc: 'Noms, rôles, identifiants, téléphones et affectations',
+    format: 'xlsx', size: 'Excel', updated: 'Temps réel',
+    url: '/api/reports/equipe/excel',
+    filename: `equipe_${today}.xlsx`,
+  },
+  {
+    id: 'e11', title: 'Performance caissiers', section: 'Personnel',
+    desc: 'Ventes, articles, CA et panier moyen par caissier sur 30 jours',
+    format: 'xlsx', size: 'Excel', updated: 'Temps réel',
+    url: '/api/reports/caissiers/excel',
+    filename: `caissiers-30j_${today}.xlsx`,
+  },
+  {
+    id: 'e12', title: "Journal d'audit", section: 'Système',
+    desc: 'Toutes les actions sensibles tracées (qui, quoi, quand)',
+    format: 'xlsx', size: 'Excel', updated: 'Temps réel',
+    url: '/api/reports/audit/excel',
+    filename: `journal-audit_${today}.xlsx`,
+  },
 ];
 
 // ── Constants ─────────────────────────────────────────────────────────────────
