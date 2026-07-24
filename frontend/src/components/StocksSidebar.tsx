@@ -121,7 +121,7 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
       <aside className="fs-sidebar-drawer" style={sidebarStyle}>
         {/* Logo du magasin */}
         <div style={{ padding: '18px 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
             <StoreLogo width={150}/>
           </div>
           <div style={{ textAlign: 'center' }}>

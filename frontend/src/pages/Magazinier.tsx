@@ -742,7 +742,7 @@ export default function Magazinier() {
         } : {}),
       }}>
         <div style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
             <StoreLogo width={150}/>
           </div>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>Family Store</div>
