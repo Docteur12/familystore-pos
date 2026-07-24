@@ -154,6 +154,7 @@ export function buildReceiptHTML(data: ReceiptData): string {
     <div class="store">Family Store</div>
     <div class="rdct">BY RDCT</div>
     <div class="tag">Beaut&eacute; &bull; Saveur &bull; Bien-&ecirc;tre</div>
+    <div class="legal">NIU : MO22118477039J &bull; RC : RC/DLN/2021/B/392</div>
   </div>
   <div class="solid"></div>
   <div class="info">
@@ -168,7 +169,6 @@ export function buildReceiptHTML(data: ReceiptData): string {
       <div>T&eacute;l. : +237 682634355</div>
     </div>
   </div>
-  <div class="legal">NIU : MO22118477039J &bull; RC : RC/DLN/2021/B/392</div>
   <div class="solid"></div>
   ${itemRows}
   ${aReduction ? `
@@ -243,6 +243,7 @@ export function buildReceiptPDF(data: ReceiptData): string {
   line('Family Store', 22, true, 'center');
   line('BY RDCT', 8, false, 'center');
   line('Beauté · Saveur · Bien-être', 9, false, 'center');
+  line('NIU : MO22118477039J · RC : RC/DLN/2021/B/392', 7, false, 'center');
   y += 1;
   solid();
 
@@ -260,7 +261,6 @@ export function buildReceiptPDF(data: ReceiptData): string {
     y += 8 * 0.5;
   }
   y += 1;
-  line('NIU : MO22118477039J · RC : RC/DLN/2021/B/392', 7, false, 'center');
   solid();
 
   // Articles
