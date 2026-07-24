@@ -938,13 +938,13 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
             ))}
           </div>
         ) : (
-          <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '12px 16px' : '12px 28px', flexShrink: 0, paddingLeft: mobileNav ? 60 : undefined }}>
+          <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '12px 16px' : '12px 28px', flexShrink: 0, paddingLeft: mobileNav ? 60 : (isMobile ? 16 : 56) }}>
             <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Partenaires</p>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{tab === 'comptes' ? (compteAg ? compteAg.partenaire.name : 'Détail partenaire') : (TAB_TITLES[tab] ?? 'Partenaires')}</h1>
           </div>
         )}
 
-        <div style={{ flex: isMobile ? '0 0 auto' : 1, overflowY: isMobile ? 'visible' : 'auto', padding: embedded ? '18px 16px' : (isMobile ? '16px 14px' : '20px 28px') }}>
+        <div style={{ flex: isMobile ? '0 0 auto' : 1, overflowY: isMobile ? 'visible' : 'auto', padding: embedded ? '18px 16px' : (isMobile ? '16px 14px' : '20px 28px'), paddingLeft: embedded ? undefined : (isMobile ? 14 : 56) }}>
 
           {/* ── Onglet Tableau de bord ── */}
           {tab === 'dashboard' && (
