@@ -785,6 +785,43 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
         />
       )}
 
+      {/* Modal Retour d'invendus : le partenaire nous rend de la marchandise
+          → remise en stock entrepôt ET la dette du partenaire diminue. */}
+      {showRetour && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: '24px 26px', maxWidth: 560, width: '100%', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800, color: 'var(--fs-ink-900)' }}>↩ Retour d'invendus {compteAg ? `— ${compteAg.partenaire.name}` : ''}</p>
+            <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--fs-ink-500)' }}>
+              Le partenaire rend de la marchandise : elle est <strong>remise en stock entrepôt</strong> et sa <strong>dette diminue</strong> du montant retourné.
+            </p>
+            <label style={LABEL}>Produits retournés</label>
+            {retourRows.map((row, i) => {
+              const dp = row.productId ? dernierPrix[row.productId] : undefined;
+              return (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 76px 100px 32px', gap: 6, marginBottom: 6, alignItems: 'start' }}>
+                  <ProductSelect products={products} value={row.productId} onChange={id => setRetourRow(i, { productId: id, prix: row.prix || (dernierPrix[id] ? String(dernierPrix[id]) : '') })}/>
+                  <input type="number" min={1} value={row.quantite} onChange={e => setRetourRow(i, { quantite: e.target.value })} placeholder="Qté" style={{ ...INPUT, textAlign: 'center', padding: '7px 6px' }}/>
+                  <div>
+                    <input type="number" min={0} value={row.prix} onChange={e => setRetourRow(i, { prix: e.target.value })} placeholder="Prix" style={{ ...INPUT, textAlign: 'center', padding: '7px 6px' }}/>
+                    {dp !== undefined && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', textAlign: 'center', marginTop: 2 }}>dernier : {fmtN(dp)}</div>}
+                  </div>
+                  <button onClick={() => removeRetourRow(i)} title="Retirer" style={{ padding: 6, border: '1px solid rgba(194,62,36,0.25)', borderRadius: 7, background: '#fef2f2', color: 'var(--fs-danger-700)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✕</button>
+                </div>
+              );
+            })}
+            <button onClick={addRetourRow} style={{ background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '7px 16px', marginTop: 4 }}>+ Ajouter une ligne</button>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--fs-line)' }}>
+              <span style={{ fontSize: 13, color: 'var(--fs-ink-500)' }}>Valeur du retour : <strong style={{ fontFamily: 'var(--fs-font-mono)', color: '#B45309' }}>{fmtN(retourRows.reduce((s, r) => s + (parseInt(r.quantite) || 0) * (parseInt(r.prix) || 0), 0))} XAF</strong></span>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setShowRetour(false)} style={{ padding: '9px 18px', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Annuler</button>
+                <button onClick={enregistrerRetour} style={BTN_PRIMARY}>Valider le retour</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bouton hamburger (mobile, hors mode intégré) */}
       {mobileNav && (
         <button onClick={() => setNavOpen(o => !o)} aria-label={navOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
@@ -1351,6 +1388,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                       <button onClick={() => ouvrirEditPartenaire(compteAg.partenaire)} style={GHOST}><I d={D.edit} size={14}/> Modifier</button>
                       <button onClick={() => { if (window.confirm(`Supprimer le partenaire « ${compteAg.partenaire.name} » ?`)) { removePartenaire(compteId); setCompteId(''); setTab('dashboard'); } }} style={{ ...GHOST, color: 'var(--fs-danger-700)', borderColor: 'rgba(194,62,36,0.3)' }}><I d={D.trash} size={14}/> Supprimer</button>
                       <button onClick={() => ouvrirNouvelleAgence(compteAg.partenaire)} style={GHOST}><I d={D.plus} size={14}/> Ajouter une agence</button>
+                      <button onClick={() => { setRetourRows([{ productId: '', quantite: '1', prix: '' }]); setShowRetour(true); }} style={{ ...GHOST, color: '#B45309', borderColor: 'rgba(180,83,9,0.35)' }}>↩ Retour d'invendus</button>
                       {nbActives > 0 && <>
                         <button onClick={() => setToutesAgences(true)} style={GHOST}><I d={D.unlink} size={14}/> Toutes indépendantes</button>
                         <button onClick={() => setToutesAgences(false)} style={GHOST}><I d={D.link} size={14}/> Toutes en commun</button>
