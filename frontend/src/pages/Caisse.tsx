@@ -23,6 +23,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { formatVolume } from '../utils/text';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
+import StoreLogo from '../components/StoreLogo';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -895,8 +896,11 @@ export default function Caisse() {
         flexShrink: 0,
         overflow: 'hidden',
       }}>
-        {/* Marque / espace courant */}
+        {/* Logo du magasin + espace courant */}
         <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+            <StoreLogo width={140}/>
+          </div>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 2 }}>Family Store</div>
           <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Caisse</div>
         </div>

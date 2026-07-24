@@ -4,6 +4,7 @@ import { getTokenPayload } from '../api/dashboard';
 import { getAllReceptions } from '../api/magazinier';
 import { getEcartsCount }  from '../api/ecarts';
 import { useIsMobile } from '../hooks/useIsMobile';
+import StoreLogo from './StoreLogo';
 
 const LS_RECEPTION_SEEN = 'receptions_last_seen';
 const SIDEBAR_W   = 190;
@@ -118,21 +119,14 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
       )}
 
       <aside className="fs-sidebar-drawer" style={sidebarStyle}>
-        {/* Logo */}
+        {/* Logo du magasin */}
         <div style={{ padding: '18px 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-              <circle cx="24" cy="24" r="22" fill="rgba(255,255,255,0.12)"/>
-              <circle cx="24" cy="24" r="22" fill="none" stroke="var(--fs-gold-400)" strokeWidth="1"/>
-              <path d="M14 22 L18 14 L22 20 L24 12 L26 20 L30 14 L34 22 L34 27 L14 27 Z"
-                fill="var(--fs-gold-400)" stroke="var(--fs-gold-300)" strokeWidth="0.5"/>
-              <text x="24" y="37" textAnchor="middle" fontFamily="Cormorant Garamond, serif"
-                fontSize="8" fontWeight="600" fill="var(--fs-gold-300)" letterSpacing="0.1em">FS</text>
-            </svg>
-            <div>
-              <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 13, fontWeight: 700, color: '#f5ebd9', letterSpacing: '0.04em' }}>FAMILY STORE</div>
-              <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.08em' }}>Espace d'administration</div>
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+            <StoreLogo width={150}/>
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 13, fontWeight: 700, color: '#f5ebd9', letterSpacing: '0.04em' }}>FAMILY STORE</div>
+            <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.08em' }}>Gestion de stock</div>
           </div>
         </div>
 

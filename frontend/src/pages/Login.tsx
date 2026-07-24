@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { forgotPassword } from '../api/auth';
 import { useIsMobile } from '../hooks/useIsMobile';
+import StoreLogo from '../components/StoreLogo';
 
 function LockIcon() {
   return (
@@ -100,19 +101,9 @@ export default function Login() {
 
         {/* ── Logo block ── */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          {/* Crown SVG */}
+          {/* Logo du magasin (personnalisable via Paramètres, sinon Family Store) */}
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-            <svg width={isMobile ? 48 : 64} height={isMobile ? 48 : 64} viewBox="0 0 48 48" fill="none">
-              <circle cx="24" cy="24" r="22" fill="var(--fs-wine-700)"/>
-              <circle cx="24" cy="24" r="22" fill="none" stroke="var(--fs-gold-400)" strokeWidth="1.2"/>
-              <path d="M14 22 L18 14 L22 20 L24 12 L26 20 L30 14 L34 22 L34 27 L14 27 Z"
-                    fill="var(--fs-gold-400)" stroke="var(--fs-gold-300)" strokeWidth="0.5"/>
-              <circle cx="18" cy="14" r="1.1" fill="var(--fs-gold-300)"/>
-              <circle cx="24" cy="12" r="1.1" fill="var(--fs-gold-300)"/>
-              <circle cx="30" cy="14" r="1.1" fill="var(--fs-gold-300)"/>
-              <text x="24" y="37" textAnchor="middle" fontFamily="Cormorant Garamond, serif"
-                    fontSize="8" fontWeight="600" fill="var(--fs-gold-300)" letterSpacing="0.1em">FS</text>
-            </svg>
+            <StoreLogo width={isMobile ? 150 : 190}/>
           </div>
 
           <h1 style={{

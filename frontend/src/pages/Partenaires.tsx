@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import StoreLogo from '../components/StoreLogo';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { getTokenPayload } from '../api/dashboard';
@@ -804,6 +805,9 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
         ...(mobileNav ? { position: 'fixed', top: 0, left: navOpen ? 0 : -216, height: '100vh', zIndex: 200, boxShadow: navOpen ? '4px 0 24px rgba(0,0,0,0.4)' : 'none', transition: 'left 0.25s' } : {}),
       }}>
         <div style={{ padding: '20px 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+            <StoreLogo width={150}/>
+          </div>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>Family Store</div>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Partenaires</div>
         </div>
