@@ -7,6 +7,7 @@ import { AuthGuard } from './auth.guard';
 import { RolesGuard } from './roles.guard';
 import { User, UserSchema } from '../schemas/user.schema';
 import { AuditLog, AuditLogSchema } from '../schemas/audit-log.schema';
+import { getJwtSecret } from '../config/jwt-secret';
 
 @Module({
   imports: [
@@ -16,7 +17,7 @@ import { AuditLog, AuditLogSchema } from '../schemas/audit-log.schema';
     ]),
     JwtModule.register({
       global: true,
-      secret: process.env.JWT_SECRET ?? 'fallback_secret',
+      secret: getJwtSecret(),
       signOptions: { expiresIn: process.env.JWT_EXPIRES_IN ?? '30d' },
     }),
   ],

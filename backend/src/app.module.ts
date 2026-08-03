@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { ProductsModule } from './products/products.module';
@@ -27,6 +29,10 @@ import { CategoriesModule } from './categories/categories.module';
         uri: process.env.MONGO_URI,
       }),
     }),
+    // Limite par défaut : 100 requêtes/minute par IP et par route.
+    // Les routes de connexion et de synchronisation hors-ligne la
+    // surchargent — voir src/config/throttle.ts.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     AuditModule,   // global — doit être avant les autres modules
     AuthModule,
     ProductsModule,
@@ -47,6 +53,6 @@ import { CategoriesModule } from './categories/categories.module';
     CategoriesModule,
   ],
   controllers: [AppController],
-  providers: [],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

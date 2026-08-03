@@ -3,6 +3,7 @@ import { MagazinierService } from './magazinier.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { ThrottleSync } from '../config/throttle';
 
 @Controller('magazinier')
 @UseGuards(AuthGuard)
@@ -11,6 +12,7 @@ export class MagazinierController {
 
   // Accessible par magasinier + gestionnaire + patron
   @Post('receptions')
+  @ThrottleSync()
   @UseGuards(RolesGuard)
   @Roles('magazinier', 'gestionnaire', 'patron')
   createReception(@Body() body: any, @Req() req: any) {

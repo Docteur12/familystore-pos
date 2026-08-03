@@ -2,9 +2,11 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -15,6 +17,8 @@ import { AuditLog, AuditLogDocument } from '../schemas/audit-log.schema';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectModel(User.name)     private userModel:     Model<UserDocument>,
     @InjectModel(AuditLog.name) private auditLogModel: Model<AuditLogDocument>,
@@ -161,12 +165,36 @@ export class AuthService {
     });
   }
 
-  async forgotPassword(email: string) {
-    const user = await this.userModel.findOne({ email: email.toLowerCase() });
-    if (!user) throw new NotFoundException('Aucun compte associé à cet email');
+  // Mot de passe temporaire tiré du générateur cryptographique du système.
+  // Math.random() ne convient pas : sa graine est devinable, donc le mot de
+  // passe envoyé par email l'est aussi.
+  private generateTempPassword(length = 12): string {
+    const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    // 248 = plus grand multiple de 62 sous 256 : au-delà, l'octet est rejeté
+    // plutôt que replié par modulo, ce qui biaiserait les premières lettres.
+    const maxUnbiased = 256 - (256 % ALPHABET.length);
+    let out = '';
+    while (out.length < length) {
+      for (const byte of randomBytes(length)) {
+        if (byte >= maxUnbiased) continue;
+        out += ALPHABET[byte % ALPHABET.length];
+        if (out.length === length) break;
+      }
+    }
+    return out;
+  }
 
-    // Generate a random temp password
-    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase();
+  // Réponse volontairement identique que le compte existe ou non : renvoyer
+  // « aucun compte associé » permettrait d'énumérer les utilisateurs.
+  async forgotPassword(email: string) {
+    const REPONSE_NEUTRE = {
+      message: 'Si un compte existe avec cet email, un message a été envoyé.',
+    };
+
+    const user = await this.userModel.findOne({ email: email.toLowerCase() });
+    if (!user) return REPONSE_NEUTRE;
+
+    const tempPassword = this.generateTempPassword();
     user.password = await bcrypt.hash(tempPassword, 10);
     await user.save();
 
@@ -178,11 +206,14 @@ export class AuthService {
       },
     });
 
-    await transporter.sendMail({
-      from: `"Family Store POS" <${process.env.MAIL_USER}>`,
-      to: user.email,
-      subject: 'Réinitialisation de votre mot de passe — Family Store POS',
-      html: `
+    // Une erreur d'envoi ne doit pas remonter en 500 : le code HTTP
+    // trahirait à lui seul l'existence du compte.
+    try {
+      await transporter.sendMail({
+        from: `"Family Store POS" <${process.env.MAIL_USER}>`,
+        to: user.email,
+        subject: 'Réinitialisation de votre mot de passe — Family Store POS',
+        html: `
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
           <h2 style="color: #7A1D2E;">Family Store POS</h2>
           <p>Bonjour <strong>${user.name}</strong>,</p>
@@ -194,8 +225,16 @@ export class AuthService {
           <p style="font-size: 12px; color: #999; margin-top: 24px;">Family Store POS — by RDCT</p>
         </div>
       `,
-    });
+      });
+    } catch (err) {
+      // Le mot de passe a déjà été remplacé en base : si l'envoi échoue,
+      // l'utilisateur ne peut plus se connecter et ne reçoit rien. Tracé ici
+      // pour que le patron puisse le constater dans les logs Render.
+      this.logger.error(
+        `Échec d'envoi du mot de passe temporaire à ${user.email} : ${err instanceof Error ? err.message : err}`,
+      );
+    }
 
-    return { message: 'Un mot de passe temporaire a été envoyé à votre adresse email.' };
+    return REPONSE_NEUTRE;
   }
 }

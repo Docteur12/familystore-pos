@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
+import { getJwtSecret } from '../config/jwt-secret';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -17,10 +18,11 @@ export class AuthGuard implements CanActivate {
     if (!token) {
       throw new UnauthorizedException('Token manquant');
     }
+    // Résolu HORS du try : une configuration manquante doit remonter telle
+    // quelle, pas être masquée en « token invalide » par le catch ci-dessous.
+    const secret = getJwtSecret();
     try {
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: process.env.JWT_SECRET ?? 'fallback_secret',
-      });
+      const payload = await this.jwtService.verifyAsync(token, { secret });
       request['user'] = payload;
     } catch {
       throw new UnauthorizedException('Token invalide ou expiré');

@@ -13,6 +13,7 @@ import { RemoveStockDto } from './dto/remove-stock.dto';
 import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { ThrottleSync } from '../config/throttle';
 
 @Controller('stock')
 @UseGuards(AuthGuard)
@@ -21,6 +22,7 @@ export class StockController {
 
   // POST /api/stock/add — gestionnaire + patron
   @Post('add')
+  @ThrottleSync()
   @UseGuards(RolesGuard)
   @Roles('gestionnaire', 'patron')
   addStock(@Body() dto: AddStockDto) {
