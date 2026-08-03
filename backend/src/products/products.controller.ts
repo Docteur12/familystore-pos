@@ -19,6 +19,7 @@ import { AuthGuard }    from '../auth/auth.guard';
 import { RolesGuard }   from '../auth/roles.guard';
 import { Roles }        from '../auth/roles.decorator';
 import { AuditService } from '../audit/audit.service';
+import { ThrottleSync } from '../config/throttle';
 
 @Controller('products')
 @UseGuards(AuthGuard)
@@ -36,6 +37,7 @@ export class ProductsController {
 
   // GET /api/products/barcode/:code — tous les rôles
   @Get('barcode/:code')
+  @ThrottleSync()
   findByBarcode(@Param('code') code: string) {
     return this.productsService.findByBarcode(code);
   }
@@ -83,6 +85,7 @@ export class ProductsController {
 
   // POST /api/products — patron + gestionnaire + magasinier
   @Post()
+  @ThrottleSync()
   @UseGuards(RolesGuard)
   @Roles('patron', 'gestionnaire', 'magazinier')
   async create(@Body() dto: CreateProductDto, @Req() req: Request) {
@@ -99,6 +102,7 @@ export class ProductsController {
 
   // PATCH /api/products/:id — patron + gestionnaire
   @Patch(':id')
+  @ThrottleSync()
   @UseGuards(RolesGuard)
   @Roles('patron', 'gestionnaire')
   async update(@Param('id') id: string, @Body() dto: UpdateProductDto, @Req() req: Request) {

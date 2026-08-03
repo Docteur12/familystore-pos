@@ -18,6 +18,7 @@ import { AuthGuard }     from '../auth/auth.guard';
 import { RolesGuard }    from '../auth/roles.guard';
 import { Roles }         from '../auth/roles.decorator';
 import { AuditService }  from '../audit/audit.service';
+import { ThrottleSync }  from '../config/throttle';
 
 @Controller('sales')
 @UseGuards(AuthGuard)
@@ -29,6 +30,7 @@ export class SalesController {
 
   // POST /api/sales — tous les rôles
   @Post()
+  @ThrottleSync()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateSaleDto, @Req() req: Request) {
     const actor  = (req as any)['user'];

@@ -5,6 +5,7 @@ import { FacturesService, CreateFactureDto } from './factures.service';
 import { AuthGuard }  from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles }      from '../auth/roles.decorator';
+import { ThrottleSync } from '../config/throttle';
 
 @Controller('factures')
 @UseGuards(AuthGuard)
@@ -13,6 +14,7 @@ export class FacturesController {
 
   // POST /api/factures — tous les rôles authentifiés (caissier, patron, gestionnaire)
   @Post()
+  @ThrottleSync()
   @HttpCode(HttpStatus.CREATED)
   create(@Body() dto: CreateFactureDto) {
     return this.facturesService.create(dto);

@@ -18,6 +18,7 @@ import { AuthGuard }    from './auth.guard';
 import { RolesGuard }   from './roles.guard';
 import { Roles }        from './roles.decorator';
 import { AuditService } from '../audit/audit.service';
+import { ThrottleLogin, ThrottleMotDePasseOublie } from '../config/throttle';
 
 @Controller('auth')
 export class AuthController {
@@ -27,6 +28,7 @@ export class AuthController {
   ) {}
 
   @Post('login')
+  @ThrottleLogin()
   @HttpCode(HttpStatus.OK)
   async login(@Body() body: { email: string; password: string }) {
     const result = await this.authService.login(body.email, body.password);
@@ -115,6 +117,7 @@ export class AuthController {
 
   // Mot de passe oublié — pas d'auth requise
   @Post('forgot-password')
+  @ThrottleMotDePasseOublie()
   @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() body: { email: string }) {
     return this.authService.forgotPassword(body.email);
