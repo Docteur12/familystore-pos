@@ -11,10 +11,23 @@ export const MINUTE = 60_000;
 export const QUINZE_MINUTES = 15 * MINUTE;
 
 /**
- * Connexion — 5 tentatives par minute.
- * Freine la force brute sans gêner un caissier qui se trompe de mot de passe.
+ * Connexion — 30 tentatives par minute.
+ *
+ * Volontairement plus large que les 5/minute d'une limite anti-force-brute
+ * classique : il n'a pas été possible de vérifier avec certitude, depuis une
+ * seule connexion, que le compteur suit bien l'IP de chaque poste et non
+ * celle du proxy Netlify. Si elle était partagée, une limite à 5 bloquerait
+ * l'équipe à l'ouverture de la boutique, quand tout le monde se connecte en
+ * même temps.
+ *
+ * 30 essais/minute reste une protection réelle — une attaque par
+ * dictionnaire en exige des milliers — tout en laissant passer les sept
+ * employés du matin, même dans le pire cas.
+ *
+ * À resserrer vers 5 une fois confirmé que chaque poste a bien son propre
+ * compteur (deux connexions internet distinctes suffisent à le vérifier).
  */
-export const ThrottleLogin = () => Throttle({ default: { limit: 5, ttl: MINUTE } });
+export const ThrottleLogin = () => Throttle({ default: { limit: 30, ttl: MINUTE } });
 
 /**
  * Mot de passe oublié — 3 tentatives par quart d'heure.
