@@ -9,7 +9,9 @@ export interface AnalyseMonth {
   year:         number;
   month:        number;
   label:        string;
-  ca:           number;
+  ca:           number;   // CA NET réellement encaissé (après remises)
+  caBrut?:      number;   // somme des articles vendus (avant réduction facture)
+  remises?:     number;   // total des réductions accordées (caBrut − ca)
   coutAchats:   number;
   margesBrute:  number;
   beneficeNet:  number;

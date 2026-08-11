@@ -447,6 +447,24 @@ export default function AdminRapports() {
                   <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(245,235,217,0.4)' }}>
                     {d.nbVentes} ticket{d.nbVentes > 1 ? 's' : ''} · panier moy. {fmtN(d.panierMoyen)} XAF
                   </div>
+                  {/* Ventilation : réconcilie le CA affiché avec la somme des articles vendus.
+                      Le CA en tête est le NET encaissé (après remises). */}
+                  {(d.remises ?? 0) > 0 && (
+                    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(245,235,217,0.15)', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(245,235,217,0.7)' }}>
+                        <span>CA brut (articles vendus)</span>
+                        <span style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(d.caBrut ?? 0)} XAF</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: '#F5C0A0' }}>
+                        <span>− Remises accordées</span>
+                        <span style={{ fontFamily: 'var(--fs-font-mono)' }}>−{fmtN(d.remises ?? 0)} XAF</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--fs-gold-300)', fontWeight: 700 }}>
+                        <span>= CA net encaissé</span>
+                        <span style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(d.ca)} XAF</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Bénéfice net */}
@@ -527,7 +545,7 @@ export default function AdminRapports() {
                 {/* Catégories produits */}
                 <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 18px', boxShadow: 'var(--fs-shadow-sm)' }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Par catégorie</div>
-                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Répartition du CA mensuel</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Répartition du CA par catégorie{(d.remises ?? 0) > 0 ? ' (avant remises)' : ''}</div>
                   {d.parCategorie.length === 0 ? (
                     <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', textAlign: 'center', padding: '24px 0' }}>Catégories non renseignées</div>
                   ) : (

@@ -132,13 +132,19 @@ export class ReportsService {
     const prevCA = prevSales.reduce((s: number, v: any) => s + v.total, 0);
 
     // KPI globaux
-    let ca = 0, coutAchats = 0;
+    // ca      = chiffre d'affaires NET réellement encaissé (sale.total, après remises)
+    // caBrut  = somme des articles vendus (avant réduction facture)
+    // remises = total des réductions accordées aux clients (caBrut − ca)
+    let ca = 0, caBrut = 0, coutAchats = 0;
     for (const sale of sales) {
       ca += sale.total;
       for (const item of sale.items) {
+        caBrut     += item.unitPrice * item.quantity;
         coutAchats += (item.product?.costPrice ?? 0) * item.quantity;
       }
     }
+    caBrut = Math.round(caBrut);
+    const remises     = Math.max(0, caBrut - Math.round(ca));
     const depenses    = expenses.reduce((s, e) => s + e.amount, 0);
     const margesBrute = ca - coutAchats;
     const beneficeNet = margesBrute - depenses;
@@ -172,12 +178,14 @@ export class ReportsService {
         byCat[cat].quantite += item.quantity;
       }
     }
+    // Le CA par catégorie est calculé sur le brut (prix × quantité) : les
+    // pourcentages se rapportent donc au CA brut pour totaliser 100 %.
     const parCategorie = Object.entries(byCat)
       .map(([categorie, d]) => ({
         categorie,
         ca:       Math.round(d.ca),
         quantite: d.quantite,
-        pct:      ca > 0 ? Math.round((d.ca / ca) * 1000) / 10 : 0,
+        pct:      caBrut > 0 ? Math.round((d.ca / caBrut) * 1000) / 10 : 0,
       }))
       .sort((a, b) => b.ca - a.ca);
 
@@ -232,7 +240,7 @@ export class ReportsService {
       year, month,
       label: new Date(year, month - 1, 1)
         .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
-      ca, coutAchats, margesBrute, beneficeNet, depenses,
+      ca, caBrut, remises, coutAchats, margesBrute, beneficeNet, depenses,
       nbVentes: sales.length,
       panierMoyen, minTicket, maxTicket,
       prevCA,
@@ -284,11 +292,16 @@ export class ReportsService {
     const prevCA = prevSales.reduce((s: number, v: any) => s + v.total, 0);
 
     // KPIs
-    let ca = 0, coutAchats = 0;
+    let ca = 0, caBrut = 0, coutAchats = 0;
     for (const sale of sales) {
       ca += sale.total;
-      for (const item of sale.items) coutAchats += (item.product?.costPrice ?? 0) * item.quantity;
+      for (const item of sale.items) {
+        caBrut     += item.unitPrice * item.quantity;
+        coutAchats += (item.product?.costPrice ?? 0) * item.quantity;
+      }
     }
+    caBrut = Math.round(caBrut);
+    const remises     = Math.max(0, caBrut - Math.round(ca));
     const depenses    = expenses.reduce((s, e) => s + e.amount, 0);
     const margesBrute = ca - coutAchats;
     const beneficeNet = margesBrute - depenses;
@@ -326,7 +339,7 @@ export class ReportsService {
       }
     }
     const parCategorie = Object.entries(byCat)
-      .map(([categorie, d]) => ({ categorie, ca: Math.round(d.ca), quantite: d.quantite, pct: ca > 0 ? Math.round(d.ca / ca * 1000) / 10 : 0 }))
+      .map(([categorie, d]) => ({ categorie, ca: Math.round(d.ca), quantite: d.quantite, pct: caBrut > 0 ? Math.round(d.ca / caBrut * 1000) / 10 : 0 }))
       .sort((a, b) => b.ca - a.ca);
 
     // Classement caissiers
@@ -378,7 +391,7 @@ export class ReportsService {
       label,
       dateDebut: start.toISOString().split('T')[0],
       dateFin:   endDay.toISOString().split('T')[0],
-      ca, coutAchats, margesBrute, beneficeNet, depenses,
+      ca, caBrut, remises, coutAchats, margesBrute, beneficeNet, depenses,
       nbVentes, panierMoyen, minTicket, maxTicket, prevCA,
       parJour, parCategorie, parCaissier, topProduits, heatmap,
     };
