@@ -44,6 +44,23 @@ import Partenaires       from './pages/Partenaires';
 import PartenairesAgencesMaquette from './pages/PartenairesAgencesMaquette';
 import { getTokenPayload } from './api/dashboard';
 
+// ── Sécurité machine partagée : pas de reprise automatique de session ────────
+// À chaque OUVERTURE de l'application (machine fermée puis rouverte), la
+// session précédente n'est PAS restaurée : l'écran de connexion s'affiche pour
+// que chaque utilisateur ouvre SON compte (indispensable avec plusieurs
+// comptes caisses). sessionStorage est vidé quand l'app est fermée, mais
+// conservé lors d'un simple rafraîchissement ou d'une navigation interne — on
+// ne déconnecte donc jamais quelqu'un en plein travail.
+(() => {
+  const MARQUEUR = 'fs_session_ouverte';
+  try {
+    if (!sessionStorage.getItem(MARQUEUR)) {
+      localStorage.removeItem('access_token'); // démarrage à froid → reconnexion
+    }
+    sessionStorage.setItem(MARQUEUR, '1');
+  } catch { /* stockage indisponible : ne pas bloquer l'app */ }
+})();
+
 const INACTIVITY_MS = 10 * 60 * 1000;
 const EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
 
