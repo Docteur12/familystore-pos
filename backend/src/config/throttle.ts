@@ -11,28 +11,22 @@ export const MINUTE = 60_000;
 export const QUINZE_MINUTES = 15 * MINUTE;
 
 /**
- * Connexion — 30 tentatives par minute.
+ * Connexion — 5 tentatives par minute PAR COMPTE.
  *
- * Volontairement plus large que les 5/minute d'une limite anti-force-brute
- * classique : il n'a pas été possible de vérifier avec certitude, depuis une
- * seule connexion, que le compteur suit bien l'IP de chaque poste et non
- * celle du proxy Netlify. Si elle était partagée, une limite à 5 bloquerait
- * l'équipe à l'ouverture de la boutique, quand tout le monde se connecte en
- * même temps.
- *
- * 30 essais/minute reste une protection réelle — une attaque par
- * dictionnaire en exige des milliers — tout en laissant passer les sept
- * employés du matin, même dans le pire cas.
- *
- * À resserrer vers 5 une fois confirmé que chaque poste a bien son propre
- * compteur (deux connexions internet distinctes suffisent à le vérifier).
+ * Le compteur est indexé sur l'email visé, pas sur l'IP (voir
+ * AppThrottlerGuard : l'IP derrière les proxys est forgeable via
+ * X-Forwarded-For). Conséquences :
+ *  - un attaquant qui tourne les IP reste bloqué à 5 essais sur un compte ;
+ *  - les caissiers d'une même boutique ne partagent aucun compteur — pas de
+ *    blocage collectif à l'ouverture, chacun a le sien.
  */
-export const ThrottleLogin = () => Throttle({ default: { limit: 30, ttl: MINUTE } });
+export const ThrottleLogin = () => Throttle({ default: { limit: 5, ttl: MINUTE } });
 
 /**
- * Mot de passe oublié — 3 tentatives par quart d'heure.
- * Chaque appel réussi remplace le mot de passe du compte visé : la limite
- * empêche de harceler un utilisateur en le déconnectant en boucle.
+ * Mot de passe oublié — 3 tentatives par quart d'heure PAR COMPTE (même
+ * indexation par email que la connexion). Chaque appel réussi remplace le
+ * mot de passe du compte visé : la limite empêche de harceler un utilisateur
+ * en le déconnectant en boucle, quelle que soit l'IP de l'attaquant.
  */
 export const ThrottleMotDePasseOublie = () =>
   Throttle({ default: { limit: 3, ttl: QUINZE_MINUTES } });
