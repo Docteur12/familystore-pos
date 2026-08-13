@@ -95,7 +95,9 @@ async function archiveFactureSynchronisee(sale: PendingSale, numero: string, dat
     paymentLabel: sale.paymentLabel ?? sale.paymentMethod,
     amountPaid:   sale.amountPaid,
     change:       Math.max(0, sale.amountPaid - sale.total),
-    ...(sale.offrePct && sale.offrePct > 0 ? { offrePct: sale.offrePct, offreAmt: sale.offreAmt } : {}),
+    ...(sale.offreAmt && sale.offreAmt > 0
+      ? { offreAmt: sale.offreAmt, ...(sale.offrePct && sale.offrePct > 0 ? { offrePct: sale.offrePct } : {}) }
+      : {}),
   });
   await saveFacture({
     numero,

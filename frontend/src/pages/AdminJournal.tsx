@@ -189,10 +189,10 @@ function TicketDetail({ sale }: { sale: Sale }) {
             </tbody>
           </table>
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 24, padding: '8px 12px', background: 'var(--fs-wine-50)', borderTop: '1px solid var(--fs-line)' }}>
-            {(sale.offrePct ?? 0) > 0 && (
+            {(sale.offreAmt ?? 0) > 0 && (
               <span style={{ fontSize: 11, color: 'var(--fs-danger-700)', fontWeight: 700 }}>
                 Sous-total : {fmtN(sale.subtotal || sale.items.reduce((s, it) => s + it.unitPrice * it.quantity, 0))} XAF
-                &nbsp;·&nbsp; Réduction facture (−{sale.offrePct} %) : −{fmtN(sale.offreAmt ?? 0)} XAF
+                &nbsp;·&nbsp; Réduction facture{(sale.offrePct ?? 0) > 0 ? ` (−${sale.offrePct} %)` : ''} : −{fmtN(sale.offreAmt ?? 0)} XAF
               </span>
             )}
             {benefice > 0 && (

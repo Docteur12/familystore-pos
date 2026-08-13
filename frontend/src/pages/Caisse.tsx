@@ -191,7 +191,11 @@ export default function Caisse() {
   );
   const [isOnline,       setIsOnline]       = useState(() => navigator.onLine);
   const [pendingCount,   setPendingCount]   = useState(0);
+  // Offre sur facture : en POURCENTAGE ou en MONTANT (FCFA) — un seul mode
+  // par ticket (changer de mode remet l'autre valeur à zéro).
+  const [offreMode,      setOffreMode]      = useState<'pct' | 'fcfa'>('pct');
   const [offrePct,       setOffrePct]       = useState(0);
+  const [offreFcfa,      setOffreFcfa]      = useState(0);
   const [showLogoutModal,setShowLogoutModal]= useState(false);
   const [showAudit,      setShowAudit]      = useState(false);
   const [auditRows,      setAuditRows]      = useState<AuditLogEntry[]>([]);
@@ -369,7 +373,7 @@ export default function Caisse() {
     setCart(prev => prev.filter(i => i.product._id !== id)), []);
 
   const clearCart = useCallback(() => {
-    setCart([]); setAmountPaid(''); setOffrePct(0); focusScan();
+    setCart([]); setAmountPaid(''); setOffrePct(0); setOffreFcfa(0); focusScan();
   }, [focusScan]);
 
   // ── Scan ──────────────────────────────────────────────────────────────────
@@ -429,7 +433,10 @@ export default function Caisse() {
 
   // ── Totals ────────────────────────────────────────────────────────────────
   const subtotal   = useMemo(() => cart.reduce((s, i) => s + effectivePrice(i.product) * i.quantity, 0), [cart]);
-  const offreAmt   = offrePct > 0 ? Math.round(subtotal * offrePct / 100) : 0;
+  // Montant de la réduction facture selon le mode choisi (jamais plus que le sous-total)
+  const offreAmt   = offreMode === 'pct'
+    ? (offrePct > 0 ? Math.round(subtotal * offrePct / 100) : 0)
+    : Math.min(Math.max(0, Math.round(offreFcfa)), subtotal);
   const total      = subtotal - offreAmt;
   const itemCount  = useMemo(() => cart.reduce((s, i) => s + i.quantity, 0), [cart]);
   const paid       = parseFloat(amountPaid) || 0;
@@ -493,7 +500,7 @@ export default function Caisse() {
     // ── Offline path ───────────────────────────────────────────────────────
     if (!navigator.onLine) {
       try {
-        await savePendingSale({ items: cart.map(toSaleItem), total, subtotal, ...(offrePct > 0 ? { offrePct, offreAmt } : {}), cashierName: payload?.name ?? 'Caissier', paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey });
+        await savePendingSale({ items: cart.map(toSaleItem), total, subtotal, ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}), cashierName: payload?.name ?? 'Caissier', paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey });
         for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
         const cached = await getCachedProducts(); setAllProducts(cached);
         setPendingCount(prev => prev + 1); setSessionSales(n => n + 1);
@@ -503,7 +510,7 @@ export default function Caisse() {
           cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
           items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, valeur: i.product.valeur || undefined, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
           subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
-          ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
+          ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}),
           offre: settings.offreFacture,
         };
         setReceiptData(offlineData); setCart([]); setAmountPaid(''); setPaymentMethod('cash');
@@ -520,20 +527,20 @@ export default function Caisse() {
     for (let attempt = 0; attempt < MAX_RETRIES && !nonRetryable && !succeeded; attempt++) {
       if (attempt > 0) await new Promise<void>(r => setTimeout(r, 2000));
       try {
-        const result = await createSale({ items: saleItems, total, subtotal, ...(offrePct > 0 ? { offrePct, offreAmt } : {}), paymentMethod, amountPaid: effPaid, sessionId: sessionId ?? undefined, forceVente: forceVente || undefined, ecarts: ecartsData, idempotencyKey });
+        const result = await createSale({ items: saleItems, total, subtotal, ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}), paymentMethod, amountPaid: effPaid, sessionId: sessionId ?? undefined, forceVente: forceVente || undefined, ecarts: ecartsData, idempotencyKey });
         succeeded = true;
         const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const idPart = String(result.sale._id).slice(-6).toUpperCase();        const newData: ReceiptData = {
           receiptNo: `FSV-${dateP}-${idPart}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
           items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, valeur: i.product.valeur || undefined, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
           subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
-          ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
+          ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}),
           offre: settings.offreFacture,
         };
         // Archive PDF automatique — l'historique des factures est complet même sans clic « Imprimer »
         try {
           saveFacture({ numero: newData.receiptNo, caissier: newData.cashierName, montant: total, paymentMethod: pmLabel, items: newData.items.map(i => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })), pdfBase64: buildReceiptPDF(newData), date: d.toISOString() });
         } catch { /* silencieux — l'archive ne doit jamais bloquer la vente */ }
-        setReceiptData(newData); setCart([]); setAmountPaid(''); setPaymentMethod('cash'); setOffrePct(0);
+        setReceiptData(newData); setCart([]); setAmountPaid(''); setPaymentMethod('cash'); setOffrePct(0); setOffreFcfa(0);
         setSessionSales(n => n + 1);
         if (attempt > 0) addToast('Vente enregistrée ✅', 'success');
         const ps = getPrintSettings(); if (ps.auto) { doPrint(buildReceiptHTML(newData), ps.copies); if (paymentMethod === 'cash') openCashDrawer(); }
@@ -543,7 +550,7 @@ export default function Caisse() {
         const msg  = err instanceof Error ? err.message : "Erreur d'enregistrement";
         if (kind === 'auth') {
           nonRetryable = true;
-          try { await savePendingSale({ items: saleItems, total, subtotal, ...(offrePct > 0 ? { offrePct, offreAmt } : {}), cashierName: payload?.name ?? 'Caissier', paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey }); addToast('Session expirée — ticket sauvegardé localement', 'warning'); } catch {}
+          try { await savePendingSale({ items: saleItems, total, subtotal, ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}), cashierName: payload?.name ?? 'Caissier', paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey }); addToast('Session expirée — ticket sauvegardé localement', 'warning'); } catch {}
           setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 1800);
         } else if (kind === 'stock') {
           nonRetryable = true;
@@ -560,14 +567,14 @@ export default function Caisse() {
         } else {
           setRetryLabel('Sauvegarde locale…');
           try {
-            await savePendingSale({ items: saleItems, total, subtotal, ...(offrePct > 0 ? { offrePct, offreAmt } : {}), cashierName: payload?.name ?? 'Caissier', paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey });
+            await savePendingSale({ items: saleItems, total, subtotal, ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}), cashierName: payload?.name ?? 'Caissier', paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey });
             for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
             const cached = await getCachedProducts(); setAllProducts(cached); setPendingCount(prev => prev + 1);
             const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,'');            const offlineData: ReceiptData = {
               receiptNo: `OFF-${dateP}-${Math.random().toString(36).slice(2,8).toUpperCase()}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
               items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, valeur: i.product.valeur || undefined, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
               subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
-              ...(offrePct > 0 ? { offrePct, offreAmt } : {}),
+              ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}),
               offre: settings.offreFacture,
             };
             setReceiptData(offlineData); setCart([]); setAmountPaid(''); setPaymentMethod('cash');
@@ -578,7 +585,7 @@ export default function Caisse() {
       }
     }
     setRetryLabel(''); setValidating(false); focusScan();
-  }, [cart, paymentMethod, paid, total, subtotal, offrePct, offreAmt, sessionId, addToast, focusScan, payload, settings]);
+  }, [cart, paymentMethod, paid, total, subtotal, offrePct, offreAmt, offreMode, sessionId, addToast, focusScan, payload, settings]);
 
   // ── Validate — vérifie les écarts avant d'appeler doValidate ─────────────
   const handleValidate = useCallback(async () => {
@@ -1571,25 +1578,54 @@ export default function Caisse() {
           <div style={{ flexShrink: 0, borderTop: '1px solid var(--fs-line)' }}>
             <div style={{ padding: '10px 14px 0' }}>
               <Row label={`Sous-total (${itemCount} art.)`} value={fmtN(subtotal)} />
-              {/* Offre globale sur facture */}
+              {/* Offre globale sur facture : en % OU en montant (un seul mode par ticket,
+                  changer de mode remet l'autre valeur à zéro) */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                 <span style={{ fontSize: 13, color: 'var(--fs-ink-400)' }}>Offre sur facture</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <input
-                    type="number" min={0} max={100} step={1}
-                    value={offrePct || ''}
-                    onChange={e => setOffrePct(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
-                    placeholder="0"
-                    style={{ width: 48, padding: '2px 6px', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, fontSize: 13, fontWeight: 600, textAlign: 'center', outline: 'none', fontFamily: 'var(--fs-font-mono)', background: offrePct > 0 ? 'var(--fs-success-100)' : '#fff', color: offrePct > 0 ? 'var(--fs-success-700)' : 'var(--fs-ink-900)' }}
-                  />
-                  <span style={{ fontSize: 13, color: 'var(--fs-ink-400)' }}>%</span>
-                  {offrePct > 0 && (
+                  {/* Sélecteur de mode */}
+                  <div style={{ display: 'flex', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, overflow: 'hidden' }}>
+                    {([['pct', '%'], ['fcfa', 'FCFA']] as const).map(([mode, lbl]) => (
+                      <button key={mode} type="button"
+                        onClick={() => { if (offreMode !== mode) { setOffreMode(mode); setOffrePct(0); setOffreFcfa(0); } }}
+                        title={mode === 'pct' ? 'Réduction en pourcentage' : 'Réduction en montant (FCFA)'}
+                        style={{
+                          padding: '2px 7px', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                          background: offreMode === mode ? 'var(--fs-wine-700)' : '#fff',
+                          color: offreMode === mode ? '#fff' : 'var(--fs-ink-400)',
+                        }}>{lbl}</button>
+                    ))}
+                  </div>
+                  {offreMode === 'pct' ? (
+                    <input
+                      type="number" min={0} max={100} step={1}
+                      value={offrePct || ''}
+                      onChange={e => setOffrePct(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                      placeholder="0"
+                      style={{ width: 48, padding: '2px 6px', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, fontSize: 13, fontWeight: 600, textAlign: 'center', outline: 'none', fontFamily: 'var(--fs-font-mono)', background: offrePct > 0 ? 'var(--fs-success-100)' : '#fff', color: offrePct > 0 ? 'var(--fs-success-700)' : 'var(--fs-ink-900)' }}
+                    />
+                  ) : (
+                    <input
+                      type="number" min={0} max={subtotal} step={5}
+                      value={offreFcfa || ''}
+                      onChange={e => setOffreFcfa(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="ex : 500"
+                      style={{ width: 76, padding: '2px 6px', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, fontSize: 13, fontWeight: 600, textAlign: 'center', outline: 'none', fontFamily: 'var(--fs-font-mono)', background: offreAmt > 0 ? 'var(--fs-success-100)' : '#fff', color: offreAmt > 0 ? 'var(--fs-success-700)' : 'var(--fs-ink-900)' }}
+                    />
+                  )}
+                  <span style={{ fontSize: 13, color: 'var(--fs-ink-400)' }}>{offreMode === 'pct' ? '%' : 'F'}</span>
+                  {offreAmt > 0 && (
                     <span style={{ fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-success-700)', fontWeight: 600 }}>
                       −{fmtN(offreAmt)}
                     </span>
                   )}
                 </div>
               </div>
+              {offreMode === 'fcfa' && offreFcfa > subtotal && subtotal > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--fs-danger-700)', textAlign: 'right', marginBottom: 4 }}>
+                  Réduction plafonnée au sous-total ({fmtN(subtotal)} XAF)
+                </div>
+              )}
             </div>
 
             {/* Gold rule */}
@@ -1597,7 +1633,7 @@ export default function Caisse() {
 
             <div style={{ padding: '0 14px 10px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-500)' }}>
-                {offrePct > 0 ? `TOTAL (−${offrePct}%)` : 'TOTAL'}
+                {offreAmt > 0 ? (offreMode === 'pct' ? `TOTAL (−${offrePct}%)` : `TOTAL (−${fmtN(offreAmt)} F)`) : 'TOTAL'}
               </span>
               <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--fs-wine-700)', fontFamily: 'var(--fs-font-display)', letterSpacing: '0.01em' }}>
                 {fmtN(total)} <span style={{ fontSize: 14, fontWeight: 600 }}>XAF</span>

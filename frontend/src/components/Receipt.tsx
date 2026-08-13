@@ -111,7 +111,7 @@ export default function Receipt({ data, onNewSale }: Props) {
           </div>
 
           {/* Ligne pointillée + sous-total/réductions : uniquement s'il y a une réduction */}
-          {(totalDiscount > 0 || (data.offrePct ?? 0) > 0) && (
+          {(totalDiscount > 0 || (data.offreAmt ?? 0) > 0) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 4 }}>
               <div style={{ borderTop: '1px dashed #000', margin: '0 0 8px' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#555' }}>
@@ -124,9 +124,9 @@ export default function Receipt({ data, onNewSale }: Props) {
                   <span>-{f(totalDiscount)}</span>
                 </div>
               )}
-              {(data.offrePct ?? 0) > 0 && (
+              {(data.offreAmt ?? 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700 }}>
-                  <span>Réduction facture -{data.offrePct}%</span>
+                  <span>Réduction facture{(data.offrePct ?? 0) > 0 ? ` -${data.offrePct}%` : ''}</span>
                   <span>-{f(data.offreAmt ?? 0)}</span>
                 </div>
               )}

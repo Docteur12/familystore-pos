@@ -104,7 +104,7 @@ export function buildReceiptHTML(data: ReceiptData): string {
     </div>`;
   }).join('');
 
-  const aReduction = totalDiscount > 0 || (data.offrePct ?? 0) > 0;
+  const aReduction = totalDiscount > 0 || (data.offreAmt ?? 0) > 0;
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -175,7 +175,7 @@ export function buildReceiptHTML(data: ReceiptData): string {
   <div class="dash"></div>
   <div class="row"><span>Sous-total</span><span>${f(data.subtotal)}</span></div>
   ${totalDiscount > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction produits</span><span>-${f(totalDiscount)}</span></div>` : ''}
-  ${(data.offrePct ?? 0) > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction facture (-${data.offrePct}%)</span><span>-${f(data.offreAmt ?? 0)}</span></div>` : ''}
+  ${(data.offreAmt ?? 0) > 0 ? `<div class="row" style="font-weight:bold;"><span>R&eacute;duction facture${(data.offrePct ?? 0) > 0 ? ` (-${data.offrePct}%)` : ''}</span><span>-${f(data.offreAmt ?? 0)}</span></div>` : ''}
   ` : ''}
   <div class="solid"></div>
   <div class="total"><span>Total :</span><span>${f(data.total)} FCFA</span></div>
@@ -279,11 +279,11 @@ export function buildReceiptPDF(data: ReceiptData): string {
     }
     return s;
   }, 0);
-  if (pdfDiscount > 0 || (data.offrePct ?? 0) > 0) {
+  if (pdfDiscount > 0 || (data.offreAmt ?? 0) > 0) {
     dash();
     row('Sous-total', `${fmt(data.subtotal)}`, 9);
     if (pdfDiscount > 0) row('Réduction produits', `-${fmt(pdfDiscount)}`, 9);
-    if ((data.offrePct ?? 0) > 0) row(`Réduction facture (-${data.offrePct}%)`, `-${fmt(data.offreAmt ?? 0)}`, 9);
+    if ((data.offreAmt ?? 0) > 0) row(`Réduction facture${(data.offrePct ?? 0) > 0 ? ` (-${data.offrePct}%)` : ''}`, `-${fmt(data.offreAmt ?? 0)}`, 9);
   }
   solid();
   row('Total :', `${fmt(data.total)} FCFA`, 18, true);
