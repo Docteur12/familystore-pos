@@ -1200,8 +1200,10 @@ export default function Stocks() {
               </h1>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, width: isNarrow ? '100%' : undefined, maxWidth: isNarrow ? '100%' : 440, margin: isNarrow ? 0 : '0 20px' }}>
-              <div style={{ position: 'relative', flex: 1 }}>
+            {/* minWidth : sans lui, la rangée de boutons (très large) écrasait le champ
+                de recherche à ~50 px sur les écrans moyens — recherche impossible. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: isNarrow ? undefined : 230, width: isNarrow ? '100%' : undefined, maxWidth: isNarrow ? '100%' : 440, margin: isNarrow ? 0 : '0 20px' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
                 <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-300)' }}>
                   <I d={D.search} size={14}/>
                 </span>
