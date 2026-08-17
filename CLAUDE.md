@@ -19,6 +19,19 @@ Les caisses sont utilisées en continu pendant les heures d'ouverture : une mise
 en production dans cette plage interrompt des ventes en cours. Cela vaut pour
 tout ce qui touche la production — backend, frontend, migrations de base.
 
+**Tout ce qui arrive sur `main` est déployé automatiquement** : Netlify
+(frontend) et Render (backend, service `familystore-pos`) reconstruisent à
+chaque push — y compris un merge de PR depuis GitHub. Merger une PR sur `main`
+**est** un déploiement et obéit à la même fenêtre horaire.
+
+Si le changement exige une migration de données, l'ordre est impératif :
+**sauvegarde → migration sur la base `familystore` → merge/push**. Le
+17/08/2026, la PR tenancy a été mergée à 8 h 49 sans que
+`scripts/migrate-add-tenant.ts --execute` ait tourné sur la prod : le plugin
+filtrait sur un champ `tenant` absent, plus personne n'a pu se connecter
+jusqu'à 15 h 30. La `.env` locale vise `familystore_test` ; les scripts qui
+doivent toucher la prod doivent explicitement viser `familystore`.
+
 ### 3. Deux clients, une base de code
 
 Ce dépôt sert **deux clients** :
