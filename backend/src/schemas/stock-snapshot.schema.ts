@@ -7,8 +7,9 @@ export type StockSnapshotDocument = HydratedDocument<StockSnapshot>;
 // automatiquement une fois par jour — sert aux courbes d'évolution.
 @Schema({ timestamps: true })
 export class StockSnapshot {
-  // Clé du jour au format AAAA-MM-JJ (un seul snapshot par jour)
-  @Prop({ required: true, unique: true })
+  // Clé du jour au format AAAA-MM-JJ (un seul snapshot par jour PAR TENANT —
+  // index composite en bas de fichier).
+  @Prop({ required: true })
   dateKey: string;
 
   // Valeur au prix d'ACHAT (coût de la marchandise immobilisée)
@@ -34,3 +35,6 @@ export class StockSnapshot {
 }
 
 export const StockSnapshotSchema = SchemaFactory.createForClass(StockSnapshot);
+
+// Un seul snapshot par jour et par tenant.
+StockSnapshotSchema.index({ tenant: 1, dateKey: 1 }, { unique: true });

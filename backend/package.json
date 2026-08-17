@@ -8,6 +8,8 @@
     "dev": "nest start --watch",
     "start:prod": "node dist/main.js",
     "seed": "ts-node -r tsconfig-paths/register seeds/seed.ts",
+    "migrate:tenant": "ts-node -r tsconfig-paths/register scripts/migrate-add-tenant.ts",
+    "migrate:tenant:rollback": "ts-node -r tsconfig-paths/register scripts/migrate-rollback.ts",
     "test": "jest",
     "test:watch": "jest --watch"
   },
@@ -25,6 +27,7 @@
     "exceljs": "^4.4.0",
     "jspdf": "^2.5.2",
     "mongoose": "^7.5.0",
+    "nestjs-cls": "^6.2.1",
     "nodemailer": "^6.9.7",
     "puppeteer-core": "^25.2.1",
     "reflect-metadata": "^0.1.13",

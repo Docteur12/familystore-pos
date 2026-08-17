@@ -11,7 +11,8 @@ export class Product {
   @Prop({ trim: true, default: '' })
   localName: string;
 
-  @Prop({ unique: true, sparse: true, trim: true })
+  // Unicité du code-barres PAR TENANT (index composite en bas de fichier).
+  @Prop({ trim: true })
   barcode: string;
 
   @Prop({ required: true, min: 0 })
@@ -73,3 +74,12 @@ export class Product {
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
+
+// Code-barres unique par tenant, UNIQUEMENT quand il est renseigné.
+// partialFilterExpression (et non sparse) : un index composite sparse ne
+// sauterait plus les produits sans code-barres, car `tenant` est toujours
+// présent — deux produits sans code-barres entreraient en collision.
+ProductSchema.index(
+  { tenant: 1, barcode: 1 },
+  { unique: true, partialFilterExpression: { barcode: { $type: 'string' } } },
+);

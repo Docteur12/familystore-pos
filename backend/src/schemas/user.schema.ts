@@ -8,7 +8,13 @@ export class User {
   @Prop({ required: true, trim: true })
   name: string;
 
-  @Prop({ required: true, unique: true, lowercase: true, trim: true })
+  // Unicité de l'email PAR TENANT (index composite en bas de fichier).
+  // NOTE mode multi : cela autorise deux magasins à partager une adresse. Si
+  // l'on veut garder une connexion à deux champs (email + mot de passe) sans
+  // code boutique, il faudra rebasculer cet index en unicité GLOBALE avant le
+  // lancement du SaaS mutualisé — décision à trancher (voir AUDIT-SAAS §2.4).
+  // En mode single (production actuelle), les deux sont équivalents.
+  @Prop({ required: true, lowercase: true, trim: true })
   email: string;
 
   @Prop({ required: true })
@@ -30,3 +36,6 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+// Unicité de l'email par tenant (voir NOTE sur le champ email).
+UserSchema.index({ tenant: 1, email: 1 }, { unique: true });

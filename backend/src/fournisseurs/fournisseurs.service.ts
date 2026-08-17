@@ -8,6 +8,7 @@ import { VersementFournisseur, VersementFournisseurDocument } from '../schemas/v
 import { RetourFournisseur, RetourFournisseurDocument } from '../schemas/retour-fournisseur.schema';
 import { StockMovement, StockMovementDocument } from '../schemas/stock-movement.schema';
 import { StockSnapshot, StockSnapshotDocument } from '../schemas/stock-snapshot.schema';
+import { runWithTenant, DEFAULT_TENANT_ID, getTenantMode } from '../tenancy/tenant-context';
 
 type FournisseurData = {
   name: string;
@@ -48,9 +49,16 @@ export class FournisseursService implements OnModuleInit {
 
   // Photo quotidienne de la valeur du stock : au démarrage puis toutes les heures
   // (le serveur est réveillé chaque jour par le keep-alive → au moins 1 photo/jour).
+  //
+  // Cette tâche tourne HORS requête HTTP : sans contexte tenant, le plugin de
+  // cloisonnement lèverait (fail-closed). En mode single, on l'exécute donc
+  // dans le contexte du tenant par défaut. En mode multi, un ordonnanceur par
+  // tenant sera nécessaire (phase ultérieure) : on ne lance pas la boucle ici.
   onModuleInit() {
-    this.snapshotSiNecessaire().catch(() => {});
-    setInterval(() => this.snapshotSiNecessaire().catch(() => {}), 3600_000).unref?.();
+    if (getTenantMode() !== 'single') return;
+    const snapshot = () => runWithTenant(DEFAULT_TENANT_ID, () => this.snapshotSiNecessaire().catch(() => {}));
+    snapshot();
+    setInterval(snapshot, 3600_000).unref?.();
   }
 
   // ── Fiches fournisseurs (existant) ──────────────────────────────────────────

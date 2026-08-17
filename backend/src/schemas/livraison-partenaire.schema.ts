@@ -60,4 +60,8 @@ export class LivraisonPartenaire {
 }
 
 export const LivraisonPartenaireSchema = SchemaFactory.createForClass(LivraisonPartenaire);
-LivraisonPartenaireSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
+// Idempotence du BL : clé unique par tenant, uniquement si renseignée.
+LivraisonPartenaireSchema.index(
+  { tenant: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } },
+);
