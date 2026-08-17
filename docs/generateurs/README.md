@@ -21,18 +21,21 @@ séparée, modifier le document veut dire modifier le `.py`.
 générateur**. Ils ont été rédigés directement dans Word. Ces fichiers sont donc
 irremplaçables : ils doivent être archivés hors du dépôt, pas reconstruits.
 
-## Avant la première exécution
+## Chemins
 
-Chaque script contient en tête un chemin absolu hérité de l'ancien poste :
+Aucune configuration n'est nécessaire. Les deux scripts déduisent la racine du
+dépôt de leur propre emplacement :
 
 ```python
-ROOT = r'c:\Users\Jorda\familystore-pos'
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 ```
 
-**À adapter** à l'emplacement du dépôt sur votre machine, sinon le script écrit
-ailleurs — ou échoue à trouver le logo. Les scripts sont laissés tels qu'ils ont
-été récupérés ; à terme, remplacer cette ligne par un chemin relatif calculé
-depuis `__file__` éviterait la manipulation.
+`docs/generateurs/` → `../..` → racine du dépôt. Le dossier peut donc être
+déplacé ou cloné n'importe où, tant que les scripts restent à deux niveaux sous
+la racine.
+
+*(À la récupération, ces scripts contenaient `ROOT = r'c:\Users\Jorda\familystore-pos'`,
+le chemin absolu de l'ancien poste.)*
 
 Chaque script lit aussi un logo, dont le chemin dépend de `ROOT` :
 

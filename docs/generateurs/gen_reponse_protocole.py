@@ -8,7 +8,9 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
-ROOT = r'c:\Users\Jorda\familystore-pos'
+# Racine du dépôt, déduite de l'emplacement du script : docs/generateurs/ -> ../..
+# (remplace un chemin absolu codé en dur hérité de l'ancien poste)
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 LOGO = os.path.join(ROOT, 'frontend', 'src', 'assets', 'logo-fs.jpg')
 OUT_DOCX = os.path.join(ROOT, 'REPONSE_PROTOCOLE_TESTS_V6.docx')
 
