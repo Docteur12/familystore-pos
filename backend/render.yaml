@@ -11,6 +11,8 @@ services:
         value: production
       - key: PORT
         value: 3000
+      - key: TZ
+        value: Africa/Douala   # heure locale des boutiques : bornes jour/mois des rapports
       - key: MONGO_URI
         sync: false   # À définir dans le dashboard Render (MongoDB Atlas URI)
       - key: JWT_SECRET

@@ -11,6 +11,7 @@ import {
   MonthStats,
 } from '../api/expenses';
 import ToastContainer, { useToast } from '../components/Toast';
+import { localISODate } from '../utils/dates';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ const fmtDate = (iso: string) =>
     day: '2-digit', month: 'short', year: 'numeric',
   });
 
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => localISODate();
 
 // Category color mapping
 const CAT_COLORS: Record<string, string> = {

@@ -4,6 +4,7 @@ import ToastContainer, { useToast } from '../components/Toast';
 import ImportExportProduits from '../components/ImportExportProduits';
 import { getAllProducts, Product } from '../api/products';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { localISODate } from '../utils/dates';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ interface ExportItem {
 
 // ── Export catalogue ──────────────────────────────────────────────────────────
 
-const today    = new Date().toISOString().split('T')[0];
+const today    = localISODate();
 const thisYear = new Date().getFullYear();
 const thisMon  = new Date().getMonth() + 1;
 const prevMon  = thisMon === 1 ? 12 : thisMon - 1;

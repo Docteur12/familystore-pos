@@ -13,6 +13,7 @@ import {
 } from '../api/rapports';
 import { getStatsPeriod, getComparisons, getMultiYear, PeriodDay, Comparisons, YearData } from '../api/dashboard';
 import { getUsers, UserRecord } from '../api/auth';
+import { localISODate } from '../utils/dates';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -202,15 +203,18 @@ export default function AdminRapports() {
   const [ticketTab,  setTicketTab]  = useState<TicketTab>('Mois');
   const [ticketData, setTicketData] = useState<PeriodDay[]>([]);
 
+  // Bornes en date LOCALE (voir utils/dates.ts) : avec toISOString(), le 31 juillet
+  // apparaissait dans le mois d'août et gonflait le CA d'une journée.
+  const localISO = localISODate;
   const getTicketRange = (tab: TicketTab) => {
     const now = new Date(); const y = now.getFullYear();
-    if (tab === 'Sem') { const s = new Date(now); s.setDate(s.getDate() - 6); return { dateFrom: s.toISOString().slice(0,10), dateTo: now.toISOString().slice(0,10) }; }
-    if (tab === 'Mois') { const s = new Date(y, now.getMonth(), 1); return { dateFrom: s.toISOString().slice(0,10), dateTo: now.toISOString().slice(0,10) }; }
+    if (tab === 'Sem') { const s = new Date(now); s.setDate(s.getDate() - 6); return { dateFrom: localISO(s), dateTo: localISO(now) }; }
+    if (tab === 'Mois') { const s = new Date(y, now.getMonth(), 1); return { dateFrom: localISO(s), dateTo: localISO(now) }; }
     if (tab === 'T1') return { dateFrom: `${y}-01-01`, dateTo: `${y}-03-31` };
     if (tab === 'T2') return { dateFrom: `${y}-04-01`, dateTo: `${y}-06-30` };
     if (tab === 'T3') return { dateFrom: `${y}-07-01`, dateTo: `${y}-09-30` };
     if (tab === 'T4') return { dateFrom: `${y}-10-01`, dateTo: `${y}-12-31` };
-    return { dateFrom: `${y}-01-01`, dateTo: now.toISOString().slice(0,10) };
+    return { dateFrom: `${y}-01-01`, dateTo: localISO(now) };
   };
 
   useEffect(() => {

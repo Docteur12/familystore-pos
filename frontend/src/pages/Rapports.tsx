@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { downloadFile } from '../api/dashboard';
+import { localISODate, localISOMonth } from '../utils/dates';
 
-const monthISO = new Date().toISOString().substring(0, 7);
-const todayISO = new Date().toISOString().split('T')[0];
+const monthISO = localISOMonth();
+const todayISO = localISODate();
 
 export default function Rapports() {
   const [selectedMonth, setSelectedMonth] = useState(monthISO);

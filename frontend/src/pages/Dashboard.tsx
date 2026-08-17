@@ -22,6 +22,7 @@ import {
 import { getAllProducts, Product } from '../api/products';
 import { qtyUnitLabel } from '../utils/units';
 import { getBrandColor } from '../utils/text';
+import { localISODate, localISOMonth } from '../utils/dates';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -72,8 +73,8 @@ export default function Dashboard() {
   const [error,       setError]       = useState<string | null>(null);
 
   // ── Reports ───────────────────────────────────────────────────────────────
-  const todayISO  = new Date().toISOString().split('T')[0];
-  const monthISO  = new Date().toISOString().substring(0, 7);
+  const todayISO  = localISODate();
+  const monthISO  = localISOMonth();
   const [selectedMonth, setSelectedMonth] = useState(monthISO);
   const [pdfLoading,    setPdfLoading]    = useState(false);
   const [xlsLoading,    setXlsLoading]    = useState(false);
