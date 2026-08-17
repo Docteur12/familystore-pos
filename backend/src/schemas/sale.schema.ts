@@ -99,7 +99,8 @@ export class Sale {
 
   /** Clé d'idempotence : empêche l'enregistrement en double d'une même vente
    *  (réessais réseau / synchro hors-ligne). Unique mais facultative (sparse). */
-  @Prop({ unique: true, sparse: true })
+  // Unicité PAR TENANT quand renseignée (index composite en bas de fichier).
+  @Prop()
   idempotencyKey?: string;
 
   @Prop({ default: Date.now })
@@ -107,3 +108,9 @@ export class Sale {
 }
 
 export const SaleSchema = SchemaFactory.createForClass(Sale);
+
+// Idempotence de la vente : clé unique par tenant, uniquement si renseignée.
+SaleSchema.index(
+  { tenant: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } },
+);

@@ -1,8 +1,11 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { Connection } from 'mongoose';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AppThrottlerGuard } from './config/app-throttler.guard';
+import { TenancyModule } from './tenancy/tenancy.module';
+import { tenantPlugin } from './tenancy/tenant.plugin';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { ProductsModule } from './products/products.module';
@@ -28,8 +31,17 @@ import { CategoriesModule } from './categories/categories.module';
     MongooseModule.forRootAsync({
       useFactory: () => ({
         uri: process.env.MONGO_URI,
+        // Applique le plugin de cloisonnement à la connexion : TOUS les modèles
+        // compilés ensuite (les 24 schémas métier) héritent du filtrage par
+        // tenant. Un seul point d'application, aucun module à modifier. Les
+        // schémas plateforme s'en excluent via { skipTenant: true }.
+        connectionFactory: (connection: Connection) => {
+          connection.plugin(tenantPlugin);
+          return connection;
+        },
       }),
     }),
+    TenancyModule,   // global — contexte CLS + interceptor tenant
     // Limite par défaut : 100 requêtes/minute par IP et par route.
     // Les routes de connexion et de synchronisation hors-ligne la
     // surchargent — voir src/config/throttle.ts.

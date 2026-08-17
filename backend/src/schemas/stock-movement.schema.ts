@@ -34,8 +34,15 @@ export class StockMovement {
 
   /** Clé d'idempotence — évite de compter deux fois le même ajout de stock
    *  lors de la synchronisation hors-ligne (rejeu réseau). */
-  @Prop({ unique: true, sparse: true })
+  // Unicité PAR TENANT quand renseignée (index composite en bas de fichier).
+  @Prop()
   idempotencyKey?: string;
 }
 
 export const StockMovementSchema = SchemaFactory.createForClass(StockMovement);
+
+// Idempotence du mouvement : clé unique par tenant, uniquement si renseignée.
+StockMovementSchema.index(
+  { tenant: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: 'string' } } },
+);

@@ -1,34 +1,42 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import * as bcrypt from 'bcryptjs';
+// Source UNIQUE du tenant par défaut — partagée avec le plugin et la migration.
+import { DEFAULT_TENANT_ID } from '../src/tenancy/tenant-context';
 
 // ── Schemas inline (évite d'importer NestJS) ─────────────────────────────────
+// Le champ `tenant` est stampé pour que les données semées soient visibles du
+// plugin de cloisonnement en mode single. L'unicité (code, email, code-barres)
+// est laissée à l'application (index composites par tenant), pas dupliquée ici.
 
 const CaisseSchema = new mongoose.Schema({
-  nom:   { type: String, required: true },
-  code:  { type: String, required: true, unique: true, uppercase: true },
-  pin:   { type: String, required: true },
-  ville: { type: String, default: 'Douala' },
+  nom:    { type: String, required: true },
+  code:   { type: String, required: true, uppercase: true },
+  pin:    { type: String, required: true },
+  ville:  { type: String, default: 'Douala' },
+  tenant: { type: mongoose.Schema.Types.ObjectId },
 }, { timestamps: true });
 
 const UserSchema = new mongoose.Schema({
   name:     { type: String, required: true },
-  email:    { type: String, required: true, unique: true, lowercase: true },
+  email:    { type: String, required: true, lowercase: true },
   password: { type: String, required: true },
   role:     { type: String, enum: ['caissier', 'patron', 'gestionnaire', 'magazinier'], default: 'caissier' },
   phone:    { type: String, default: '' },
   caisseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Caisse', default: null },
+  tenant:   { type: mongoose.Schema.Types.ObjectId },
 }, { timestamps: true });
 
 const ProductSchema = new mongoose.Schema({
   name:           { type: String, required: true },
-  barcode:        { type: String, unique: true, sparse: true },
+  barcode:        { type: String },
   price:          { type: Number, required: true },
   costPrice:      { type: Number, required: true },
   stock:          { type: Number, default: 0 },
   alertThreshold: { type: Number, default: 5 },
   category:       { type: String },
   unit:           { type: String, default: 'pce' },
+  tenant:         { type: mongoose.Schema.Types.ObjectId },
 }, { timestamps: true });
 
 const CaisseModel  = mongoose.model('Caisse',  CaisseSchema);
@@ -163,8 +171,8 @@ async function seed() {
 
   for (const c of CAISSES_SEED) {
     const doc = await CaisseModel.findOneAndUpdate(
-      { code: c.code },
-      { $set: c },
+      { code: c.code, tenant: DEFAULT_TENANT_ID },
+      { $set: { ...c, tenant: DEFAULT_TENANT_ID } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
     caisseMap.set(doc.code, doc._id as mongoose.Types.ObjectId);
@@ -186,6 +194,7 @@ async function seed() {
       password: hashed, role: u.role,
       phone: u.phone ?? '',
       caisseId,
+      tenant: DEFAULT_TENANT_ID,
     });
 
     const caisseLabel = caisseId
@@ -199,8 +208,8 @@ async function seed() {
   console.log('┌─ PRODUITS ────────────────────────────────');
   for (const p of PRODUCTS_SEED) {
     const doc = await ProductModel.findOneAndUpdate(
-      { barcode: p.barcode },
-      { $set: p },
+      { barcode: p.barcode, tenant: DEFAULT_TENANT_ID },
+      { $set: { ...p, tenant: DEFAULT_TENANT_ID } },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
     console.log(

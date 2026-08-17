@@ -15,4 +15,5 @@ export class Category {
 }
 
 export const CategorySchema = SchemaFactory.createForClass(Category);
-CategorySchema.index({ category: 1, subCategory: 1 }, { unique: true });
+// Unicité (catégorie, sous-catégorie) PAR TENANT.
+CategorySchema.index({ tenant: 1, category: 1, subCategory: 1 }, { unique: true });
