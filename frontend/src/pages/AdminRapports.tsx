@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, LineChart, Line, Legend,
@@ -13,6 +13,8 @@ import {
 } from '../api/rapports';
 import { getStatsPeriod, getComparisons, getMultiYear, PeriodDay, Comparisons, YearData } from '../api/dashboard';
 import { getUsers, UserRecord } from '../api/auth';
+import ProductTooltip from '../components/ProductTooltip';
+import { getAllProducts, Product } from '../api/products';
 import { localISODate } from '../utils/dates';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -195,6 +197,15 @@ export default function AdminRapports() {
   const [monthlyStats,    setMonthlyStats]    = useState<PeriodDay[]>([]);
   const [comparisons,     setComparisons]     = useState<Comparisons | null>(null);
   const [byProduct,       setByProduct]       = useState<ProductStat[]>([]);
+  // Catalogue produits : alimente l'infobulle « fiche produit » du journal par produit
+  const [catalogue, setCatalogue] = useState<Product[]>([]);
+  useEffect(() => { getAllProducts().then(setCatalogue).catch(() => {}); }, []);
+  const produitDe = useMemo(() => {
+    const parId  = new Map(catalogue.map(p => [p._id, p]));
+    const parNom = new Map(catalogue.map(p => [p.name.trim().toLowerCase(), p]));
+    return (s: ProductStat) =>
+      (s.productId && parId.get(s.productId)) || parNom.get(s.name.trim().toLowerCase()) || null;
+  }, [catalogue]);
   const [caissierNames,   setCaissierNames]   = useState<Set<string>>(new Set());
   const [multiYear,       setMultiYear]       = useState<YearData[]>([]);
 
@@ -1047,7 +1058,7 @@ export default function AdminRapports() {
                       })
                       .map((p, i) => (
                       <tr key={p.name} style={{ borderBottom: '1px solid var(--fs-line)', background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
-                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--fs-ink-800)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName(p.name)}</td>
+                        <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--fs-ink-800)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><ProductTooltip product={produitDe(p)}>{displayName(p.name)}</ProductTooltip></td>
                         <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{p.qtySold}</td>
                         <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}>{fmtN(p.caGenere)} XAF</td>
                         <td style={{ padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-600)' }}>{p.nbTransactions}</td>

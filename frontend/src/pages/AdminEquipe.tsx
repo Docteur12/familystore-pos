@@ -82,7 +82,7 @@ export default function AdminEquipe() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', paddingLeft: isMobile ? 52 : undefined, flexShrink: 0 }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', paddingLeft: isMobile ? 52 : (isNarrow ? 16 : 28), flexShrink: 0 }}>
           <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Personnel</p>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>
             Équipe · {users.length} collaborateur{users.length !== 1 ? 's' : ''}

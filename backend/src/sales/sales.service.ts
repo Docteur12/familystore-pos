@@ -446,12 +446,12 @@ export class SalesService {
     }
     const sales = await this.saleModel.find(q).select('items').lean();
 
-    const map: Record<string, { name: string; qty: number; ca: number; nbTx: number }> = {};
+    const map: Record<string, { productId: string | null; name: string; qty: number; ca: number; nbTx: number }> = {};
     for (const sale of sales) {
       for (const item of sale.items as any[]) {
         const key  = item.product ? String(item.product) : `n:${item.name}`;
         const name = item.name || '?';
-        if (!map[key]) map[key] = { name, qty: 0, ca: 0, nbTx: 0 };
+        if (!map[key]) map[key] = { productId: item.product ? String(item.product) : null, name, qty: 0, ca: 0, nbTx: 0 };
         map[key].qty   += item.quantity;
         map[key].ca    += item.unitPrice * item.quantity;
         map[key].nbTx  += 1;
@@ -460,6 +460,7 @@ export class SalesService {
 
     return Object.values(map)
       .map(d => ({
+        productId:      d.productId,   // permet au front de retrouver la fiche produit (infobulle)
         name:           d.name,
         qtySold:        d.qty,
         caGenere:       Math.round(d.ca),

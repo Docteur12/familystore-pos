@@ -29,6 +29,7 @@ export interface AnalyseMonth {
 }
 
 export interface ProductStat {
+  productId?:     string | null;
   name:           string;
   qtySold:        number;
   caGenere:       number;

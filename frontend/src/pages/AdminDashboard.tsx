@@ -13,6 +13,7 @@ import {
 import { getBrandColor } from '../utils/text';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { getAllProducts, Product } from '../api/products';
+import ProductTooltip from '../components/ProductTooltip';
 import { getPartenairesStats, PartenairesStats } from '../api/partenaires';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -177,6 +178,7 @@ export default function AdminDashboard() {
   const [prodCount,     setProdCount]     = useState<number | null>(null);
   const [prodLowCount,  setProdLowCount]  = useState(0);
   const [products,      setProducts]      = useState<Product[]>([]);
+  const productById = useMemo(() => new Map(products.map(p => [p._id, p])), [products]);
   const [partStats,     setPartStats]     = useState<PartenairesStats | null>(null);
   const [prodSearch,    setProdSearch]    = useState('');
   const [prodSort,      setProdSort]      = useState<{ key: CatalogSortKey; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' });
@@ -415,7 +417,7 @@ export default function AdminDashboard() {
                     const daysLeft = p.expiryDate ? Math.ceil((new Date(p.expiryDate).getTime() - Date.now()) / 86400000) : null;
                     return (
                       <div key={p._id} style={{ padding: '10px 14px', background: 'var(--fs-ivory)', borderRadius: 9, border: '1px solid var(--fs-line)' }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        <ProductTooltip product={p} as="div" style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</ProductTooltip>
                         <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 3 }}>
                           {prodPanel === 'low'
                             ? <span style={{ color: p.stock === 0 ? 'var(--fs-danger-700)' : '#D97706', fontWeight: 600 }}>
@@ -504,7 +506,7 @@ export default function AdminDashboard() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ width: 10, height: 10, borderRadius: 2, background: colors[i], flexShrink: 0 }}/>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-800)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>{p.name}</span>
+                            <ProductTooltip product={productById.get(p._id)} style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-800)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>{p.name}</ProductTooltip>
                           </div>
                           <div style={{ textAlign: 'right', flexShrink: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{p.totalQty}</div>
@@ -604,7 +606,7 @@ export default function AdminDashboard() {
                         const out = p.stock === 0;
                         return (
                           <tr key={p._id} style={{ borderBottom: '1px solid var(--fs-line)', background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
-                            <td style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</td>
+                            <td style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--fs-ink-900)' }}><ProductTooltip product={p}>{p.name}</ProductTooltip></td>
                             <td style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--fs-ink-500)' }}>{p.category ?? '—'}</td>
                             <td style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--fs-ink-500)' }}>{p.subCategory ?? '—'}</td>
                             <td style={{ padding: '10px 14px', textAlign: 'left', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}>{fmtN(p.price)} XAF</td>
