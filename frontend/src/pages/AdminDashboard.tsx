@@ -10,7 +10,8 @@ import {
   getPaymentBreakdown, getTokenPayload,
   StatsToday, PeriodDay, TopProduct, PaymentSlice,
 } from '../api/dashboard';
-import { getBrandColor } from '../utils/text';
+import { getBrandColor, contientTexte } from '../utils/text';
+import { matchesStockStatus } from '../utils/stock';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { getAllProducts, Product } from '../api/products';
 import ProductTooltip from '../components/ProductTooltip';
@@ -188,11 +189,14 @@ export default function AdminDashboard() {
   }, []);
 
   const catalogRows = useMemo(() => {
-    const q = prodSearch.toLowerCase();
+    // Recherche sur nom, catégorie, sous-catégorie ET statut de stock
+    // (« rupture », « stock bas », « ok ») — insensible à la casse et aux accents.
+    const q = prodSearch.trim();
     const filtered = products.filter(p => !q
-      || p.name.toLowerCase().includes(q)
-      || (p.category ?? '').toLowerCase().includes(q)
-      || (p.subCategory ?? '').toLowerCase().includes(q));
+      || contientTexte(p.name, q)
+      || contientTexte(p.category, q)
+      || contientTexte(p.subCategory, q)
+      || matchesStockStatus(p, q));
     const dir = prodSort.dir === 'asc' ? 1 : -1;
     return [...filtered].sort((a, b) => {
       const va = catalogSortVal(a, prodSort.key);
@@ -580,7 +584,7 @@ export default function AdminDashboard() {
                 </div>
                 <input
                   value={prodSearch} onChange={e => setProdSearch(e.target.value)}
-                  placeholder="Rechercher un produit…"
+                  placeholder="Rechercher un produit, une catégorie, « rupture », « stock bas »…"
                   style={{ padding: '7px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', width: 200, fontFamily: 'var(--fs-font-sans)' }}
                 />
               </div>

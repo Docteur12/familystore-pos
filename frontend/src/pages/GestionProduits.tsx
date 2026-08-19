@@ -13,6 +13,8 @@ import {
 } from '../api/products';
 import QRScanner          from '../components/QRScanner';
 import AutocompleteInput  from '../components/AutocompleteInput';
+import { contientTexte } from '../utils/text';
+import { matchesStockStatus } from '../utils/stock';
 
 // ── Catégories et unités prédéfinies ─────────────────────────────────────────
 
@@ -495,11 +497,15 @@ export default function GestionProduits() {
 
   // Filtre recherche
   const displayed = products.filter(p => {
-    const q = search.toLowerCase();
+    // Nom, code-barres, catégorie, sous-catégorie et statut de stock
+    // (« rupture », « stock bas ») — insensible à la casse et aux accents.
+    const q = search.trim();
     return !q ||
-      p.name.toLowerCase().includes(q) ||
-      (p.barcode ?? '').toLowerCase().includes(q) ||
-      (p.category ?? '').toLowerCase().includes(q);
+      contientTexte(p.name, q) ||
+      contientTexte(p.barcode, q) ||
+      contientTexte(p.category, q) ||
+      contientTexte(p.subCategory, q) ||
+      matchesStockStatus(p, q);
   });
 
   const handleSave = async (payload: ProductPayload) => {
@@ -559,7 +565,7 @@ export default function GestionProduits() {
           type="search"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Rechercher par nom, code-barres, catégorie…"
+          placeholder="Rechercher par nom, code-barres, catégorie, « rupture », « stock bas »…"
           className="w-full max-w-sm px-4 py-2 rounded-xl border border-gray-200
             bg-white text-sm outline-none focus:border-bordeaux transition-colors"
         />
