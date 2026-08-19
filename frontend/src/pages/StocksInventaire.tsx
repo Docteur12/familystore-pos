@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
+import { useSettings } from '../contexts/SettingsContext';
 import { getAllProducts, Product, updateProduct } from '../api/products';
 import ToastContainer, { useToast } from '../components/Toast';
 import { qtyUnitLabel } from '../utils/units';
@@ -7,6 +8,7 @@ import { getBrandColor } from '../utils/text';
 import { useIsMobile } from '../hooks/useIsMobile';
 import OfflineSyncBanner from '../components/OfflineSyncBanner';
 import { queueAjustementStock } from '../services/offlineMagazin';
+import { t, dateLocale } from '../i18n';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -61,6 +63,8 @@ const D = {
 type ViewMode = 'seance' | 'history';
 
 export default function StocksInventaire() {
+  const { settings } = useSettings();
+  const nomMagasin = settings.nomMagasin || 'Family Store';
   const { toasts, addToast, removeToast } = useToast();
   const isMobile = useIsMobile();
   const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu
@@ -81,7 +85,7 @@ export default function StocksInventaire() {
     try {
       const products = await getAllProducts();
       setRows(products.map(p => ({ product: p, counted: String(p.stock), dirty: false, justification: '' })));
-    } catch { addToast('Erreur chargement', 'error'); }
+    } catch { addToast(t('Erreur chargement', 'Loading error'), 'error'); }
     finally { setLoading(false); }
   };
 
@@ -109,7 +113,7 @@ export default function StocksInventaire() {
 
   // Export PDF de l'inventaire (côté client, en-tête à la couleur de la boutique).
   const exportInventairePdf = async () => {
-    if (displayed.length === 0) { addToast('Aucun produit à exporter', 'error'); return; }
+    if (displayed.length === 0) { addToast(t('Aucun produit à exporter', 'No product to export'), 'error'); return; }
     try {
       const { jsPDF } = await import('jspdf');
       const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -124,19 +128,19 @@ export default function StocksInventaire() {
       // En-tête couleur boutique
       doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.rect(0, 0, 210, 24, 'F');
       doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-      doc.text('Family Store — Inventaire', margin, 12);
+      doc.text(`${nomMagasin} — ${t('Inventaire', 'Stock count')}`, margin, 12);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-      doc.text(`${type === 'total' ? 'Inventaire total' : `Partiel · ${categorie || 'toutes catégories'}`}  ·  ${displayed.length} produit(s)  ·  ${date}`, margin, 19);
+      doc.text(`${type === 'total' ? t('Inventaire total', 'Full stock count') : `${t('Partiel', 'Partial')} · ${categorie || t('toutes catégories', 'all categories')}`}  ·  ${displayed.length} ${t('produit(s)', 'product(s)')}  ·  ${date}`, margin, 19);
 
       let y = 34;
       const header = () => {
         doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-        doc.text('Produit', cX.nom, y);
-        doc.text('Catégorie', cX.cat, y);
-        doc.text('Unité', cX.unit, y);
-        doc.text('Théo.', cX.theo, y, { align: 'right' });
-        doc.text('Compté', cX.cmp, y, { align: 'right' });
-        doc.text('Écart', cX.ecart, y, { align: 'right' });
+        doc.text(t('Produit', 'Product'), cX.nom, y);
+        doc.text(t('Catégorie', 'Category'), cX.cat, y);
+        doc.text(t('Unité', 'Unit'), cX.unit, y);
+        doc.text(t('Théo.', 'Expected'), cX.theo, y, { align: 'right' });
+        doc.text(t('Compté', 'Counted'), cX.cmp, y, { align: 'right' });
+        doc.text(t('Écart', 'Discrepancy'), cX.ecart, y, { align: 'right' });
         y += 2; doc.setDrawColor(180); doc.line(margin, y, 196, y); y += 5;
       };
       header();
@@ -158,15 +162,15 @@ export default function StocksInventaire() {
       }
       doc.save(`inventaire-${date || new Date().toISOString().slice(0, 10)}.pdf`);
     } catch {
-      addToast('Erreur export PDF', 'error');
+      addToast(t('Erreur export PDF', 'PDF export error'), 'error');
     }
   };
 
   // Export Excel (.xls) — tableau HTML ouvert nativement par Excel.
   const exportInventaireExcel = () => {
-    if (displayed.length === 0) { addToast('Aucun produit à exporter', 'error'); return; }
+    if (displayed.length === 0) { addToast(t('Aucun produit à exporter', 'No product to export'), 'error'); return; }
     const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const headers = ['Produit', 'Catégorie', 'Unité', 'Stock théorique', 'Compté', 'Écart'];
+    const headers = [t('Produit', 'Product'), t('Catégorie', 'Category'), t('Unité', 'Unit'), t('Stock théorique', 'Expected stock'), t('Compté', 'Counted'), t('Écart', 'Discrepancy')];
     const rowsHtml = displayed.map(r => {
       const theo = r.product.stock;
       const cmp = r.counted === '' ? null : parseInt(r.counted);
@@ -180,7 +184,7 @@ export default function StocksInventaire() {
     const a = document.createElement('a');
     a.href = url; a.download = `inventaire-${date || new Date().toISOString().slice(0, 10)}.xls`;
     a.click(); URL.revokeObjectURL(url);
-    addToast('Export Excel prêt', 'success');
+    addToast(t('Export Excel prêt', 'Excel export ready'), 'success');
   };
 
   const handleValidate = async () => {
@@ -229,9 +233,9 @@ export default function StocksInventaire() {
     setHistory(updatedHistory);
     saveHistory(updatedHistory);
 
-    if (horsLigne > 0) addToast(`📴 Hors connexion — ${horsLigne} valeur(s) d'inventaire enregistrée(s) sur cet ordinateur, envoi automatique au retour du réseau.`, 'warning');
-    else if (ok > 0) addToast(`${ok} produit(s) mis à jour`, 'success');
-    if (fail > 0) addToast(`${fail} erreur(s)`, 'error');
+    if (horsLigne > 0) addToast(t(`📴 Hors connexion — ${horsLigne} valeur(s) d'inventaire enregistrée(s) sur cet ordinateur, envoi automatique au retour du réseau.`, `📴 Offline — ${horsLigne} stock count value(s) saved on this computer, will be sent automatically when the network is back.`), 'warning');
+    else if (ok > 0) addToast(t(`${ok} produit(s) mis à jour`, `${ok} product(s) updated`), 'success');
+    if (fail > 0) addToast(t(`${fail} erreur(s)`, `${fail} error(s)`), 'error');
     if (horsLigne === 0) load();
   };
 
@@ -243,7 +247,7 @@ export default function StocksInventaire() {
     const win = window.open('', '_blank', 'width=800,height=600');
     if (!win) return;
     win.document.write(`
-      <html><head><title>Inventaire — ${date}</title>
+      <html><head><title>${t('Inventaire', 'Stock count')} — ${date}</title>
       <style>
         body { font-family: Arial, sans-serif; padding: 20px; }
         h2 { margin-bottom: 4px; }
@@ -256,10 +260,10 @@ export default function StocksInventaire() {
         .diff-0   { color: #666; }
       </style></head>
       <body>
-        <h2>Inventaire — ${type === 'partiel' ? 'Partiel · ' + categorie : 'Total'}</h2>
-        <div class="sub">Date : ${date} · Généré le ${new Date().toLocaleDateString('fr-FR')}</div>
+        <h2>${t('Inventaire', 'Stock count')} — ${type === 'partiel' ? t('Partiel', 'Partial') + ' · ' + categorie : t('Total', 'Full')}</h2>
+        <div class="sub">${t('Date :', 'Date:')} ${date} · ${t('Généré le', 'Generated on')} ${new Date().toLocaleDateString(dateLocale())}</div>
         <table>
-          <thead><tr><th>Produit</th><th>Théorique</th><th>Compté</th><th>Écart</th><th>Justification</th></tr></thead>
+          <thead><tr><th>${t('Produit', 'Product')}</th><th>${t('Théorique', 'Expected')}</th><th>${t('Compté', 'Counted')}</th><th>${t('Écart', 'Discrepancy')}</th><th>${t('Justification', 'Justification')}</th></tr></thead>
           <tbody>
             ${dirtyToShow.map(r => {
               const ecart = parseInt(r.counted) - r.product.stock;
@@ -295,8 +299,8 @@ export default function StocksInventaire() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 12 }}>
             <div style={{ paddingLeft: isMobile ? 44 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
-              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Inventaire</h1>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Gestion de stock', 'Stock management')}</p>
+              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{t('Inventaire', 'Stock count')}</h1>
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {(['seance', 'history'] as ViewMode[]).map(v => (
@@ -308,7 +312,7 @@ export default function StocksInventaire() {
                   fontFamily: 'var(--fs-font-sans)', display: 'flex', alignItems: 'center', gap: 6,
                 }}>
                   <I d={v === 'seance' ? D.check : D.history} size={13}/>
-                  {v === 'seance' ? 'Saisie' : `Historique (${history.length})`}
+                  {v === 'seance' ? t('Saisie', 'Entry') : t(`Historique (${history.length})`, `History (${history.length})`)}
                 </button>
               ))}
             </div>
@@ -323,34 +327,34 @@ export default function StocksInventaire() {
             {/* Séance config */}
             <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', gap: 6 }}>
-                {(['total', 'partiel'] as const).map(t => (
-                  <button key={t} onClick={() => setType(t)} style={{
+                {(['total', 'partiel'] as const).map(m => (
+                  <button key={m} onClick={() => setType(m)} style={{
                     padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                    border: type === t ? 'none' : '1.5px solid var(--fs-line-2)',
-                    background: type === t ? 'var(--fs-wine-700)' : '#fff',
-                    color: type === t ? '#fff' : 'var(--fs-ink-500)',
+                    border: type === m ? 'none' : '1.5px solid var(--fs-line-2)',
+                    background: type === m ? 'var(--fs-wine-700)' : '#fff',
+                    color: type === m ? '#fff' : 'var(--fs-ink-500)',
                     fontFamily: 'var(--fs-font-sans)',
                   }}>
-                    {t === 'total' ? 'Inventaire total' : 'Inventaire partiel'}
+                    {m === 'total' ? t('Inventaire total', 'Full stock count') : t('Inventaire partiel', 'Partial stock count')}
                   </button>
                 ))}
               </div>
               {type === 'partiel' && (
                 <select value={categorie} onChange={e => setCat(e.target.value)}
                   style={{ padding: '7px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-                  <option value="">— Toutes catégories —</option>
+                  <option value="">{t('— Toutes catégories —', '— All categories —')}</option>
                   {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               )}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>Date :</label>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('Date :', 'Date:')}</label>
                 <input type="date" value={date} onChange={e => setDate(e.target.value)}
                   style={{ padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)' }}/>
               </div>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-300)' }}><I d={D.search} size={13}/></span>
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…"
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('Rechercher…', 'Search…')}
                     style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 7, paddingBottom: 7, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: 'var(--fs-ivory)', width: 200 }}/>
                 </div>
                 <button onClick={load} style={{ display: 'flex', alignItems: 'center', padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
@@ -359,37 +363,37 @@ export default function StocksInventaire() {
                 <button onClick={exportInventairePdf} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600 }}>
                   <I d={D.print} size={13}/> PDF
                 </button>
-                <button onClick={exportInventaireExcel} title="Exporter l'inventaire en Excel" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600 }}>
+                <button onClick={exportInventaireExcel} title={t("Exporter l'inventaire en Excel", 'Export the stock count to Excel')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600 }}>
                   Excel
                 </button>
                 {dirtyRows.length > 0 && (
                   <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600 }}>
-                    <I d={D.print} size={13}/> Écarts
+                    <I d={D.print} size={13}/> {t('Écarts', 'Discrepancies')}
                   </button>
                 )}
                 <button onClick={handleValidate} disabled={dirtyRows.length === 0 || saving}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', border: 'none', borderRadius: 8, background: dirtyRows.length > 0 ? 'var(--fs-wine-700)' : 'var(--fs-line)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: dirtyRows.length > 0 ? 'pointer' : 'default', opacity: saving ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
                   <I d={D.check} size={13}/>
-                  {saving ? 'Enregistrement…' : `Valider${dirtyRows.length > 0 ? ` (${dirtyRows.length})` : ''}`}
+                  {saving ? t('Enregistrement…', 'Saving…') : `${t('Valider', 'Confirm')}${dirtyRows.length > 0 ? ` (${dirtyRows.length})` : ''}`}
                 </button>
               </div>
             </div>
 
             {/* Info banner */}
             <div style={{ padding: '8px 24px', background: 'var(--fs-info-100)', borderBottom: '1px solid var(--fs-line)', fontSize: 12, color: 'var(--fs-info-700)', flexShrink: 0 }}>
-              Saisissez le stock compté. Les cases modifiées apparaissent en surbrillance — ajoutez une justification si nécessaire.
+              {t('Saisissez le stock compté. Les cases modifiées apparaissent en surbrillance — ajoutez une justification si nécessaire.', 'Enter the counted stock. Modified cells are highlighted — add a justification if needed.')}
             </div>
 
             {/* Table */}
             <div style={{ flex: '0 0 auto', overflowY: 'visible', overflowX: 'auto', padding: isNarrow ? '0 12px 16px' : '0 24px 24px' }}>
               {loading ? (
-                <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
+                <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Chargement…', 'Loading…')}</div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
                 <table className="fs-grid" style={{ width: '100%', minWidth: 820, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      {['Produit', 'Catégorie', 'Unité', 'Théorique', 'Compté', 'Écart', 'Justification'].map((h, i) => (
+                      {[t('Produit', 'Product'), t('Catégorie', 'Category'), t('Unité', 'Unit'), t('Théorique', 'Expected'), t('Compté', 'Counted'), t('Écart', 'Discrepancy'), t('Justification', 'Justification')].map((h, i) => (
                         <th key={h} style={{ padding: '10px 12px', textAlign: i >= 3 && i <= 5 ? 'center' : 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid var(--fs-line)', position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>{h}</th>
                       ))}
                     </tr>
@@ -416,7 +420,7 @@ export default function StocksInventaire() {
                             {r.dirty && diff !== 0 && (
                               <input value={r.justification}
                                 onChange={e => setJustif(r.product._id, e.target.value)}
-                                placeholder="Motif de l'écart…"
+                                placeholder={t("Motif de l'écart…", 'Reason for the discrepancy…')}
                                 style={{ width: '100%', padding: '5px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', fontFamily: 'var(--fs-font-sans)', minWidth: 160 }}/>
                             )}
                           </td>
@@ -433,23 +437,23 @@ export default function StocksInventaire() {
           // History view
           <div style={{ flex: '0 0 auto', overflowY: 'visible', overflowX: 'auto', padding: isNarrow ? '20px 12px' : '20px 24px' }}>
             {history.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Aucun inventaire enregistré</div>
+              <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Aucun inventaire enregistré', 'No stock count recorded')}</div>
             ) : history.map(s => (
               <div key={s.id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, marginBottom: 14, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                 <div style={{ padding: '12px 18px', background: 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', gap: 12 }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-mono)' }}>{s.date}</span>
                     <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 10px', borderRadius: 10, background: s.type === 'total' ? 'var(--fs-wine-50)' : '#E8F0E5', color: s.type === 'total' ? 'var(--fs-wine-800)' : 'var(--fs-success-700)' }}>
-                      {s.type === 'total' ? 'Inventaire total' : `Partiel · ${s.categorie}`}
+                      {s.type === 'total' ? t('Inventaire total', 'Full stock count') : `${t('Partiel', 'Partial')} · ${s.categorie}`}
                     </span>
                   </div>
-                  <span style={{ fontSize: 12, color: 'var(--fs-ink-400)' }}>{s.rows.length} produit(s)</span>
+                  <span style={{ fontSize: 12, color: 'var(--fs-ink-400)' }}>{s.rows.length} {t('produit(s)', 'product(s)')}</span>
                 </div>
                 <div style={{ overflowX: 'auto' }}>
                 <table className="fs-grid" style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      {['Produit', 'Théorique', 'Compté', 'Écart', 'Justification'].map(h => (
+                      {[t('Produit', 'Product'), t('Théorique', 'Expected'), t('Compté', 'Counted'), t('Écart', 'Discrepancy'), t('Justification', 'Justification')].map(h => (
                         <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)' }}>{h}</th>
                       ))}
                     </tr>

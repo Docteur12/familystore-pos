@@ -12,14 +12,15 @@ import {
 } from '../api/expenses';
 import ToastContainer, { useToast } from '../components/Toast';
 import { localISODate } from '../utils/dates';
+import { t, dateLocale } from '../i18n';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const fmt = (n: number) =>
-  n.toLocaleString('fr-FR', { minimumFractionDigits: 0 }) + ' FCFA';
+  n.toLocaleString(dateLocale(), { minimumFractionDigits: 0 }) + ' FCFA';
 
 const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('fr-FR', {
+  new Date(iso).toLocaleDateString(dateLocale(), {
     day: '2-digit', month: 'short', year: 'numeric',
   });
 
@@ -34,6 +35,18 @@ const CAT_COLORS: Record<string, string> = {
   'Autre':         'bg-gray-100   text-gray-600   border-gray-200',
 };
 const catClass = (cat: string) => CAT_COLORS[cat] ?? CAT_COLORS['Autre'];
+
+// Libellé affiché d'une catégorie (les valeurs stockées en base restent en français)
+const catLabel = (cat: string) => {
+  switch (cat) {
+    case 'Loyer':       return t('Loyer', 'Rent');
+    case 'Électricité': return t('Électricité', 'Electricity');
+    case 'Fournisseur': return t('Fournisseur', 'Supplier');
+    case 'Salaires':    return t('Salaires', 'Salaries');
+    case 'Autre':       return t('Autre', 'Other');
+    default:            return cat;
+  }
+};
 
 // ── Empty form state ──────────────────────────────────────────────────────────
 
@@ -71,7 +84,7 @@ export default function Depenses() {
       setExpenses(list);
       setStats(monthStats);
     } catch (err: unknown) {
-      setLoadError(err instanceof Error ? err.message : 'Erreur chargement');
+      setLoadError(err instanceof Error ? err.message : t('Erreur chargement', 'Loading error'));
     } finally {
       setLoading(false);
     }
@@ -91,11 +104,11 @@ export default function Depenses() {
     e.preventDefault();
     const amount = parseFloat(form.amount);
     if (!amount || amount <= 0) {
-      setFormError('Montant invalide');
+      setFormError(t('Montant invalide', 'Invalid amount'));
       return;
     }
     if (!form.category) {
-      setFormError('Catégorie requise');
+      setFormError(t('Catégorie requise', 'Category required'));
       return;
     }
     setFormError(null);
@@ -111,9 +124,9 @@ export default function Depenses() {
       // refresh stats
       getMonthStats().then(setStats).catch(() => {});
       setForm({ ...EMPTY_FORM, date: today() });
-      addToast(`Dépense de ${fmt(amount)} enregistrée`, 'success');
+      addToast(t(`Dépense de ${fmt(amount)} enregistrée`, `Expense of ${fmt(amount)} recorded`), 'success');
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur ajout', 'error');
+      addToast(err instanceof Error ? err.message : t('Erreur ajout', 'Error while adding'), 'error');
     } finally {
       setSubmitting(false);
     }
@@ -128,9 +141,9 @@ export default function Depenses() {
       await deleteExpense(id);
       setExpenses(prev => prev.filter(e => e._id !== id));
       getMonthStats().then(setStats).catch(() => {});
-      addToast(`Dépense de ${fmt(amount)} supprimée`, 'success');
+      addToast(t(`Dépense de ${fmt(amount)} supprimée`, `Expense of ${fmt(amount)} deleted`), 'success');
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur suppression', 'error');
+      addToast(err instanceof Error ? err.message : t('Erreur suppression', 'Deletion error'), 'error');
     } finally {
       setDeletingId(null);
     }
@@ -138,7 +151,7 @@ export default function Depenses() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  const currentMonth = new Date().toLocaleDateString('fr-FR', {
+  const currentMonth = new Date().toLocaleDateString(dateLocale(), {
     month: 'long', year: 'numeric',
   });
 
@@ -149,7 +162,7 @@ export default function Depenses() {
 
       {/* ── Header ── */}
       <header className="bg-white border-b border-gray-100 flex items-center justify-between px-6 py-3 shrink-0 shadow-sm">
-        <h2 className="font-bold text-bordeaux text-lg">Dépenses</h2>
+        <h2 className="font-bold text-bordeaux text-lg">{t('Dépenses', 'Expenses')}</h2>
         <span className="text-gray-400 text-sm hidden md:block capitalize">{currentMonth}</span>
       </header>
 
@@ -160,18 +173,18 @@ export default function Depenses() {
         {stats && (
           <section>
             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-              Bilan du mois — {currentMonth}
+              {t('Bilan du mois', 'Month summary')} — {currentMonth}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
 
               {/* Total général */}
               <div className="sm:col-span-2 lg:col-span-1 bg-white rounded-2xl p-5 shadow border border-cream-dark
                 flex flex-col justify-between gap-2">
-                <p className="text-xs text-gray-400 uppercase tracking-wider">Total dépenses</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">{t('Total dépenses', 'Total expenses')}</p>
                 <p className="text-3xl font-black text-bordeaux leading-none">
                   {fmt(stats.total)}
                 </p>
-                <p className="text-xs text-gray-400">{stats.count} dépense{stats.count > 1 ? 's' : ''}</p>
+                <p className="text-xs text-gray-400">{stats.count} {t('dépense', 'expense')}{stats.count > 1 ? 's' : ''}</p>
               </div>
 
               {/* Par catégorie */}
@@ -189,7 +202,7 @@ export default function Depenses() {
           <section className="bg-white rounded-2xl shadow border border-cream-dark overflow-hidden">
             <div className="bg-bordeaux/5 border-b border-bordeaux/15 px-5 py-3">
               <h2 className="font-bold text-bordeaux text-sm uppercase tracking-widest">
-                Nouvelle dépense
+                {t('Nouvelle dépense', 'New expense')}
               </h2>
             </div>
 
@@ -198,7 +211,7 @@ export default function Depenses() {
               {/* Montant */}
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                  Montant (FCFA) *
+                  {t('Montant (FCFA) *', 'Amount (FCFA) *')}
                 </label>
                 <div className="relative">
                   <input
@@ -222,7 +235,7 @@ export default function Depenses() {
               {/* Catégorie */}
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                  Catégorie *
+                  {t('Catégorie *', 'Category *')}
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {EXPENSE_CATEGORIES.map(cat => (
@@ -237,7 +250,7 @@ export default function Depenses() {
                           : 'bg-white text-gray-600 border-gray-200 hover:border-bordeaux/40 hover:bg-cream'
                         }`}
                     >
-                      {cat}
+                      {catLabel(cat)}
                     </button>
                   ))}
                 </div>
@@ -252,7 +265,7 @@ export default function Depenses() {
                   type="text"
                   value={form.description}
                   onChange={e => setField('description', e.target.value)}
-                  placeholder="Détails optionnels…"
+                  placeholder={t('Détails optionnels…', 'Optional details…')}
                   className="w-full px-4 py-3 rounded-xl border-2 border-gray-200
                     focus:border-bordeaux outline-none text-sm transition-colors"
                 />
@@ -292,10 +305,10 @@ export default function Depenses() {
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-4 h-4 border-2 border-cream/40 border-t-cream
                       rounded-full animate-spin" />
-                    Enregistrement…
+                    {t('Enregistrement…', 'Saving…')}
                   </span>
                 ) : (
-                  'Enregistrer la dépense'
+                  t('Enregistrer la dépense', 'Save expense')
                 )}
               </button>
             </form>
@@ -305,11 +318,11 @@ export default function Depenses() {
           <section className="bg-white rounded-2xl shadow border border-cream-dark overflow-hidden">
             <div className="bg-bordeaux/5 border-b border-bordeaux/15 px-5 py-3 flex items-center justify-between">
               <h2 className="font-bold text-bordeaux text-sm uppercase tracking-widest">
-                Historique
+                {t('Historique', 'History')}
               </h2>
               {!loading && (
                 <span className="text-xs text-gray-400">
-                  {expenses.length} dépense{expenses.length > 1 ? 's' : ''}
+                  {expenses.length} {t('dépense', 'expense')}{expenses.length > 1 ? 's' : ''}
                 </span>
               )}
             </div>
@@ -319,7 +332,7 @@ export default function Depenses() {
               <div className="px-5 py-10 text-center text-gray-300">
                 <div className="inline-block w-6 h-6 border-2 border-gray-200 border-t-bordeaux
                   rounded-full animate-spin mb-2" />
-                <p className="text-sm">Chargement…</p>
+                <p className="text-sm">{t('Chargement…', 'Loading…')}</p>
               </div>
             )}
 
@@ -330,7 +343,7 @@ export default function Depenses() {
                 <span>✕</span>
                 <span>{loadError}</span>
                 <button onClick={loadData} className="ml-auto underline text-xs">
-                  Réessayer
+                  {t('Réessayer', 'Retry')}
                 </button>
               </div>
             )}
@@ -339,7 +352,7 @@ export default function Depenses() {
             {!loading && !loadError && expenses.length === 0 && (
               <div className="px-5 py-10 text-center text-gray-300 flex flex-col items-center gap-2">
                 <span className="text-4xl">💸</span>
-                <span className="text-sm">Aucune dépense enregistrée</span>
+                <span className="text-sm">{t('Aucune dépense enregistrée', 'No expenses recorded')}</span>
               </div>
             )}
 
@@ -372,7 +385,7 @@ function CategoryCard({ cat, total }: { cat: CategoryStat; total: number }) {
     <div className="bg-white rounded-2xl p-4 shadow border border-cream-dark flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${catClass(cat.category)}`}>
-          {cat.category}
+          {catLabel(cat.category)}
         </span>
         <span className="text-xs text-gray-400">{cat.count} op.</span>
       </div>
@@ -384,7 +397,7 @@ function CategoryCard({ cat, total }: { cat: CategoryStat; total: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-xs text-gray-400 text-right">{pct}% du total</p>
+      <p className="text-xs text-gray-400 text-right">{pct}% {t('du total', 'of total')}</p>
     </div>
   );
 }
@@ -412,7 +425,7 @@ function ExpenseRow({
           {new Date(expense.date).getDate()}
         </p>
         <p className="text-xs text-gray-400 uppercase">
-          {new Date(expense.date).toLocaleDateString('fr-FR', { month: 'short' })}
+          {new Date(expense.date).toLocaleDateString(dateLocale(), { month: 'short' })}
         </p>
       </div>
 
@@ -423,7 +436,7 @@ function ExpenseRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${catClass(expense.category)}`}>
-            {expense.category}
+            {catLabel(expense.category)}
           </span>
           {expense.description && (
             <span className="text-sm text-gray-600 truncate">{expense.description}</span>
@@ -434,7 +447,7 @@ function ExpenseRow({
 
       {/* Amount */}
       <span className="font-black text-bordeaux text-base shrink-0">
-        {expense.amount.toLocaleString('fr-FR')}
+        {expense.amount.toLocaleString(dateLocale())}
         <span className="text-xs font-normal text-gray-400 ml-0.5">FCFA</span>
       </span>
 
@@ -444,7 +457,7 @@ function ExpenseRow({
           onClick={() => setConfirm(true)}
           className="shrink-0 w-7 h-7 rounded-full text-gray-300 hover:text-red-500
             hover:bg-red-50 transition-colors flex items-center justify-center text-lg leading-none"
-          title="Supprimer"
+          title={t('Supprimer', 'Delete')}
         >
           ×
         </button>
@@ -455,14 +468,14 @@ function ExpenseRow({
             className="text-xs bg-red-500 text-white px-2 py-1 rounded-lg
               hover:bg-red-600 transition-colors font-semibold"
           >
-            Oui
+            {t('Oui', 'Yes')}
           </button>
           <button
             onClick={() => setConfirm(false)}
             className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg
               hover:bg-gray-200 transition-colors"
           >
-            Non
+            {t('Non', 'No')}
           </button>
         </div>
       )}

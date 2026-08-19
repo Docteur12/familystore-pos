@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { SettingsProvider } from './contexts/SettingsContext';
+import { SettingsProvider, useSettings } from './contexts/SettingsContext';
+import type { ModuleId } from './api/settings';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Caisse from './pages/Caisse';
@@ -61,13 +62,19 @@ import { getTokenPayload } from './api/dashboard';
   } catch { /* stockage indisponible : ne pas bloquer l'app */ }
 })();
 
-const INACTIVITY_MS = 10 * 60 * 1000;
+const INACTIVITY_MS_DEFAULT = 10 * 60 * 1000;
 const EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
 
 // Composant racine qui gère l'inactivité globale — ne se démonte jamais
 function InactivityWatcher() {
   const location = useLocation();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Durée d'inactivité paramétrable par magasin (Paramètres → règles métier).
+  const { settings } = useSettings();
+  const minutes = Number(settings.metier?.inactiviteMinutes);
+  const inactivityMs = minutes > 0 ? minutes * 60 * 1000 : INACTIVITY_MS_DEFAULT;
+  const msRef = useRef(inactivityMs);
+  msRef.current = inactivityMs;
 
   const resetTimer = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -78,7 +85,7 @@ function InactivityWatcher() {
       if (window.location.pathname === '/caisse') return;
       localStorage.removeItem('access_token');
       window.location.href = '/login';
-    }, INACTIVITY_MS);
+    }, msRef.current);
   };
 
   useEffect(() => {
@@ -91,8 +98,9 @@ function InactivityWatcher() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Une seule fois au montage racine
 
-  // Réinitialiser le timer à chaque changement de page
-  useEffect(() => { resetTimer(); }, [location.pathname]);
+  // Réinitialiser le timer à chaque changement de page ou de durée paramétrée
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { resetTimer(); }, [location.pathname, inactivityMs]);
 
   return null;
 }
@@ -106,6 +114,14 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function RequireAuthBare({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem('access_token');
   if (!token) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+// Route d'un module optionnel : si le module est désactivé pour ce magasin
+// (Paramètres → modules), on renvoie à l'accueil.
+function RequireModule({ id, children }: { id: ModuleId; children: React.ReactNode }) {
+  const { hasModule } = useSettings();
+  if (!hasModule(id)) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -169,12 +185,12 @@ export default function App() {
         <Route path="/admin/factures"      element={<RequireAuthBare><AdminFactures /></RequireAuthBare>} />
         <Route path="/admin/sessions"      element={<RequireAuthBare><AdminSessions /></RequireAuthBare>} />
         <Route path="/admin/magaziniers"   element={<RequireAuthBare><AdminMagaziniers /></RequireAuthBare>} />
-        <Route path="/admin/partenaires"   element={<RequireAuthBare><AdminPartenaires /></RequireAuthBare>} />
+        <Route path="/admin/partenaires"   element={<RequireModule id="partenaires"><RequireAuthBare><AdminPartenaires /></RequireAuthBare></RequireModule>} />
         <Route path="/admin/fournisseurs"  element={<RequireAuthBare><AdminFournisseurs /></RequireAuthBare>} />
         <Route path="/admin/caisses"       element={<RequireAuthBare><AdminCaisses /></RequireAuthBare>} />
         <Route path="/magazinier"          element={<RequireRole role={['magazinier','patron']}><Magazinier /></RequireRole>} />
-        <Route path="/partenaires"         element={<RequireRole role={['patron','commercial']}><Partenaires /></RequireRole>} />
-        <Route path="/maquette/agences"    element={<PartenairesAgencesMaquette />} />
+        <Route path="/partenaires"         element={<RequireModule id="partenaires"><RequireRole role={['patron','commercial']}><Partenaires /></RequireRole></RequireModule>} />
+        <Route path="/maquette/agences"    element={<RequireModule id="partenaires"><PartenairesAgencesMaquette /></RequireModule>} />
       </Routes>
     </BrowserRouter>
     </SettingsProvider>

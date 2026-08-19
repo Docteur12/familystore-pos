@@ -20,19 +20,21 @@ import Receipt, { ReceiptData } from '../components/Receipt';
 import { buildReceiptHTML, buildReceiptPDF, doPrint, getPrintSettings, openCashDrawer } from '../components/ReceiptPrint';
 import { saveFacture } from '../api/factures';
 import { useSettings } from '../contexts/SettingsContext';
+import { storeIdentity } from '../api/settings';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { formatVolume } from '../utils/text';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
 import StoreLogo from '../components/StoreLogo';
+import { t, dateLocale } from '../i18n';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const fmtN = (n: number) => n.toLocaleString('fr-FR');
+const fmtN = (n: number) => n.toLocaleString(dateLocale());
 
 const PAYMENT_METHODS = [
-  { value: 'cash',         label: 'Espèces'  },
+  { value: 'cash',         label: t('Espèces', 'Cash')  },
   { value: 'mobile_money', label: 'Mobile M.' },
-  { value: 'card',         label: 'Carte'    },
+  { value: 'card',         label: t('Carte', 'Card')    },
 ] as const;
 type PaymentMethod = typeof PAYMENT_METHODS[number]['value'];
 
@@ -106,7 +108,7 @@ const ICO_X          = 'M18 6L6 18M6 6l12 12';
 
 function catIcon(name: string) {
   const key = name.toLowerCase();
-  if (key === 'tout')       return ICO_TOUT;
+  if (key === 'tout' || key === 'all') return ICO_TOUT;
   if (key === 'beauté')     return ICO_BEAUTE;
   if (key === 'hygiène')    return ICO_HYGIENE;
   if (key === 'parfumerie') return ICO_PARFUMERIE;
@@ -189,7 +191,7 @@ export default function Caisse() {
   const [receiptData,    setReceiptData]    = useState<ReceiptData | null>(null);
   const [ticketNo]                          = useState(genTicketNo);
   const [ticketTime]                        = useState(() =>
-    new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    new Date().toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })
   );
   const [isOnline,       setIsOnline]       = useState(() => navigator.onLine);
   const [pendingCount,   setPendingCount]   = useState(0);
@@ -287,12 +289,12 @@ export default function Caisse() {
   const categories = useMemo(() => {
     const map = new Map<string, number>();
     allProducts.forEach(p => {
-      const c = p.category?.trim() || 'Autre';
+      const c = p.category?.trim() || t('Autre', 'Other');
       map.set(c, (map.get(c) ?? 0) + p.stock);
     });
     const totalStock = allProducts.reduce((s, p) => s + p.stock, 0);
     return [
-      { name: 'Tout', count: totalStock },
+      { name: t('Tout', 'All'), count: totalStock },
       ...Array.from(map.entries()).map(([name, count]) => ({ name, count })),
     ];
   }, [allProducts]);
@@ -302,7 +304,7 @@ export default function Caisse() {
     let list = allProducts;
     if (stockFilter === 'available')   list = list.filter(p => p.stock > 0);   // en stock
     if (stockFilter === 'unavailable') list = list.filter(p => p.stock <= 0);  // en rupture
-    if (selectedCat) list = list.filter(p => (p.category?.trim() || 'Autre') === selectedCat);
+    if (selectedCat) list = list.filter(p => (p.category?.trim() || t('Autre', 'Other')) === selectedCat);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(p =>
@@ -312,11 +314,11 @@ export default function Caisse() {
       );
     }
     return [...list].sort((a, b) => {
-      if (sortBy === 'name')  return a.name.localeCompare(b.name, 'fr');
+      if (sortBy === 'name')  return a.name.localeCompare(b.name, dateLocale());
       if (sortBy === 'price') return a.price - b.price;
       if (sortBy === 'subCategory') {
-        const cmp = (a.subCategory ?? '').localeCompare(b.subCategory ?? '', 'fr');
-        return cmp !== 0 ? cmp : a.name.localeCompare(b.name, 'fr');
+        const cmp = (a.subCategory ?? '').localeCompare(b.subCategory ?? '', dateLocale());
+        return cmp !== 0 ? cmp : a.name.localeCompare(b.name, dateLocale());
       }
       return b.stock - a.stock; // popularity = most stocked
     });
@@ -348,10 +350,10 @@ export default function Caisse() {
   // avec un stock élevé pour ne déclencher aucune alerte/écart.
   const addDivers = useCallback(() => {
     const prix = Math.round(Number(diversPrice));
-    if (!prix || prix <= 0) { addToast('Saisissez un prix valide', 'error'); return; }
+    if (!prix || prix <= 0) { addToast(t('Saisissez un prix valide', 'Enter a valid price'), 'error'); return; }
     const item: Product = {
       _id: `divers-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      name: diversName.trim() || 'Article divers',
+      name: diversName.trim() || t('Article divers', 'Miscellaneous item'),
       price: prix, costPrice: 0, stock: 999999, alertThreshold: 0,
       unit: '', divers: true,
     };
@@ -399,7 +401,7 @@ export default function Caisse() {
       // que le caissier détecte tout de suite un code-barres mal attribué.
       addToast(`✓ ${prod.name} — ${fmtN(effectivePrice(prod))} XAF`, 'success');
     } catch (err: unknown) {
-      setScanError(err instanceof Error ? err.message : 'Produit non trouvé');
+      setScanError(err instanceof Error ? err.message : t('Produit non trouvé', 'Product not found'));
       setSearchQuery(''); // vide le champ pour ne pas concaténer le scan suivant
       playBeep(false); vibrate(150);
     } finally {
@@ -411,7 +413,7 @@ export default function Caisse() {
     setScanError(null); setScanning(true);
     getProductByBarcode(code)
       .then(prod => { addToCart(prod); addToast(`✓ ${prod.name} — ${fmtN(effectivePrice(prod))} XAF`, 'success'); })
-      .catch(err => { setScanError(err instanceof Error ? err.message : 'Non trouvé'); playBeep(false); vibrate(150); })
+      .catch(err => { setScanError(err instanceof Error ? err.message : t('Non trouvé', 'Not found')); playBeep(false); vibrate(150); })
       .finally(() => { setScanning(false); focusScan(); });
   }, [addToCart, focusScan, addToast]);
 
@@ -451,26 +453,26 @@ export default function Caisse() {
   const handleHold = useCallback(() => {
     if (cart.length === 0) return;
     if (heldTickets.length >= 5) {
-      addToast('Maximum 5 tickets en attente simultanément', 'error');
+      addToast(t('Maximum 5 tickets en attente simultanément', 'Maximum 5 receipts on hold at once'), 'error');
       return;
     }
     const held: HeldTicket = {
       id: Date.now().toString(),
       ticketNo,
-      time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+      time: new Date().toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' }),
       cart: [...cart],
       total,
     };
     setHeldTickets(prev => [...prev, held]);
     setCart([]);
     setAmountPaid('');
-    addToast(`Ticket #${ticketNo} mis en attente`, 'success');
+    addToast(t(`Ticket #${ticketNo} mis en attente`, `Receipt #${ticketNo} put on hold`), 'success');
     focusScan();
   }, [cart, heldTickets.length, ticketNo, total, addToast, focusScan]);
 
   const handleResume = useCallback((id: string) => {
     if (cart.length > 0) {
-      addToast('Encaissez ou annulez le ticket courant avant de reprendre', 'warning');
+      addToast(t('Encaissez ou annulez le ticket courant avant de reprendre', 'Check out or cancel the current receipt before resuming'), 'warning');
       return;
     }
     const ticket = heldTickets.find(t => t.id === id);
@@ -503,14 +505,14 @@ export default function Caisse() {
     // ── Offline path ───────────────────────────────────────────────────────
     if (!navigator.onLine) {
       try {
-        await savePendingSale({ items: cart.map(toSaleItem), total, subtotal, ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}), cashierName: payload?.name ?? 'Caissier', paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey });
+        await savePendingSale({ items: cart.map(toSaleItem), total, subtotal, ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}), cashierName: payload?.name ?? t('Caissier', 'Cashier'), paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey });
         for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
         const cached = await getCachedProducts(); setAllProducts(cached);
         setPendingCount(prev => prev + 1); setSessionSales(n => n + 1);
-        addToast('Mode hors ligne — vente sauvegardée, à synchroniser', 'warning');
+        addToast(t('Mode hors ligne — vente sauvegardée, à synchroniser', 'Offline mode — sale saved, pending sync'), 'warning');
         const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,'');        const offlineData: ReceiptData = {
           receiptNo: `OFF-${dateP}-${Math.random().toString(36).slice(2,8).toUpperCase()}`, date: d,
-          cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
+          cashierName: payload?.name ?? t('Caissier', 'Cashier'), storePhone: settings.telephone || undefined, store: storeIdentity(settings),
           items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, valeur: i.product.valeur || undefined, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
           subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
           ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}),
@@ -518,7 +520,7 @@ export default function Caisse() {
         };
         setReceiptData(offlineData); setCart([]); setAmountPaid(''); setPaymentMethod('cash');
         const ps = getPrintSettings(); if (ps.auto) doPrint(buildReceiptHTML(offlineData), ps.copies);
-      } catch { addToast('Erreur sauvegarde locale', 'error'); }
+      } catch { addToast(t('Erreur sauvegarde locale', 'Local save error'), 'error'); }
       finally { setValidating(false); focusScan(); }
       return;
     }
@@ -533,7 +535,7 @@ export default function Caisse() {
         const result = await createSale({ items: saleItems, total, subtotal, ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}), paymentMethod, amountPaid: effPaid, sessionId: sessionId ?? undefined, forceVente: forceVente || undefined, ecarts: ecartsData, idempotencyKey });
         succeeded = true;
         const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,''); const idPart = String(result.sale._id).slice(-6).toUpperCase();        const newData: ReceiptData = {
-          receiptNo: `FSV-${dateP}-${idPart}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
+          receiptNo: `FSV-${dateP}-${idPart}`, date: d, cashierName: payload?.name ?? t('Caissier', 'Cashier'), storePhone: settings.telephone || undefined, store: storeIdentity(settings),
           items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, valeur: i.product.valeur || undefined, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
           subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: result.change,
           ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}),
@@ -545,15 +547,15 @@ export default function Caisse() {
         } catch { /* silencieux — l'archive ne doit jamais bloquer la vente */ }
         setReceiptData(newData); setCart([]); setAmountPaid(''); setPaymentMethod('cash'); setOffrePct(0); setOffreFcfa(0);
         setSessionSales(n => n + 1);
-        if (attempt > 0) addToast('Vente enregistrée ✅', 'success');
+        if (attempt > 0) addToast(t('Vente enregistrée ✅', 'Sale recorded ✅'), 'success');
         const ps = getPrintSettings(); if (ps.auto) { doPrint(buildReceiptHTML(newData), ps.copies); if (paymentMethod === 'cash') openCashDrawer(); }
-        for (const a of result.alerts) addToast(a.stock === 0 ? `Rupture — ${a.productName}` : `Stock bas — ${a.productName} : ${a.stock} restant(s)`, 'warning');
+        for (const a of result.alerts) addToast(a.stock === 0 ? t(`Rupture — ${a.productName}`, `Out of stock — ${a.productName}`) : t(`Stock bas — ${a.productName} : ${a.stock} restant(s)`, `Low stock — ${a.productName}: ${a.stock} left`), 'warning');
       } catch (err: unknown) {
         const kind = err instanceof SaleError ? err.kind : 'unknown';
-        const msg  = err instanceof Error ? err.message : "Erreur d'enregistrement";
+        const msg  = err instanceof Error ? err.message : t("Erreur d'enregistrement", 'Save error');
         if (kind === 'auth') {
           nonRetryable = true;
-          try { await savePendingSale({ items: saleItems, total, subtotal, ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}), cashierName: payload?.name ?? 'Caissier', paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey }); addToast('Session expirée — ticket sauvegardé localement', 'warning'); } catch {}
+          try { await savePendingSale({ items: saleItems, total, subtotal, ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}), cashierName: payload?.name ?? t('Caissier', 'Cashier'), paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey }); addToast(t('Session expirée — ticket sauvegardé localement', 'Session expired — receipt saved locally'), 'warning'); } catch {}
           setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 1800);
         } else if (kind === 'stock') {
           nonRetryable = true;
@@ -561,29 +563,29 @@ export default function Caisse() {
           if (availMatch && nameMatch) {
             const available = parseInt(availMatch[1]); const productName = nameMatch[1];
             setCart(prev => prev.map(i => i.product.name === productName && i.quantity > available ? { ...i, quantity: available } : i).filter(i => i.quantity > 0));
-            addToast(`Quantité réduite à ${available} pour "${productName}"`, 'warning');
+            addToast(t(`Quantité réduite à ${available} pour "${productName}"`, `Quantity reduced to ${available} for "${productName}"`), 'warning');
           } else { addToast(msg, 'error'); }
         } else if (attempt < MAX_RETRIES - 1) {
-          if (kind === 'timeout') { setRetryLabel(`Connexion lente, tentative ${attempt + 2}/${MAX_RETRIES}…`); addToast('Connexion lente — nouvelle tentative…', 'warning'); }
-          else if (kind === 'server_sleep') { setRetryLabel(`Serveur en démarrage, tentative ${attempt + 2}/${MAX_RETRIES}…`); addToast('Serveur en démarrage (30s) — nouvelle tentative…', 'warning'); }
-          else { setRetryLabel(`Tentative ${attempt + 2}/${MAX_RETRIES}…`); addToast(`Erreur réseau — tentative ${attempt + 2}/${MAX_RETRIES}…`, 'warning'); }
+          if (kind === 'timeout') { setRetryLabel(t(`Connexion lente, tentative ${attempt + 2}/${MAX_RETRIES}…`, `Slow connection, attempt ${attempt + 2}/${MAX_RETRIES}…`)); addToast(t('Connexion lente — nouvelle tentative…', 'Slow connection — retrying…'), 'warning'); }
+          else if (kind === 'server_sleep') { setRetryLabel(t(`Serveur en démarrage, tentative ${attempt + 2}/${MAX_RETRIES}…`, `Server starting up, attempt ${attempt + 2}/${MAX_RETRIES}…`)); addToast(t('Serveur en démarrage (30s) — nouvelle tentative…', 'Server starting up (30s) — retrying…'), 'warning'); }
+          else { setRetryLabel(t(`Tentative ${attempt + 2}/${MAX_RETRIES}…`, `Attempt ${attempt + 2}/${MAX_RETRIES}…`)); addToast(t(`Erreur réseau — tentative ${attempt + 2}/${MAX_RETRIES}…`, `Network error — attempt ${attempt + 2}/${MAX_RETRIES}…`), 'warning'); }
         } else {
-          setRetryLabel('Sauvegarde locale…');
+          setRetryLabel(t('Sauvegarde locale…', 'Saving locally…'));
           try {
-            await savePendingSale({ items: saleItems, total, subtotal, ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}), cashierName: payload?.name ?? 'Caissier', paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey });
+            await savePendingSale({ items: saleItems, total, subtotal, ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}), cashierName: payload?.name ?? t('Caissier', 'Cashier'), paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey });
             for (const item of cart) await decrementCachedStock(item.product._id, item.quantity);
             const cached = await getCachedProducts(); setAllProducts(cached); setPendingCount(prev => prev + 1);
             const d = new Date(); const dateP = d.toISOString().slice(0,10).replace(/-/g,'');            const offlineData: ReceiptData = {
-              receiptNo: `OFF-${dateP}-${Math.random().toString(36).slice(2,8).toUpperCase()}`, date: d, cashierName: payload?.name ?? 'Caissier', storePhone: settings.telephone || undefined,
+              receiptNo: `OFF-${dateP}-${Math.random().toString(36).slice(2,8).toUpperCase()}`, date: d, cashierName: payload?.name ?? t('Caissier', 'Cashier'), storePhone: settings.telephone || undefined, store: storeIdentity(settings),
               items: cartSnap.map(i => ({ name: i.product.name, localName: i.product.localName || undefined, unit: i.product.unit, valeur: i.product.valeur || undefined, quantity: i.quantity, unitPrice: effectivePrice(i.product), ...(i.product.discount && i.product.discount > 0 ? { discount: i.product.discount, originalPrice: i.product.price } : {}) })),
               subtotal, total, paymentLabel: pmLabel, amountPaid: effPaid, change: Math.max(0, effPaid - total),
               ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}),
               offre: settings.offreFacture,
             };
             setReceiptData(offlineData); setCart([]); setAmountPaid(''); setPaymentMethod('cash');
-            addToast('Vente sauvegardée localement — synchronisation dès que possible', 'warning');
+            addToast(t('Vente sauvegardée localement — synchronisation dès que possible', 'Sale saved locally — will sync as soon as possible'), 'warning');
             const ps = getPrintSettings(); if (ps.auto) doPrint(buildReceiptHTML(offlineData), ps.copies);
-          } catch { addToast("Échec définitif — impossible d'enregistrer la vente", 'error'); }
+          } catch { addToast(t("Échec définitif — impossible d'enregistrer la vente", 'Permanent failure — unable to save the sale'), 'error'); }
         }
       }
     }
@@ -594,7 +596,7 @@ export default function Caisse() {
   const handleValidate = useCallback(async () => {
     if (!canValidate) return;
     if (paymentMethod === 'cash' && (paid === 0 || paid < total)) {
-      addToast('Montant reçu insuffisant', 'error'); return;
+      addToast(t('Montant reçu insuffisant', 'Insufficient amount received'), 'error'); return;
     }
 
     // Détecter les écarts de stock
@@ -651,7 +653,7 @@ export default function Caisse() {
 
   const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
 
-  const SORT_LABELS = { pop: 'Trier par popularité', name: 'Trier par nom', price: 'Trier par prix', subCategory: 'Trier par sous-catégorie' };
+  const SORT_LABELS = { pop: t('Trier par popularité', 'Sort by popularity'), name: t('Trier par nom', 'Sort by name'), price: t('Trier par prix', 'Sort by price'), subCategory: t('Trier par sous-catégorie', 'Sort by subcategory') };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -674,8 +676,8 @@ export default function Caisse() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 9998, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
             <div style={{ background: '#DC2626', padding: '16px 22px' }}>
-              <p style={{ color: '#fff', fontWeight: 800, fontSize: 15, margin: 0 }}>⚠ Stock insuffisant en système</p>
-              <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, margin: '4px 0 0' }}>Ces produits dépassent le stock enregistré</p>
+              <p style={{ color: '#fff', fontWeight: 800, fontSize: 15, margin: 0 }}>{t('⚠ Stock insuffisant en système', '⚠ Insufficient stock in system')}</p>
+              <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, margin: '4px 0 0' }}>{t('Ces produits dépassent le stock enregistré', 'These products exceed the recorded stock')}</p>
             </div>
             <div style={{ padding: '18px 22px' }}>
               {ecartModal.items.map((item, i) => (
@@ -683,9 +685,9 @@ export default function Caisse() {
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#1F1A1A', marginBottom: 6 }}>{item.product.name}</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                     {[
-                      { label: 'Stock système', val: item.stockSysteme,   color: '#DC2626' },
-                      { label: 'Qté vendue',   val: item.quantiteVendue, color: 'var(--fs-wine-700)' },
-                      { label: 'Écart',        val: item.ecart,          color: '#991B1B' },
+                      { label: t('Stock système', 'System stock'), val: item.stockSysteme,   color: '#DC2626' },
+                      { label: t('Qté vendue', 'Qty sold'),   val: item.quantiteVendue, color: 'var(--fs-wine-700)' },
+                      { label: t('Écart', 'Discrepancy'),        val: item.ecart,          color: '#991B1B' },
                     ].map(s => (
                       <div key={s.label} style={{ textAlign: 'center' }}>
                         <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: '#6B7280', marginBottom: 2 }}>{s.label}</div>
@@ -696,23 +698,23 @@ export default function Caisse() {
                 </div>
               ))}
               <p style={{ fontSize: 13, fontWeight: 600, color: '#374151', margin: '14px 0 16px', textAlign: 'center' }}>
-                Confirmez-vous que ces produits sont physiquement disponibles ?
+                {t('Confirmez-vous que ces produits sont physiquement disponibles ?', 'Do you confirm these products are physically available?')}
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <button
                   onClick={() => { setEcartModal(null); }}
                   style={{ padding: '11px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: '#6B7280' }}>
-                  Annuler la vente
+                  {t('Annuler la vente', 'Cancel the sale')}
                 </button>
                 <button
                   onClick={ecartModal.onConfirmReduce}
                   style={{ padding: '11px', border: '1.5px solid #D97706', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#FFF7ED', color: '#92400E' }}>
-                  Réduire au stock disponible
+                  {t('Réduire au stock disponible', 'Reduce to available stock')}
                 </button>
                 <button
                   onClick={ecartModal.onConfirmForce}
                   style={{ padding: '11px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: 'pointer', background: '#DC2626', color: '#fff' }}>
-                  ✓ Confirmer la vente avec écart
+                  {t('✓ Confirmer la vente avec écart', '✓ Confirm sale with discrepancy')}
                 </button>
               </div>
             </div>
@@ -723,14 +725,14 @@ export default function Caisse() {
       {/* ── Lock screen (inactivité 10 min) ── */}
       {locked && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--fs-wine-900)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-          <div style={{ color: 'var(--fs-gold-400)', fontFamily: 'var(--fs-font-display)', fontSize: 28, fontWeight: 700, letterSpacing: '0.1em' }}>FAMILY STORE</div>
-          <div style={{ color: 'rgba(245,235,217,0.6)', fontSize: 13 }}>Session verrouillée — Saisir le code PIN</div>
+          <div style={{ color: 'var(--fs-gold-400)', fontFamily: 'var(--fs-font-display)', fontSize: 28, fontWeight: 700, letterSpacing: '0.1em' }}>{(settings.nomMagasin || 'Family Store').toUpperCase()}</div>
+          <div style={{ color: 'rgba(245,235,217,0.6)', fontSize: 13 }}>{t('Session verrouillée — Saisir le code PIN', 'Session locked — Enter PIN code')}</div>
           <div style={{ display: 'flex', gap: 10, margin: '8px 0' }}>
             {[0,1,2,3].map(i => (
               <div key={i} style={{ width: 14, height: 14, borderRadius: '50%', background: lockPin.length > i ? 'var(--fs-gold-400)' : 'rgba(255,255,255,0.2)' }}/>
             ))}
           </div>
-          {lockError && <div style={{ color: '#f87171', fontSize: 12 }}>Code incorrect</div>}
+          {lockError && <div style={{ color: '#f87171', fontSize: 12 }}>{t('Code incorrect', 'Incorrect code')}</div>}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 64px)', gap: 10 }}>
             {[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map((k, idx) => (
               <button key={idx} onClick={() => {
@@ -749,7 +751,7 @@ export default function Caisse() {
             ))}
           </div>
           <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }} style={{ marginTop: 8, background: 'none', border: 'none', color: 'rgba(245,235,217,0.35)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
-            Changer de session
+            {t('Changer de session', 'Switch session')}
           </button>
         </div>
       )}
@@ -759,9 +761,9 @@ export default function Caisse() {
         <div style={{ position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: '#fff', borderRadius: 18, width: '100%', maxWidth: 360, overflow: 'hidden', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
             <div style={{ background: 'var(--fs-wine-900)', padding: '16px 22px' }}>
-              <p style={{ color: 'var(--fs-gold-400)', fontWeight: 800, fontSize: 15, margin: 0 }}>Ticket en cours</p>
+              <p style={{ color: 'var(--fs-gold-400)', fontWeight: 800, fontSize: 15, margin: 0 }}>{t('Ticket en cours', 'Receipt in progress')}</p>
               <p style={{ color: 'rgba(245,235,217,0.7)', fontSize: 12, margin: '4px 0 0' }}>
-                Vous avez {cart.length} article{cart.length > 1 ? 's' : ''} dans le ticket ({cart.reduce((s,i)=>s+i.quantity,0)} qté — {cart.reduce((s,i)=>s+i.product.price*i.quantity,0).toLocaleString('fr-FR')} XAF).
+                {t(`Vous avez ${cart.length} article${cart.length > 1 ? 's' : ''} dans le ticket (${cart.reduce((s,i)=>s+i.quantity,0)} qté — ${cart.reduce((s,i)=>s+i.product.price*i.quantity,0).toLocaleString(dateLocale())} XAF).`, `You have ${cart.length} item${cart.length > 1 ? 's' : ''} in the receipt (${cart.reduce((s,i)=>s+i.quantity,0)} qty — ${cart.reduce((s,i)=>s+i.product.price*i.quantity,0).toLocaleString(dateLocale())} XAF).`)}
               </p>
             </div>
             <div style={{ padding: '18px 22px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -771,7 +773,7 @@ export default function Caisse() {
                   const held: HeldTicket = {
                     id: Date.now().toString(),
                     ticketNo,
-                    time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+                    time: new Date().toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' }),
                     cart: [...cart],
                     total,
                   };
@@ -783,19 +785,19 @@ export default function Caisse() {
                 }}
                 style={{ padding: '11px 0', borderRadius: 10, border: '2px solid var(--fs-wine-700)', background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
               >
-                Mettre en attente &amp; se déconnecter
+                {t('Mettre en attente & se déconnecter', 'Put on hold & log out')}
               </button>
               <button
                 onClick={() => { setCart([]); setAmountPaid(''); setShowLogoutModal(false); if (sessionId) closeSession(sessionId); localStorage.removeItem('access_token'); window.location.href = '/login'; }}
                 style={{ padding: '11px 0', borderRadius: 10, border: '2px solid #ef4444', background: '#fef2f2', color: '#dc2626', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
               >
-                Annuler le ticket &amp; se déconnecter
+                {t('Annuler le ticket & se déconnecter', 'Cancel receipt & log out')}
               </button>
               <button
                 onClick={() => setShowLogoutModal(false)}
                 style={{ padding: '10px 0', borderRadius: 10, border: '1.5px solid var(--fs-line-2)', background: 'var(--fs-ivory)', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
               >
-                Rester connecté
+                {t('Rester connecté', 'Stay logged in')}
               </button>
             </div>
           </div>
@@ -814,20 +816,20 @@ export default function Caisse() {
         <div onClick={e => { if (e.target === e.currentTarget) { setShowDivers(false); focusScan(); } }}
           style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: '24px 26px', maxWidth: 380, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', marginBottom: 4 }}>Article divers</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', marginBottom: 4 }}>{t('Article divers', 'Miscellaneous item')}</div>
             <div style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginBottom: 18 }}>
-              Produit non enregistré. Saisissez le prix affiché en rayon pour servir le client tout de suite.
+              {t('Produit non enregistré. Saisissez le prix affiché en rayon pour servir le client tout de suite.', 'Unregistered product. Enter the shelf price to serve the customer right away.')}
             </div>
 
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Désignation (optionnel)</label>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('Désignation (optionnel)', 'Description (optional)')}</label>
             <input
               value={diversName}
               onChange={e => setDiversName(e.target.value)}
-              placeholder="Ex : Article en rayon"
+              placeholder={t('Ex : Article en rayon', 'E.g. shelf item')}
               style={{ width: '100%', padding: '10px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', marginBottom: 14 }}
             />
 
-            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Prix (XAF) *</label>
+            <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('Prix (XAF) *', 'Price (XAF) *')}</label>
             <input
               type="text" inputMode="numeric"
               value={diversPrice}
@@ -841,11 +843,11 @@ export default function Caisse() {
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { setShowDivers(false); focusScan(); }}
                 style={{ flex: 1, padding: '11px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
-                Annuler
+                {t('Annuler', 'Cancel')}
               </button>
               <button onClick={addDivers}
                 style={{ flex: 1, padding: '11px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-wine-700)', color: '#fff', fontFamily: 'var(--fs-font-sans)' }}>
-                Ajouter au ticket
+                {t('Ajouter au ticket', 'Add to receipt')}
               </button>
             </div>
           </div>
@@ -859,26 +861,26 @@ export default function Caisse() {
           <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 540, maxHeight: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--fs-ink-900)' }}>Audit admin</div>
-                <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>Actions de l'administrateur sur la caisse (suppressions de vente…)</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{t('Audit admin', 'Admin audit')}</div>
+                <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>{t("Actions de l'administrateur sur la caisse (suppressions de vente…)", 'Administrator actions on the cash register (sale deletions…)')}</div>
               </div>
               <button onClick={() => setShowAudit(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', fontSize: 20, lineHeight: 1 }}>×</button>
             </div>
             <div style={{ overflowY: 'auto', padding: '8px 0' }}>
               {auditLoading ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13 }}>Chargement…</div>
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13 }}>{t('Chargement…', 'Loading…')}</div>
               ) : auditRows.length === 0 ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune action enregistrée</div>
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13 }}>{t('Aucune action enregistrée', 'No recorded actions')}</div>
               ) : auditRows.map(a => (
                 <div key={a._id} style={{ padding: '10px 20px', borderBottom: '1px solid var(--fs-line)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Suppression</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('Suppression', 'Deletion')}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{a.actorName}</span>
                     <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>({a.actorRole})</span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--fs-ink-700)' }}>{a.detail}</div>
                   <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
-                    {new Date(a.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })} à {new Date(a.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(a.createdAt).toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short', year: 'numeric' })} {t('à', 'at')} {new Date(a.createdAt).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               ))}
@@ -911,8 +913,8 @@ export default function Caisse() {
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
             <StoreLogo width={140}/>
           </div>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 2 }}>Family Store</div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>Caisse</div>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 2 }}>{settings.nomMagasin || 'Family Store'}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{t('Caisse', 'Checkout')}</div>
         </div>
 
         {/* Identity panel */}
@@ -922,9 +924,9 @@ export default function Caisse() {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
-            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.caisse?.nom ?? (payload?.role === 'patron' ? 'Mode dépannage' : '—')}</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.caisse?.nom ?? (payload?.role === 'patron' ? t('Mode dépannage', 'Backup mode') : '—')}</div>
             <div style={{ fontSize: 10, color: 'rgba(245,235,217,0.45)', marginTop: 1 }}>
-              {sessionStart ? sessionStart.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'} · {sessionSales} vente{sessionSales !== 1 ? 's' : ''}
+              {sessionStart ? sessionStart.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' }) : '—'} · {sessionSales} {t(`vente${sessionSales !== 1 ? 's' : ''}`, `sale${sessionSales !== 1 ? 's' : ''}`)}
             </div>
           </div>
         </div>
@@ -937,16 +939,16 @@ export default function Caisse() {
             textTransform: 'uppercase',
             color: 'rgba(245,235,217,0.35)',
             margin: 0,
-          }}>Catégories</p>
+          }}>{t('Catégories', 'Categories')}</p>
         </div>
 
         <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 8px' }}>
           {categories.map(cat => {
-            const isActive = cat.name === 'Tout' ? !selectedCat : selectedCat === cat.name;
+            const isActive = cat.name === t('Tout', 'All') ? !selectedCat : selectedCat === cat.name;
             return (
               <button
                 key={cat.name}
-                onClick={() => setSelectedCat(cat.name === 'Tout' ? null : cat.name)}
+                onClick={() => setSelectedCat(cat.name === t('Tout', 'All') ? null : cat.name)}
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -992,10 +994,10 @@ export default function Caisse() {
           <button
             onClick={() => { setShowAudit(true); setAuditLoading(true); getCaisseAudit().then(setAuditRows).catch(() => {}).finally(() => setAuditLoading(false)); }}
             style={{ width: '100%', background: 'none', border: '1px solid rgba(245,235,217,0.15)', borderRadius: 7, color: 'rgba(245,235,217,0.6)', cursor: 'pointer', padding: '7px 10px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600 }}
-            title="Voir les actions de l'administrateur (suppressions de vente…)"
+            title={t("Voir les actions de l'administrateur (suppressions de vente…)", 'View administrator actions (sale deletions…)')}
           >
             <Ico d="M9 12l2 2 4-4M12 3a9 9 0 100 18 9 9 0 000-18z" size={13}/>
-            Audit admin
+            {t('Audit admin', 'Admin audit')}
           </button>
         </div>
 
@@ -1006,7 +1008,7 @@ export default function Caisse() {
               onClick={() => { window.location.href = '/admin/dashboard'; }}
               style={{ width: '100%', background: 'rgba(245,235,217,0.06)', border: '1px solid rgba(245,235,217,0.2)', borderRadius: 7, color: 'var(--fs-gold-400)', cursor: 'pointer', padding: '7px 10px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700 }}
             >
-              <Ico d="M15 18l-6-6 6-6" size={13}/> Retour admin
+              <Ico d="M15 18l-6-6 6-6" size={13}/> {t('Retour admin', 'Back to admin')}
             </button>
           </div>
         )}
@@ -1022,10 +1024,10 @@ export default function Caisse() {
           <button
             onClick={() => { if (cart.length > 0) { setShowLogoutModal(true); } else { if (sessionId) closeSession(sessionId); localStorage.removeItem('access_token'); window.location.href = '/login'; } }}
             style={{ background: 'none', border: '1px solid rgba(245,235,217,0.15)', borderRadius: 7, color: 'rgba(245,235,217,0.5)', cursor: 'pointer', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}
-            title="Déconnexion"
+            title={t('Déconnexion', 'Log out')}
           >
             <Ico d={ICO_LOGOUT} size={13}/>
-            Déconnexion
+            {t('Déconnexion', 'Log out')}
           </button>
         </div>
       </aside>
@@ -1044,11 +1046,11 @@ export default function Caisse() {
             scrollbarWidth: 'none' as any,
           }}>
             {categories.map(cat => {
-              const isActive = cat.name === 'Tout' ? !selectedCat : selectedCat === cat.name;
+              const isActive = cat.name === t('Tout', 'All') ? !selectedCat : selectedCat === cat.name;
               return (
                 <button
                   key={cat.name}
-                  onClick={() => setSelectedCat(cat.name === 'Tout' ? null : cat.name)}
+                  onClick={() => setSelectedCat(cat.name === t('Tout', 'All') ? null : cat.name)}
                   style={{
                     flexShrink: 0, padding: '6px 14px', borderRadius: 20,
                     border: isActive ? '1.5px solid var(--fs-gold-400)' : '1.5px solid rgba(255,255,255,0.18)',
@@ -1098,7 +1100,7 @@ export default function Caisse() {
                   handleValidate();
                 }
               }}
-              placeholder="Rechercher un produit, scanner un code-barres..."
+              placeholder={t('Rechercher un produit, scanner un code-barres...', 'Search for a product, scan a barcode...')}
               style={{
                 width: '100%',
                 paddingLeft: 36,
@@ -1120,7 +1122,7 @@ export default function Caisse() {
           {/* Physical scanner — click to re-focus the input */}
           <button
             onClick={focusScan}
-            title="Cliquez pour activer la saisie scanner (douchette / F2)"
+            title={t('Cliquez pour activer la saisie scanner (douchette / F2)', 'Click to activate scanner input (barcode gun / F2)')}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: isMobile ? '6px 8px' : '6px 12px',
@@ -1134,13 +1136,13 @@ export default function Caisse() {
             }}
           >
             <Ico d={ICO_SCAN} size={13}/>
-            {!isMobile && 'SCANNER PRÊT'}
+            {!isMobile && t('SCANNER PRÊT', 'SCANNER READY')}
           </button>
 
           {/* Camera scanner — separate button */}
           <button
             onClick={() => setShowQR(true)}
-            title="Scanner via caméra (QR code)"
+            title={t('Scanner via caméra (QR code)', 'Scan via camera (QR code)')}
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               padding: '6px 8px',
@@ -1158,7 +1160,7 @@ export default function Caisse() {
           {/* Article divers — produit non référencé */}
           <button
             onClick={() => { setDiversName(''); setDiversPrice(''); setShowDivers(true); }}
-            title="Vendre un article non enregistré dans le système"
+            title={t('Vendre un article non enregistré dans le système', 'Sell an item not registered in the system')}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: isMobile ? '6px 8px' : '6px 12px',
@@ -1171,14 +1173,14 @@ export default function Caisse() {
             }}
           >
             <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>
-            {!isMobile && 'Article divers'}
+            {!isMobile && t('Article divers', 'Miscellaneous item')}
           </button>
 
           {/* Audit admin — mobile uniquement (desktop l'a dans la barre latérale) */}
           {isMobile && (
             <button
               onClick={() => { setShowAudit(true); setAuditLoading(true); getCaisseAudit().then(setAuditRows).catch(() => {}).finally(() => setAuditLoading(false)); }}
-              title="Audit admin — actions de l'administrateur"
+              title={t("Audit admin — actions de l'administrateur", 'Admin audit — administrator actions')}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 padding: '6px 8px', border: '1.5px solid var(--fs-line-2)',
@@ -1205,7 +1207,7 @@ export default function Caisse() {
               background: isOnline ? '#22c55e' : '#f97316',
               boxShadow: isOnline ? '0 0 0 2px #bbf7d0' : '0 0 0 2px #fed7aa',
             }}/>
-            {!isMobile && (isOnline ? 'En ligne' : 'Hors ligne')}
+            {!isMobile && (isOnline ? t('En ligne', 'Online') : t('Hors ligne', 'Offline'))}
             {!isOnline && pendingCount > 0 && (
               <span style={{
                 background: '#f97316', color: '#fff',
@@ -1236,10 +1238,10 @@ export default function Caisse() {
           background: 'var(--fs-paper)',
         }}>
           <span style={{ fontSize: 14, color: 'var(--fs-ink-500)' }}>
-            {selectedCat ?? 'Tout'}
+            {selectedCat ?? t('Tout', 'All')}
             <span style={{ color: 'var(--fs-ink-300)', margin: '0 5px' }}>›</span>
             <span style={{ color: 'var(--fs-ink-300)', fontFamily: 'var(--fs-font-mono)', fontSize: 13 }}>
-              {filteredProducts.length} produit{filteredProducts.length !== 1 ? 's' : ''} différent{filteredProducts.length !== 1 ? 's' : ''}
+              {filteredProducts.length} {t(`produit${filteredProducts.length !== 1 ? 's' : ''} différent${filteredProducts.length !== 1 ? 's' : ''}`, `different product${filteredProducts.length !== 1 ? 's' : ''}`)}
             </span>
           </span>
 
@@ -1251,13 +1253,13 @@ export default function Caisse() {
 
           {/* Filtre de disponibilité : Tous / Disponibles / Ruptures */}
           <div
-            role="group" aria-label="Filtrer par disponibilité"
+            role="group" aria-label={t('Filtrer par disponibilité', 'Filter by availability')}
             style={{ display: 'flex', border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-sm)', overflow: 'hidden' }}
           >
             {([
-              { key: 'all',         label: 'Tous',        title: 'Tous les produits (en stock et en rupture)' },
-              { key: 'available',   label: 'Disponibles', title: 'Uniquement les produits en stock' },
-              { key: 'unavailable', label: 'Ruptures',    title: 'Uniquement les produits en rupture de stock' },
+              { key: 'all',         label: t('Tous', 'All'),        title: t('Tous les produits (en stock et en rupture)', 'All products (in stock and out of stock)') },
+              { key: 'available',   label: t('Disponibles', 'Available'), title: t('Uniquement les produits en stock', 'Only products in stock') },
+              { key: 'unavailable', label: t('Ruptures', 'Out of stock'),    title: t('Uniquement les produits en rupture de stock', 'Only products that are out of stock') },
             ] as { key: StockFilter; label: string; title: string }[]).map((opt, i) => {
               const active = stockFilter === opt.key;
               return (
@@ -1332,11 +1334,11 @@ export default function Caisse() {
         >
           {loadingProds ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--fs-ink-300)', fontSize: 13 }}>
-              Chargement…
+              {t('Chargement…', 'Loading…')}
             </div>
           ) : filteredProducts.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--fs-ink-300)', fontSize: 13 }}>
-              Aucun produit trouvé
+              {t('Aucun produit trouvé', 'No product found')}
             </div>
           ) : viewMode === 'grid' ? (
             <div style={{
@@ -1404,7 +1406,7 @@ export default function Caisse() {
                   textAlign: 'left', fontFamily: 'var(--fs-font-sans)',
                 }}
               >
-                Voir ticket ({itemCount}) · {fmtN(total)} XAF
+                {t('Voir ticket', 'View receipt')} ({itemCount}) · {fmtN(total)} XAF
               </button>
               <button
                 onClick={handleValidate}
@@ -1421,9 +1423,9 @@ export default function Caisse() {
                 {validating ? (
                   <>
                     <span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
-                    {retryLabel || 'Enregistrement…'}
+                    {retryLabel || t('Enregistrement…', 'Saving…')}
                   </>
-                ) : '✓ Encaisser'}
+                ) : t('✓ Encaisser', '✓ Collect payment')}
               </button>
             </div>
           )}
@@ -1467,8 +1469,8 @@ export default function Caisse() {
           }}>
             <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Tickets en attente</div>
-                <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', marginTop: 1 }}>{heldTickets.length} / 5 ticket{heldTickets.length > 1 ? 's' : ''}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Tickets en attente', 'Receipts on hold')}</div>
+                <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', marginTop: 1 }}>{heldTickets.length} / 5 {t(`ticket${heldTickets.length > 1 ? 's' : ''}`, `receipt${heldTickets.length > 1 ? 's' : ''}`)}</div>
               </div>
               <button onClick={() => setShowHeld(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex', padding: 4 }}>
                 <Ico d={ICO_X} size={16}/>
@@ -1478,39 +1480,39 @@ export default function Caisse() {
             <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
               {heldTickets.length === 0 ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--fs-ink-300)', fontSize: 13 }}>
-                  Aucun ticket en attente
+                  {t('Aucun ticket en attente', 'No receipt on hold')}
                 </div>
-              ) : heldTickets.map(t => (
-                <div key={t.id} style={{ margin: '0 10px 8px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, overflow: 'hidden' }}>
+              ) : heldTickets.map(tk => (
+                <div key={tk.id} style={{ margin: '0 10px 8px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, overflow: 'hidden' }}>
                   <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--fs-line)', background: 'var(--fs-ivory)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>#{t.ticketNo}</span>
-                    <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{t.time}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>#{tk.ticketNo}</span>
+                    <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{tk.time}</span>
                   </div>
                   <div style={{ padding: '8px 12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
                       <span style={{ fontSize: 12, color: 'var(--fs-ink-500)' }}>
-                        {t.cart.reduce((s, i) => s + i.quantity, 0)} article{t.cart.reduce((s, i) => s + i.quantity, 0) > 1 ? 's' : ''}
+                        {tk.cart.reduce((s, i) => s + i.quantity, 0)} {tk.cart.reduce((s, i) => s + i.quantity, 0) > 1 ? t('articles', 'items') : t('article', 'item')}
                       </span>
                       <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-mono)' }}>
-                        {fmtN(t.total)} XAF
+                        {fmtN(tk.total)} XAF
                       </span>
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 10, lineHeight: 1.5 }}>
-                      {t.cart.slice(0, 3).map(i => i.product.name).join(', ')}
-                      {t.cart.length > 3 ? `… +${t.cart.length - 3}` : ''}
+                      {tk.cart.slice(0, 3).map(i => i.product.name).join(', ')}
+                      {tk.cart.length > 3 ? `… +${tk.cart.length - 3}` : ''}
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button
-                        onClick={() => handleResume(t.id)}
+                        onClick={() => handleResume(tk.id)}
                         style={{ flex: 2, padding: '8px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)' }}
                       >
-                        ↩ Reprendre
+                        {t('↩ Reprendre', '↩ Resume')}
                       </button>
                       <button
-                        onClick={() => handleCancelHeld(t.id)}
+                        onClick={() => handleCancelHeld(tk.id)}
                         style={{ flex: 1, padding: '8px', border: '1.5px solid rgba(194,62,36,0.25)', borderRadius: 8, background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)' }}
                       >
-                        Annuler
+                        {t('Annuler', 'Cancel')}
                       </button>
                     </div>
                   </div>
@@ -1531,7 +1533,7 @@ export default function Caisse() {
         }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--fs-ink-900)' }}>
-              Ticket en cours
+              {t('Ticket en cours', 'Receipt in progress')}
             </div>
             <div style={{ fontSize: 12, color: 'var(--fs-ink-300)', fontFamily: 'var(--fs-font-mono)', marginTop: 2 }}>
               #{ticketNo} · {ticketTime}
@@ -1551,7 +1553,7 @@ export default function Caisse() {
                 }}
               >
                 <Ico d={ICO_PAUSE} size={12}/>
-                En attente ({heldTickets.length})
+                {t('En attente', 'On hold')} ({heldTickets.length})
               </button>
             )}
             {itemCount > 0 && (
@@ -1576,8 +1578,8 @@ export default function Caisse() {
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
                 <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3zM9 8h6M9 12h6M9 16h4"/>
               </svg>
-              <p style={{ fontSize: 14, margin: 0 }}>Ticket vide</p>
-              <p style={{ fontSize: 13, margin: 0 }}>Cliquez sur un produit</p>
+              <p style={{ fontSize: 14, margin: 0 }}>{t('Ticket vide', 'Empty receipt')}</p>
+              <p style={{ fontSize: 13, margin: 0 }}>{t('Cliquez sur un produit', 'Click on a product')}</p>
             </div>
           ) : cart.map(item => (
             <TicketItem
@@ -1596,18 +1598,18 @@ export default function Caisse() {
         {cart.length > 0 && (
           <div style={{ flexShrink: 0, borderTop: '1px solid var(--fs-line)' }}>
             <div style={{ padding: '10px 14px 0' }}>
-              <Row label={`Sous-total (${itemCount} art.)`} value={fmtN(subtotal)} />
+              <Row label={t(`Sous-total (${itemCount} art.)`, `Subtotal (${itemCount} items)`)} value={fmtN(subtotal)} />
               {/* Offre globale sur facture : en % OU en montant (un seul mode par ticket,
                   changer de mode remet l'autre valeur à zéro) */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                <span style={{ fontSize: 13, color: 'var(--fs-ink-400)' }}>Offre sur facture</span>
+                <span style={{ fontSize: 13, color: 'var(--fs-ink-400)' }}>{t('Offre sur facture', 'Invoice discount')}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   {/* Sélecteur de mode */}
                   <div style={{ display: 'flex', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, overflow: 'hidden' }}>
                     {([['pct', '%'], ['fcfa', 'FCFA']] as const).map(([mode, lbl]) => (
                       <button key={mode} type="button"
                         onClick={() => { if (offreMode !== mode) { setOffreMode(mode); setOffrePct(0); setOffreFcfa(0); } }}
-                        title={mode === 'pct' ? 'Réduction en pourcentage' : 'Réduction en montant (FCFA)'}
+                        title={mode === 'pct' ? t('Réduction en pourcentage', 'Percentage discount') : t('Réduction en montant (FCFA)', 'Amount discount (FCFA)')}
                         style={{
                           padding: '2px 7px', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700,
                           background: offreMode === mode ? 'var(--fs-wine-700)' : '#fff',
@@ -1628,7 +1630,7 @@ export default function Caisse() {
                       type="number" min={0} max={subtotal} step={5}
                       value={offreFcfa || ''}
                       onChange={e => setOffreFcfa(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder="ex : 500"
+                      placeholder={t('ex : 500', 'e.g. 500')}
                       style={{ width: 76, padding: '2px 6px', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, fontSize: 13, fontWeight: 600, textAlign: 'center', outline: 'none', fontFamily: 'var(--fs-font-mono)', background: offreAmt > 0 ? 'var(--fs-success-100)' : '#fff', color: offreAmt > 0 ? 'var(--fs-success-700)' : 'var(--fs-ink-900)' }}
                     />
                   )}
@@ -1642,7 +1644,7 @@ export default function Caisse() {
               </div>
               {offreMode === 'fcfa' && offreFcfa > subtotal && subtotal > 0 && (
                 <div style={{ fontSize: 11, color: 'var(--fs-danger-700)', textAlign: 'right', marginBottom: 4 }}>
-                  Réduction plafonnée au sous-total ({fmtN(subtotal)} XAF)
+                  {t(`Réduction plafonnée au sous-total (${fmtN(subtotal)} XAF)`, `Discount capped at the subtotal (${fmtN(subtotal)} XAF)`)}
                 </div>
               )}
             </div>
@@ -1689,7 +1691,7 @@ export default function Caisse() {
                   min={0}
                   value={amountPaid}
                   onChange={e => setAmountPaid(e.target.value)}
-                  placeholder={`Montant reçu (min. ${fmtN(total)})`}
+                  placeholder={t(`Montant reçu (min. ${fmtN(total)})`, `Amount received (min. ${fmtN(total)})`)}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -1713,7 +1715,7 @@ export default function Caisse() {
                     borderRadius: 'var(--fs-r-md)',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
                   }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-success-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Monnaie à rendre</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-success-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('Monnaie à rendre', 'Change')}</span>
                     <span style={{ fontSize: 28, fontWeight: 900, color: 'var(--fs-success-700)', fontFamily: 'var(--fs-font-mono)', lineHeight: 1.1 }}>{fmtN(change)} <span style={{ fontSize: 14, fontWeight: 600 }}>XAF</span></span>
                   </div>
                 )}
@@ -1749,10 +1751,10 @@ export default function Caisse() {
                 {validating ? (
                   <>
                     <span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin 0.7s linear infinite', flexShrink: 0 }}/>
-                    {retryLabel || 'Enregistrement…'}
+                    {retryLabel || t('Enregistrement…', 'Saving…')}
                   </>
                 ) : (
-                  <>✓ Encaisser {fmtN(total)} XAF</>
+                  <>{t('✓ Encaisser', '✓ Collect payment')} {fmtN(total)} XAF</>
                 )}
               </button>
             </div>
@@ -1766,17 +1768,17 @@ export default function Caisse() {
                 onClick={handleHold}
                 disabled={heldTickets.length >= 5}
                 style={{ background: 'none', border: 'none', color: heldTickets.length >= 5 ? 'var(--fs-ink-200)' : 'var(--fs-ink-400)', fontSize: 13, cursor: heldTickets.length >= 5 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--fs-font-sans)' }}
-                title={heldTickets.length >= 5 ? 'Maximum 5 tickets en attente' : ''}
+                title={heldTickets.length >= 5 ? t('Maximum 5 tickets en attente', 'Maximum 5 receipts on hold') : ''}
               >
                 <Ico d={ICO_PAUSE} size={14}/>
-                Mettre en attente
+                {t('Mettre en attente', 'Put on hold')}
               </button>
               <button
                 onClick={clearCart}
                 style={{ background: 'none', border: 'none', color: 'var(--fs-danger-500)', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--fs-font-sans)' }}
               >
                 <Ico d={ICO_X} size={12}/>
-                Annuler le ticket
+                {t('Annuler le ticket', 'Cancel receipt')}
               </button>
             </div>
           </div>
@@ -1872,7 +1874,7 @@ const ProductCard = memo(function ProductCard({
           color: '#fff', borderRadius: 3,
           padding: '2px 6px',
           fontSize: 8, fontWeight: 800, letterSpacing: '0.06em',
-        }}>STOCK BAS</div>
+        }}>{t('STOCK BAS', 'LOW STOCK')}</div>
       )}
       {noStock && (
         <div style={{
@@ -1881,7 +1883,7 @@ const ProductCard = memo(function ProductCard({
           color: '#fff', borderRadius: 3,
           padding: '2px 6px',
           fontSize: 8, fontWeight: 800, letterSpacing: '0.06em',
-        }}>RUPTURE</div>
+        }}>{t('RUPTURE', 'OUT OF STOCK')}</div>
       )}
 
       {/* Info area at bottom */}
@@ -1900,7 +1902,7 @@ const ProductCard = memo(function ProductCard({
           fontSize: 12, color: 'var(--fs-ink-500)', margin: '0 0 5px',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {product.category ?? 'Autre'}{product.subCategory ? ` › ${product.subCategory}` : ''}
+          {product.category ?? t('Autre', 'Other')}{product.subCategory ? ` › ${product.subCategory}` : ''}
         </p>
         {/* Emplacement volume réservé (même hauteur même sans volume) → cartes uniformes */}
         <div style={{ height: 22, marginBottom: 5 }}>
@@ -1913,11 +1915,11 @@ const ProductCard = memo(function ProductCard({
         <p style={{ margin: 0, fontFamily: 'var(--fs-font-mono)' }}>
           {(product.discount ?? 0) > 0 && (
             <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', textDecoration: 'line-through', marginRight: 5 }}>
-              {product.price.toLocaleString('fr-FR')}
+              {product.price.toLocaleString(dateLocale())}
             </span>
           )}
           <span style={{ fontSize: 16, fontWeight: 800, color: (product.discount ?? 0) > 0 ? '#c0392b' : 'var(--fs-ink-800)', letterSpacing: '-0.01em' }}>
-            {effectivePrice(product).toLocaleString('fr-FR')}
+            {effectivePrice(product).toLocaleString(dateLocale())}
           </span>{' '}
           <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--fs-ink-500)' }}>XAF</span>
         </p>
@@ -1953,7 +1955,7 @@ const ProductListRow = memo(function ProductListRow({
         {product.localName && (
           <p style={{ fontSize: 10, color: '#aaa', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.localName}</p>
         )}
-        <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: 0 }}>{product.category ?? 'Autre'}{volumeLabel(product) ? ` · ${volumeLabel(product)}` : ''}</p>
+        <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: 0 }}>{product.category ?? t('Autre', 'Other')}{volumeLabel(product) ? ` · ${volumeLabel(product)}` : ''}</p>
       </div>
       {(product.discount ?? 0) > 0 && (
         <span style={{ fontSize: 9, fontWeight: 900, color: '#fff', background: '#c0392b', borderRadius: 3, padding: '1px 5px' }}>-{product.discount}%</span>
@@ -1961,9 +1963,9 @@ const ProductListRow = memo(function ProductListRow({
       <span style={{ fontSize: 10, color: 'var(--fs-ink-300)', fontFamily: 'var(--fs-font-mono)' }}>×{product.stock}</span>
       <div style={{ textAlign: 'right' }}>
         {(product.discount ?? 0) > 0 && (
-          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', textDecoration: 'line-through', fontFamily: 'var(--fs-font-mono)' }}>{product.price.toLocaleString('fr-FR')}</div>
+          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', textDecoration: 'line-through', fontFamily: 'var(--fs-font-mono)' }}>{product.price.toLocaleString(dateLocale())}</div>
         )}
-        <span style={{ fontSize: 13, fontWeight: 700, color: (product.discount ?? 0) > 0 ? '#c0392b' : 'var(--fs-ink-800)', fontFamily: 'var(--fs-font-mono)' }}>{effectivePrice(product).toLocaleString('fr-FR')}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: (product.discount ?? 0) > 0 ? '#c0392b' : 'var(--fs-ink-800)', fontFamily: 'var(--fs-font-mono)' }}>{effectivePrice(product).toLocaleString(dateLocale())}</span>
       </div>
     </div>
   );
@@ -1999,11 +2001,11 @@ const TicketItem = memo(function TicketItem({
             </p>
           )}
           <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: 0, fontFamily: 'var(--fs-font-mono)' }}>
-            {item.product.price.toLocaleString('fr-FR')} × {item.quantity}
+            {item.product.price.toLocaleString(dateLocale())} × {item.quantity}
           </p>
         </div>
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-800)', fontFamily: 'var(--fs-font-mono)', flexShrink: 0 }}>
-          {subtotal.toLocaleString('fr-FR')}
+          {subtotal.toLocaleString(dateLocale())}
         </span>
       </div>
 

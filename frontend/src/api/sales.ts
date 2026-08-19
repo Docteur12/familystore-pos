@@ -1,4 +1,5 @@
 import { authHeaders } from './http';
+import { t } from '../i18n';
 
 export interface SaleItem {
   product:   string | { _id: string; name: string; barcode?: string; unit?: string; costPrice?: number };
@@ -27,12 +28,12 @@ export interface Sale {
 }
 
 export const PM_LABELS: Record<string, string> = {
-  cash:         'Espèces',
+  cash:         t('Espèces', 'Cash'),
   mtn_momo:     'MTN MoMo',
   orange_money:  'Orange Money',
-  card:          'Carte bancaire',
+  card:          t('Carte bancaire', 'Bank card'),
   mobile_money:  'Mobile Money',
-  credit:        'Crédit',
+  credit:        t('Crédit', 'Credit'),
 };
 
 export async function getSales(params?: {
@@ -44,7 +45,7 @@ export async function getSales(params?: {
   if (params?.dateTo)   q.set('dateTo',   params.dateTo);
   const url = `/api/sales${q.toString() ? `?${q}` : ''}`;
   const res = await fetch(url, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement des ventes');
+  if (!res.ok) throw new Error(t('Erreur chargement des ventes', 'Failed to load sales'));
   return res.json();
 }
 
@@ -62,12 +63,12 @@ export interface DiversSaleRow {
 
 export async function getDiversSales(): Promise<DiversSaleRow[]> {
   const res = await fetch('/api/sales/divers', { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement des articles divers');
+  if (!res.ok) throw new Error(t('Erreur chargement des articles divers', 'Failed to load miscellaneous items'));
   return res.json();
 }
 
 export async function deleteSale(id: string): Promise<void> {
   const res = await fetch(`/api/sales/${id}`, { method: 'DELETE', headers: authHeaders() });
-  if (res.status === 403) throw new Error('Suppression réservée à l\'administrateur');
-  if (!res.ok) throw new Error('Erreur suppression de la vente');
+  if (res.status === 403) throw new Error(t('Suppression réservée à l\'administrateur', 'Only the administrator can delete'));
+  if (!res.ok) throw new Error(t('Erreur suppression de la vente', 'Failed to delete sale'));
 }

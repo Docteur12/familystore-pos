@@ -1,5 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSettings } from '../contexts/SettingsContext';
+import { t } from '../i18n';
 
 function getTokenPayload(): { name: string; role: string } | null {
   const token = localStorage.getItem('access_token');
@@ -8,6 +10,9 @@ function getTokenPayload(): { name: string; role: string } | null {
 }
 
 export default function Home() {
+  const { settings } = useSettings();
+  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const initiales  = nomMagasin.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const navigate  = useNavigate();
   const payload   = getTokenPayload();
 
@@ -22,9 +27,9 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gold flex items-center justify-center font-bold text-bordeaux text-lg">
-              FS
+              {initiales}
             </div>
-            <h1 className="text-2xl font-bold tracking-wide">Family Store POS</h1>
+            <h1 className="text-2xl font-bold tracking-wide">{nomMagasin} POS</h1>
           </div>
           <div className="flex items-center gap-3">
             {payload && (
@@ -37,7 +42,7 @@ export default function Home() {
               className="text-cream/70 hover:text-cream text-sm border border-cream/20
                 px-3 py-1 rounded-lg transition-colors hover:bg-cream/10"
             >
-              Déconnexion
+              {t('Déconnexion', 'Log out')}
             </button>
           </div>
         </div>
@@ -45,35 +50,35 @@ export default function Home() {
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-10">
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-bordeaux mb-3">Bienvenue</h2>
-          <p className="text-gray-600 text-lg">Gérez vos ventes, stocks et dépenses en toute simplicité.</p>
+          <h2 className="text-4xl font-bold text-bordeaux mb-3">{t('Bienvenue', 'Welcome')}</h2>
+          <p className="text-gray-600 text-lg">{t('Gérez vos ventes, stocks et dépenses en toute simplicité.', 'Manage your sales, stock and expenses with ease.')}</p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <DashboardCard
-            title="Caisse"
-            description="Enregistrer une nouvelle vente"
+            title={t('Caisse', 'Checkout')}
+            description={t('Enregistrer une nouvelle vente', 'Record a new sale')}
             icon="🛒"
             color="bg-bordeaux"
             onClick={() => navigate('/caisse')}
           />
           <DashboardCard
-            title="Stocks"
-            description="Gérer le catalogue et les stocks"
+            title={t('Stocks', 'Stock')}
+            description={t('Gérer le catalogue et les stocks', 'Manage the catalogue and stock')}
             icon="📦"
             color="bg-gold"
             onClick={() => navigate('/stocks')}
           />
           <DashboardCard
-            title="Dépenses"
-            description="Suivre les dépenses du magasin"
+            title={t('Dépenses', 'Expenses')}
+            description={t('Suivre les dépenses du magasin', 'Track store expenses')}
             icon="💰"
             color="bg-bordeaux"
             onClick={() => navigate('/depenses')}
           />
           <DashboardCard
             title="Dashboard"
-            description="Vue d'ensemble — patron"
+            description={t("Vue d'ensemble — patron", 'Overview — owner')}
             icon="📊"
             color="bg-bordeaux-dark"
             onClick={() => navigate('/dashboard')}
@@ -81,14 +86,14 @@ export default function Home() {
         </div>
 
         <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatCard label="Ventes aujourd'hui" value="0 FCFA" />
-          <StatCard label="Produits en stock" value="0" />
-          <StatCard label="Alertes stock" value="0" alert />
+          <StatCard label={t("Ventes aujourd'hui", 'Sales today')} value="0 FCFA" />
+          <StatCard label={t('Produits en stock', 'Products in stock')} value="0" />
+          <StatCard label={t('Alertes stock', 'Stock alerts')} value="0" alert />
         </div>
       </main>
 
       <footer className="bg-bordeaux text-cream text-center py-3 text-sm opacity-80">
-        Family Store POS &copy; {new Date().getFullYear()}
+        {nomMagasin} POS &copy; {new Date().getFullYear()}
       </footer>
     </div>
   );

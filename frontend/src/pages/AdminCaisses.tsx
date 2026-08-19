@@ -6,6 +6,7 @@ import {
 } from '../api/caisses';
 import { getUsers, UserRecord } from '../api/auth';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t } from '../i18n';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -118,7 +119,7 @@ function CaisseCard({ caisse, assignedCount, selected, onEdit }: {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>
-              Code PIN
+              {t('Code PIN', 'PIN code')}
             </div>
             <div style={{
               fontFamily: 'var(--fs-font-mono)', fontSize: 18, fontWeight: 800,
@@ -136,7 +137,7 @@ function CaisseCard({ caisse, assignedCount, selected, onEdit }: {
               color: showPin ? 'var(--fs-wine-700)' : 'var(--fs-ink-400)',
               cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-            title={showPin ? 'Masquer le PIN' : 'Afficher le PIN'}
+            title={showPin ? t('Masquer le PIN', 'Hide PIN') : t('Afficher le PIN', 'Show PIN')}
           >
             <I d={showPin ? D.eyeOff : D.eye} size={13}/>
           </button>
@@ -150,7 +151,7 @@ function CaisseCard({ caisse, assignedCount, selected, onEdit }: {
           }}>
             <I d={D.user} size={11}/>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-700)' }}>
-              {assignedCount} caissier{assignedCount !== 1 ? 's' : ''}
+              {assignedCount} {t('caissier', 'cashier')}{assignedCount !== 1 ? 's' : ''}
             </span>
           </div>
           <div style={{
@@ -182,7 +183,7 @@ function CaisseCard({ caisse, assignedCount, selected, onEdit }: {
             fontSize: 11, fontWeight: 700, cursor: 'pointer',
           }}
         >
-          <I d={D.edit} size={11}/> Modifier
+          <I d={D.edit} size={11}/> {t('Modifier', 'Edit')}
         </button>
       </div>
     </div>
@@ -211,13 +212,13 @@ function CaissePanel({ caisse, onSaved, onCancel, isNarrow }: {
   const [error,   setError]   = useState('');
 
   const handleSave = async () => {
-    if (!nom.trim())  { setError('Le nom est obligatoire.');               return; }
-    if (!code.trim()) { setError('Le code est obligatoire.');              return; }
+    if (!nom.trim())  { setError(t('Le nom est obligatoire.', 'Name is required.'));               return; }
+    if (!code.trim()) { setError(t('Le code est obligatoire.', 'Code is required.'));              return; }
     if (!isEdit && (pin.length !== 4 || !/^\d{4}$/.test(pin))) {
-      setError('Le code PIN doit être composé de 4 chiffres.'); return;
+      setError(t('Le code PIN doit être composé de 4 chiffres.', 'The PIN code must be 4 digits.')); return;
     }
     if (isEdit && pin && (pin.length !== 4 || !/^\d{4}$/.test(pin))) {
-      setError('Le code PIN doit être composé de 4 chiffres.'); return;
+      setError(t('Le code PIN doit être composé de 4 chiffres.', 'The PIN code must be 4 digits.')); return;
     }
     setLoading(true); setError('');
     try {
@@ -232,7 +233,7 @@ function CaissePanel({ caisse, onSaved, onCancel, isNarrow }: {
       }
       onSaved();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erreur');
+      setError(e instanceof Error ? e.message : t('Erreur', 'Error'));
     } finally { setLoading(false); }
   };
 
@@ -240,10 +241,10 @@ function CaissePanel({ caisse, onSaved, onCancel, isNarrow }: {
     setDeleting(true);
     try {
       await deleteCaisse(caisse!._id);
-      addToast(`${caisse!.nom} supprimée`, 'success');
+      addToast(t(`${caisse!.nom} supprimée`, `${caisse!.nom} deleted`), 'success');
       onSaved();
     } catch (e: unknown) {
-      addToast(e instanceof Error ? e.message : 'Erreur suppression', 'error');
+      addToast(e instanceof Error ? e.message : t('Erreur suppression', 'Deletion error'), 'error');
       setDeleting(false); setConfirm(false);
     }
   };
@@ -261,10 +262,10 @@ function CaissePanel({ caisse, onSaved, onCancel, isNarrow }: {
       }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>
-            {isEdit ? 'Modifier la caisse' : '+ Nouvelle caisse'}
+            {isEdit ? t('Modifier la caisse', 'Edit cash register') : t('+ Nouvelle caisse', '+ New cash register')}
           </div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>
-            {isEdit ? caisse!.nom : 'Créer une caisse'}
+            {isEdit ? caisse!.nom : t('Créer une caisse', 'Create a cash register')}
           </div>
         </div>
         <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex', padding: 4 }}>
@@ -281,18 +282,18 @@ function CaissePanel({ caisse, onSaved, onCancel, isNarrow }: {
         )}
 
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
-          Identification
+          {t('Identification', 'Identification')}
         </p>
 
         <Field
-          label="Nom de la caisse *"
+          label={t('Nom de la caisse *', 'Cash register name *')}
           value={nom}
           onChange={setNom}
-          placeholder="Caisse 01"
+          placeholder={t('Caisse 01', 'Register 01')}
         />
 
         <div>
-          <label style={LABEL}>Code unique * {isEdit && <span style={{ color: 'var(--fs-ink-300)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(non modifiable)</span>}</label>
+          <label style={LABEL}>{t('Code unique *', 'Unique code *')} {isEdit && <span style={{ color: 'var(--fs-ink-300)', fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>{t('(non modifiable)', '(cannot be changed)')}</span>}</label>
           {isEdit ? (
             <div style={{
               padding: '9px 12px', border: '1.5px solid var(--fs-line)',
@@ -312,25 +313,25 @@ function CaissePanel({ caisse, onSaved, onCancel, isNarrow }: {
           )}
           {!isEdit && (
             <p style={{ fontSize: 11, color: 'var(--fs-ink-300)', margin: '4px 0 0' }}>
-              Identifiant court · ex: C01, C05 · max 4 caractères
+              {t('Identifiant court · ex: C01, C05 · max 4 caractères', 'Short identifier · e.g. C01, C05 · max 4 characters')}
             </p>
           )}
         </div>
 
         <Field
-          label="Ville / Emplacement"
+          label={t('Ville / Emplacement', 'City / Location')}
           value={ville}
           onChange={setVille}
           placeholder="Akwa, Douala"
         />
 
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '4px 0 0' }}>
-          Accès
+          {t('Accès', 'Access')}
         </p>
 
         <div>
           <label style={LABEL}>
-            Code PIN (4 chiffres){isEdit && ' — laisser vide pour ne pas changer'}
+            {t('Code PIN (4 chiffres)', 'PIN code (4 digits)')}{isEdit && t(' — laisser vide pour ne pas changer', ' — leave empty to keep unchanged')}
           </label>
           <div style={{ position: 'relative' }}>
             <input
@@ -359,7 +360,7 @@ function CaissePanel({ caisse, onSaved, onCancel, isNarrow }: {
             </button>
           </div>
           <p style={{ fontSize: 11, color: 'var(--fs-ink-300)', margin: '4px 0 0' }}>
-            Ce code est demandé aux caissiers à chaque session.
+            {t('Ce code est demandé aux caissiers à chaque session.', 'Cashiers are asked for this code at every session.')}
           </p>
         </div>
 
@@ -404,30 +405,30 @@ function CaissePanel({ caisse, onSaved, onCancel, isNarrow }: {
             onClick={onCancel}
             style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}
           >
-            Annuler
+            {t('Annuler', 'Cancel')}
           </button>
           <button
             onClick={handleSave}
             disabled={loading}
             style={{ flex: 2, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-wine-700)', color: '#fff', opacity: loading ? 0.7 : 1 }}
           >
-            {loading ? (isEdit ? 'Enregistrement…' : 'Création…') : (isEdit ? 'Enregistrer' : 'Créer la caisse')}
+            {loading ? (isEdit ? t('Enregistrement…', 'Saving…') : t('Création…', 'Creating…')) : (isEdit ? t('Enregistrer', 'Save') : t('Créer la caisse', 'Create cash register'))}
           </button>
         </div>
       ) : (
         <div style={{ padding: '14px 18px', borderTop: '1px solid var(--fs-line)', flexShrink: 0 }}>
           <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 4px' }}>
-            Supprimer <strong>{caisse!.nom}</strong> ?
+            {t('Supprimer', 'Delete')} <strong>{caisse!.nom}</strong>{t(' ?', '?')}
           </p>
           <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '0 0 12px' }}>
-            Les caissiers assignés à cette caisse perdront leur accès PIN.
+            {t('Les caissiers assignés à cette caisse perdront leur accès PIN.', 'Cashiers assigned to this cash register will lose their PIN access.')}
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setConfirm(false)} style={{ flex: 1, padding: '9px', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)' }}>
-              Annuler
+              {t('Annuler', 'Cancel')}
             </button>
             <button onClick={handleDelete} disabled={deleting} style={{ flex: 1, padding: '9px', border: 'none', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-danger-700)', color: '#fff', opacity: deleting ? 0.7 : 1 }}>
-              {deleting ? '…' : 'Supprimer'}
+              {deleting ? '…' : t('Supprimer', 'Delete')}
             </button>
           </div>
         </div>
@@ -456,7 +457,7 @@ export default function AdminCaisses() {
       setCaisses(c);
       setUsers(u);
     } catch {
-      addToast('Erreur chargement des caisses', 'error');
+      addToast(t('Erreur chargement des caisses', 'Error loading cash registers'), 'error');
     } finally {
       setLoading(false);
     }
@@ -481,17 +482,17 @@ export default function AdminCaisses() {
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
             <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>
-                Système — Infrastructure
+                {t('Système — Infrastructure', 'System — Infrastructure')}
               </p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>
-                Caisses · {caisses.length} {caisses.length !== 1 ? 'terminaux' : 'terminal'}
+                {t('Caisses', 'Cash registers')} · {caisses.length} {caisses.length !== 1 ? t('terminaux', 'terminals') : t('terminal', 'terminal')}
               </h1>
             </div>
             <button
               onClick={() => setPanel({ type: 'create' })}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
             >
-              <I d={D.plus} size={13}/> Ajouter une caisse
+              <I d={D.plus} size={13}/> {t('Ajouter une caisse', 'Add a cash register')}
             </button>
           </div>
         </div>
@@ -499,9 +500,9 @@ export default function AdminCaisses() {
         {/* Résumé stats */}
         <div style={{ padding: isNarrow ? '16px 16px 0' : '16px 28px 0', display: 'flex', flexWrap: 'wrap', gap: 12, flexShrink: 0 }}>
           {[
-            { label: 'Terminaux actifs',  value: caisses.length.toString(),                  color: 'var(--fs-wine-700)' },
-            { label: 'Caissiers assignés', value: users.filter(u => u.caisseId).length.toString(), color: '#16a34a'        },
-            { label: 'Sans caisse',        value: users.filter(u => u.role === 'caissier' && !u.caisseId).length.toString(), color: '#c2410c' },
+            { label: t('Terminaux actifs', 'Active terminals'),  value: caisses.length.toString(),                  color: 'var(--fs-wine-700)' },
+            { label: t('Caissiers assignés', 'Assigned cashiers'), value: users.filter(u => u.caisseId).length.toString(), color: '#16a34a'        },
+            { label: t('Sans caisse', 'No cash register'),        value: users.filter(u => u.role === 'caissier' && !u.caisseId).length.toString(), color: '#c2410c' },
           ].map(s => (
             <div key={s.label} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '10px 18px', display: 'flex', flexDirection: 'column', gap: 2, minWidth: 140 }}>
               <div style={{ fontSize: 22, fontWeight: 900, color: s.color, fontFamily: 'var(--fs-font-mono)' }}>{s.value}</div>
@@ -515,12 +516,12 @@ export default function AdminCaisses() {
           <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '20px 16px' : '20px 28px' }}>
             {loading ? (
               <div style={{ textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13, padding: '60px 0' }}>
-                Chargement…
+                {t('Chargement…', 'Loading…')}
               </div>
             ) : caisses.length === 0 ? (
               <div style={{ textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, padding: '60px 0' }}>
                 <I d={D.caisse} size={40}/><br/><br/>
-                Aucun terminal — cliquez sur <strong>Ajouter une caisse</strong> pour créer le premier.
+                {t('Aucun terminal — cliquez sur', 'No terminal — click')} <strong>{t('Ajouter une caisse', 'Add a cash register')}</strong> {t('pour créer le premier.', 'to create the first one.')}
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
@@ -541,7 +542,7 @@ export default function AdminCaisses() {
           {panel?.type === 'create' && (
             <CaissePanel
               caisse={null}
-              onSaved={() => { load(); setPanel(null); addToast('Caisse créée ✅', 'success'); }}
+              onSaved={() => { load(); setPanel(null); addToast(t('Caisse créée ✅', 'Cash register created ✅'), 'success'); }}
               onCancel={() => setPanel(null)}
               isNarrow={isNarrow}
             />
@@ -549,7 +550,7 @@ export default function AdminCaisses() {
           {panel?.type === 'edit' && (
             <CaissePanel
               caisse={panel.caisse}
-              onSaved={() => { load(); setPanel(null); addToast('Modifications enregistrées ✅', 'success'); }}
+              onSaved={() => { load(); setPanel(null); addToast(t('Modifications enregistrées ✅', 'Changes saved ✅'), 'success'); }}
               onCancel={() => setPanel(null)}
               isNarrow={isNarrow}
             />

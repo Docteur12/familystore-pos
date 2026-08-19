@@ -8,6 +8,7 @@ import {
 } from '../api/fournisseurs';
 import ToastContainer, { useToast } from '../components/Toast';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t, dateLocale } from '../i18n';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -18,9 +19,9 @@ const CAT_COLORS: Record<string, string> = {
 };
 const ALL_CATS = ['beauté', 'hygiène', 'parfumerie', 'épicerie', 'boissons', 'alimentation', 'bien-être', 'maison'];
 const CONDITIONS = [
-  { value: 'comptant', label: 'Comptant' },
-  { value: '30j',      label: '30 jours' },
-  { value: '60j',      label: '60 jours' },
+  { value: 'comptant', label: t('Comptant', 'Cash') },
+  { value: '30j',      label: t('30 jours', '30 days') },
+  { value: '60j',      label: t('60 jours', '60 days') },
 ];
 
 function I({ d, size = 14 }: { d: string; size?: number }) {
@@ -91,7 +92,7 @@ function FournisseurForm({ initial, onSave, onClose }: {
       style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: '#fff', borderRadius: 14, width: 600, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
         <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{initial.name ? `Modifier — ${initial.name}` : 'Nouveau fournisseur'}</p>
+          <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{initial.name ? t(`Modifier — ${initial.name}`, `Edit — ${initial.name}`) : t('Nouveau fournisseur', 'New supplier')}</p>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.7)', cursor: 'pointer', display: 'flex' }}>
             <I d={D.x} size={16}/>
           </button>
@@ -99,10 +100,10 @@ function FournisseurForm({ initial, onSave, onClose }: {
         <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             {([
-              { key: 'name',    label: 'Nom *',       placeholder: 'ex: Import Maroc' },
-              { key: 'contact', label: 'Contact',      placeholder: 'ex: Ahmed B.' },
-              { key: 'phone',   label: 'Téléphone',    placeholder: '+237 6XX XXX XXX' },
-              { key: 'email',   label: 'Email',        placeholder: 'contact@fournisseur.com' },
+              { key: 'name',    label: t('Nom *', 'Name *'),       placeholder: t('ex: Import Maroc', 'e.g. Import Maroc') },
+              { key: 'contact', label: t('Contact', 'Contact'),      placeholder: t('ex: Ahmed B.', 'e.g. Ahmed B.') },
+              { key: 'phone',   label: t('Téléphone', 'Phone'),    placeholder: '+237 6XX XXX XXX' },
+              { key: 'email',   label: t('Email', 'Email'),        placeholder: t('contact@fournisseur.com', 'contact@supplier.com') },
             ] as { key: keyof typeof form; label: string; placeholder: string }[]).map(f => (
               <div key={f.key}>
                 <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{f.label}</label>
@@ -113,33 +114,33 @@ function FournisseurForm({ initial, onSave, onClose }: {
           </div>
 
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Adresse</label>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('Adresse', 'Address')}</label>
             <input value={form.adresse} onChange={e => setForm(prev => ({ ...prev, adresse: e.target.value }))}
-              placeholder="ex: Akwa, Douala, Cameroun" style={inputStyle}/>
+              placeholder={t('ex: Akwa, Douala, Cameroun', 'e.g. Akwa, Douala, Cameroon')} style={inputStyle}/>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Conditions de paiement</label>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('Conditions de paiement', 'Payment terms')}</label>
               <select value={form.conditionsPaiement} onChange={e => setForm(prev => ({ ...prev, conditionsPaiement: e.target.value as FournisseurRecord['conditionsPaiement'] }))}
                 style={{ ...inputStyle, background: '#fff' }}>
                 {CONDITIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Remise commerciale (%)</label>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('Remise commerciale (%)', 'Trade discount (%)')}</label>
               <input type="number" min={0} max={100} value={form.remise} onChange={e => setForm(prev => ({ ...prev, remise: e.target.value }))}
                 placeholder="0" style={inputStyle}/>
             </div>
           </div>
 
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Note de fiabilité</label>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('Note de fiabilité', 'Reliability rating')}</label>
             <Stars value={form.note} onChange={n => setForm(prev => ({ ...prev, note: n }))}/>
           </div>
 
           <div>
-            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>Catégories fournies</label>
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>{t('Catégories fournies', 'Supplied categories')}</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {ALL_CATS.map(cat => (
                 <button key={cat} onClick={() => toggleCat(cat)} style={{
@@ -155,11 +156,11 @@ function FournisseurForm({ initial, onSave, onClose }: {
         <div style={{ padding: '14px 20px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 10, flexShrink: 0 }}>
           <button onClick={() => { if (form.name.trim()) onSave(form); }}
             style={{ flex: 1, padding: '11px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-            Enregistrer
+            {t('Enregistrer', 'Save')}
           </button>
           <button onClick={onClose}
             style={{ flex: 1, padding: '11px', background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
-            Annuler
+            {t('Annuler', 'Cancel')}
           </button>
         </div>
       </div>
@@ -187,7 +188,7 @@ export default function StocksFournisseurs() {
   useEffect(() => {
     getFournisseurs()
       .then(setF)
-      .catch(() => addToast('Erreur de chargement des fournisseurs', 'error'))
+      .catch(() => addToast(t('Erreur de chargement des fournisseurs', 'Error loading suppliers'), 'error'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -202,16 +203,16 @@ export default function StocksFournisseurs() {
       if (id) {
         const updated = await updateFournisseur(id, data);
         setF(prev => prev.map(f => f._id === id ? updated : f));
-        addToast('Fournisseur modifié ✓', 'success');
+        addToast(t('Fournisseur modifié ✓', 'Supplier updated ✓'), 'success');
       } else {
         const created = await createFournisseur(data);
-        setF(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, 'fr')));
-        addToast('Fournisseur ajouté ✓', 'success');
+        setF(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, dateLocale())));
+        addToast(t('Fournisseur ajouté ✓', 'Supplier added ✓'), 'success');
       }
       setShowAdd(false);
       setEditing(null);
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+      addToast(err instanceof Error ? err.message : t('Erreur', 'Error'), 'error');
     }
   };
 
@@ -219,9 +220,9 @@ export default function StocksFournisseurs() {
     try {
       await deleteFournisseur(id);
       setF(prev => prev.filter(f => f._id !== id));
-      addToast('Fournisseur supprimé', 'success');
+      addToast(t('Fournisseur supprimé', 'Supplier deleted'), 'success');
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+      addToast(err instanceof Error ? err.message : t('Erreur', 'Error'), 'error');
     }
   };
 
@@ -229,7 +230,7 @@ export default function StocksFournisseurs() {
     !search || f.name.toLowerCase().includes(search.toLowerCase()) || f.contact.toLowerCase().includes(search.toLowerCase())
   );
 
-  const condLabel: Record<string, string> = { comptant: 'Comptant', '30j': '30 jours', '60j': '60 jours' };
+  const condLabel: Record<string, string> = { comptant: t('Comptant', 'Cash'), '30j': t('30 jours', '30 days'), '60j': t('60 jours', '60 days') };
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
@@ -256,18 +257,18 @@ export default function StocksFournisseurs() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', flexDirection: isNarrow ? 'column' : 'row', gap: isNarrow ? 10 : 0 }}>
             <div style={{ paddingLeft: isMobile ? 44 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
-              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Fournisseurs</h1>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Gestion de stock', 'Stock management')}</p>
+              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{t('Fournisseurs', 'Suppliers')}</h1>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, flexDirection: isNarrow ? 'column' : 'row' }}>
               <div style={{ position: 'relative', flex: isNarrow ? 1 : undefined }}>
                 <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-300)' }}><I d={D.search} size={13}/></span>
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…"
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('Rechercher…', 'Search…')}
                   style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: 'var(--fs-ivory)', width: isNarrow ? '100%' : 220, boxSizing: 'border-box' }}/>
               </div>
               <button onClick={() => setShowAdd(true)}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                <I d={D.plus} size={13}/> Nouveau fournisseur
+                <I d={D.plus} size={13}/> {t('Nouveau fournisseur', 'New supplier')}
               </button>
             </div>
           </div>
@@ -277,10 +278,10 @@ export default function StocksFournisseurs() {
           {isMobile ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {loading ? (
-                <div style={{ padding: '40px 14px', textAlign: 'center', fontSize: 13, color: 'var(--fs-ink-400)' }}>Chargement…</div>
+                <div style={{ padding: '40px 14px', textAlign: 'center', fontSize: 13, color: 'var(--fs-ink-400)' }}>{t('Chargement…', 'Loading…')}</div>
               ) : displayed.length === 0 ? (
                 <div style={{ padding: '40px 14px', textAlign: 'center', fontSize: 13, color: 'var(--fs-ink-400)' }}>
-                  {search ? 'Aucun fournisseur ne correspond à la recherche.' : 'Aucun fournisseur. Cliquez sur « Nouveau fournisseur » pour en ajouter un.'}
+                  {search ? t('Aucun fournisseur ne correspond à la recherche.', 'No supplier matches your search.') : t('Aucun fournisseur. Cliquez sur « Nouveau fournisseur » pour en ajouter un.', 'No suppliers yet. Click "New supplier" to add one.')}
                 </div>
               ) : displayed.map(f => (
                 <div key={f._id} onClick={() => openProducts(f)} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 14, boxShadow: 'var(--fs-shadow-sm)', cursor: 'pointer' }}>
@@ -320,11 +321,11 @@ export default function StocksFournisseurs() {
                       {condLabel[f.conditionsPaiement] ?? '—'}
                     </span>
                     <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: parseInt(f.remise) > 0 ? 'var(--fs-wine-700)' : 'var(--fs-ink-400)' }}>
-                      Remise {f.remise}%
+                      {t('Remise', 'Discount')} {f.remise}%
                     </span>
                     <Stars value={f.note}/>
                     <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>
-                      {productsFor(f)} produit{productsFor(f) !== 1 ? 's' : ''}
+                      {productsFor(f)} {t(`produit${productsFor(f) !== 1 ? 's' : ''}`, `product${productsFor(f) !== 1 ? 's' : ''}`)}
                     </span>
                   </div>
 
@@ -343,7 +344,7 @@ export default function StocksFournisseurs() {
             <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 720 : undefined }}>
               <thead>
                 <tr style={{ background: 'var(--fs-ivory)' }}>
-                  {['Fournisseur', 'Contact', 'Conditions', 'Remise', 'Note', 'Catégories', 'Produits', ''].map(h => (
+                  {[t('Fournisseur', 'Supplier'), t('Contact', 'Contact'), t('Conditions', 'Terms'), t('Remise', 'Discount'), t('Note', 'Rating'), t('Catégories', 'Categories'), t('Produits', 'Products'), ''].map(h => (
                     <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', borderBottom: '1px solid var(--fs-line)' }}>{h}</th>
                   ))}
                 </tr>
@@ -352,17 +353,17 @@ export default function StocksFournisseurs() {
                 {loading ? (
                   <tr>
                     <td colSpan={8} style={{ padding: '40px 14px', textAlign: 'center', fontSize: 13, color: 'var(--fs-ink-400)' }}>
-                      Chargement…
+                      {t('Chargement…', 'Loading…')}
                     </td>
                   </tr>
                 ) : displayed.length === 0 ? (
                   <tr>
                     <td colSpan={8} style={{ padding: '40px 14px', textAlign: 'center', fontSize: 13, color: 'var(--fs-ink-400)' }}>
-                      {search ? 'Aucun fournisseur ne correspond à la recherche.' : 'Aucun fournisseur. Cliquez sur « Nouveau fournisseur » pour en ajouter un.'}
+                      {search ? t('Aucun fournisseur ne correspond à la recherche.', 'No supplier matches your search.') : t('Aucun fournisseur. Cliquez sur « Nouveau fournisseur » pour en ajouter un.', 'No suppliers yet. Click "New supplier" to add one.')}
                     </td>
                   </tr>
                 ) : displayed.map((f, idx) => (
-                  <tr key={f._id} onClick={() => openProducts(f)} title="Voir les produits de ce fournisseur"
+                  <tr key={f._id} onClick={() => openProducts(f)} title={t('Voir les produits de ce fournisseur', 'View this supplier\'s products')}
                     style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)', cursor: 'pointer' }}>
                     <td style={{ padding: '12px 14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

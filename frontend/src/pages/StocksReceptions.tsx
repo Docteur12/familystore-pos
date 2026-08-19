@@ -9,6 +9,7 @@ import { getFournisseurs } from '../api/fournisseurs';
 import { getBonsLivraison, createBonLivraison, BonLivraisonRecord } from '../api/bons-livraison';
 import { qtyUnitLabel } from '../utils/units';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t, dateLocale } from '../i18n';
 
 const LS_RECEPTION_SEEN = 'receptions_last_seen';
 
@@ -122,7 +123,7 @@ function BLProductCell({ products, line, onChange, onScanned }: {
             value={line.barcode}
             onChange={e => handleBarcode(e.target.value)}
             onBlur={() => { if (!line.barcode) setScanMode(false); }}
-            placeholder="Pointez le scanner..."
+            placeholder={t('Pointez le scanner...', 'Aim the scanner...')}
             style={{ flex: 1, padding: '5px 8px', border: '1.5px solid var(--fs-wine-700)', borderRadius: 7,
               fontSize: 11, outline: 'none', fontFamily: 'var(--fs-font-mono)', boxSizing: 'border-box',
               animation: 'scanPulse 1.2s ease-in-out infinite' }}
@@ -132,14 +133,14 @@ function BLProductCell({ products, line, onChange, onScanned }: {
             color: line.barcode ? 'var(--fs-ink-600)' : 'var(--fs-ink-300)',
             background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)',
             borderRadius: 7, padding: '4px 8px', minHeight: 26 }}>
-            {line.barcode || 'Aucun code-barres'}
+            {line.barcode || t('Aucun code-barres', 'No barcode')}
           </div>
         )}
         <button type="button" onClick={activateScan}
           style={{ width: 28, height: 28, flexShrink: 0, border: `1.5px solid ${scanMode ? 'var(--fs-wine-700)' : 'var(--fs-line-2)'}`,
             borderRadius: 7, background: scanMode ? 'rgba(122,29,46,0.07)' : '#fff',
             cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          title="Scanner le code-barres">
+          title={t('Scanner le code-barres', 'Scan the barcode')}>
           📷
         </button>
       </div>
@@ -159,7 +160,7 @@ function BLProductCell({ products, line, onChange, onScanned }: {
       />
       {line.barcode && !line.productId && (
         <div style={{ fontSize: 10, color: 'var(--fs-danger-700)', fontWeight: 600 }}>
-          Produit non trouvé — chercher manuellement
+          {t('Produit non trouvé — chercher manuellement', 'Product not found — search manually')}
         </div>
       )}
       <style>{`@keyframes scanPulse{0%,100%{box-shadow:0 0 0 3px rgba(122,29,46,0.10)}50%{box-shadow:0 0 0 5px rgba(122,29,46,0.22)}}`}</style>
@@ -182,7 +183,7 @@ function ProductPicker({ products, value, onChange }: {
   // Recherche insensible aux accents + code-barres ; tous les résultats, triés par nom
   const filtered = products
     .filter(p => search.trim() && (contientTexte(p.name, search) || contientTexte(p.barcode, search)))
-    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    .sort((a, b) => a.name.localeCompare(b.name, dateLocale()));
 
   return (
     <div style={{ position: 'relative' }}>
@@ -190,7 +191,7 @@ function ProductPicker({ products, value, onChange }: {
         onChange={e => { setSearch(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder="Chercher produit…"
+        placeholder={t('Chercher produit…', 'Search product…')}
         style={{ width: '100%', padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
       {open && filtered.length > 0 && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 8, boxShadow: 'var(--fs-shadow-md)', zIndex: 10, maxHeight: 160, overflowY: 'auto' }}>
@@ -198,7 +199,7 @@ function ProductPicker({ products, value, onChange }: {
             <button key={p._id} onMouseDown={() => { onChange(p); setOpen(false); }}
               style={{ width: '100%', padding: '7px 12px', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--fs-line)', display: 'block' }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
-              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Stock : {p.stock}{qtyUnitLabel(p.unit) && ` ${qtyUnitLabel(p.unit)}`}</div>
+              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{t('Stock :', 'Stock:')} {p.stock}{qtyUnitLabel(p.unit) && ` ${qtyUnitLabel(p.unit)}`}</div>
             </button>
           ))}
         </div>
@@ -261,7 +262,7 @@ export default function StocksReceptions() {
   const handleSubmit = async () => {
     const validLines = lines.filter(l => l.productId && parseInt(l.qteRecue) > 0);
     if (!fournisseur || validLines.length === 0) {
-      addToast('Fournisseur et au moins une ligne avec quantité reçue sont requis', 'error');
+      addToast(t('Fournisseur et au moins une ligne avec quantité reçue sont requis', 'Supplier and at least one line with a received quantity are required'), 'error');
       return;
     }
     setLoading(true);
@@ -280,13 +281,13 @@ export default function StocksReceptions() {
       });
       setBls(prev => [bl, ...prev]);
       getFournisseurs().then(list => setSuppliers(list.map(f => f.name))).catch(() => {});
-      addToast(`${bl.lignes.length} produit(s) réceptionné(s) — ${bl.numeroBL}`, 'success');
+      addToast(t(`${bl.lignes.length} produit(s) réceptionné(s) — ${bl.numeroBL}`, `${bl.lignes.length} product(s) received — ${bl.numeroBL}`), 'success');
       setLines([newLine()]);
       setNumeroBL('');
       setFourn('');
       setDate(new Date().toISOString().slice(0, 10));
     } catch (e) {
-      addToast(e instanceof Error ? e.message : 'Erreur enregistrement', 'error');
+      addToast(e instanceof Error ? e.message : t('Erreur enregistrement', 'Save error'), 'error');
     } finally {
       setLoading(false);
     }
@@ -302,8 +303,8 @@ export default function StocksReceptions() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
             <div style={{ paddingLeft: isMobile ? 44 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
-              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Réceptions</h1>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Gestion de stock', 'Stock management')}</p>
+              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{t('Réceptions', 'Goods receipts')}</h1>
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {(['form', 'history'] as ViewMode[]).map(v => (
@@ -314,7 +315,7 @@ export default function StocksReceptions() {
                   color: view === v ? '#fff' : 'var(--fs-ink-500)',
                   fontFamily: 'var(--fs-font-sans)',
                 }}>
-                  {v === 'form' ? 'Nouveau BL' : `Historique (${bls.length + magRecs.length})`}
+                  {v === 'form' ? t('Nouveau BL', 'New delivery note') : t(`Historique (${bls.length + magRecs.length})`, `History (${bls.length + magRecs.length})`)}
                 </button>
               ))}
             </div>
@@ -326,25 +327,25 @@ export default function StocksReceptions() {
             {/* BL Header */}
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 14px' }}>
-                Entête du bon de livraison
+                {t('Entête du bon de livraison', 'Delivery note header')}
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Fournisseur *</label>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('Fournisseur *', 'Supplier *')}</label>
                   <AutocompleteInput
                     value={fournisseur}
                     onChange={setFourn}
                     suggestions={suppliers}
-                    placeholder="Nom du fournisseur ou sélectionner…"
+                    placeholder={t('Nom du fournisseur ou sélectionner…', 'Supplier name or select…')}
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>N° BL</label>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('N° BL', 'Delivery note no.')}</label>
                   <input value={numeroBL} onChange={e => setNumeroBL(e.target.value)} placeholder="BL-2026-001"
                     style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Date de réception</label>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('Date de réception', 'Receipt date')}</label>
                   <input type="date" value={date} onChange={e => setDate(e.target.value)}
                     style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
                 </div>
@@ -356,7 +357,7 @@ export default function StocksReceptions() {
               <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 720 : undefined }}>
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
-                    {['Produit', 'Qté attendue', 'Qté reçue', 'Date péremption', 'État emballage', 'Écart', ''].map(h => (
+                    {[t('Produit', 'Product'), t('Qté attendue', 'Expected qty'), t('Qté reçue', 'Received qty'), t('Date péremption', 'Expiry date'), t('État emballage', 'Packaging condition'), t('Écart', 'Discrepancy'), ''].map(h => (
                       <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)' }}>{h}</th>
                     ))}
                   </tr>
@@ -373,7 +374,7 @@ export default function StocksReceptions() {
                             products={products}
                             line={line}
                             onChange={patch => setLine(line.id, patch)}
-                            onScanned={name => addToast(`✓ ${name} reconnu`, 'success')}
+                            onScanned={name => addToast(t(`✓ ${name} reconnu`, `✓ ${name} recognized`), 'success')}
                           />
                         </td>
                         <td style={{ padding: '8px 12px', minWidth: 100 }}>
@@ -396,9 +397,9 @@ export default function StocksReceptions() {
                         <td style={{ padding: '8px 12px', minWidth: 130 }}>
                           <select value={line.etatEmballage} onChange={e => setLine(line.id, { etatEmballage: e.target.value as BLLine['etatEmballage'] })}
                             style={{ padding: '6px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff', color: line.etatEmballage === 'endommage' ? 'var(--fs-danger-700)' : 'var(--fs-ink-700)' }}>
-                            <option value="">— État —</option>
-                            <option value="bon">Bon état</option>
-                            <option value="endommage">Endommagé</option>
+                            <option value="">{t('— État —', '— Condition —')}</option>
+                            <option value="bon">{t('Bon état', 'Good condition')}</option>
+                            <option value="endommage">{t('Endommagé', 'Damaged')}</option>
                           </select>
                         </td>
                         <td style={{ padding: '8px 12px', textAlign: 'center', minWidth: 60 }}>
@@ -424,11 +425,11 @@ export default function StocksReceptions() {
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <button onClick={() => setLines(prev => [...prev, newLine()])}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', border: '1.5px dashed var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-ink-500)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)' }}>
-                <I d={D.plus} size={13}/> Ajouter une ligne
+                <I d={D.plus} size={13}/> {t('Ajouter une ligne', 'Add a line')}
               </button>
               <button onClick={handleSubmit} disabled={loading}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 24px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
-                <I d={D.check} size={13}/> {loading ? 'Enregistrement…' : 'Valider la réception'}
+                <I d={D.check} size={13}/> {loading ? t('Enregistrement…', 'Saving…') : t('Valider la réception', 'Confirm goods receipt')}
               </button>
             </div>
           </div>
@@ -438,7 +439,7 @@ export default function StocksReceptions() {
 
             {/* Filtre */}
             <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-              {([['tous', 'Tous'], ['moi', 'Par moi'], ['magazinier', 'Par magasinier']] as [HistoFilter, string][]).map(([key, label]) => (
+              {([['tous', t('Tous', 'All')], ['moi', t('Par moi', 'By me')], ['magazinier', t('Par magasinier', 'By storekeeper')]] as [HistoFilter, string][]).map(([key, label]) => (
                 <button key={key} onClick={() => setHistoFilter(key)} style={{
                   padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)',
                   border: histoFilter === key ? 'none' : '1.5px solid var(--fs-line-2)',
@@ -460,14 +461,14 @@ export default function StocksReceptions() {
               <div style={{ marginBottom: 20 }}>
                 {histoFilter === 'tous' && (
                   <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 10px' }}>
-                    Réceptions magasinier
+                    {t('Réceptions magasinier', 'Storekeeper goods receipts')}
                   </p>
                 )}
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                   <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 640 : undefined }}>
                     <thead>
                       <tr style={{ background: '#f0fdf4' }}>
-                        {['Fournisseur', 'Date', 'Produit', 'Qté reçue', 'Reçu par'].map(h => (
+                        {[t('Fournisseur', 'Supplier'), t('Date', 'Date'), t('Produit', 'Product'), t('Qté reçue', 'Received qty'), t('Reçu par', 'Received by')].map(h => (
                           <th key={h} style={{ padding: '9px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)' }}>{h}</th>
                         ))}
                       </tr>
@@ -478,13 +479,13 @@ export default function StocksReceptions() {
                         return (
                           <tr key={`${r._id}-${i}`} style={{ background: ri % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
                             <td style={{ padding: '9px 14px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{i === 0 ? r.fournisseur : ''}</td>
-                            <td style={{ padding: '9px 14px', textAlign: 'left', fontSize: 12, color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-mono)', whiteSpace: 'nowrap' }}>{i === 0 ? new Date(r.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : ''}</td>
+                            <td style={{ padding: '9px 14px', textAlign: 'left', fontSize: 12, color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-mono)', whiteSpace: 'nowrap' }}>{i === 0 ? new Date(r.createdAt).toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short', year: 'numeric' }) : ''}</td>
                             <td style={{ padding: '9px 14px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{item.productName}</td>
                             <td style={{ padding: '9px 14px', textAlign: 'left', fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: '#16a34a' }}>+{item.quantity}</td>
                             <td style={{ padding: '9px 14px', textAlign: 'left' }}>
                               {isGest
-                                ? <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-wine-900)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Gestionnaire</span>
-                                : <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-gold-500)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>Magasinier · {r.creePar?.name ?? '—'}</span>}
+                                ? <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-wine-900)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>{t('Gestionnaire', 'Manager')}</span>
+                                : <span style={{ fontSize: 11, fontWeight: 700, background: 'var(--fs-gold-500)', color: '#fff', padding: '2px 8px', borderRadius: 8 }}>{t('Magasinier', 'Storekeeper')} · {r.creePar?.name ?? '—'}</span>}
                             </td>
                           </tr>
                         );
@@ -500,11 +501,11 @@ export default function StocksReceptions() {
               <div>
                 {histoFilter === 'tous' && bls.length > 0 && (
                   <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 10px' }}>
-                    Mes bons de livraison
+                    {t('Mes bons de livraison', 'My delivery notes')}
                   </p>
                 )}
                 {bls.length === 0 && histoFilter === 'moi' && (
-                  <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Aucun BL enregistré</div>
+                  <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Aucun BL enregistré', 'No delivery note recorded')}</div>
                 )}
                 {bls.map(bl => (
               <div key={bl._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, marginBottom: 14, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
@@ -519,13 +520,13 @@ export default function StocksReceptions() {
                     background: bl.totalEcarts < 0 ? 'var(--fs-wine-100)' : bl.totalEcarts > 0 ? '#E8F0E5' : 'var(--fs-ivory)',
                     color: bl.totalEcarts < 0 ? 'var(--fs-danger-700)' : bl.totalEcarts > 0 ? 'var(--fs-success-700)' : 'var(--fs-ink-400)',
                   }}>
-                    Écart total : {bl.totalEcarts > 0 ? `+${bl.totalEcarts}` : bl.totalEcarts}
+                    {t('Écart total :', 'Total discrepancy:')} {bl.totalEcarts > 0 ? `+${bl.totalEcarts}` : bl.totalEcarts}
                   </span>
                 </div>
                 <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 640 : undefined }}>
                   <thead>
                     <tr>
-                      {['Produit', 'Qté attendue', 'Qté reçue', 'Date péremption', 'État', 'Écart'].map(h => (
+                      {[t('Produit', 'Product'), t('Qté attendue', 'Expected qty'), t('Qté reçue', 'Received qty'), t('Date péremption', 'Expiry date'), t('État', 'Condition'), t('Écart', 'Discrepancy')].map(h => (
                         <th key={h} style={{ padding: '8px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)' }}>{h}</th>
                       ))}
                     </tr>
@@ -542,7 +543,7 @@ export default function StocksReceptions() {
                           <td style={{ padding: '9px 14px' }}>
                             {l.etatEmballage && (
                               <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 8, background: l.etatEmballage === 'bon' ? '#E8F0E5' : 'var(--fs-wine-100)', color: l.etatEmballage === 'bon' ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' }}>
-                                {l.etatEmballage === 'bon' ? 'Bon état' : 'Endommagé'}
+                                {l.etatEmballage === 'bon' ? t('Bon état', 'Good condition') : t('Endommagé', 'Damaged')}
                               </span>
                             )}
                           </td>
@@ -561,7 +562,7 @@ export default function StocksReceptions() {
 
             {/* État vide global */}
             {histoFilter === 'tous' && bls.length === 0 && magRecs.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Aucune réception enregistrée</div>
+              <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Aucune réception enregistrée', 'No goods receipt recorded')}</div>
             )}
           </div>
         )}

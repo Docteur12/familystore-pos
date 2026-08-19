@@ -33,9 +33,37 @@ git push -u origin main
    - **Publish directory** : `frontend/dist`
 4. Cliquer **Deploy site**
 
-> Le fichier `frontend/netlify.toml` configure automatiquement :
-> - le proxy `/api/*` → backend Render
-> - le fallback SPA pour les routes React
+> Le proxy `/api/*` → backend Render et le fallback SPA sont générés au build
+> dans `dist/_redirects` (plugin `netlify-redirects` de `frontend/vite.config.ts`),
+> à partir de la variable `VITE_API_URL`.
+
+5. **Un site Netlify par magasin, un seul dépôt.** Les valeurs par défaut du
+   build (Family Store) sont dans `frontend/.env.production`. Pour un autre
+   magasin (ex. Radiance), surcharger dans **Site settings → Environment
+   variables** du site Netlify concerné :
+
+   | Variable | Family Store (défaut) | Exemple Radiance |
+   |---|---|---|
+   | `VITE_API_URL` | `https://familystore-pos.onrender.com` | `https://radiance-api-7qqv.onrender.com` |
+   | `VITE_APP_NAME` | `Family Store POS` | `Radiance POS` |
+   | `VITE_APP_SHORT_NAME` | `Family Store` | `Radiance` |
+   | `VITE_APP_LANG` | `fr` | `en` |
+   | `VITE_THEME_COLOR` | `#8B1A2B` | `#221C1A` |
+   | `VITE_BG_COLOR` | `#F5F0E8` | `#FCF8EA` |
+
+   Tout le reste (nom du magasin, logo, couleurs de l'interface, langue de
+   l'interface, slogan, mentions légales du ticket, téléphones, modules
+   activés, règles métier) se règle **dans l'application** — Paramètres
+   magasin — et vit dans le document `Settings` de la base du magasin.
+
+6. **Migration des paramètres (une fois, avant le premier déploiement de ce
+   code)** : l'en-tête des tickets (« BY RDCT », slogan, NIU/RC, téléphones)
+   n'est plus codé en dur ; il est lu dans `Settings`. Pour que rien ne
+   disparaisse des tickets Family Store : sauvegarde → depuis `backend/`, avec
+   `MONGO_URI` visant la base **`familystore`** (la `.env` locale vise
+   `familystore_test`), `npm run migrate:settings` (dry-run) puis
+   `npm run migrate:settings -- --execute` → merge/push. Le script n'écrit que
+   les champs vides ; il est idempotent.
 
 ---
 

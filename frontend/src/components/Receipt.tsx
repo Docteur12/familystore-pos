@@ -3,7 +3,10 @@ import {
   ReceiptData, buildReceiptHTML, doPrint, getPrintSettings, openCashDrawer,
 } from './ReceiptPrint';
 import { formatVolume } from '../utils/text';
-import { OFFRE_DEFAULTS } from '../api/settings';
+import { OFFRE_DEFAULTS, StoreIdentity } from '../api/settings';
+import { t, dateLocale } from '../i18n';
+
+const STORE_FALLBACK: StoreIdentity = { nom: 'Family Store', signature: '', slogan: '', mentionsLegales: '', adresse: '', telephones: [] };
 
 // Rend un texte marketing : les segments entre *astérisques* passent en gras.
 function BoldText({ text }: { text: string }) {
@@ -23,6 +26,7 @@ interface Props {
 
 export default function Receipt({ data, onNewSale }: Props) {
   const ps = getPrintSettings();
+  const store = data.store ?? STORE_FALLBACK;
 
   // L'archive PDF de la facture est créée automatiquement à la validation de la
   // vente (Caisse) et à la synchro hors-ligne — plus besoin de l'archiver ici.
@@ -57,9 +61,9 @@ export default function Receipt({ data, onNewSale }: Props) {
 
         {/* Header */}
         <div style={{ padding: '18px 24px 8px', textAlign: 'center', color: '#111' }}>
-          <p style={{ fontWeight: 700, fontSize: 32, margin: 0, lineHeight: 1.05 }}>Family Store</p>
-          <p style={{ fontSize: 12, letterSpacing: '0.12em', color: '#555', margin: '3px 0' }}>BY RDCT</p>
-          <p style={{ fontSize: 13, color: '#333', margin: 0 }}>Beauté • Saveur • Bien-être</p>
+          <p style={{ fontWeight: 700, fontSize: 32, margin: 0, lineHeight: 1.05 }}>{store.nom}</p>
+          {store.signature && <p style={{ fontSize: 12, letterSpacing: '0.12em', color: '#555', margin: '3px 0' }}>{store.signature}</p>}
+          {store.slogan && <p style={{ fontSize: 13, color: '#333', margin: 0 }}>{store.slogan}</p>}
         </div>
 
         {/* Corps */}
@@ -70,14 +74,13 @@ export default function Receipt({ data, onNewSale }: Props) {
           {/* Infos : meta (gauche) + contacts (droite) */}
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, lineHeight: 1.6 }}>
             <div>
-              <div>Ticket : #{data.receiptNo}</div>
-              <div>Date : {data.date.toLocaleDateString('fr-FR')} {data.date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
-              <div>Caissier : {data.cashierName}</div>
+              <div>{t('Ticket', 'Receipt')} : #{data.receiptNo}</div>
+              <div>{t('Date :', 'Date:')} {data.date.toLocaleDateString(dateLocale())} {data.date.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}</div>
+              <div>{t('Caissier', 'Cashier')} : {data.cashierName}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div>Bonamoussadi – Douala</div>
-              <div>Tél. : +237 694060524</div>
-              <div>Tél. : +237 682634355</div>
+              {store.adresse && <div>{store.adresse}</div>}
+              {store.telephones.map((tel, i) => <div key={i}>{t('Tél.', 'Tel.')} : {tel}</div>)}
             </div>
           </div>
 
@@ -115,18 +118,18 @@ export default function Receipt({ data, onNewSale }: Props) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 4 }}>
               <div style={{ borderTop: '1px dashed #000', margin: '0 0 8px' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#555' }}>
-                <span>Sous-total</span>
+                <span>{t('Sous-total', 'Subtotal')}</span>
                 <span>{f(subDisplay)}</span>
               </div>
               {totalDiscount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 600 }}>
-                  <span>Réduction produits</span>
+                  <span>{t('Réduction produits', 'Product discount')}</span>
                   <span>-{f(totalDiscount)}</span>
                 </div>
               )}
               {(data.offreAmt ?? 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700 }}>
-                  <span>Réduction facture{(data.offrePct ?? 0) > 0 ? ` -${data.offrePct}%` : ''}</span>
+                  <span>{t('Réduction facture', 'Invoice discount')}{(data.offrePct ?? 0) > 0 ? ` -${data.offrePct}%` : ''}</span>
                   <span>-{f(data.offreAmt ?? 0)}</span>
                 </div>
               )}
@@ -137,7 +140,7 @@ export default function Receipt({ data, onNewSale }: Props) {
 
           {/* Total */}
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-            <span style={{ fontWeight: 700, fontSize: 26, color: '#111' }}>Total :</span>
+            <span style={{ fontWeight: 700, fontSize: 26, color: '#111' }}>{t('Total :', 'Total:')}</span>
             <span style={{ fontWeight: 700, fontSize: 26, color: '#111' }}>{f(data.total)} FCFA</span>
           </div>
 
@@ -145,9 +148,9 @@ export default function Receipt({ data, onNewSale }: Props) {
 
           {/* Paiement */}
           <div style={{ fontSize: 13, color: '#333', lineHeight: 1.7 }}>
-            <div>Mode de paiement : {data.paymentLabel}</div>
-            <div>Montant reçu : {f(data.amountPaid)} FCFA</div>
-            {data.change > 0 && <div>Montant remboursé : {f(data.change)} FCFA</div>}
+            <div>{t('Mode de paiement :', 'Payment method:')} {data.paymentLabel}</div>
+            <div>{t('Montant reçu :', 'Amount received:')} {f(data.amountPaid)} FCFA</div>
+            {data.change > 0 && <div>{t('Montant remboursé :', 'Change given:')} {f(data.change)} FCFA</div>}
           </div>
 
           {/* Pied — textes marketing paramétrables (Admin → Paramètres) */}
@@ -155,12 +158,12 @@ export default function Receipt({ data, onNewSale }: Props) {
             const offre = { ...OFFRE_DEFAULTS, ...(data.offre ?? {}) };
             return (
               <div style={{ textAlign: 'center', marginTop: 14, color: '#111' }}>
-                <div style={{ fontWeight: 700, fontSize: 17, letterSpacing: '0.04em' }}>Merci de votre visite !</div>
+                <div style={{ fontWeight: 700, fontSize: 17, letterSpacing: '0.04em' }}>{t('Merci de votre visite !', 'Thank you for your visit!')}</div>
                 {offre.titre.trim() && <div style={{ fontSize: 12.5, fontWeight: 700, marginTop: 5 }}><BoldText text={offre.titre}/></div>}
                 {offre.message.trim() && <div style={{ fontSize: 11, lineHeight: 1.45, marginTop: 4, color: '#333' }}><BoldText text={offre.message}/></div>}
                 {offre.validite.trim() && <div style={{ fontSize: 11, lineHeight: 1.45, marginTop: 4, color: '#333' }}><BoldText text={offre.validite}/></div>}
                 {offre.cta.trim() && <div style={{ fontSize: 11, lineHeight: 1.45, marginTop: 4, color: '#333' }}><BoldText text={offre.cta}/></div>}
-                <div style={{ fontSize: 10, lineHeight: 1.4, marginTop: 7, color: '#333' }}><strong>NB :</strong> Les articles achetés ou livrés ne sont ni échangés ni repris. Ils seront vérifiés et approuvés par le client.</div>
+                <div style={{ fontSize: 10, lineHeight: 1.4, marginTop: 7, color: '#333' }}><strong>{t('NB :', 'NB:')}</strong> {t('Les articles achetés ou livrés ne sont ni échangés ni repris. Ils seront vérifiés et approuvés par le client.', 'Items purchased or delivered are neither exchanged nor returned. They are to be checked and approved by the customer.')}</div>
                 {offre.salutation.trim() && <div style={{ fontSize: 11, fontWeight: 700, marginTop: 7 }}><BoldText text={offre.salutation}/></div>}
               </div>
             );
@@ -181,7 +184,7 @@ export default function Receipt({ data, onNewSale }: Props) {
               fontFamily: 'var(--fs-font-sans)',
             }}
           >
-            🖨️ Imprimer {ps.copies > 1 ? `×${ps.copies}` : ''}
+            🖨️ {t('Imprimer', 'Print')} {ps.copies > 1 ? `×${ps.copies}` : ''}
           </button>
           <button
             onClick={onNewSale}
@@ -193,7 +196,7 @@ export default function Receipt({ data, onNewSale }: Props) {
               fontFamily: 'var(--fs-font-sans)',
             }}
           >
-            Nouvelle vente
+            {t('Nouvelle vente', 'New sale')}
           </button>
         </div>
       </div>

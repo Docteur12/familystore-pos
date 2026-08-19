@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Product, effectivePrice } from '../api/products';
+import { t, dateLocale } from '../i18n';
 
 /**
  * Infobulle « fiche produit » : s'affiche au survol (ou au toucher) d'un nom de
@@ -15,7 +16,7 @@ import { Product, effectivePrice } from '../api/products';
  * rendu tel quel, sans infobulle.
  */
 
-const fmt = (n: number) => n.toLocaleString('fr-FR');
+const fmt = (n: number) => n.toLocaleString(dateLocale());
 
 interface Props {
   product?: Product | null;
@@ -99,22 +100,22 @@ export default function ProductTooltip({ product, children, as = 'span', style }
 
           {/* Fournisseur mis en avant */}
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '6px 8px', marginBottom: 6, background: 'var(--fs-ivory)', borderRadius: 6 }}>
-            <span style={{ color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.06em' }}>Fournisseur</span>
+            <span style={{ color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.06em' }}>{t('Fournisseur', 'Supplier')}</span>
             <span style={{ fontWeight: 700, color: product.fournisseur ? 'var(--fs-wine-700)' : 'var(--fs-ink-300)', textAlign: 'right' }}>
-              {product.fournisseur || 'Non renseigné'}
+              {product.fournisseur || t('Non renseigné', 'Not specified')}
             </span>
           </div>
 
-          <Row label="Catégorie" value={[product.category, product.subCategory].filter(Boolean).join(' › ') || '—'} />
-          <Row label="Code-barres" value={product.barcode || '—'} mono />
-          <Row label="Prix de vente" value={`${fmt(effectivePrice(product))} XAF${product.discount ? ` (−${product.discount} %)` : ''}`} />
-          <Row label="Prix d'achat" value={`${fmt(product.costPrice)} XAF`} />
-          <Row label="Stock caisse" value={`${fmt(product.stock)} ${product.unit || ''}`.trim()} warn={product.stock <= product.alertThreshold} />
+          <Row label={t('Catégorie', 'Category')} value={[product.category, product.subCategory].filter(Boolean).join(' › ') || '—'} />
+          <Row label={t('Code-barres', 'Barcode')} value={product.barcode || '—'} mono />
+          <Row label={t('Prix de vente', 'Selling price')} value={`${fmt(effectivePrice(product))} XAF${product.discount ? ` (−${product.discount} %)` : ''}`} />
+          <Row label={t("Prix d'achat", 'Purchase price')} value={`${fmt(product.costPrice)} XAF`} />
+          <Row label={t('Stock caisse', 'Checkout stock')} value={`${fmt(product.stock)} ${product.unit || ''}`.trim()} warn={product.stock <= product.alertThreshold} />
           {product.stockMagazin !== undefined && (
-            <Row label="Stock entrepôt" value={`${fmt(product.stockMagazin)} ${product.unit || ''}`.trim()} />
+            <Row label={t('Stock entrepôt', 'Warehouse stock')} value={`${fmt(product.stockMagazin)} ${product.unit || ''}`.trim()} />
           )}
-          {product.valeur && <Row label="Contenance" value={product.valeur} />}
-          {product.expiryDate && <Row label="Péremption" value={new Date(product.expiryDate).toLocaleDateString('fr-FR')} />}
+          {product.valeur && <Row label={t('Contenance', 'Contents')} value={product.valeur} />}
+          {product.expiryDate && <Row label={t('Péremption', 'Expiry')} value={new Date(product.expiryDate).toLocaleDateString(dateLocale())} />}
         </div>,
         document.body,
       )}

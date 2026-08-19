@@ -1,4 +1,5 @@
 import { authHeaders } from './http';
+import { t } from '../i18n';
 
 export interface JourData      { jour: number; ca: number; nbVentes: number; label?: string; }
 export interface CategorieData { categorie: string; ca: number; pct: number; quantite: number; }
@@ -42,7 +43,7 @@ export async function getByProduct(params?: { dateFrom?: string; dateTo?: string
   if (params?.dateFrom) qs.set('dateFrom', params.dateFrom);
   if (params?.dateTo)   qs.set('dateTo',   params.dateTo);
   const res = await fetch(`/api/sales/stats/by-product?${qs}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement journal produits');
+  if (!res.ok) throw new Error(t('Erreur chargement journal produits', 'Error loading product journal'));
   return res.json();
 }
 
@@ -54,7 +55,7 @@ export interface AnalyseWeek extends AnalyseMonth {
 
 export async function getAnalyseWeek(year: number, week: number): Promise<AnalyseWeek> {
   const res = await fetch(`/api/reports/analyse-week?year=${year}&week=${week}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement analyse semaine');
+  if (!res.ok) throw new Error(t('Erreur chargement analyse semaine', 'Error loading weekly analysis'));
   return res.json();
 }
 
@@ -62,7 +63,7 @@ export async function getAnalyseMonth(year: number, month: number): Promise<Anal
   const res = await fetch(`/api/reports/analyse?year=${year}&month=${month}`, {
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Erreur chargement analyse');
+  if (!res.ok) throw new Error(t('Erreur chargement analyse', 'Error loading analysis'));
   return res.json();
 }
 
@@ -75,7 +76,7 @@ export async function downloadReport(
     ? `/api/reports/monthly/pdf?year=${year}&month=${month}`
     : `/api/reports/monthly/excel?year=${year}&month=${month}`;
   const res = await fetch(url, { headers: authHeaders() });
-  if (!res.ok) throw new Error(`Erreur export ${type}`);
+  if (!res.ok) throw new Error(t(`Erreur export ${type}`, `${type} export error`));
   const blob    = await res.blob();
   const objUrl  = URL.createObjectURL(blob);
   const slug    = `${year}-${String(month).padStart(2, '0')}`;

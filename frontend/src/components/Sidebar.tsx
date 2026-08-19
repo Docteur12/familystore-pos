@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useSettings } from '../contexts/SettingsContext';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
 import { getAllProducts } from '../api/products';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t } from '../i18n';
 
 // ── SVG icon set ──────────────────────────────────────────────────────────────
 
@@ -53,29 +55,29 @@ function CrownMark({ size = 36 }: { size?: number }) {
 interface NavItem { label: string; path: string; icon: string }
 
 const PATRON_NAV: NavItem[] = [
-  { label: 'Tableau de bord', path: '/dashboard',    icon: 'dashboard' },
-  { label: 'Caisse',          path: '/caisse',       icon: 'receipt'   },
-  { label: 'Stocks',          path: '/stocks',       icon: 'boxes'     },
-  { label: 'Dépenses',        path: '/depenses',     icon: 'book'      },
-  { label: 'Rapports',        path: '/rapports',     icon: 'chart'     },
-  { label: 'Produits',        path: '/produits',     icon: 'tag'       },
-  { label: 'Utilisateurs',    path: '/utilisateurs', icon: 'users'     },
+  { label: t('Tableau de bord', 'Dashboard'), path: '/dashboard',    icon: 'dashboard' },
+  { label: t('Caisse', 'Checkout'),          path: '/caisse',       icon: 'receipt'   },
+  { label: t('Stocks', 'Stocks'),          path: '/stocks',       icon: 'boxes'     },
+  { label: t('Dépenses', 'Expenses'),        path: '/depenses',     icon: 'book'      },
+  { label: t('Rapports', 'Reports'),        path: '/rapports',     icon: 'chart'     },
+  { label: t('Produits', 'Products'),        path: '/produits',     icon: 'tag'       },
+  { label: t('Utilisateurs', 'Users'),    path: '/utilisateurs', icon: 'users'     },
 ];
 
 const CAISSIER_NAV: NavItem[] = [
-  { label: 'Caisse', path: '/caisse', icon: 'receipt' },
+  { label: t('Caisse', 'Checkout'), path: '/caisse', icon: 'receipt' },
 ];
 
 const GESTIONNAIRE_NAV: NavItem[] = [
-  { label: 'Stocks',   path: '/stocks',          icon: 'boxes' },
-  { label: 'Produits', path: '/gestion-produits', icon: 'tag'   },
-  { label: 'Alertes',  path: '/alertes',          icon: 'alert' },
+  { label: t('Stocks', 'Stocks'),   path: '/stocks',          icon: 'boxes' },
+  { label: t('Produits', 'Products'), path: '/gestion-produits', icon: 'tag'   },
+  { label: t('Alertes', 'Alerts'),  path: '/alertes',          icon: 'alert' },
 ];
 
 const POLL_INTERVAL = 60_000;
 const SIDEBAR_W     = 220;
 
-function useStockAlertCount(active: boolean) {
+function useStockAlertCount(active: boolean, nomMagasin: string) {
   const [alertCount, setAlertCount] = useState(0);
   const notifiedRef = useRef<Set<string>>(new Set());
 
@@ -85,8 +87,8 @@ function useStockAlertCount(active: boolean) {
     const notify = (name: string, stock: number) => {
       if (!('Notification' in window)) return;
       if (Notification.permission === 'granted') {
-        new Notification('Alerte stock — Family Store', {
-          body: `"${name}" : stock à ${stock} unité${stock > 1 ? 's' : ''} (rupture imminente)`,
+        new Notification(t(`Alerte stock — ${nomMagasin}`, `Stock alert — ${nomMagasin}`), {
+          body: t(`"${name}" : stock à ${stock} unité${stock > 1 ? 's' : ''} (rupture imminente)`, `"${name}": stock at ${stock} unit${stock > 1 ? 's' : ''} (about to run out)`),
           icon: '/favicon.ico',
         });
       }
@@ -118,7 +120,7 @@ function useStockAlertCount(active: boolean) {
 
     const timer = setInterval(check, POLL_INTERVAL);
     return () => clearInterval(timer);
-  }, [active]);
+  }, [active, nomMagasin]);
 
   return alertCount;
 }
@@ -126,6 +128,8 @@ function useStockAlertCount(active: boolean) {
 // ── Sidebar component ─────────────────────────────────────────────────────────
 
 export default function Sidebar() {
+  const { settings } = useSettings();
+  const nomMagasin = settings.nomMagasin || 'Family Store';
   const navigate  = useNavigate();
   const payload   = getTokenPayload();
   const role      = payload?.role ?? 'caissier';
@@ -139,17 +143,17 @@ export default function Sidebar() {
     ? GESTIONNAIRE_NAV
     : CAISSIER_NAV;
 
-  const alertCount = useStockAlertCount(role === 'gestionnaire' || role === 'patron');
+  const alertCount = useStockAlertCount(role === 'gestionnaire' || role === 'patron', nomMagasin);
 
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     navigate('/login');
   };
 
-  const roleLabel = role === 'patron' ? 'Administration'
-    : role === 'gestionnaire' ? 'Chef de stock'
-    : role === 'magazinier'   ? 'Manutentionnaire'
-    : 'Point de vente';
+  const roleLabel = role === 'patron' ? t('Administration', 'Administration')
+    : role === 'gestionnaire' ? t('Chef de stock', 'Stock manager')
+    : role === 'magazinier'   ? t('Manutentionnaire', 'Warehouse keeper')
+    : t('Point de vente', 'Point of sale');
 
   const initials = (payload?.name ?? '?')
     .split(' ')
@@ -178,7 +182,7 @@ export default function Sidebar() {
         <button
           className="fs-hamburger"
           onClick={() => setIsOpen(o => !o)}
-          aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          aria-label={isOpen ? t('Fermer le menu', 'Close menu') : t('Ouvrir le menu', 'Open menu')}
           style={{
             position: 'fixed', top: 12, left: isOpen ? SIDEBAR_W + 8 : 12,
             zIndex: 201, width: 36, height: 36, borderRadius: 8,
@@ -211,7 +215,7 @@ export default function Sidebar() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <CrownMark size={38}/>
             <div style={{ lineHeight: 1 }}>
-              <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 16, fontWeight: 600, color: '#f5ebd9', letterSpacing: '0.02em' }}>Family Store</div>
+              <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 16, fontWeight: 600, color: '#f5ebd9', letterSpacing: '0.02em' }}>{nomMagasin}</div>
               <div style={{ fontSize: 10, color: 'var(--fs-gold-300)', fontStyle: 'italic', letterSpacing: '0.08em', marginTop: 2 }}>{roleLabel}</div>
             </div>
           </div>
@@ -257,7 +261,7 @@ export default function Sidebar() {
             style={{ margin: '0 10px 4px', padding: '8px 12px', background: 'rgba(194,62,36,0.18)', border: '1px solid rgba(194,62,36,0.3)', borderRadius: 'var(--fs-r-sm)', cursor: 'pointer' }}
           >
             <p style={{ color: '#f9a89a', fontSize: 11, fontWeight: 700 }}>
-              <Icon name="alert" size={12} color="#f9a89a"/> {alertCount} alerte{alertCount > 1 ? 's' : ''} stock
+              <Icon name="alert" size={12} color="#f9a89a"/> {alertCount} {t(`alerte${alertCount > 1 ? 's' : ''} stock`, `stock alert${alertCount > 1 ? 's' : ''}`)}
             </p>
           </div>
         )}
@@ -269,7 +273,7 @@ export default function Sidebar() {
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
             <div style={{ fontSize: 10, color: 'var(--fs-gold-300)', marginTop: 1, textTransform: 'capitalize' }}>{role}</div>
           </div>
-          <button onClick={handleLogout} title="Déconnexion" style={{ background: 'transparent', border: 'none', color: 'var(--fs-gold-300)', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', borderRadius: 'var(--fs-r-xs)' }}>
+          <button onClick={handleLogout} title={t('Déconnexion', 'Log out')} style={{ background: 'transparent', border: 'none', color: 'var(--fs-gold-300)', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', borderRadius: 'var(--fs-r-xs)' }}>
             <Icon name="logout" size={16}/>
           </button>
         </div>

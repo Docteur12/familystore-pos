@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { t } from '../i18n';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,21 +22,21 @@ const STYLE: Record<ToastType, { bar: string; iconBg: string; iconText: string; 
     iconBg:   'bg-green-100',
     iconText: 'text-green-700',
     icon:     '✓',
-    label:    'Succès',
+    label:    t('Succès', 'Success'),
   },
   error: {
     bar:      'bg-red-500',
     iconBg:   'bg-red-100',
     iconText: 'text-red-700',
     icon:     '✕',
-    label:    'Erreur',
+    label:    t('Erreur', 'Error'),
   },
   warning: {
     bar:      'bg-amber-500',
     iconBg:   'bg-amber-100',
     iconText: 'text-amber-700',
     icon:     '⚠',
-    label:    'Alerte stock',
+    label:    t('Alerte stock', 'Stock alert'),
   },
 };
 

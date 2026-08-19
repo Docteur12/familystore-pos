@@ -14,6 +14,7 @@ import * as bcrypt from 'bcryptjs';
 import * as nodemailer from 'nodemailer';
 import { User, UserDocument } from '../schemas/user.schema';
 import { AuditLog, AuditLogDocument } from '../schemas/audit-log.schema';
+import { Settings, SettingsDocument } from '../settings/settings.schema';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +23,7 @@ export class AuthService {
   constructor(
     @InjectModel(User.name)     private userModel:     Model<UserDocument>,
     @InjectModel(AuditLog.name) private auditLogModel: Model<AuditLogDocument>,
+    @InjectModel(Settings.name) private settingsModel: Model<SettingsDocument>,
     private jwtService: JwtService,
   ) {}
 
@@ -194,6 +196,13 @@ export class AuthService {
     const user = await this.userModel.findOne({ email: email.toLowerCase() });
     if (!user) return REPONSE_NEUTRE;
 
+    // Identité du magasin pour l'e-mail (nom, couleur, signature).
+    let st: any = null;
+    try { st = await this.settingsModel.findOne().lean(); } catch { /* défaut */ }
+    const app   = `${(st?.nomMagasin || 'Family Store').trim()} POS`;
+    const brand = /^#[0-9A-Fa-f]{6}$/.test(st?.couleurPrincipale ?? '') ? st.couleurPrincipale : '#7A1D2E';
+    const signature = (st?.signatureTicket ?? '').trim();
+
     const tempPassword = this.generateTempPassword();
     user.password = await bcrypt.hash(tempPassword, 10);
     await user.save();
@@ -210,19 +219,19 @@ export class AuthService {
     // trahirait à lui seul l'existence du compte.
     try {
       await transporter.sendMail({
-        from: `"Family Store POS" <${process.env.MAIL_USER}>`,
+        from: `"${app}" <${process.env.MAIL_USER}>`,
         to: user.email,
-        subject: 'Réinitialisation de votre mot de passe — Family Store POS',
+        subject: `Réinitialisation de votre mot de passe — ${app}`,
         html: `
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
-          <h2 style="color: #7A1D2E;">Family Store POS</h2>
+          <h2 style="color: ${brand};">${app}</h2>
           <p>Bonjour <strong>${user.name}</strong>,</p>
           <p>Votre mot de passe temporaire est :</p>
-          <div style="background: #f5f0e8; padding: 16px; border-radius: 8px; text-align: center; font-size: 22px; font-weight: bold; letter-spacing: 0.1em; color: #7A1D2E; font-family: monospace;">
+          <div style="background: #f5f0e8; padding: 16px; border-radius: 8px; text-align: center; font-size: 22px; font-weight: bold; letter-spacing: 0.1em; color: ${brand}; font-family: monospace;">
             ${tempPassword}
           </div>
           <p style="margin-top: 16px; color: #666;">Connectez-vous avec ce mot de passe, puis changez-le immédiatement depuis les paramètres de votre compte.</p>
-          <p style="font-size: 12px; color: #999; margin-top: 24px;">Family Store POS — by RDCT</p>
+          <p style="font-size: 12px; color: #999; margin-top: 24px;">${app}${signature ? ' — ' + signature.toLowerCase() : ''}</p>
         </div>
       `,
       });

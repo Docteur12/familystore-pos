@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { createUser, deleteUser, getUsers, updateUser, UserRecord } from '../api/auth';
+import { t } from '../i18n';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const AVATAR_COLORS = ['#C2566B', '#7A9EC2', '#7AB87A', '#C2A07A', '#9A7AC2', '#7ABFBF', '#C2B07A'];
@@ -47,16 +48,16 @@ function PartenaireCard({ user, selected, onEdit, onDelete }: {
           <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
-          <button onClick={onEdit} title="Modifier" style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--fs-line)', background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><I d={D.edit} size={12}/></button>
-          <button onClick={onDelete} title="Supprimer" style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--fs-line)', background: '#fff', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><I d={D.trash} size={12}/></button>
+          <button onClick={onEdit} title={t('Modifier', 'Edit')} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--fs-line)', background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><I d={D.edit} size={12}/></button>
+          <button onClick={onDelete} title={t('Supprimer', 'Delete')} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--fs-line)', background: '#fff', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><I d={D.trash} size={12}/></button>
         </div>
       </div>
       <div style={{ marginTop: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
         <div style={{ flex: 1, background: 'var(--fs-ivory)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ color: 'var(--fs-wine-700)' }}><I d={D.key} size={13}/></span>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Accès</div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-800)' }}>Espace Partenaires</div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('Accès', 'Access')}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-800)' }}>{t('Espace Partenaires', 'Partners area')}</div>
           </div>
         </div>
         {user.phone && <div style={{ fontSize: 11, color: 'var(--fs-ink-500)' }}>📞 {user.phone}</div>}
@@ -74,14 +75,14 @@ function CreatePanel({ isNarrow, onCreated, onCancel }: { isNarrow: boolean; onC
   const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   const handleCreate = async () => {
-    if (!form.name.trim()) { setError('Le nom est obligatoire.'); return; }
-    if (!form.email.trim()) { setError("L'email de connexion est obligatoire."); return; }
-    if (form.password.length < 4) { setError('Mot de passe : 4 caractères minimum.'); return; }
+    if (!form.name.trim()) { setError(t('Le nom est obligatoire.', 'Name is required.')); return; }
+    if (!form.email.trim()) { setError(t("L'email de connexion est obligatoire.", 'Login email is required.')); return; }
+    if (form.password.length < 4) { setError(t('Mot de passe : 4 caractères minimum.', 'Password: at least 4 characters.')); return; }
     setLoading(true); setError('');
     try {
       await createUser({ name: form.name.trim(), email: form.email.trim().toLowerCase(), password: form.password, role: 'commercial', phone: form.phone || undefined });
       onCreated();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : t('Erreur', 'Error')); }
     finally { setLoading(false); }
   };
 
@@ -89,36 +90,36 @@ function CreatePanel({ isNarrow, onCreated, onCancel }: { isNarrow: boolean; onC
     <div style={{ width: isNarrow ? '100%' : 320, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', borderTop: isNarrow ? '1px solid var(--fs-line)' : undefined, background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>+ Nouveau compte Partenaires</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Créer un identifiant</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>{t('+ Nouveau compte Partenaires', '+ New Partners account')}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Créer un identifiant', 'Create a login')}</div>
         </div>
         <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}><I d={D.close} size={16}/></button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {error && <div style={{ background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{error}</div>}
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Identité</p>
-        <Field label="Nom *" value={form.name} onChange={v => set('name', v)} placeholder="ex : Gérant partenaires"/>
-        <Field label="Téléphone" value={form.phone} onChange={v => set('phone', v)} placeholder="6XX XX XX XX"/>
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Connexion</p>
-        <Field label="Email (identifiant) *" value={form.email} onChange={v => set('email', v)} type="email" placeholder="partenaires@familystore.cm"/>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{t('Identité', 'Identity')}</p>
+        <Field label={t('Nom *', 'Name *')} value={form.name} onChange={v => set('name', v)} placeholder={t('ex : Gérant partenaires', 'e.g. Partners manager')}/>
+        <Field label={t('Téléphone', 'Phone')} value={form.phone} onChange={v => set('phone', v)} placeholder="6XX XX XX XX"/>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Connexion', 'Login')}</p>
+        <Field label={t('Email (identifiant) *', 'Email (login) *')} value={form.email} onChange={v => set('email', v)} type="email" placeholder="partenaires@familystore.cm"/>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Mot de passe *</label>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{t('Mot de passe *', 'Password *')}</label>
           <div style={{ position: 'relative' }}>
-            <input type={showPwd ? 'text' : 'password'} value={form.password} onChange={e => set('password', e.target.value)} placeholder="Min. 4 caractères"
+            <input type={showPwd ? 'text' : 'password'} value={form.password} onChange={e => set('password', e.target.value)} placeholder={t('Min. 4 caractères', 'Min. 4 characters')}
               style={{ width: '100%', padding: '9px 36px 9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
             <button onClick={() => setShowPwd(p => !p)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}><I d={D.eye} size={14}/></button>
           </div>
         </div>
         <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 12px', fontSize: 11, color: '#1d4ed8' }}>
-          Ce compte se connecte <strong>directement</strong> à l'espace Partenaires (commandes, agences, comptes & créances) — sans accès à la caisse, l'entrepôt ni l'admin.
+          {t('Ce compte se connecte ', 'This account signs in ')}<strong>{t('directement', 'directly')}</strong>{t(" à l'espace Partenaires (commandes, agences, comptes & créances) — sans accès à la caisse, l'entrepôt ni l'admin.", ' to the Partners area (orders, branches, accounts & receivables) — with no access to the checkout, the warehouse or the admin.')}
         </div>
       </div>
 
       <div style={{ padding: '12px 18px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 8, flexShrink: 0 }}>
         <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>Annuler</button>
         <button onClick={handleCreate} disabled={loading} style={{ flex: 2, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-wine-700)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
-          {loading ? 'Création…' : 'Créer le compte'}
+          {loading ? t('Création…', 'Creating…') : t('Créer le compte', 'Create account')}
         </button>
       </div>
     </div>
@@ -140,7 +141,7 @@ function EditPanel({ isNarrow, user, onSaved, onCancel, onDeleted }: {
   const [error, setError] = useState('');
 
   const handleSave = async () => {
-    if (!name.trim()) { setError('Le nom est obligatoire.'); return; }
+    if (!name.trim()) { setError(t('Le nom est obligatoire.', 'Name is required.')); return; }
     setLoading(true); setError('');
     try {
       const patch: { name?: string; email?: string; phone?: string; password?: string } = {};
@@ -150,7 +151,7 @@ function EditPanel({ isNarrow, user, onSaved, onCancel, onDeleted }: {
       if (pwd.length >= 4) patch.password = pwd;
       await updateUser(user._id, patch);
       onSaved();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : t('Erreur', 'Error')); }
     finally { setLoading(false); }
   };
 
@@ -164,7 +165,7 @@ function EditPanel({ isNarrow, user, onSaved, onCancel, onDeleted }: {
     <div style={{ width: isNarrow ? '100%' : 320, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', borderTop: isNarrow ? '1px solid var(--fs-line)' : undefined, background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Modification</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>{t('Modification', 'Edit')}</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{user.name}</div>
         </div>
         <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}><I d={D.close} size={16}/></button>
@@ -172,13 +173,13 @@ function EditPanel({ isNarrow, user, onSaved, onCancel, onDeleted }: {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {error && <div style={{ background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{error}</div>}
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Identité</p>
-        <Field label="Nom" value={name} onChange={setName}/>
-        <Field label="Téléphone" value={phone} onChange={setPhone} placeholder="6XX XX XX XX"/>
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Connexion</p>
-        <Field label="Email (identifiant)" value={email} onChange={setEmail} type="email"/>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{t('Identité', 'Identity')}</p>
+        <Field label={t('Nom', 'Name')} value={name} onChange={setName}/>
+        <Field label={t('Téléphone', 'Phone')} value={phone} onChange={setPhone} placeholder="6XX XX XX XX"/>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Connexion', 'Login')}</p>
+        <Field label={t('Email (identifiant)', 'Email (login)')} value={email} onChange={setEmail} type="email"/>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Nouveau mot de passe (vide = inchangé)</label>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{t('Nouveau mot de passe (vide = inchangé)', 'New password (blank = unchanged)')}</label>
           <div style={{ position: 'relative' }}>
             <input type={showPwd ? 'text' : 'password'} value={pwd} onChange={e => setPwd(e.target.value)} placeholder="••••••••"
               style={{ width: '100%', padding: '9px 36px 9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
@@ -189,19 +190,19 @@ function EditPanel({ isNarrow, user, onSaved, onCancel, onDeleted }: {
 
       {!confirm ? (
         <div style={{ padding: '12px 18px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 8, flexShrink: 0 }}>
-          <button onClick={() => setConfirm(true)} title="Supprimer" style={{ padding: '10px 14px', border: 'none', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)' }}><I d={D.trash} size={12}/></button>
+          <button onClick={() => setConfirm(true)} title={t('Supprimer', 'Delete')} style={{ padding: '10px 14px', border: 'none', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)' }}><I d={D.trash} size={12}/></button>
           <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>Annuler</button>
           <button onClick={handleSave} disabled={loading} style={{ flex: 2, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-wine-700)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
-            {loading ? 'Enregistrement…' : 'Enregistrer'}
+            {loading ? t('Enregistrement…', 'Saving…') : t('Enregistrer', 'Save')}
           </button>
         </div>
       ) : (
         <div style={{ padding: '14px 18px', borderTop: '1px solid var(--fs-line)', flexShrink: 0 }}>
-          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 10px' }}>Supprimer le compte <strong>{user.name}</strong> ?</p>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 10px' }}>{t('Supprimer le compte', 'Delete the account')} <strong>{user.name}</strong>{t(' ?', '?')}</p>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setConfirm(false)} style={{ flex: 1, padding: '9px', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)' }}>Annuler</button>
             <button onClick={handleDelete} disabled={deleting} style={{ flex: 1, padding: '9px', border: 'none', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-danger-700)', color: '#fff', opacity: deleting ? 0.7 : 1 }}>
-              {deleting ? '…' : 'Confirmer'}
+              {deleting ? '…' : t('Confirmer', 'Confirm')}
             </button>
           </div>
         </div>
@@ -230,23 +231,23 @@ export default function AdminPartenaires() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0, display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
           <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
-            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Personnel</p>
-            <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Comptes Partenaires <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-400)' }}>({users.length})</span></h1>
+            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Personnel', 'Staff')}</p>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{t('Comptes Partenaires', 'Partners accounts')} <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-400)' }}>({users.length})</span></h1>
           </div>
           <button onClick={() => setPanel({ type: 'create' })} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-            <I d={D.plus} size={13}/> Ajouter un compte
+            <I d={D.plus} size={13}/> {t('Ajouter un compte', 'Add an account')}
           </button>
         </div>
 
         <div style={{ flex: 1, display: 'flex', flexDirection: isNarrow ? 'column' : 'row', overflow: isNarrow ? 'visible' : 'hidden' }}>
           <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '16px' : '20px 24px' }}>
             <div style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 18, fontSize: 12, color: 'var(--fs-ink-600)', maxWidth: 720 }}>
-              Ces comptes servent à se connecter à l'<strong>espace Partenaires</strong> (grossistes) : la personne se connecte avec son email + mot de passe et arrive directement dans cet espace.
+              {t("Ces comptes servent à se connecter à l'", 'These accounts are used to sign in to the ')}<strong>{t('espace Partenaires', 'Partners area')}</strong>{t(' (grossistes) : la personne se connecte avec son email + mot de passe et arrive directement dans cet espace.', ' (wholesalers): the person signs in with their email + password and lands directly in that area.')}
             </div>
             {users.length === 0 ? (
               <div style={{ textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, padding: '60px 0' }}>
                 <I d={D.users} size={36}/><br/><br/>
-                Aucun compte partenaire — cliquez sur <strong>Ajouter</strong> pour créer le premier.
+                {t('Aucun compte partenaire — cliquez sur', 'No partner account — click')} <strong>{t('Ajouter', 'Add')}</strong> {t('pour créer le premier.', 'to create the first one.')}
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 14, maxWidth: 860 }}>

@@ -1,4 +1,5 @@
 import { authHeaders } from './http';
+import { t } from '../i18n';
 
 export interface SessionRecord {
   _id:           string;
@@ -18,7 +19,7 @@ export interface SessionRecord {
 export async function getActiveSession(): Promise<SessionRecord | null> {
   const res = await fetch('/api/sessions/active', { headers: authHeaders() });
   if (res.status === 404) return null;
-  if (!res.ok) throw new Error('Erreur chargement session active');
+  if (!res.ok) throw new Error(t('Erreur chargement session active', 'Failed to load active session'));
   return res.json();
 }
 
@@ -27,7 +28,7 @@ export async function openSession(): Promise<SessionRecord> {
     method: 'POST',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Impossible de créer la session');
+  if (!res.ok) throw new Error(t('Impossible de créer la session', 'Unable to create session'));
   return res.json();
 }
 
@@ -44,7 +45,7 @@ export async function corrigerDureesSessions(): Promise<{ corrected: number }> {
     method: 'POST',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Erreur lors de la correction des durées');
+  if (!res.ok) throw new Error(t('Erreur lors de la correction des durées', 'Failed to fix session durations'));
   return res.json();
 }
 
@@ -53,7 +54,7 @@ export async function forceCloseSession(id: string): Promise<SessionRecord | nul
     method: 'PATCH',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Erreur lors de la fermeture de la session');
+  if (!res.ok) throw new Error(t('Erreur lors de la fermeture de la session', 'Failed to close session'));
   return res.json();
 }
 
@@ -74,6 +75,6 @@ export async function getSessions(params: {
   if (params.activeOnly) qs.set('active', 'true');
 
   const res = await fetch(`/api/sessions?${qs}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement des sessions');
+  if (!res.ok) throw new Error(t('Erreur chargement des sessions', 'Failed to load sessions'));
   return res.json();
 }

@@ -3,14 +3,15 @@ import AdminSidebar from '../components/AdminSidebar';
 import { getUsers, UserRecord } from '../api/auth';
 import { getCaisses, CaisseRecord } from '../api/caisses';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t } from '../i18n';
 
 type EquipeSortKey = 'name' | 'role' | 'poste' | 'email' | 'phone';
 const EQUIPE_COLS: { key: EquipeSortKey; label: string }[] = [
-  { key: 'name',  label: 'Collaborateur'  },
-  { key: 'role',  label: 'Rôle'           },
-  { key: 'poste', label: 'Poste / Caisse' },
-  { key: 'email', label: 'Email'          },
-  { key: 'phone', label: 'Téléphone'      },
+  { key: 'name',  label: t('Collaborateur', 'Team member') },
+  { key: 'role',  label: t('Rôle', 'Role')                 },
+  { key: 'poste', label: t('Poste / Caisse', 'Post / Register') },
+  { key: 'email', label: t('Email', 'Email')               },
+  { key: 'phone', label: t('Téléphone', 'Phone')           },
 ];
 
 const AVATAR_COLORS = ['#C2566B','#7A9EC2','#7AB87A','#C2A07A','#9A7AC2','#7ABFBF'];
@@ -18,9 +19,9 @@ const avatarColor = (name: string) => AVATAR_COLORS[name.charCodeAt(0) % AVATAR_
 const initials    = (name: string) => name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
 const ROLE_LABEL: Record<string, string> = {
-  caissier:     'Caissier',
-  gestionnaire: 'Gestionnaire',
-  magasinier:   'Magasinier',
+  caissier:     t('Caissier', 'Cashier'),
+  gestionnaire: t('Gestionnaire', 'Stock manager'),
+  magasinier:   t('Magasinier', 'Warehouse keeper'),
 };
 const ROLE_COLOR: Record<string, { bg: string; color: string }> = {
   caissier:     { bg: 'var(--fs-wine-50)',  color: 'var(--fs-wine-700)'    },
@@ -53,8 +54,8 @@ export default function AdminEquipe() {
   // Map caisseId → caisse
   const caisseById = new Map(caisses.map(c => [c._id, c]));
   const getCaisseName = (u: UserRecord) => {
-    if (u.role !== 'caissier') return u.role === 'gestionnaire' ? 'Stock' : 'Entrepôt';
-    if (!u.caisseId) return '— Non assigné';
+    if (u.role !== 'caissier') return u.role === 'gestionnaire' ? t('Stock', 'Stock') : t('Entrepôt', 'Warehouse');
+    if (!u.caisseId) return t('— Non assigné', '— Unassigned');
     const c = caisseById.get(u.caisseId);
     return c ? `${c.nom} (${c.code})` : '—';
   };
@@ -83,19 +84,19 @@ export default function AdminEquipe() {
 
         {/* Header */}
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', paddingLeft: isMobile ? 52 : (isNarrow ? 16 : 28), flexShrink: 0 }}>
-          <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Personnel</p>
+          <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Personnel', 'Staff')}</p>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>
-            Équipe · {users.length} collaborateur{users.length !== 1 ? 's' : ''}
+            {t('Équipe', 'Team')} · {users.length} {t(`collaborateur${users.length !== 1 ? 's' : ''}`, `team member${users.length !== 1 ? 's' : ''}`)}
           </h1>
         </div>
 
         {/* Stats */}
         <div style={{ display: 'flex', flexWrap: isNarrow ? 'wrap' : 'nowrap', gap: 12, padding: isNarrow ? '14px 16px' : '14px 28px', flexShrink: 0 }}>
           {[
-            { label: 'Caissiers',     count: byRole('caissier'),     ...ROLE_COLOR.caissier     },
-            { label: 'Gestionnaires', count: byRole('gestionnaire'), ...ROLE_COLOR.gestionnaire },
-            { label: 'Magasiniers',   count: byRole('magazinier'),   ...ROLE_COLOR.magazinier   },
-            { label: 'Total',         count: users.length, bg: '#fff', color: 'var(--fs-ink-700)' },
+            { label: t('Caissiers', 'Cashiers'),           count: byRole('caissier'),     ...ROLE_COLOR.caissier     },
+            { label: t('Gestionnaires', 'Stock managers'), count: byRole('gestionnaire'), ...ROLE_COLOR.gestionnaire },
+            { label: t('Magasiniers', 'Warehouse keepers'), count: byRole('magazinier'),   ...ROLE_COLOR.magazinier   },
+            { label: t('Total', 'Total'),                  count: users.length, bg: '#fff', color: 'var(--fs-ink-700)' },
           ].map(s => (
             <div key={s.label} style={{ background: s.bg, border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 18px', minWidth: 110, flex: isMobile ? '1 1 40%' : undefined }}>
               <div style={{ fontSize: 24, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: s.color }}>{s.count}</div>
@@ -107,10 +108,10 @@ export default function AdminEquipe() {
         {/* Table */}
         <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '0 16px 28px' : '0 28px 28px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13, padding: '60px 0' }}>Chargement…</div>
+            <div style={{ textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13, padding: '60px 0' }}>{t('Chargement…', 'Loading…')}</div>
           ) : users.length === 0 ? (
             <div style={{ textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, padding: '60px 0' }}>
-              Aucun collaborateur trouvé.
+              {t('Aucun collaborateur trouvé.', 'No team member found.')}
             </div>
           ) : (
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', overflowX: isNarrow ? 'auto' : 'hidden' }}>

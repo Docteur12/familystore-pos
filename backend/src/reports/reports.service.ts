@@ -48,17 +48,19 @@ export class ReportsService {
     @InjectModel(StockMovement.name) private movementModel: Model<StockMovementDocument>,
   ) {}
 
-  // Couleur de la boutique (RGB) pour les PDF — lue depuis les paramètres.
-  private async brandRgb(): Promise<[number, number, number]> {
+  // Identité de la boutique pour les documents générés (PDF, Excel) — lue
+  // depuis les paramètres du magasin, avec repli sur les valeurs historiques.
+  private async brand(): Promise<{ nom: string; nomMaj: string; signature: string; app: string; rgb: [number, number, number] }> {
     const fallback: [number, number, number] = [139, 26, 43];
-    try {
-      const s = await this.settingsModel.findOne().lean();
-      const hex = (s as any)?.couleurPrincipale as string | undefined;
-      if (hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
-        return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
-      }
-    } catch { /* défaut */ }
-    return fallback;
+    let s: any = null;
+    try { s = await this.settingsModel.findOne().lean(); } catch { /* défaut */ }
+    const nom = (s?.nomMagasin || 'Family Store').trim();
+    const signature = (s?.signatureTicket ?? '').trim();          // ex. « BY RDCT »
+    const hex = s?.couleurPrincipale as string | undefined;
+    const rgb: [number, number, number] = hex && /^#[0-9A-Fa-f]{6}$/.test(hex)
+      ? [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)]
+      : fallback;
+    return { nom, nomMaj: nom.toUpperCase(), signature, app: `${nom} POS`, rgb };
   }
 
   // ── Helpers données ───────────────────────────────────────────────────────
@@ -455,6 +457,7 @@ export class ReportsService {
   // ── PDF journalier ─────────────────────────────────────────────────────────
 
   async generateDailyPdf(dateStr?: string): Promise<Buffer> {
+    const B = await this.brand();
     const date = dateStr ? new Date(dateStr) : new Date();
     const { sales, expenses, start } = await this.fetchDayData(date);
 
@@ -474,7 +477,7 @@ export class ReportsService {
 
     // Palette
     const C = {
-      bordeaux: await this.brandRgb(),
+      bordeaux: B.rgb,
       gold:     [201, 168, 76],
       cream:    [245, 240, 232],
       light:    [249, 250, 251],
@@ -497,12 +500,12 @@ export class ReportsService {
     color(C.white);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(22);
-    doc.text('FAMILY STORE', ML, 36);
+    doc.text(B.nomMaj, ML, 36);
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     color(C.gold);
-    doc.text('by RDCT', ML, 53);
+    if (B.signature) doc.text(B.signature.toLowerCase(), ML, 53);
 
     color([210, 210, 210]);
     doc.setFontSize(8);
@@ -620,7 +623,7 @@ export class ReportsService {
     fill(C.bordeaux); doc.rect(0, 820, W, 22, 'F');
     color([200, 200, 200]); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
     doc.text(
-      `Family Store POS — by RDCT  •  Rapport généré le ${new Date().toLocaleString('fr-FR')}`,
+      `${B.app}${B.signature ? ' — ' + B.signature.toLowerCase() : ''}  •  Rapport généré le ${new Date().toLocaleString('fr-FR')}`,
       W / 2, 834, { align: 'center' },
     );
 
@@ -630,6 +633,7 @@ export class ReportsService {
   // ── Excel journalier ───────────────────────────────────────────────────────
 
   async generateDailyExcel(dateStr?: string): Promise<Buffer> {
+    const B = await this.brand();
     const date = dateStr ? new Date(dateStr) : new Date();
     const { sales, start } = await this.fetchDayData(date);
 
@@ -637,7 +641,7 @@ export class ReportsService {
 
     const ExcelJS = require('exceljs');
     const wb      = new ExcelJS.Workbook();
-    wb.creator    = 'Family Store POS by RDCT';
+    wb.creator    = B.app;
     wb.created    = new Date();
 
     const A = {
@@ -661,7 +665,7 @@ export class ReportsService {
     // Titre
     ws.mergeCells('A1:F1');
     const t1 = ws.getCell('A1');
-    t1.value     = `FAMILY STORE by RDCT — Ventes du jour`;
+    t1.value     = `${B.nomMaj}${B.signature ? ' ' + B.signature.toLowerCase() : ''} — Ventes du jour`;
     t1.fill      = hFill(A.bordeaux);
     t1.font      = { bold: true, color: { argb: A.white }, size: 13 };
     t1.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -736,6 +740,7 @@ export class ReportsService {
   // ── PDF mensuel ─────────────────────────────────────────────────────────────
 
   async generateMonthlyPdf(year: number, month: number): Promise<Buffer> {
+    const B = await this.brand();
     const { sales, expenses, start } = await this.fetchMonthData(year, month);
     const { totalCA, totalBenefice } = this.computeSaleTotals(sales);
     const totalDep    = expenses.reduce((s, e) => s + e.amount, 0);
@@ -747,7 +752,7 @@ export class ReportsService {
 
     const W = 595, ML = 40, MR = 555, UW = 515;
     const C = {
-      bordeaux: await this.brandRgb(),
+      bordeaux: B.rgb,
       gold:     [201, 168, 76] as [number,number,number],
       cream:    [245, 240, 232] as [number,number,number],
       light:    [249, 250, 251] as [number,number,number],
@@ -766,9 +771,9 @@ export class ReportsService {
     // ── HEADER ────────────────────────────────────────────────────────────────
     fill(C.bordeaux); doc.rect(0, 0, W, 78, 'F');
     color(C.white); doc.setFont('helvetica', 'bold'); doc.setFontSize(22);
-    doc.text('FAMILY STORE', ML, 36);
+    doc.text(B.nomMaj, ML, 36);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    color(C.gold); doc.text('by RDCT', ML, 53);
+    color(C.gold); if (B.signature) doc.text(B.signature.toLowerCase(), ML, 53);
     color([210, 210, 210] as any); doc.setFontSize(8);
     doc.text('Point de Vente — Logiciel de caisse', ML, 66);
 
@@ -901,7 +906,7 @@ export class ReportsService {
     fill(C.bordeaux); doc.rect(0, 820, W, 22, 'F');
     color([200, 200, 200] as any); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
     doc.text(
-      `Family Store POS — by RDCT  •  Rapport généré le ${new Date().toLocaleString('fr-FR')}`,
+      `${B.app}${B.signature ? ' — ' + B.signature.toLowerCase() : ''}  •  Rapport généré le ${new Date().toLocaleString('fr-FR')}`,
       W / 2, 834, { align: 'center' },
     );
 
@@ -911,6 +916,7 @@ export class ReportsService {
   // ── Excel mensuel ──────────────────────────────────────────────────────────
 
   async generateMonthlyExcel(monthStr?: string): Promise<Buffer> {
+    const B = await this.brand();
     let year: number, month: number;
     if (monthStr && /^\d{4}-\d{2}$/.test(monthStr)) {
       [year, month] = monthStr.split('-').map(Number);
@@ -929,7 +935,7 @@ export class ReportsService {
     // ExcelJS
     const ExcelJS = require('exceljs');
     const wb      = new ExcelJS.Workbook();
-    wb.creator    = 'Family Store POS by RDCT';
+    wb.creator    = B.app;
     wb.created    = new Date();
 
     // ── Couleurs ──────────────────────────────────────────────────────────────
@@ -986,7 +992,7 @@ export class ReportsService {
 
     // ── FEUILLE 1 : Ventes ────────────────────────────────────────────────────
     const ws1 = wb.addWorksheet('Ventes');
-    addTitle(ws1, `FAMILY STORE by RDCT — Ventes — ${monthLabel}`, 7);
+    addTitle(ws1, `${B.nomMaj}${B.signature ? ' ' + B.signature.toLowerCase() : ''} — Ventes — ${monthLabel}`, 7);
 
     ws1.columns = [
       { key: 'date',    width: 13 },
@@ -1048,7 +1054,7 @@ export class ReportsService {
 
     // ── FEUILLE 2 : Dépenses ──────────────────────────────────────────────────
     const ws2 = wb.addWorksheet('Dépenses');
-    addTitle(ws2, `FAMILY STORE by RDCT — Dépenses — ${monthLabel}`, 4);
+    addTitle(ws2, `${B.nomMaj}${B.signature ? ' ' + B.signature.toLowerCase() : ''} — Dépenses — ${monthLabel}`, 4);
 
     ws2.columns = [
       { key: 'date',   width: 13 },
@@ -1096,7 +1102,7 @@ export class ReportsService {
 
     // ── FEUILLE 3 : Résumé ────────────────────────────────────────────────────
     const ws3 = wb.addWorksheet('Résumé');
-    addTitle(ws3, `FAMILY STORE by RDCT — Résumé — ${monthLabel}`, 2);
+    addTitle(ws3, `${B.nomMaj}${B.signature ? ' ' + B.signature.toLowerCase() : ''} — Résumé — ${monthLabel}`, 2);
     ws3.columns = [{ key: 'label', width: 40 }, { key: 'val', width: 22 }];
 
     const section = (label: string, rowN: number) => {
@@ -1318,11 +1324,12 @@ export class ReportsService {
 
   // ── Export : fiche comptable du mois (PDF) ─────────────────────────────────
   async generateComptaPdf(year: number, month: number): Promise<Buffer> {
+    const B = await this.brand();
     const stats = await this.statsComptaMonth(year, month);
     const { jsPDF } = require('jspdf');
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     const W = 595, ML = 40, MR = W - 40, UW = MR - ML;
-    const bordeaux = await this.brandRgb();
+    const bordeaux = B.rgb;
     // Espace insécable fin (fr-FR) remplacé : la police Helvetica de jsPDF le rend en « / »
     const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR').replace(/[  ]/g, ' ');
 
@@ -1337,7 +1344,7 @@ export class ReportsService {
     doc.setFontSize(12);
     doc.text(stats.label.charAt(0).toUpperCase() + stats.label.slice(1), ML, 60);
     doc.setFontSize(9);
-    doc.text(`Éditée le ${new Date().toLocaleDateString('fr-FR')} · Family Store`, MR, 60, { align: 'right' });
+    doc.text(`Éditée le ${new Date().toLocaleDateString('fr-FR')} · ${B.nom}`, MR, 60, { align: 'right' });
 
     // Compte de résultat
     let y = 116;
@@ -1413,7 +1420,7 @@ export class ReportsService {
 
     doc.setFontSize(8);
     doc.setTextColor(107, 114, 128);
-    doc.text('Document généré automatiquement par Family Store POS', ML, 812);
+    doc.text(`Document généré automatiquement par ${B.app}`, ML, 812);
     return Buffer.from(doc.output('arraybuffer'));
   }
 }

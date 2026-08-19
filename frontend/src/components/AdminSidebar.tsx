@@ -4,8 +4,10 @@ import { getTokenPayload } from '../api/dashboard';
 import { updateUser } from '../api/auth';
 import { logAccesEspace } from '../api/audit';
 import { useSettings } from '../contexts/SettingsContext';
+import type { ModuleId } from '../api/settings';
 import { useIsMobile } from '../hooks/useIsMobile';
 import logoFs from '../assets/logo-fs.jpg';
+import { t } from '../i18n';
 
 const BG       = 'var(--fs-wine-900)';
 const ACT      = 'var(--fs-wine-700)';
@@ -44,48 +46,51 @@ const D = {
   magSpace:     'M1 3h15v13H1zM16 8h4l3 3v5h-7V8z',
 };
 
-const SECTIONS = [
+type NavItem = { id: string; label: string; icon: string; path: string; external?: boolean; module?: ModuleId };
+type NavSection = { title: string; items: NavItem[] };
+
+const SECTIONS: NavSection[] = [
   {
-    title: 'Pilotage',
+    title: t('Pilotage', 'Overview'),
     items: [
-      { id: 'dashboard',    label: 'Tableau de bord',    icon: D.dashboard,    path: '/admin/dashboard'     },
-      { id: 'rapports',     label: 'Rapports & analyses', icon: D.rapports,     path: '/admin/rapports'      },
-      { id: 'journal',      label: 'Journal des ventes',  icon: D.journal,      path: '/admin/journal'        },
-      { id: 'compta',       label: 'Comptabilité',        icon: D.compta,       path: '/admin/comptabilite'  },
-      { id: 'factures',     label: 'Historique factures', icon: D.factures,     path: '/admin/factures'       },
+      { id: 'dashboard',    label: t('Tableau de bord', 'Dashboard'),    icon: D.dashboard,    path: '/admin/dashboard'     },
+      { id: 'rapports',     label: t('Rapports & analyses', 'Reports & analytics'), icon: D.rapports,     path: '/admin/rapports'      },
+      { id: 'journal',      label: t('Journal des ventes', 'Sales journal'),  icon: D.journal,      path: '/admin/journal'        },
+      { id: 'compta',       label: t('Comptabilité', 'Accounting'),        icon: D.compta,       path: '/admin/comptabilite'  },
+      { id: 'factures',     label: t('Historique factures', 'Invoice history'), icon: D.factures,     path: '/admin/factures'       },
     ],
   },
   {
-    title: 'Personnel',
+    title: t('Personnel', 'Staff'),
     items: [
-      { id: 'equipe',        label: 'Équipe',            icon: D.equipe,        path: '/admin/equipe'        },
-      { id: 'caissiers',     label: 'Caissiers',          icon: D.caissiers,     path: '/admin/caissiers'     },
-      { id: 'gestionnaires', label: 'Gestionnaires',      icon: D.gestionnaires, path: '/admin/gestionnaires' },
-      { id: 'magaziniers',   label: 'Magasiniers',        icon: D.equipe,        path: '/admin/magaziniers'   },
-      { id: 'partenaires',   label: 'Partenaires',        icon: D.caissiers,     path: '/admin/partenaires'   },
-      { id: 'fournisseurs',  label: 'Fournisseurs',       icon: D.magSpace,      path: '/admin/fournisseurs'  },
-      { id: 'sessions',      label: 'Sessions de travail', icon: D.sessions,      path: '/admin/sessions'      },
-      { id: 'roles',         label: 'Rôles & accès',      icon: D.roles,         path: '/admin/roles'         },
+      { id: 'equipe',        label: t('Équipe', 'Team'),            icon: D.equipe,        path: '/admin/equipe'        },
+      { id: 'caissiers',     label: t('Caissiers', 'Cashiers'),          icon: D.caissiers,     path: '/admin/caissiers'     },
+      { id: 'gestionnaires', label: t('Gestionnaires', 'Stock managers'),      icon: D.gestionnaires, path: '/admin/gestionnaires' },
+      { id: 'magaziniers',   label: t('Magasiniers', 'Warehouse keepers'),        icon: D.equipe,        path: '/admin/magaziniers'   },
+      { id: 'partenaires',   label: t('Partenaires', 'Partners'),        icon: D.caissiers,     path: '/admin/partenaires',  module: 'partenaires' },
+      { id: 'fournisseurs',  label: t('Fournisseurs', 'Suppliers'),       icon: D.magSpace,      path: '/admin/fournisseurs'  },
+      { id: 'sessions',      label: t('Sessions de travail', 'Work sessions'), icon: D.sessions,      path: '/admin/sessions'      },
+      { id: 'roles',         label: t('Rôles & accès', 'Roles & access'),      icon: D.roles,         path: '/admin/roles'         },
     ],
   },
   {
-    title: 'Système',
+    title: t('Système', 'System'),
     items: [
-      { id: 'caisses',      label: 'Caisses',            icon: D.caisses,      path: '/admin/caisses'    },
-      { id: 'parametres',   label: 'Paramètres magasin', icon: D.parametres,   path: '/admin/parametres' },
-      { id: 'audit',        label: 'Audit & logs',       icon: D.audit,        path: '/admin/audit'      },
-      { id: 'exports',      label: 'Exports',            icon: D.exports,      path: '/admin/exports'    },
+      { id: 'caisses',      label: t('Caisses', 'Cash registers'),            icon: D.caisses,      path: '/admin/caisses'    },
+      { id: 'parametres',   label: t('Paramètres magasin', 'Store settings'), icon: D.parametres,   path: '/admin/parametres' },
+      { id: 'audit',        label: t('Audit & logs', 'Audit & logs'),       icon: D.audit,        path: '/admin/audit'      },
+      { id: 'exports',      label: t('Exports', 'Exports'),            icon: D.exports,      path: '/admin/exports'    },
       // Manuel d'utilisation (PDF servi par l'app) — s'ouvre dans un nouvel onglet
-      { id: 'manuel',       label: "Manuel d'utilisation", icon: D.manuel,     path: '/manuel-family-store.pdf', external: true },
+      { id: 'manuel',       label: t("Manuel d'utilisation", 'User manual'), icon: D.manuel,     path: '/manuel-family-store.pdf', external: true },
     ],
   },
   {
-    title: "Changer d'espace",
+    title: t("Changer d'espace", 'Switch workspace'),
     items: [
-      { id: 'go-caisse',     label: 'Caisse',           icon: D.caisseSpace, path: '/caisse'     },
-      { id: 'go-stock',      label: 'Gestion de stock', icon: D.stockSpace,  path: '/stocks'     },
-      { id: 'go-magazinier', label: 'Magasinier',       icon: D.magSpace,    path: '/magazinier' },
-      { id: 'go-partenaires',label: 'Partenaires',      icon: D.equipe,      path: '/partenaires' },
+      { id: 'go-caisse',     label: t('Caisse', 'Checkout'),           icon: D.caisseSpace, path: '/caisse'     },
+      { id: 'go-stock',      label: t('Gestion de stock', 'Inventory'), icon: D.stockSpace,  path: '/stocks'     },
+      { id: 'go-magazinier', label: t('Magasinier', 'Warehouse'),       icon: D.magSpace,    path: '/magazinier' },
+      { id: 'go-partenaires',label: t('Partenaires', 'Partners'),      icon: D.equipe,      path: '/partenaires', module: 'partenaires' },
     ],
   },
 ];
@@ -115,10 +120,10 @@ function MonCompteModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleSave = async () => {
-    if (!name.trim()) { setError('Le nom est obligatoire.'); return; }
-    if (newPwd && newPwd !== confirmPwd) { setError('Les mots de passe ne correspondent pas.'); return; }
-    if (newPwd && !oldPwd) { setError("Saisir l'ancien mot de passe pour changer."); return; }
-    if (newPwd && newPwd.length < 4) { setError('Le nouveau mot de passe doit contenir au moins 4 caractères.'); return; }
+    if (!name.trim()) { setError(t('Le nom est obligatoire.', 'Name is required.')); return; }
+    if (newPwd && newPwd !== confirmPwd) { setError(t('Les mots de passe ne correspondent pas.', 'Passwords do not match.')); return; }
+    if (newPwd && !oldPwd) { setError(t("Saisir l'ancien mot de passe pour changer.", 'Enter your current password to change it.')); return; }
+    if (newPwd && newPwd.length < 4) { setError(t('Le nouveau mot de passe doit contenir au moins 4 caractères.', 'The new password must be at least 4 characters long.')); return; }
 
     setLoading(true); setError(''); setSuccess('');
     const patch: Record<string, string> = {};
@@ -131,13 +136,13 @@ function MonCompteModal({ onClose }: { onClose: () => void }) {
 
     try {
       await updateUser(payload!.sub, patch);
-      setSuccess('Profil mis à jour. Reconnectez-vous pour voir les changements.');
+      setSuccess(t('Profil mis à jour. Reconnectez-vous pour voir les changements.', 'Profile updated. Log in again to see the changes.'));
       setTimeout(() => {
         if (newPwd) { localStorage.removeItem('access_token'); window.location.href = '/login'; }
         else onClose();
       }, 1500);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erreur');
+      setError(e instanceof Error ? e.message : t('Erreur', 'Error'));
     } finally { setLoading(false); }
   };
 
@@ -147,29 +152,29 @@ function MonCompteModal({ onClose }: { onClose: () => void }) {
       <div style={{ background: 'var(--fs-wine-900)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 14, width: '100%', maxWidth: 400, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>Mon compte</p>
-            <p style={{ color: 'rgba(245,235,217,0.5)', fontSize: 11, margin: '2px 0 0' }}>Modifier vos informations</p>
+            <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{t('Mon compte', 'My account')}</p>
+            <p style={{ color: 'rgba(245,235,217,0.5)', fontSize: 11, margin: '2px 0 0' }}>{t('Modifier vos informations', 'Edit your details')}</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.5)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 4 }}>×</button>
         </div>
         <div style={{ padding: '18px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {error   && <div style={{ background: 'rgba(194,62,36,0.2)', color: '#f88', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{error}</div>}
           {success && <div style={{ background: 'rgba(90,139,83,0.25)', color: '#9f9', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{success}</div>}
-          <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-gold-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Identité</p>
-          <div><label style={labelStyle}>Nom complet</label><input value={name} onChange={e => setName(e.target.value)} style={inputStyle} placeholder="Prénom Nom"/></div>
+          <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-gold-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{t('Identité', 'Identity')}</p>
+          <div><label style={labelStyle}>{t('Nom complet', 'Full name')}</label><input value={name} onChange={e => setName(e.target.value)} style={inputStyle} placeholder={t('Prénom Nom', 'First name Last name')}/></div>
           <div><label style={labelStyle}>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} placeholder="email@familystore.cm"/></div>
-          <div><label style={labelStyle}>Téléphone</label><input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} placeholder="+237 6 XX XX XX XX"/></div>
-          <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-gold-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '4px 0 0' }}>Changer le mot de passe</p>
-          <div><label style={labelStyle}>Ancien mot de passe</label><input type="password" value={oldPwd} onChange={e => setOldPwd(e.target.value)} style={inputStyle} placeholder="Mot de passe actuel"/></div>
-          <div><label style={labelStyle}>Nouveau mot de passe</label><input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} style={inputStyle} placeholder="Min. 4 caractères"/></div>
-          <div><label style={labelStyle}>Confirmer le nouveau mot de passe</label><input type="password" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} style={inputStyle} placeholder="Répéter le mot de passe"/></div>
+          <div><label style={labelStyle}>{t('Téléphone', 'Phone')}</label><input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} placeholder="+237 6 XX XX XX XX"/></div>
+          <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-gold-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '4px 0 0' }}>{t('Changer le mot de passe', 'Change password')}</p>
+          <div><label style={labelStyle}>{t('Ancien mot de passe', 'Current password')}</label><input type="password" value={oldPwd} onChange={e => setOldPwd(e.target.value)} style={inputStyle} placeholder={t('Mot de passe actuel', 'Current password')}/></div>
+          <div><label style={labelStyle}>{t('Nouveau mot de passe', 'New password')}</label><input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)} style={inputStyle} placeholder={t('Min. 4 caractères', 'Min. 4 characters')}/></div>
+          <div><label style={labelStyle}>{t('Confirmer le nouveau mot de passe', 'Confirm new password')}</label><input type="password" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} style={inputStyle} placeholder={t('Répéter le mot de passe', 'Repeat the password')}/></div>
         </div>
         <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', gap: 10, flexShrink: 0 }}>
           <button onClick={handleSave} disabled={loading} style={{ flex: 2, padding: '11px', background: 'var(--fs-gold-500)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
-            {loading ? 'Enregistrement…' : 'Enregistrer'}
+            {loading ? t('Enregistrement…', 'Saving…') : t('Enregistrer', 'Save')}
           </button>
           <button onClick={onClose} style={{ flex: 1, padding: '11px', background: 'none', border: '1.5px solid rgba(255,255,255,0.15)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'rgba(245,235,217,0.6)' }}>
-            Annuler
+            {t('Annuler', 'Cancel')}
           </button>
         </div>
       </div>
@@ -183,7 +188,7 @@ function HamburgerBtn({ isOpen, onClick, left }: { isOpen: boolean; onClick: () 
   return (
     <button
       onClick={onClick}
-      aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+      aria-label={isOpen ? t('Fermer le menu', 'Close menu') : t('Ouvrir le menu', 'Open menu')}
       className="fs-hamburger"
       style={{
         position: 'fixed', top: 12, left,
@@ -206,7 +211,9 @@ export default function AdminSidebar() {
   const payload  = getTokenPayload();
   const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
   const [showSettings, setShowSettings] = useState(false);
-  const { settings } = useSettings();
+  const { settings, hasModule } = useSettings();
+  // Sections filtrées selon les modules activés pour ce magasin
+  const sections = SECTIONS.map(s => ({ ...s, items: s.items.filter(it => !it.module || hasModule(it.module)) }));
 
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
@@ -216,7 +223,7 @@ export default function AdminSidebar() {
   // Fermer quand on passe en desktop
   useEffect(() => { if (!isMobile) setIsOpen(false); }, [isMobile]);
 
-  const activeId = SECTIONS.flatMap(s => s.items).find(it =>
+  const activeId = sections.flatMap(s => s.items).find(it =>
     location.pathname === it.path || location.pathname.startsWith(it.path + '/'),
   )?.id ?? 'dashboard';
 
@@ -257,12 +264,12 @@ export default function AdminSidebar() {
           <div style={{ background: '#fdf9f0', borderRadius: 10, border: '1px solid var(--fs-gold-400)', padding: '6px 8px', overflow: 'hidden' }}>
             <img src={settings.logoUrl || logoFs} alt={settings.nomMagasin} style={{ width: '100%', display: 'block', borderRadius: 6 }}/>
           </div>
-          <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.14em', textTransform: 'uppercase', textAlign: 'center', marginTop: 6 }}>Administration</div>
+          <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.14em', textTransform: 'uppercase', textAlign: 'center', marginTop: 6 }}>{t('Administration', 'Administration')}</div>
         </div>
 
         {/* Nav */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '10px 0' }}>
-          {SECTIONS.map(section => (
+          {sections.map(section => (
             <div key={section.title} style={{ marginBottom: 8 }}>
               <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', padding: '6px 14px 4px', margin: 0 }}>
                 {section.title}
@@ -310,18 +317,18 @@ export default function AdminSidebar() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
             <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>
-              {payload?.role === 'patron' ? 'Administrateur'
-                : payload?.role === 'gestionnaire' ? 'Chef de stock'
-                : payload?.role === 'magazinier'   ? 'Manutentionnaire'
-                : payload?.role === 'caissier'     ? 'Caissier(e)'
-                : 'Administrateur'}
+              {payload?.role === 'patron' ? t('Administrateur', 'Administrator')
+                : payload?.role === 'gestionnaire' ? t('Chef de stock', 'Stock manager')
+                : payload?.role === 'magazinier'   ? t('Manutentionnaire', 'Warehouse keeper')
+                : payload?.role === 'caissier'     ? t('Caissier(e)', 'Cashier')
+                : t('Administrateur', 'Administrator')}
             </div>
           </div>
-          <button onClick={() => setShowSettings(true)} title="Paramètres du compte"
+          <button onClick={() => setShowSettings(true)} title={t('Paramètres du compte', 'Account settings')}
             style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.4)', cursor: 'pointer', display: 'flex', padding: 2, flexShrink: 0 }}>
             <I d={D.parametres} size={13}/>
           </button>
-          <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }} title="Déconnexion"
+          <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }} title={t('Déconnexion', 'Log out')}
             style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.4)', cursor: 'pointer', display: 'flex', padding: 2, flexShrink: 0 }}>
             <I d={D.logout} size={13}/>
           </button>

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useSettings } from '../contexts/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 
 /**
@@ -186,6 +187,8 @@ const livQte   = (l: Liv) => l.lignes.reduce((s, x) => s + x.quantite, 0);
 const fmtJour  = (d: string) => { try { return new Date(d).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' }); } catch { return d; } };
 
 export default function PartenairesAgencesMaquette() {
+  const { settings } = useSettings();
+  const nomMagasin = settings.nomMagasin || 'Family Store';
   const navigate = useNavigate();
   const [data, setData] = useState<Part[]>(DATA0);
   const [view, setView] = useState<'detail' | 'dashboard' | 'apport' | 'historique'>('detail');
@@ -297,7 +300,7 @@ export default function PartenairesAgencesMaquette() {
       {/* Sidebar FamilyStore */}
       <aside style={{ width: 210, background: 'var(--fs-wine-900)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '18px 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>Family Store</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>{nomMagasin}</div>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Partenaires</div>
         </div>
 

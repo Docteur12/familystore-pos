@@ -1,10 +1,11 @@
 import { authHeaders } from './http';
+import { t } from '../i18n';
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(path, { headers: authHeaders() });
-  if (res.status === 401) throw new Error('Non authentifié');
-  if (res.status === 403) throw new Error('Accès réservé au patron');
-  if (!res.ok) throw new Error(`Erreur ${res.status}`);
+  if (res.status === 401) throw new Error(t('Non authentifié', 'Not authenticated'));
+  if (res.status === 403) throw new Error(t('Accès réservé au patron', 'Owner access only'));
+  if (!res.ok) throw new Error(t(`Erreur ${res.status}`, `Error ${res.status}`));
   return res.json();
 }
 
@@ -100,9 +101,9 @@ export const getStatsWeek = () => getStatsPeriod(7);
 
 export async function downloadFile(url: string, filename: string): Promise<void> {
   const res = await fetch(url, { headers: authHeaders() });
-  if (res.status === 401) throw new Error('Non authentifié');
-  if (res.status === 403) throw new Error('Accès réservé au patron');
-  if (!res.ok) throw new Error(`Erreur génération rapport (${res.status})`);
+  if (res.status === 401) throw new Error(t('Non authentifié', 'Not authenticated'));
+  if (res.status === 403) throw new Error(t('Accès réservé au patron', 'Owner access only'));
+  if (!res.ok) throw new Error(t(`Erreur génération rapport (${res.status})`, `Failed to generate report (${res.status})`));
   const blob = await res.blob();
   const href = URL.createObjectURL(blob);
   const a = document.createElement('a');

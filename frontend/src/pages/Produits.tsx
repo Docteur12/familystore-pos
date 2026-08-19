@@ -8,6 +8,7 @@ import {
   updateProduct,
 } from '../api/products';
 import ToastContainer, { useToast } from '../components/Toast';
+import { t, dateLocale } from '../i18n';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ const EMPTY: ProductPayload = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const fmt = (n: number) => n.toLocaleString('fr-FR') + ' FCFA';
+const fmt = (n: number) => n.toLocaleString(dateLocale()) + ' FCFA';
 
 function statusColor(p: Product) {
   if (p.stock === 0)                   return 'text-red-600 font-black';
@@ -45,7 +46,7 @@ export default function Produits() {
     try {
       setProducts(await getAllProducts());
     } catch (e: any) {
-      setLoadError(e.message ?? 'Erreur chargement');
+      setLoadError(e.message ?? t('Erreur chargement', 'Loading error'));
     } finally {
       setLoading(false);
     }
@@ -102,15 +103,15 @@ export default function Produits() {
       if (editTarget) {
         const updated = await updateProduct(editTarget._id, form);
         setProducts(prev => prev.map(p => p._id === updated._id ? updated : p));
-        addToast(`"${updated.name}" mis à jour`, 'success');
+        addToast(t(`"${updated.name}" mis à jour`, `"${updated.name}" updated`), 'success');
       } else {
         const created = await createProduct(form);
         setProducts(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-        addToast(`"${created.name}" ajouté au catalogue`, 'success');
+        addToast(t(`"${created.name}" ajouté au catalogue`, `"${created.name}" added to the catalogue`), 'success');
       }
       closeModal();
     } catch (e: any) {
-      addToast(e.message ?? 'Erreur', 'error');
+      addToast(e.message ?? t('Erreur', 'Error'), 'error');
     } finally {
       setSaving(false);
     }
@@ -120,14 +121,14 @@ export default function Produits() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (p: Product) => {
-    if (!window.confirm(`Supprimer "${p.name}" définitivement ?`)) return;
+    if (!window.confirm(t(`Supprimer "${p.name}" définitivement ?`, `Delete "${p.name}" permanently?`))) return;
     setDeletingId(p._id);
     try {
       await deleteProduct(p._id);
       setProducts(prev => prev.filter(x => x._id !== p._id));
-      addToast(`"${p.name}" supprimé`, 'success');
+      addToast(t(`"${p.name}" supprimé`, `"${p.name}" deleted`), 'success');
     } catch (e: any) {
-      addToast(e.message ?? 'Erreur suppression', 'error');
+      addToast(e.message ?? t('Erreur suppression', 'Deletion error'), 'error');
     } finally {
       setDeletingId(null);
     }
@@ -154,7 +155,7 @@ export default function Produits() {
       <header className="bg-white border-b border-gray-100 flex items-center
         justify-between px-6 py-3 shrink-0 shadow-sm">
         <div className="flex items-center gap-3">
-          <h2 className="font-bold text-bordeaux text-lg">Produits</h2>
+          <h2 className="font-bold text-bordeaux text-lg">{t('Produits', 'Products')}</h2>
           {!loading && (
             <span className="bg-cream text-gray-500 text-xs font-semibold
               px-2 py-0.5 rounded-full border border-gray-200">
@@ -169,7 +170,7 @@ export default function Produits() {
             border-2 border-gold shadow-sm"
         >
           <span className="text-lg leading-none">+</span>
-          <span>Nouveau produit</span>
+          <span>{t('Nouveau produit', 'New product')}</span>
         </button>
       </header>
 
@@ -179,7 +180,7 @@ export default function Produits() {
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Rechercher par nom, code-barres ou catégorie…"
+          placeholder={t('Rechercher par nom, code-barres ou catégorie…', 'Search by name, barcode or category…')}
           className="w-full max-w-md px-4 py-2.5 rounded-xl border-2 border-gray-200
             focus:border-bordeaux outline-none text-sm bg-white transition-colors"
         />
@@ -190,7 +191,7 @@ export default function Produits() {
         <div className="mx-6 mb-2 bg-red-50 border border-red-200 text-red-700
           rounded-xl px-4 py-2 text-sm flex items-center gap-2">
           <span>✕</span>{loadError}
-          <button onClick={load} className="ml-auto underline text-xs">Réessayer</button>
+          <button onClick={load} className="ml-auto underline text-xs">{t('Réessayer', 'Retry')}</button>
         </div>
       )}
 
@@ -206,15 +207,15 @@ export default function Produits() {
             text-gray-300 gap-2">
             <span className="text-5xl">🏷️</span>
             <span className="text-sm">
-              {search ? 'Aucun résultat' : 'Catalogue vide — ajoutez un produit'}
+              {search ? t('Aucun résultat', 'No results') : t('Catalogue vide — ajoutez un produit', 'Catalogue is empty — add a product')}
             </span>
           </div>
         ) : (
           <table className="w-full text-sm border-collapse fs-grid">
             <thead>
               <tr>
-                {['Produit', 'Code-barres', 'Catégorie', 'Prix vente',
-                  "Coût d'achat", 'Stock', 'Seuil', ''].map(h => (
+                {[t('Produit', 'Product'), t('Code-barres', 'Barcode'), t('Catégorie', 'Category'), t('Prix vente', 'Selling price'),
+                  t("Coût d'achat", 'Purchase cost'), t('Stock', 'Stock'), t('Seuil', 'Threshold'), ''].map(h => (
                   <th key={h} className="pb-3 pt-1 text-left text-xs text-gray-400
                     uppercase tracking-wider font-semibold pr-4">
                     {h}
@@ -259,7 +260,7 @@ export default function Produits() {
                           hover:bg-bordeaux/10 text-bordeaux border border-bordeaux/20
                           font-medium transition-colors"
                       >
-                        Modifier
+                        {t('Modifier', 'Edit')}
                       </button>
                       <button
                         onClick={() => handleDelete(p)}
@@ -268,7 +269,7 @@ export default function Produits() {
                           hover:bg-red-100 text-red-600 border border-red-200
                           font-medium transition-colors disabled:opacity-40"
                       >
-                        {deletingId === p._id ? '…' : 'Supprimer'}
+                        {deletingId === p._id ? '…' : t('Supprimer', 'Delete')}
                       </button>
                     </div>
                   </td>
@@ -294,7 +295,7 @@ export default function Produits() {
               justify-between">
               <div>
                 <p className="text-cream font-black text-sm tracking-widest uppercase">
-                  {editTarget ? 'Modifier le produit' : 'Nouveau produit'}
+                  {editTarget ? t('Modifier le produit', 'Edit product') : t('Nouveau produit', 'New product')}
                 </p>
                 {editTarget && (
                   <p className="text-gold text-xs mt-0.5">{editTarget.name}</p>
@@ -313,7 +314,7 @@ export default function Produits() {
             <form onSubmit={handleSave} className="px-6 py-5 flex flex-col gap-4">
 
               {/* Code-barres — scan first */}
-              <F label="Code-barres (scan ou saisie)">
+              <F label={t('Code-barres (scan ou saisie)', 'Barcode (scan or type)')}>
                 <div className="relative">
                   <input
                     ref={barcodeRef}
@@ -321,7 +322,7 @@ export default function Produits() {
                     value={form.barcode ?? ''}
                     onChange={e => setField('barcode', e.target.value)}
                     onKeyDown={handleBarcodeScan}
-                    placeholder="Scannez ou tapez le code-barres → Entrée"
+                    placeholder={t('Scannez ou tapez le code-barres → Entrée', 'Scan or type the barcode → Enter')}
                     className={cx}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2
@@ -330,34 +331,34 @@ export default function Produits() {
                   </span>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
-                  Appuyez sur Entrée après le scan pour passer au nom
+                  {t('Appuyez sur Entrée après le scan pour passer au nom', 'Press Enter after scanning to move to the name')}
                 </p>
               </F>
 
               {/* Nom */}
-              <F label="Nom du produit *">
+              <F label={t('Nom du produit *', 'Product name *')}>
                 <input
                   ref={nameRef}
                   required
                   type="text"
                   value={form.name}
                   onChange={e => setField('name', e.target.value)}
-                  placeholder="Ex: Huile Végétale Diamaor 1L"
+                  placeholder={t('Ex: Huile Végétale Diamaor 1L', 'E.g. Diamaor Vegetable Oil 1L')}
                   className={cx}
                 />
               </F>
 
               {/* Catégorie + Unité */}
               <div className="grid grid-cols-2 gap-3">
-                <F label="Catégorie">
+                <F label={t('Catégorie', 'Category')}>
                   <select value={form.category ?? ''}
                     onChange={e => setField('category', e.target.value)}
                     className={cx}>
-                    <option value="">— Aucune —</option>
+                    <option value="">{t('— Aucune —', '— None —')}</option>
                     {CATEGORIES.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </F>
-                <F label="Unité *">
+                <F label={t('Unité *', 'Unit *')}>
                   <select required value={form.unit}
                     onChange={e => setField('unit', e.target.value)}
                     className={cx}>
@@ -368,12 +369,12 @@ export default function Produits() {
 
               {/* Prix vente + Coût */}
               <div className="grid grid-cols-2 gap-3">
-                <F label="Prix de vente (FCFA) *">
+                <F label={t('Prix de vente (FCFA) *', 'Selling price (FCFA) *')}>
                   <input required type="number" min={0} value={form.price}
                     onChange={e => setField('price', Number(e.target.value))}
                     className={cx} />
                 </F>
-                <F label="Coût d'achat (FCFA) *">
+                <F label={t("Coût d'achat (FCFA) *", 'Purchase cost (FCFA) *')}>
                   <input required type="number" min={0} value={form.costPrice}
                     onChange={e => setField('costPrice', Number(e.target.value))}
                     className={cx} />
@@ -384,26 +385,26 @@ export default function Produits() {
               {form.price > 0 && form.costPrice >= 0 && (
                 <div className="bg-cream/60 border border-cream-dark rounded-xl
                   px-4 py-2.5 flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Marge bénéficiaire</span>
+                  <span className="text-gray-500">{t('Marge bénéficiaire', 'Profit margin')}</span>
                   <span className={`font-bold ${
                     form.price > form.costPrice ? 'text-green-600' : 'text-red-600'
                   }`}>
                     {form.price > 0
                       ? Math.round(((form.price - form.costPrice) / form.price) * 100)
                       : 0}%
-                    &nbsp;({(form.price - form.costPrice).toLocaleString('fr-FR')} FCFA)
+                    &nbsp;({(form.price - form.costPrice).toLocaleString(dateLocale())} FCFA)
                   </span>
                 </div>
               )}
 
               {/* Stock + Seuil auto */}
               <div className="grid grid-cols-2 gap-3">
-                <F label="Stock initial">
+                <F label={t('Stock initial', 'Initial stock')}>
                   <input type="number" min={0} value={form.stock}
                     onChange={e => setField('stock', Number(e.target.value))}
                     className={cx} />
                 </F>
-                <F label="Seuil d'alerte (auto 10%)">
+                <F label={t("Seuil d'alerte (auto 10%)", 'Alert threshold (auto 10%)')}>
                   <div className={`${cx} bg-gray-50 text-gray-500 flex items-center justify-between cursor-not-allowed`}>
                     <span className="font-bold font-mono">
                       {Math.max(1, Math.ceil((Number(form.stock) || 0) * 0.10))}
@@ -421,7 +422,7 @@ export default function Produits() {
                   className="flex-1 py-3 border-2 border-gray-200 rounded-xl text-sm
                     text-gray-600 hover:bg-gray-50 font-medium transition-colors"
                 >
-                  Annuler
+                  {t('Annuler', 'Cancel')}
                 </button>
                 <button
                   type="submit"
@@ -434,7 +435,7 @@ export default function Produits() {
                     <span className="w-4 h-4 border-2 border-cream/30 border-t-cream
                       rounded-full animate-spin" />
                   )}
-                  {editTarget ? 'Enregistrer les modifications' : 'Ajouter au catalogue'}
+                  {editTarget ? t('Enregistrer les modifications', 'Save changes') : t('Ajouter au catalogue', 'Add to catalogue')}
                 </button>
               </div>
             </form>

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { SettingsController } from './settings.controller';
+import { SettingsController, SettingsPublicController } from './settings.controller';
 import { SettingsService } from './settings.service';
 import { Settings, SettingsSchema } from './settings.schema';
 import { AuthModule } from '../auth/auth.module';
@@ -10,7 +10,7 @@ import { AuthModule } from '../auth/auth.module';
     MongooseModule.forFeature([{ name: Settings.name, schema: SettingsSchema }]),
     AuthModule,
   ],
-  controllers: [SettingsController],
+  controllers: [SettingsPublicController, SettingsController],
   providers: [SettingsService],
   exports: [SettingsService],
 })

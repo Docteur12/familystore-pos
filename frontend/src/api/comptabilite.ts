@@ -1,4 +1,5 @@
 import { authHeaders } from './http';
+import { t } from '../i18n';
 
 export interface DepenseCategorie {
   category: string;
@@ -29,6 +30,6 @@ export async function getComptaMonth(year: number, month: number): Promise<Compt
   const res = await fetch(`/api/reports/compta?year=${year}&month=${month}`, {
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Erreur chargement comptabilité');
+  if (!res.ok) throw new Error(t('Erreur chargement comptabilité', 'Failed to load accounting'));
   return res.json();
 }

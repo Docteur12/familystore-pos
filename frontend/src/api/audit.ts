@@ -1,4 +1,5 @@
 import { authHeaders } from './http';
+import { t } from '../i18n';
 
 export interface AuditLogEntry {
   _id:       string;
@@ -33,20 +34,20 @@ export async function getAuditLogs(params?: {
   if (params?.limit)  q.set('limit',  String(params.limit));
   const url = `/api/audit${q.toString() ? `?${q}` : ''}`;
   const res = await fetch(url, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement audit');
+  if (!res.ok) throw new Error(t('Erreur chargement audit', 'Failed to load audit log'));
   return res.json();
 }
 
 export async function getAuditStats(): Promise<AuditStats> {
   const res = await fetch('/api/audit/stats', { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur stats audit');
+  if (!res.ok) throw new Error(t('Erreur stats audit', 'Failed to load audit stats'));
   return res.json();
 }
 
 // Actions admin sur la caisse (ex. suppression de vente) — accessible au caissier.
 export async function getCaisseAudit(): Promise<AuditLogEntry[]> {
   const res = await fetch('/api/audit/caisse', { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement audit caisse');
+  if (!res.ok) throw new Error(t('Erreur chargement audit caisse', 'Failed to load register audit log'));
   return res.json();
 }
 

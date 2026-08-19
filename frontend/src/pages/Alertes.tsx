@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { getAllProducts, Product } from '../api/products';
+import { t, dateLocale } from '../i18n';
 
 type StockStatus = 'rupture' | 'critique' | 'alerte';
 
@@ -11,19 +12,19 @@ function getStatus(stock: number, threshold: number): StockStatus {
 
 const STATUS_STYLE: Record<StockStatus, { label: string; row: string; badge: string; bar: string }> = {
   rupture:  {
-    label: 'Rupture',
+    label: t('Rupture', 'Out of stock'),
     row:   'bg-red-50 border-l-4 border-l-red-500',
     badge: 'bg-red-100 text-red-700 border-red-300',
     bar:   'bg-red-500',
   },
   critique: {
-    label: 'Critique',
+    label: t('Critique', 'Critical'),
     row:   'bg-orange-50 border-l-4 border-l-orange-500',
     badge: 'bg-orange-100 text-orange-700 border-orange-300',
     bar:   'bg-orange-500',
   },
   alerte:   {
-    label: 'Alerte',
+    label: t('Alerte', 'Alert'),
     row:   'bg-amber-50 border-l-4 border-l-amber-400',
     badge: 'bg-amber-100 text-amber-700 border-amber-300',
     bar:   'bg-amber-400',
@@ -64,7 +65,7 @@ export default function Alertes() {
       setProducts(low);
       setLastRefresh(new Date());
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erreur chargement');
+      setError(err instanceof Error ? err.message : t('Erreur chargement', 'Loading error'));
     } finally {
       setLoading(false);
     }
@@ -87,7 +88,7 @@ export default function Alertes() {
       <header className="bg-white border-b border-gray-100 flex items-center justify-between
         px-6 py-3 shrink-0 shadow-sm">
         <div className="flex items-center gap-3">
-          <h2 className="font-bold text-bordeaux text-lg">Alertes Stock</h2>
+          <h2 className="font-bold text-bordeaux text-lg">{t('Alertes Stock', 'Stock alerts')}</h2>
           {products.length > 0 && (
             <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-1
               rounded-full animate-pulse">
@@ -97,14 +98,14 @@ export default function Alertes() {
         </div>
         <div className="flex items-center gap-3">
           <span className="text-gray-400 text-xs hidden sm:block">
-            Actualisé à {lastRefresh.toLocaleTimeString('fr-FR')}
+            {t('Actualisé à', 'Updated at')} {lastRefresh.toLocaleTimeString(dateLocale())}
           </span>
           <button
             onClick={fetchAlerts}
             disabled={loading}
             className="text-gray-400 hover:text-gray-700 transition-colors text-sm
               disabled:opacity-40"
-            title="Actualiser"
+            title={t('Actualiser', 'Refresh')}
           >
             ↻
           </button>
@@ -116,9 +117,9 @@ export default function Alertes() {
         {/* Summary cards */}
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: 'Ruptures',  count: ruptures,  color: 'border-red-200 bg-red-50',    num: 'text-red-600' },
-            { label: 'Critiques', count: critiques, color: 'border-orange-200 bg-orange-50', num: 'text-orange-600' },
-            { label: 'Alertes',   count: alertes,   color: 'border-amber-200 bg-amber-50', num: 'text-amber-600' },
+            { label: t('Ruptures', 'Out of stock'),  count: ruptures,  color: 'border-red-200 bg-red-50',    num: 'text-red-600' },
+            { label: t('Critiques', 'Critical'), count: critiques, color: 'border-orange-200 bg-orange-50', num: 'text-orange-600' },
+            { label: t('Alertes', 'Alerts'),   count: alertes,   color: 'border-amber-200 bg-amber-50', num: 'text-amber-600' },
           ].map(s => (
             <div key={s.label}
               className={`rounded-2xl border-2 ${s.color} px-4 py-3 text-center`}>
@@ -134,7 +135,7 @@ export default function Alertes() {
             px-4 py-3 text-sm flex items-center gap-2">
             <span>✕</span>{error}
             <button onClick={fetchAlerts} className="ml-auto underline text-xs">
-              Réessayer
+              {t('Réessayer', 'Retry')}
             </button>
           </div>
         )}
@@ -152,8 +153,8 @@ export default function Alertes() {
           <div className="flex flex-col items-center justify-center py-20
             text-gray-300 gap-3">
             <span className="text-5xl">✓</span>
-            <p className="font-semibold text-gray-400">Tous les stocks sont suffisants</p>
-            <p className="text-sm text-gray-300">Aucune alerte en ce moment</p>
+            <p className="font-semibold text-gray-400">{t('Tous les stocks sont suffisants', 'All stock levels are sufficient')}</p>
+            <p className="text-sm text-gray-300">{t('Aucune alerte en ce moment', 'No alerts at the moment')}</p>
           </div>
         )}
 
@@ -163,10 +164,10 @@ export default function Alertes() {
             <div className="px-5 py-3 border-b border-gray-100 flex items-center
               justify-between">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                Produits sous le seuil d'alerte
+                {t("Produits sous le seuil d'alerte", 'Products below alert threshold')}
               </p>
               <p className="text-xs text-gray-400">
-                {products.length} produit{products.length > 1 ? 's' : ''}
+                {products.length} {products.length > 1 ? t('produits', 'products') : t('produit', 'product')}
               </p>
             </div>
 
@@ -200,7 +201,7 @@ export default function Alertes() {
 
                     {/* Stock + bar */}
                     <div className="text-right shrink-0 hidden sm:block">
-                      <p className="text-xs text-gray-400 mb-1">Stock / Seuil</p>
+                      <p className="text-xs text-gray-400 mb-1">{t('Stock / Seuil', 'Stock / Threshold')}</p>
                       <StockBar stock={p.stock} threshold={p.alertThreshold} />
                     </div>
 
@@ -213,7 +214,7 @@ export default function Alertes() {
                         </span>
                       </p>
                       <p className="text-xs text-gray-400">
-                        seuil : {p.alertThreshold}
+                        {t('seuil :', 'threshold:')} {p.alertThreshold}
                       </p>
                     </div>
 
@@ -233,7 +234,7 @@ export default function Alertes() {
 
         {/* Notification hint */}
         <p className="text-center text-xs text-gray-400 pb-2">
-          Actualisation automatique toutes les minutes — autorisez les notifications navigateur pour les alertes en temps réel
+          {t('Actualisation automatique toutes les minutes — autorisez les notifications navigateur pour les alertes en temps réel', 'Automatic refresh every minute — allow browser notifications for real-time alerts')}
         </p>
       </main>
     </div>

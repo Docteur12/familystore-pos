@@ -31,6 +31,7 @@ export interface CreateExpensePayload {
 }
 
 import { authHeaders } from './http';
+import { t } from '../i18n';
 
 export async function createExpense(payload: CreateExpensePayload): Promise<Expense> {
   const res = await fetch('/api/expenses', {
@@ -38,15 +39,15 @@ export async function createExpense(payload: CreateExpensePayload): Promise<Expe
     headers: authHeaders(),
     body: JSON.stringify(payload),
   });
-  if (res.status === 401) throw new Error('Non authentifié');
-  if (!res.ok) throw new Error('Erreur lors de l\'ajout de la dépense');
+  if (res.status === 401) throw new Error(t('Non authentifié', 'Not authenticated'));
+  if (!res.ok) throw new Error(t('Erreur lors de l\'ajout de la dépense', 'Failed to add expense'));
   return res.json();
 }
 
 export async function getAllExpenses(): Promise<Expense[]> {
   const res = await fetch('/api/expenses', { headers: authHeaders() });
-  if (res.status === 401) throw new Error('Non authentifié');
-  if (!res.ok) throw new Error('Erreur chargement dépenses');
+  if (res.status === 401) throw new Error(t('Non authentifié', 'Not authenticated'));
+  if (!res.ok) throw new Error(t('Erreur chargement dépenses', 'Failed to load expenses'));
   return res.json();
 }
 
@@ -55,13 +56,13 @@ export async function deleteExpense(id: string): Promise<void> {
     method: 'DELETE',
     headers: authHeaders(),
   });
-  if (res.status === 401) throw new Error('Non authentifié');
-  if (!res.ok) throw new Error('Erreur lors de la suppression');
+  if (res.status === 401) throw new Error(t('Non authentifié', 'Not authenticated'));
+  if (!res.ok) throw new Error(t('Erreur lors de la suppression', 'Failed to delete'));
 }
 
 export async function getMonthStats(): Promise<MonthStats> {
   const res = await fetch('/api/expenses/stats/month', { headers: authHeaders() });
-  if (res.status === 401) throw new Error('Non authentifié');
-  if (!res.ok) throw new Error('Erreur chargement statistiques');
+  if (res.status === 401) throw new Error(t('Non authentifié', 'Not authenticated'));
+  if (!res.ok) throw new Error(t('Erreur chargement statistiques', 'Failed to load statistics'));
   return res.json();
 }

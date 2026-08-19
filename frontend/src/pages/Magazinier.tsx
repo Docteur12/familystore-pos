@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useSettings } from '../contexts/SettingsContext';
 import { getAllProducts, createProduct, updateProduct, setProductPrix, getProductByBarcode, Product } from '../api/products';
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
@@ -16,6 +17,7 @@ import {
 import { getFournisseurs } from '../api/fournisseurs';
 import { qtyUnitLabel } from '../utils/units';
 import StoreLogo from '../components/StoreLogo';
+import { t, dateLocale } from '../i18n';
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -96,13 +98,13 @@ const CAT_COLORS: Record<string, string> = {
   'bien-être': '#A8E0D4', 'maison': '#D4C8B8',
 };
 const catColor = (c?: string) => CAT_COLORS[c?.toLowerCase() ?? ''] ?? '#DDD4C8';
-function fmtN(n: number) { return n.toLocaleString('fr-FR'); }
+function fmtN(n: number) { return n.toLocaleString(dateLocale()); }
 
 type EtiqTemplate = 'mini' | 'standard' | 'grande';
 const ETIQ_TEMPLATES: { id: EtiqTemplate; label: string; size: string }[] = [
   { id: 'mini',     label: 'Mini',     size: '57×32 mm'  },
   { id: 'standard', label: 'Standard', size: '90×50 mm'  },
-  { id: 'grande',   label: 'Grande',   size: '100×70 mm' },
+  { id: 'grande',   label: t('Grande', 'Large'),   size: '100×70 mm' },
 ];
 
 function EtiqLabelCard({ product, template, selected, onToggle }: {
@@ -142,7 +144,7 @@ function EtiqLabelCard({ product, template, selected, onToggle }: {
       </div>
       {!isMini && (
         <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
-          {product.category ?? 'Non classé'}
+          {product.category ?? t('Non classé', 'Uncategorised')}
         </div>
       )}
       <div style={{ background: 'var(--fs-ivory)', borderRadius: 6, padding: '6px 8px', marginBottom: 8, textAlign: 'center', overflow: 'hidden' }}>
@@ -151,13 +153,13 @@ function EtiqLabelCard({ product, template, selected, onToggle }: {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <div>
-          {!isMini && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', fontWeight: 600, marginBottom: 1 }}>PRIX DE VENTE</div>}
+          {!isMini && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', fontWeight: 600, marginBottom: 1 }}>{t('PRIX DE VENTE', 'SELLING PRICE')}</div>}
           <div style={{ fontSize: isMini ? 14 : isLarge ? 20 : 16, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-800)' }}>
             {fmtN(product.price)} <span style={{ fontSize: isMini ? 9 : 11, fontWeight: 600 }}>XAF</span>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          {!isMini && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', fontWeight: 600, marginBottom: 1 }}>UNITÉ</div>}
+          {!isMini && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', fontWeight: 600, marginBottom: 1 }}>{t('UNITÉ', 'UNIT')}</div>}
           <div style={{ fontSize: isMini ? 10 : 12, fontWeight: 700, color: 'var(--fs-ink-600)' }}>
             {product.unit}{product.valeur ? ` · ${product.valeur}` : ''}
           </div>
@@ -189,14 +191,14 @@ const BTN_OUTLINE: React.CSSProperties = {
 };
 
 function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+  return new Date(d).toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 // Date + heure de création (pour l'historique)
 function fmtDateTime(d: string) {
   const dt = new Date(d);
-  return dt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
-    + ' à ' + dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return dt.toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short', year: 'numeric' })
+    + t(' à ', ' at ') + dt.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 // Sélecteur de produit avec recherche (remplace un <select> de 100+ produits)
@@ -215,7 +217,7 @@ function ProductSelect({ products, value, onChange, meta }: {
   // 40 rendait invisibles les produits suivants, pourtant bien en entrepôt.
   const filtered = products
     .filter(p => !search.trim() || contientTexte(p.name, search) || contientTexte(p.barcode, search))
-    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    .sort((a, b) => a.name.localeCompare(b.name, dateLocale()));
 
   return (
     <div style={{ position: 'relative' }}>
@@ -224,17 +226,17 @@ function ProductSelect({ products, value, onChange, meta }: {
         onChange={e => { setSearch(e.target.value); setOpen(true); }}
         onFocus={() => { setSearch(''); setOpen(true); }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder="Chercher / choisir un produit…"
+        placeholder={t('Chercher / choisir un produit…', 'Search / choose a product…')}
         style={{ ...INPUT, cursor: 'text' }}
       />
       {open && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 8, boxShadow: 'var(--fs-shadow-md)', zIndex: 20, maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
           {filtered.length === 0 && (
-            <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fs-ink-400)' }}>Aucun produit</div>
+            <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fs-ink-400)' }}>{t('Aucun produit', 'No products')}</div>
           )}
           {filtered.length > 20 && (
             <div style={{ padding: '5px 12px', fontSize: 10, color: 'var(--fs-ink-400)', background: 'var(--fs-ivory)', position: 'sticky', top: 0 }}>
-              {filtered.length} produits — tapez pour filtrer
+              {t(`${filtered.length} produits — tapez pour filtrer`, `${filtered.length} products — type to filter`)}
             </div>
           )}
           {filtered.map(p => (
@@ -261,6 +263,8 @@ interface RecRow { productId: string; quantity: number | '' }
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function Magazinier() {
+  const { settings } = useSettings();
+  const nomMagasin = settings.nomMagasin || 'Family Store';
   const payload   = getTokenPayload();
   const isMobile  = useIsMobile();
   const { toasts, addToast, removeToast } = useToast();
@@ -279,10 +283,10 @@ export default function Magazinier() {
       const r = await syncMagazin();
       const n = r.produitsSync + r.receptionsSync + r.stockSync;
       if (n > 0) {
-        addToast(`Synchronisation ✓ — ${n} opération(s) envoyée(s) au serveur`, 'success');
+        addToast(t(`Synchronisation ✓ — ${n} opération(s) envoyée(s) au serveur`, `Sync ✓ — ${n} operation(s) sent to the server`), 'success');
         loadProducts();
       } else if (!silencieux && r.restants > 0) {
-        addToast('Synchronisation impossible — toujours hors connexion ou erreur serveur', 'warning');
+        addToast(t('Synchronisation impossible — toujours hors connexion ou erreur serveur', 'Sync failed — still offline or server error'), 'warning');
       }
     } catch { /* silencieux */ }
     refreshPendingMag();
@@ -304,7 +308,7 @@ export default function Magazinier() {
       getHistorique().then(h => h.receptions.map((r: ReceptionRecord) => r.fournisseur)).catch(() => [] as string[]),
     ]).then(([base, histo]) => {
       const unique = [...new Set([...base, ...histo].filter(Boolean))]
-        .sort((a, b) => a.localeCompare(b, 'fr'));
+        .sort((a, b) => a.localeCompare(b, dateLocale()));
       setKnownSuppliers(unique);
     });
   }, []);
@@ -321,15 +325,15 @@ export default function Magazinier() {
   }, [newProd.barcode]);
 
   // Catégories et sous-catégories dérivées des produits existants
-  const knownCategories    = [...new Set(['Beauté','Hygiène','Parfumerie','Épicerie','Boissons','Alimentation','Bien-être','Maison', ...products.map(p => p.category).filter(Boolean) as string[]])].sort((a, b) => a.localeCompare(b, 'fr'));
-  const knownSubCategories = [...new Set(products.map(p => p.subCategory).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'fr'));
+  const knownCategories    = [...new Set(['Beauté','Hygiène','Parfumerie','Épicerie','Boissons','Alimentation','Bien-être','Maison', ...products.map(p => p.category).filter(Boolean) as string[]])].sort((a, b) => a.localeCompare(b, dateLocale()));
+  const knownSubCategories = [...new Set(products.map(p => p.subCategory).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, dateLocale()));
   const UNITS = ['unité','kg','g','L','mL','pièce','boîte','sachet','bouteille'];
 
   // ── Scanner QR ─────────────────────────────────────────────────────────────
   const [scanTarget, setScanTarget] = useState<'newprod' | number | null>(null);
 
   const handleCreateProd = async () => {
-    if (!newProd.name.trim()) { addToast('Le nom du produit est requis', 'error'); return; }
+    if (!newProd.name.trim()) { addToast(t('Le nom du produit est requis', 'Product name is required'), 'error'); return; }
     setNewProdLoading(true);
 
     const payloadProd = {
@@ -368,7 +372,7 @@ export default function Magazinier() {
       loadProducts();
       ajouterALaReception(created);
       setNewProd({ ...NP_EMPTY });
-      addToast('Produit créé et ajouté à la réception ✓', 'success');
+      addToast(t('Produit créé et ajouté à la réception ✓', 'Product created and added to the goods receipt ✓'), 'success');
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '';
       const reseau = !msg || /fetch|network|réseau|hors connexion|Failed/i.test(msg);
@@ -380,9 +384,9 @@ export default function Magazinier() {
           ajouterALaReception(temp);
           setNewProd({ ...NP_EMPTY });
           refreshPendingMag();
-          addToast('📴 Hors connexion — produit enregistré sur cet ordinateur. Il sera envoyé au serveur dès le retour du réseau.', 'warning');
+          addToast(t('📴 Hors connexion — produit enregistré sur cet ordinateur. Il sera envoyé au serveur dès le retour du réseau.', '📴 Offline — product saved on this computer. It will be sent to the server as soon as the connection returns.'), 'warning');
         } catch {
-          addToast('❌ Échec — produit NON enregistré (stockage local indisponible).', 'error');
+          addToast(t('❌ Échec — produit NON enregistré (stockage local indisponible).', '❌ Failed — product NOT saved (local storage unavailable).'), 'error');
         }
       } else {
         addToast(`❌ ${msg}`, 'error');
@@ -440,9 +444,9 @@ export default function Magazinier() {
       const found = await getProductByBarcode(barcode.trim());
       setRow(i, 'productId', found._id);
       // Garde-fou : confirme le produit reconnu (détecte un code-barres mal attribué)
-      addToast(`✓ ${found.name} reconnu`, 'success');
+      addToast(t(`✓ ${found.name} reconnu`, `✓ ${found.name} recognised`), 'success');
     } catch {
-      addToast('Produit introuvable pour ce code-barres', 'error');
+      addToast(t('Produit introuvable pour ce code-barres', 'No product found for this barcode'), 'error');
     }
   }, [setRow, addToast]);
 
@@ -467,28 +471,28 @@ export default function Magazinier() {
           prixAchat:     found.costPrice ? String(found.costPrice) : '',
           prixVente:     found.price ? String(found.price) : '',
         });
-        addToast(`✓ Produit existant trouvé : ${found.name} — vérifiez et complétez`, 'success');
+        addToast(t(`✓ Produit existant trouvé : ${found.name} — vérifiez et complétez`, `✓ Existing product found: ${found.name} — check and complete`), 'success');
       } catch {
-        addToast('Nouveau code-barres enregistré — remplissez les informations', 'info' as any);
+        addToast(t('Nouveau code-barres enregistré — remplissez les informations', 'New barcode saved — fill in the details'), 'info' as any);
       }
     } else if (typeof scanTarget === 'number') {
       try {
         const found = await getProductByBarcode(code);
         setRow(scanTarget, 'productId', found._id);
         setRowBarcode(scanTarget, code);
-        addToast(`${found.name} sélectionné`, 'success');
+        addToast(t(`${found.name} sélectionné`, `${found.name} selected`), 'success');
       } catch {
-        addToast('Produit introuvable pour ce code-barres', 'error');
+        addToast(t('Produit introuvable pour ce code-barres', 'No product found for this barcode'), 'error');
       }
     }
   }, [scanTarget, addToast, setRow]);
 
   const handleValidateReception = useCallback(async () => {
-    if (!fournisseur.trim()) { addToast('Indiquez le nom du fournisseur', 'error'); return; }
+    if (!fournisseur.trim()) { addToast(t('Indiquez le nom du fournisseur', 'Enter the supplier name'), 'error'); return; }
     const validRows = rows
       .map(r => ({ productId: r.productId, quantity: Number(r.quantity) || 0 }))
       .filter(r => r.productId && r.quantity > 0);
-    if (validRows.length === 0) { addToast('Ajoutez au moins un produit', 'error'); return; }
+    if (validRows.length === 0) { addToast(t('Ajoutez au moins un produit', 'Add at least one product'), 'error'); return; }
     setRecLoading(true);
 
     // Enregistre la réception en file locale + met à jour l'affichage du stock entrepôt
@@ -500,7 +504,7 @@ export default function Magazinier() {
       }));
       setFournisseur(''); setNote(''); setRows([{ productId: '', quantity: 1 }]); setRowBarcodes(['']);
       refreshPendingMag();
-      addToast('📴 Hors connexion — réception enregistrée sur cet ordinateur. Elle sera envoyée au serveur dès le retour du réseau.', 'warning');
+      addToast(t('📴 Hors connexion — réception enregistrée sur cet ordinateur. Elle sera envoyée au serveur dès le retour du réseau.', '📴 Offline — goods receipt saved on this computer. It will be sent to the server as soon as the connection returns.'), 'warning');
     };
 
     try {
@@ -512,7 +516,7 @@ export default function Magazinier() {
         return;
       }
       await createReception({ fournisseur: fournisseur.trim(), items: validRows, note });
-      addToast(`Réception validée — ${validRows.length} produit(s) mis à jour`, 'success');
+      addToast(t(`Réception validée — ${validRows.length} produit(s) mis à jour`, `Goods receipt confirmed — ${validRows.length} product(s) updated`), 'success');
       setFournisseur(''); setNote(''); setRows([{ productId: '', quantity: 1 }]); setRowBarcodes(['']);
       loadProducts();   // rafraîchit les quantités (entrepôt) immédiatement
     } catch (e: unknown) {
@@ -520,9 +524,9 @@ export default function Magazinier() {
       const reseau = !msg || /fetch|network|réseau|Failed/i.test(msg);
       if (reseau) {
         try { await enregistrerLocalement(); }
-        catch { addToast('❌ Échec — réception NON enregistrée (stockage local indisponible).', 'error'); }
+        catch { addToast(t('❌ Échec — réception NON enregistrée (stockage local indisponible).', '❌ Failed — goods receipt NOT saved (local storage unavailable).'), 'error'); }
       } else {
-        addToast(msg || 'Erreur', 'error');
+        addToast(msg || t('Erreur', 'Error'), 'error');
       }
     } finally { setRecLoading(false); }
   }, [fournisseur, rows, note, addToast, loadProducts, refreshPendingMag, lancerSyncMagazin]);
@@ -541,17 +545,17 @@ export default function Magazinier() {
 
   const handleEnvoi = async () => {
     const valid = envoiRows.filter(r => r.produitId && r.quantite > 0);
-    if (valid.length === 0) { addToast('Sélectionnez au moins un produit', 'error'); return; }
+    if (valid.length === 0) { addToast(t('Sélectionnez au moins un produit', 'Select at least one product'), 'error'); return; }
     const over = valid.find(r => r.quantite > (products.find(p => p._id === r.produitId)?.stockMagazin ?? 0));
-    if (over) { addToast(`Stock entrepôt insuffisant pour « ${products.find(p => p._id === over.produitId)?.name ?? 'produit'} »`, 'error'); return; }
+    if (over) { addToast(t(`Stock entrepôt insuffisant pour « ${products.find(p => p._id === over.produitId)?.name ?? 'produit'} »`, `Insufficient warehouse stock for "${products.find(p => p._id === over.produitId)?.name ?? 'product'}"`), 'error'); return; }
     setEnvoiLoading(true);
     try {
       await createEnvoi(valid);
-      addToast(`${valid.length} produit(s) envoyé(s) au gestionnaire ✓`, 'success');
+      addToast(t(`${valid.length} produit(s) envoyé(s) au gestionnaire ✓`, `${valid.length} product(s) sent to the stock manager ✓`), 'success');
       setEnvoiRows([{ produitId: '', quantite: 1 }]);
       loadProducts();
     } catch (e: unknown) {
-      addToast(e instanceof Error ? e.message : 'Erreur', 'error');
+      addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error');
     } finally { setEnvoiLoading(false); }
   };
 
@@ -563,7 +567,7 @@ export default function Magazinier() {
   const loadDemandes = useCallback(async () => {
     setDLoading(true);
     try { setDemandes(await getDemandes()); }
-    catch { addToast('Erreur chargement demandes', 'error'); }
+    catch { addToast(t('Erreur chargement demandes', 'Error loading requests'), 'error'); }
     finally { setDLoading(false); }
   }, [addToast]);
 
@@ -574,9 +578,9 @@ export default function Magazinier() {
     try {
       await marquerEnvoye(id);
       setDemandes(prev => prev.filter(d => d._id !== id));
-      addToast('Marchandise marquée comme envoyée ✅', 'success');
+      addToast(t('Marchandise marquée comme envoyée ✅', 'Goods marked as sent ✅'), 'success');
     } catch (e: unknown) {
-      addToast(e instanceof Error ? e.message : 'Erreur', 'error');
+      addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error');
     } finally { setSending(null); }
   }, [addToast]);
 
@@ -612,7 +616,7 @@ export default function Magazinier() {
     const fs = fontSizes[etiqTemplate];
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) return;
-    win.document.write(`<html><head><title>Étiquettes — Family Store</title>
+    win.document.write(`<html><head><title>${t('Étiquettes', 'Labels')} — ${nomMagasin}</title>
       <style>
         @page { size: ${sizes[etiqTemplate]}; margin: 3mm; }
         body { margin: 0; font-family: Arial, sans-serif; }
@@ -671,28 +675,28 @@ export default function Magazinier() {
     try {
       await setProductPrix(p._id, vente, achat);
       await loadProducts();
-      addToast('Prix mis à jour et verrouillé ✓', 'success');
+      addToast(t('Prix mis à jour et verrouillé ✓', 'Price updated and locked ✓'), 'success');
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur prix', 'error');
+      addToast(err instanceof Error ? err.message : t('Erreur prix', 'Price error'), 'error');
     }
   }, [prixEdits, loadProducts, addToast]);
 
   useEffect(() => {
     if ((tab !== 'historique' && tab !== 'dashboard') || histo) return;
     setHLoading(true);
-    getHistorique().then(setHisto).catch(() => addToast('Erreur chargement historique', 'error')).finally(() => setHLoading(false));
+    getHistorique().then(setHisto).catch(() => addToast(t('Erreur chargement historique', 'Error loading history'), 'error')).finally(() => setHLoading(false));
   }, [tab, histo, addToast]);
 
   const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
 
   // ── Tabs config ───────────────────────────────────────────────────────────
   const TABS: { key: Tab; label: string; icon: string }[] = [
-    { key: 'receptions', label: 'Réceptions',             icon: D.reception },
-    { key: 'envois',     label: 'Envoyer au gestionnaire', icon: D.truck     },
-    { key: 'demandes',   label: 'Demandes en attente',    icon: D.demande   },
-    { key: 'historique', label: 'Historique',              icon: D.history   },
-    { key: 'dashboard',  label: 'Tableau de bord',         icon: D.pkg       },
-    { key: 'etiquettes', label: 'Étiquettes',              icon: D.tag       },
+    { key: 'receptions', label: t('Réceptions', 'Goods receipts'),             icon: D.reception },
+    { key: 'envois',     label: t('Envoyer au gestionnaire', 'Send to manager'), icon: D.truck     },
+    { key: 'demandes',   label: t('Demandes en attente', 'Pending requests'),    icon: D.demande   },
+    { key: 'historique', label: t('Historique', 'History'),              icon: D.history   },
+    { key: 'dashboard',  label: t('Tableau de bord', 'Dashboard'),         icon: D.pkg       },
+    { key: 'etiquettes', label: t('Étiquettes', 'Labels'),              icon: D.tag       },
   ];
 
   return (
@@ -745,8 +749,8 @@ export default function Magazinier() {
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
             <StoreLogo width={150}/>
           </div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>Family Store</div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Magasinier</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>{nomMagasin}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{t('Magasinier', 'Warehouse')}</div>
         </div>
 
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
@@ -779,7 +783,7 @@ export default function Magazinier() {
             <span style={{ color: tab === 'partenaires' ? 'var(--fs-gold-300)' : 'var(--fs-gold-500)', flexShrink: 0 }}>
               <I d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" size={15}/>
             </span>
-            Partenaires
+            {t('Partenaires', 'Partners')}
           </button>
         </nav>
 
@@ -787,7 +791,7 @@ export default function Magazinier() {
         {payload?.role === 'patron' && (
           <button onClick={() => { window.location.href = '/admin/dashboard'; }}
             style={{ margin: '0 12px 8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'var(--fs-gold-400)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)' }}>
-            <I d="M15 18l-6-6 6-6" size={13}/> Retour admin
+            <I d="M15 18l-6-6 6-6" size={13}/> {t('Retour admin', 'Back to admin')}
           </button>
         )}
 
@@ -797,10 +801,10 @@ export default function Magazinier() {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name?.split(' ')[0] ?? '—'}</div>
-            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>Magasinier</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>{t('Magasinier', 'Warehouse keeper')}</div>
           </div>
           <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
-            style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', padding: 2 }} title="Déconnexion">
+            style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', padding: 2 }} title={t('Déconnexion', 'Log out')}>
             <I d={D.logout} size={14}/>
           </button>
         </div>
@@ -811,9 +815,9 @@ export default function Magazinier() {
 
         {/* Header */}
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '12px 14px 12px 58px' : '12px 28px', flexShrink: 0 }}>
-          <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Magasinier</p>
+          <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Espace Magasinier', 'Warehouse')}</p>
           <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>
-            {tab === 'partenaires' ? 'Partenaires — commandes & livraisons' : TABS.find(t => t.key === tab)?.label}
+            {tab === 'partenaires' ? t('Partenaires — commandes & livraisons', 'Partners — orders & deliveries') : TABS.find(t => t.key === tab)?.label}
           </h1>
         </div>
 
@@ -822,14 +826,14 @@ export default function Magazinier() {
           <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '8px 16px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>
               ⏳ {[
-                pendingMag.produits > 0 ? `${pendingMag.produits} produit(s)` : '',
-                pendingMag.receptions > 0 ? `${pendingMag.receptions} réception(s)` : '',
-                (pendingMag.ajouts + pendingMag.ajustements) > 0 ? `${pendingMag.ajouts + pendingMag.ajustements} mise(s) à jour de stock` : '',
-              ].filter(Boolean).join(', ')} enregistré(s) hors connexion — envoi automatique au retour du réseau.
+                pendingMag.produits > 0 ? t(`${pendingMag.produits} produit(s)`, `${pendingMag.produits} product(s)`) : '',
+                pendingMag.receptions > 0 ? t(`${pendingMag.receptions} réception(s)`, `${pendingMag.receptions} goods receipt(s)`) : '',
+                (pendingMag.ajouts + pendingMag.ajustements) > 0 ? t(`${pendingMag.ajouts + pendingMag.ajustements} mise(s) à jour de stock`, `${pendingMag.ajouts + pendingMag.ajustements} stock update(s)`) : '',
+              ].filter(Boolean).join(', ')} {t('enregistré(s) hors connexion — envoi automatique au retour du réseau.', 'saved offline — will be sent automatically when the connection returns.')}
             </span>
             <button onClick={() => lancerSyncMagazin(false)}
               style={{ padding: '4px 12px', background: '#b45309', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-              Synchroniser maintenant
+              {t('Synchroniser maintenant', 'Sync now')}
             </button>
           </div>
         )}
@@ -850,12 +854,12 @@ export default function Magazinier() {
 
                 {/* Fournisseur avec autocomplete */}
                 <div style={{ marginBottom: 16 }}>
-                  <label style={LABEL}>Fournisseur</label>
+                  <label style={LABEL}>{t('Fournisseur', 'Supplier')}</label>
                   <input
                     list="suppliers-list"
                     style={INPUT} value={fournisseur}
                     onChange={e => setFournisseur(e.target.value)}
-                    placeholder="Nom du fournisseur ou sélectionner…"
+                    placeholder={t('Nom du fournisseur ou sélectionner…', 'Supplier name or select…')}
                   />
                   <datalist id="suppliers-list">
                     {knownSuppliers.map(s => <option key={s} value={s}/>)}
@@ -875,10 +879,10 @@ export default function Magazinier() {
                 {/* Produits reçus */}
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <label style={{ ...LABEL, marginBottom: 0 }}>Produits reçus</label>
+                    <label style={{ ...LABEL, marginBottom: 0 }}>{t('Produits reçus', 'Received products')}</label>
                     <button type="button" onClick={() => setShowNewProd(v => !v)}
                       style={{ ...BTN_OUTLINE, fontSize: 11, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <I d={D.plus} size={11}/> {showNewProd ? 'Annuler' : 'Nouveau produit'}
+                      <I d={D.plus} size={11}/> {showNewProd ? t('Annuler', 'Cancel') : t('Nouveau produit', 'New product')}
                     </button>
                   </div>
 
@@ -886,23 +890,23 @@ export default function Magazinier() {
                   {showNewProd && (
                     <div style={{ background: '#f8faf7', border: '1.5px solid #86efac', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>Nouveau produit</p>
-                        <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: 0 }}>Prix complété par l'administrateur</p>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>{t('Nouveau produit', 'New product')}</p>
+                        <p style={{ fontSize: 10, color: 'var(--fs-ink-400)', margin: 0 }}>{t("Prix complété par l'administrateur", 'Price completed by the administrator')}</p>
                       </div>
 
                       {/* Code-barres / QR — scan en premier */}
                       <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                         <input style={{ ...INPUT, fontFamily: 'var(--fs-font-mono)', flex: 1 }}
                           value={newProd.barcode} onChange={e => setNP('barcode', e.target.value)}
-                          placeholder="Code-barres / QR (scan pour auto-remplir)"/>
+                          placeholder={t('Code-barres / QR (scan pour auto-remplir)', 'Barcode / QR (scan to auto-fill)')}/>
                         <button type="button" onClick={() => setScanTarget('newprod')}
                           style={{ padding: '0 12px', border: '1.5px solid #86efac', borderRadius: 8, background: '#f0fdf4', cursor: 'pointer', color: '#16a34a', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                          <I d={D.scan} size={14}/> Scanner QR
+                          <I d={D.scan} size={14}/> {t('Scanner QR', 'Scan QR')}
                         </button>
                         <button type="button"
                           onClick={() => setNP('barcode', 'FS' + String(Date.now() % 10000000000).padStart(10, '0'))}
                           style={{ padding: '0 12px', border: '1.5px solid #86efac', borderRadius: 8, background: '#f0fdf4', cursor: 'pointer', color: '#16a34a', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                          🎲 Générer
+                          {t('🎲 Générer', '🎲 Generate')}
                         </button>
                       </div>
                       {newProd.barcode && (
@@ -914,7 +918,7 @@ export default function Magazinier() {
 
                       {/* Nom */}
                       <div style={{ marginBottom: 8 }}>
-                        <input style={INPUT} value={newProd.name} onChange={e => setNP('name', e.target.value)} onBlur={e => { const v = e.target.value.trim(); if (v) setNP('name', formatProductName(v)); }} placeholder="Nom du produit *" autoFocus={!newProd.barcode}/>
+                        <input style={INPUT} value={newProd.name} onChange={e => setNP('name', e.target.value)} onBlur={e => { const v = e.target.value.trim(); if (v) setNP('name', formatProductName(v)); }} placeholder={t('Nom du produit *', 'Product name *')} autoFocus={!newProd.barcode}/>
                       </div>
 
                       {/* Catégorie + Sous-catégorie */}
@@ -923,13 +927,13 @@ export default function Magazinier() {
                           value={newProd.category}
                           onChange={v => setNP('category', v)}
                           suggestions={knownCategories}
-                          placeholder="Catégorie…"
+                          placeholder={t('Catégorie…', 'Category…')}
                         />
                         <AutocompleteInput
                           value={newProd.subCategory}
                           onChange={v => setNP('subCategory', v)}
                           suggestions={knownSubCategories}
-                          placeholder="Sous-catégorie…"
+                          placeholder={t('Sous-catégorie…', 'Subcategory…')}
                         />
                       </div>
 
@@ -938,28 +942,28 @@ export default function Magazinier() {
                         <select style={{ ...INPUT, background: '#fff', cursor: 'pointer' }} value={newProd.unit} onChange={e => setNP('unit', e.target.value)}>
                           {UNITS.map(u => <option key={u}>{u}</option>)}
                         </select>
-                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.seuilAlerte} onChange={e => setNP('seuilAlerte', e.target.value)} placeholder="Seuil alerte" title="Seuil d'alerte stock (gestionnaire)"/>
+                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.seuilAlerte} onChange={e => setNP('seuilAlerte', e.target.value)} placeholder={t('Seuil alerte', 'Alert threshold')} title={t("Seuil d'alerte stock (gestionnaire)", 'Stock alert threshold (manager)')}/>
                       </div>
 
                       {/* Quantité entrepôt + Seuil commande + Date péremption */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 10 }}>
-                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.qty} onChange={e => setNP('qty', e.target.value)} placeholder="Qté reçue"/>
-                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.seuilCommande} onChange={e => setNP('seuilCommande', e.target.value)} placeholder="Seuil commande" title="Seuil pour déclencher une commande"/>
-                        <input style={INPUT} type="date" value={newProd.expiryDate} onChange={e => setNP('expiryDate', e.target.value)} title="Date de péremption"/>
+                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.qty} onChange={e => setNP('qty', e.target.value)} placeholder={t('Qté reçue', 'Qty received')}/>
+                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.seuilCommande} onChange={e => setNP('seuilCommande', e.target.value)} placeholder={t('Seuil commande', 'Reorder threshold')} title={t('Seuil pour déclencher une commande', 'Threshold to trigger an order')}/>
+                        <input style={INPUT} type="date" value={newProd.expiryDate} onChange={e => setNP('expiryDate', e.target.value)} title={t('Date de péremption', 'Expiry date')}/>
                       </div>
 
                       {/* Prix (optionnels) — si renseignés, ils seront verrouillés chez le gestionnaire */}
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 4 }}>
-                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.prixAchat} onChange={e => setNP('prixAchat', e.target.value)} placeholder="Prix d'achat (optionnel)" title="Prix d'achat — optionnel"/>
-                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.prixVente} onChange={e => setNP('prixVente', e.target.value)} placeholder="Prix de vente (optionnel)" title="Prix de vente — optionnel"/>
+                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.prixAchat} onChange={e => setNP('prixAchat', e.target.value)} placeholder={t("Prix d'achat (optionnel)", 'Cost price (optional)')} title={t("Prix d'achat — optionnel", 'Cost price — optional')}/>
+                        <input style={{ ...INPUT, textAlign: 'center' }} type="number" min={0} value={newProd.prixVente} onChange={e => setNP('prixVente', e.target.value)} placeholder={t('Prix de vente (optionnel)', 'Selling price (optional)')} title={t('Prix de vente — optionnel', 'Selling price — optional')}/>
                       </div>
                       <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginBottom: 10 }}>
-                        Si vous renseignez le prix de vente, il sera <strong>verrouillé</strong> pour le gestionnaire.
+                        {t('Si vous renseignez le prix de vente, il sera', 'If you set the selling price, it will be')} <strong>{t('verrouillé', 'locked')}</strong> {t('pour le gestionnaire.', 'for the manager.')}
                       </div>
 
                       <button onClick={handleCreateProd} disabled={newProdLoading}
                         style={{ ...BTN_PRIMARY, fontSize: 12, padding: '8px 16px', opacity: newProdLoading ? 0.7 : 1 }}>
-                        {newProdLoading ? 'Création…' : '✓ Créer le produit'}
+                        {newProdLoading ? t('Création…', 'Creating…') : t('✓ Créer le produit', '✓ Create product')}
                       </button>
                     </div>
                   )}
@@ -981,12 +985,12 @@ export default function Magazinier() {
                             onChange={e => setRowBarcode(i, e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleRowBarcodeSearch(i, e.currentTarget.value); } }}
                             onBlur={e => { if (e.currentTarget.value.trim()) handleRowBarcodeSearch(i, e.currentTarget.value); }}
-                            placeholder="Scanner ou saisir le code-barres…"
+                            placeholder={t('Scanner ou saisir le code-barres…', 'Scan or enter the barcode…')}
                             style={{ ...INPUT, fontFamily: 'var(--fs-font-mono)', fontSize: 12, flex: 1 }}
                           />
-                          <button type="button" onClick={() => setScanTarget(i)} title="Scanner avec caméra"
+                          <button type="button" onClick={() => setScanTarget(i)} title={t('Scanner avec caméra', 'Scan with camera')}
                             style={{ padding: '0 12px', border: '1.5px solid #86efac', borderRadius: 8, background: '#f0fdf4', cursor: 'pointer', color: '#16a34a', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
-                            <I d={D.scan} size={14}/> Scanner
+                            <I d={D.scan} size={14}/> {t('Scanner', 'Scan')}
                           </button>
                         </div>
 
@@ -999,13 +1003,13 @@ export default function Magazinier() {
                           />
                           <input type="number" min={0} value={row.quantity}
                             onChange={e => { const v = e.target.value; setRow(i, 'quantity', v === '' ? '' : (parseInt(v, 10) || 0)); }}
-                            style={{ ...INPUT, textAlign: 'center' }} placeholder="Qté"/>
+                            style={{ ...INPUT, textAlign: 'center' }} placeholder={t('Qté', 'Qty')}/>
                           <button
                             onClick={() => {
                               if (rows.length === 1) { setRows([{ productId: '', quantity: 1 }]); setRowBarcodes(['']); }
                               else removeRow(i);
                             }}
-                            title={rows.length === 1 ? 'Vider la ligne' : 'Supprimer la ligne'}
+                            title={rows.length === 1 ? t('Vider la ligne', 'Clear the line') : t('Supprimer la ligne', 'Delete the line')}
                             style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <I d={D.trash} size={13}/>
                           </button>
@@ -1034,26 +1038,26 @@ export default function Magazinier() {
                                 </span>
                               </div>
                               <div style={{ marginTop: 6, fontSize: 11, color: 'var(--fs-ink-500)' }}>
-                                Entrepôt : <strong style={{ color: 'var(--fs-ink-800)' }}>{prod.stockMagazin ?? 0}</strong>
-                                &nbsp;·&nbsp; Caisse : <strong style={{ color: 'var(--fs-ink-600)' }}>{prod.stock}</strong>
-                                {seuil > 0 && <>&nbsp;·&nbsp; Seuil commande : <strong>{seuil}</strong></>}
+                                {t('Entrepôt :', 'Warehouse:')} <strong style={{ color: 'var(--fs-ink-800)' }}>{prod.stockMagazin ?? 0}</strong>
+                                &nbsp;·&nbsp; {t('Caisse :', 'Register:')} <strong style={{ color: 'var(--fs-ink-600)' }}>{prod.stock}</strong>
+                                {seuil > 0 && <>&nbsp;·&nbsp; {t('Seuil commande :', 'Reorder threshold:')} <strong>{seuil}</strong></>}
                               </div>
                               {/* Prix (optionnel) — verrouille le prix pour le gestionnaire */}
                               {(() => {
                                 const ed = prixEdits[prod._id] ?? { achat: prod.costPrice ? String(prod.costPrice) : '', vente: prod.price ? String(prod.price) : '' };
                                 return (
                                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                                    <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Prix achat</label>
+                                    <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('Prix achat', 'Cost price')}</label>
                                     <input type="number" min={0} value={ed.achat} placeholder="0"
                                       onChange={e => setPrixEdits(m => ({ ...m, [prod._id]: { ...ed, achat: e.target.value } }))}
                                       onBlur={() => savePrix(prod)}
                                       style={{ width: 74, padding: '4px 6px', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, fontSize: 12, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700 }}/>
-                                    <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Prix vente</label>
+                                    <label style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('Prix vente', 'Selling price')}</label>
                                     <input type="number" min={0} value={ed.vente} placeholder="0"
                                       onChange={e => setPrixEdits(m => ({ ...m, [prod._id]: { ...ed, vente: e.target.value } }))}
                                       onBlur={() => savePrix(prod)}
                                       style={{ width: 74, padding: '4px 6px', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, fontSize: 12, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}/>
-                                    {prod.prixVerrouille && <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 700 }}>🔒 verrouillé</span>}
+                                    {prod.prixVerrouille && <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 700 }}>{t('🔒 verrouillé', '🔒 locked')}</span>}
                                   </div>
                                 );
                               })()}
@@ -1064,18 +1068,18 @@ export default function Magazinier() {
                     );
                   })}
                   <button onClick={addRow} style={{ ...BTN_OUTLINE, display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                    <I d={D.plus} size={13}/> Ajouter une ligne
+                    <I d={D.plus} size={13}/> {t('Ajouter une ligne', 'Add a line')}
                   </button>
                 </div>
 
                 {/* Note */}
                 <div style={{ marginTop: 16, marginBottom: 20 }}>
-                  <label style={LABEL}>Note (optionnel)</label>
-                  <input style={INPUT} value={note} onChange={e => setNote(e.target.value)} placeholder="Bon de livraison n°..."/>
+                  <label style={LABEL}>{t('Note (optionnel)', 'Note (optional)')}</label>
+                  <input style={INPUT} value={note} onChange={e => setNote(e.target.value)} placeholder={t('Bon de livraison n°...', 'Delivery note no. ...')}/>
                 </div>
 
                 <button onClick={handleValidateReception} disabled={recLoading} style={{ ...BTN_PRIMARY, opacity: recLoading ? 0.7 : 1 }}>
-                  {recLoading ? 'Enregistrement…' : 'Valider la réception'}
+                  {recLoading ? t('Enregistrement…', 'Saving…') : t('Valider la réception', 'Confirm goods receipt')}
                 </button>
               </div>
             </div>
@@ -1090,9 +1094,9 @@ export default function Magazinier() {
               <div style={{ background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                 <I d={D.truck} size={16}/>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>Envoi direct au gestionnaire de stock</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>{t('Envoi direct au gestionnaire de stock', 'Direct transfer to the stock manager')}</div>
                   <div style={{ fontSize: 12, color: '#3b82f6', marginTop: 2 }}>
-                    Sélectionnez les produits à envoyer depuis votre entrepôt. Le gestionnaire verra apparaître la livraison et confirmera la réception.
+                    {t('Sélectionnez les produits à envoyer depuis votre entrepôt. Le gestionnaire verra apparaître la livraison et confirmera la réception.', 'Select the products to send from your warehouse. The manager will see the delivery appear and confirm receipt.')}
                   </div>
                 </div>
               </div>
@@ -1101,12 +1105,12 @@ export default function Magazinier() {
                 {warehouseProducts.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--fs-ink-400)', fontSize: 13 }}>
                     <I d={D.pkg} size={32}/><br/><br/>
-                    Aucun produit disponible en entrepôt — enregistrez d'abord une réception.
+                    {t("Aucun produit disponible en entrepôt — enregistrez d'abord une réception.", 'No products available in the warehouse — record a goods receipt first.')}
                   </div>
                 ) : (
                   <>
                     <div style={{ marginBottom: 8 }}>
-                      <label style={LABEL}>Produits à envoyer</label>
+                      <label style={LABEL}>{t('Produits à envoyer', 'Products to send')}</label>
                     </div>
 
                     {envoiRows.map((row, i) => {
@@ -1119,28 +1123,28 @@ export default function Magazinier() {
                               products={warehouseProducts}
                               value={row.produitId}
                               onChange={id => setEnvoiRow(i, 'produitId', id)}
-                              meta={p => `Entrepôt : ${p.stockMagazin ?? 0}`}
+                              meta={p => t(`Entrepôt : ${p.stockMagazin ?? 0}`, `Warehouse: ${p.stockMagazin ?? 0}`)}
                             />
                             <input
                               type="number" min={1} max={maxQte}
                               value={row.quantite}
                               onChange={e => setEnvoiRow(i, 'quantite', Math.min(maxQte, parseInt(e.target.value) || 1))}
                               style={{ ...INPUT, textAlign: 'center' }}
-                              placeholder="Qté"
+                              placeholder={t('Qté', 'Qty')}
                             />
                             <button
                               onClick={() => {
                                 if (envoiRows.length === 1) setEnvoiRows([{ produitId: '', quantite: 1 }]);
                                 else removeEnvoiRow(i);
                               }}
-                              title={envoiRows.length === 1 ? 'Vider la ligne' : 'Supprimer la ligne'}
+                              title={envoiRows.length === 1 ? t('Vider la ligne', 'Clear the line') : t('Supprimer la ligne', 'Delete the line')}
                               style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <I d={D.trash} size={13}/>
                             </button>
                           </div>
                           {prod && (
                             <div style={{ marginTop: 6, fontSize: 11, color: 'var(--fs-ink-400)' }}>
-                              Disponible en entrepôt : <strong style={{ color: row.quantite > maxQte ? '#dc2626' : 'var(--fs-ink-700)' }}>{maxQte}</strong>
+                              {t('Disponible en entrepôt :', 'Available in the warehouse:')} <strong style={{ color: row.quantite > maxQte ? '#dc2626' : 'var(--fs-ink-700)' }}>{maxQte}</strong>
                               {prod.category && <> · {prod.category}</>}
                             </div>
                           )}
@@ -1149,13 +1153,13 @@ export default function Magazinier() {
                     })}
 
                     <button onClick={addEnvoiRow} style={{ ...BTN_OUTLINE, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 20 }}>
-                      <I d={D.plus} size={13}/> Ajouter un produit
+                      <I d={D.plus} size={13}/> {t('Ajouter un produit', 'Add a product')}
                     </button>
 
                     <button onClick={handleEnvoi} disabled={envoiLoading}
                       style={{ ...BTN_PRIMARY, display: 'flex', alignItems: 'center', gap: 8, opacity: envoiLoading ? 0.7 : 1 }}>
                       <I d={D.truck} size={14}/>
-                      {envoiLoading ? 'Envoi en cours…' : 'Envoyer au gestionnaire de stock'}
+                      {envoiLoading ? t('Envoi en cours…', 'Sending…') : t('Envoyer au gestionnaire de stock', 'Send to the stock manager')}
                     </button>
                   </>
                 )}
@@ -1169,10 +1173,10 @@ export default function Magazinier() {
           {tab === 'demandes' && (
             <div style={{ maxWidth: 640 }}>
               {dLoading ? (
-                <div style={{ color: 'var(--fs-ink-400)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>Chargement…</div>
+                <div style={{ color: 'var(--fs-ink-400)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>{t('Chargement…', 'Loading…')}</div>
               ) : demandes.length === 0 ? (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '40px 24px', textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13 }}>
-                  <I d={D.check} size={32}/><br/>Aucune demande en attente
+                  <I d={D.check} size={32}/><br/>{t('Aucune demande en attente', 'No pending requests')}
                 </div>
               ) : demandes.map(d => {
                 const stockMag = d.produit?.stockMagazin ?? 0;
@@ -1187,20 +1191,20 @@ export default function Magazinier() {
                       {d.produit?.name ?? '—'}
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', marginTop: 2 }}>
-                      {d.quantiteDemandee} demandé(s) · par {d.demandePar?.name ?? '?'} · {fmtDate(d.createdAt)}
+                      {t(`${d.quantiteDemandee} demandé(s) · par`, `${d.quantiteDemandee} requested · by`)} {d.demandePar?.name ?? '?'} · {fmtDate(d.createdAt)}
                     </div>
                     <div style={{ fontSize: 11, marginTop: 1, color: insuffisant ? 'var(--fs-danger-700)' : 'var(--fs-ink-300)', fontWeight: insuffisant ? 700 : 400 }}>
-                      Stock entrepôt : {stockMag}{insuffisant && ` — insuffisant pour envoyer ${d.quantiteDemandee}`}
+                      {t('Stock entrepôt :', 'Warehouse stock:')} {stockMag}{insuffisant && t(` — insuffisant pour envoyer ${d.quantiteDemandee}`, ` — insufficient to send ${d.quantiteDemandee}`)}
                     </div>
                   </div>
                   <button
                     onClick={() => handleEnvoyer(d._id)}
                     disabled={sending === d._id || insuffisant}
-                    title={insuffisant ? 'Stock entrepôt insuffisant' : ''}
+                    title={insuffisant ? t('Stock entrepôt insuffisant', 'Insufficient warehouse stock') : ''}
                     style={{ ...BTN_PRIMARY, display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, opacity: (sending === d._id || insuffisant) ? 0.5 : 1, cursor: insuffisant ? 'not-allowed' : 'pointer' }}
                   >
                     <I d={D.truck} size={13}/>
-                    {sending === d._id ? 'Envoi…' : 'Marquer comme envoyé'}
+                    {sending === d._id ? t('Envoi…', 'Sending…') : t('Marquer comme envoyé', 'Mark as sent')}
                   </button>
                 </div>
                 );
@@ -1221,21 +1225,21 @@ export default function Magazinier() {
             return (
             <div style={{ maxWidth: 740 }}>
               {hLoading ? (
-                <div style={{ color: 'var(--fs-ink-400)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>Chargement…</div>
+                <div style={{ color: 'var(--fs-ink-400)', fontSize: 13, textAlign: 'center', padding: '40px 0' }}>{t('Chargement…', 'Loading…')}</div>
               ) : (
                 <>
                   <input
                     value={histoSearch}
                     onChange={e => setHistoSearch(e.target.value)}
-                    placeholder="Rechercher un produit, un fournisseur…"
+                    placeholder={t('Rechercher un produit, un fournisseur…', 'Search a product, a supplier…')}
                     style={{ width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', marginBottom: 14 }}
                   />
                   {/* Réceptions */}
                   <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
-                    Mes réceptions
+                    {t('Mes réceptions', 'My goods receipts')}
                   </p>
                   {recs.length === 0 ? (
-                    <div style={{ color: 'var(--fs-ink-300)', fontSize: 13, marginBottom: 24 }}>Aucune réception enregistrée</div>
+                    <div style={{ color: 'var(--fs-ink-300)', fontSize: 13, marginBottom: 24 }}>{t('Aucune réception enregistrée', 'No goods receipt recorded')}</div>
                   ) : recs.map(r => (
                     <div key={r._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '14px 18px', marginBottom: 8, boxShadow: 'var(--fs-shadow-sm)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1244,11 +1248,11 @@ export default function Magazinier() {
                             <I d={D.truck} size={13}/> {r.fournisseur}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
-                            {r.items.length} article(s) · {fmtDateTime(r.createdAt)}
+                            {r.items.length}{t(' article(s) · ', ' item(s) · ')}{fmtDateTime(r.createdAt)}
                           </div>
                         </div>
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '3px 10px', borderRadius: 20 }}>
-                          Reçu
+                          {t('Reçu', 'Received')}
                         </span>
                       </div>
                       {r.items.length > 0 && (
@@ -1265,16 +1269,16 @@ export default function Magazinier() {
 
                   {/* Envois */}
                   <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '24px 0 10px' }}>
-                    Mes envois
+                    {t('Mes envois', 'My transfers')}
                   </p>
                   {envs.length === 0 ? (
-                    <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucun envoi enregistré</div>
+                    <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>{t('Aucun envoi enregistré', 'No transfer recorded')}</div>
                   ) : envs.map(e => {
                     // Badge selon le devenir de l'envoi (annulé = stock déjà restitué à l'entrepôt)
-                    const badge = e.type === 'retour' ? { txt: '↩ Retour boutique', color: '#b45309', bg: '#fff7ed' }
-                      : e.statut === 'annulé'         ? { txt: '✕ Annulé',          color: '#dc2626', bg: '#fef2f2' }
-                      : e.statut === 'reçu'           ? { txt: 'Reçu ✓',            color: '#15803d', bg: '#f0fdf4' }
-                      :                                 { txt: 'Envoyé',             color: '#2563eb', bg: '#eff6ff' };
+                    const badge = e.type === 'retour' ? { txt: t('↩ Retour boutique', '↩ Shop return'), color: '#b45309', bg: '#fff7ed' }
+                      : e.statut === 'annulé'         ? { txt: t('✕ Annulé', '✕ Cancelled'),          color: '#dc2626', bg: '#fef2f2' }
+                      : e.statut === 'reçu'           ? { txt: t('Reçu ✓', 'Received ✓'),            color: '#15803d', bg: '#f0fdf4' }
+                      :                                 { txt: t('Envoyé', 'Sent'),             color: '#2563eb', bg: '#eff6ff' };
                     return (
                     <div key={e._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '14px 18px', marginBottom: 8, boxShadow: 'var(--fs-shadow-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
@@ -1282,9 +1286,9 @@ export default function Magazinier() {
                         <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
                           {e.quantiteDemandee}{qtyUnitLabel(e.produit?.unit) && ` ${qtyUnitLabel(e.produit?.unit)}`}
                           {e.type === 'retour'
-                            ? <> · retourné à l'entrepôt par {e.demandePar?.name ?? '?'} le {e.dateEnvoi ? fmtDateTime(e.dateEnvoi) : '—'}</>
-                            : <> · demandé par {e.demandePar?.name ?? '?'} · envoyé le {e.dateEnvoi ? fmtDateTime(e.dateEnvoi) : '—'}</>}
-                          {e.statut === 'annulé' && <> · <strong style={{ color: '#dc2626' }}>quantités remises en entrepôt</strong></>}
+                            ? <>{t(" · retourné à l'entrepôt par ", ' · returned to the warehouse by ')}{e.demandePar?.name ?? '?'}{t(' le ', ' on ')}{e.dateEnvoi ? fmtDateTime(e.dateEnvoi) : '—'}</>
+                            : <>{t(' · demandé par ', ' · requested by ')}{e.demandePar?.name ?? '?'}{t(' · envoyé le ', ' · sent on ')}{e.dateEnvoi ? fmtDateTime(e.dateEnvoi) : '—'}</>}
+                          {e.statut === 'annulé' && <> · <strong style={{ color: '#dc2626' }}>{t('quantités remises en entrepôt', 'quantities returned to the warehouse')}</strong></>}
                         </div>
                       </div>
                       <span style={{ fontSize: 11, fontWeight: 700, color: badge.color, background: badge.bg, padding: '3px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>
@@ -1319,9 +1323,9 @@ export default function Magazinier() {
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                     <div>
                       <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>
-                        Mes produits — {mesProduits.length} référence{mesProduits.length !== 1 ? 's' : ''}
+                        {t('Mes produits', 'My products')} — {mesProduits.length} {t('référence', 'reference')}{mesProduits.length !== 1 ? 's' : ''}
                       </p>
-                      <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--fs-ink-400)' }}>Produits en entrepôt</p>
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--fs-ink-400)' }}>{t('Produits en entrepôt', 'Products in the warehouse')}</p>
                     </div>
                     {/* Export/Import de la liste complète des produits (Excel) */}
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -1331,17 +1335,23 @@ export default function Magazinier() {
                   <input
                     value={dashSearch}
                     onChange={e => setDashSearch(e.target.value)}
-                    placeholder="Rechercher un produit…"
+                    placeholder={t('Rechercher un produit…', 'Search a product…')}
                     style={{ marginTop: 10, width: '100%', padding: '8px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}
                   />
                 </div>
                 <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--fs-ivory)' }}>
-                      {['Produit', 'Quantité', 'Seuil commande', 'Prix achat', 'Prix vente'].map((h, i) => (
-                        <th key={h} style={{ padding: '10px 16px', textAlign: i === 0 ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' }}>
-                          {h}
-                          {(h === 'Seuil commande' || h === 'Prix achat' || h === 'Prix vente') && <div style={{ fontWeight: 400, textTransform: 'none', fontSize: 9, letterSpacing: 0, marginTop: 1 }}>Cliquer pour modifier</div>}
+                      {[
+                        { label: t('Produit', 'Product'), hint: false },
+                        { label: t('Quantité', 'Quantity'), hint: false },
+                        { label: t('Seuil commande', 'Reorder threshold'), hint: true },
+                        { label: t('Prix achat', 'Cost price'), hint: true },
+                        { label: t('Prix vente', 'Selling price'), hint: true },
+                      ].map((h, i) => (
+                        <th key={i} style={{ padding: '10px 16px', textAlign: i === 0 ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' }}>
+                          {h.label}
+                          {h.hint && <div style={{ fontWeight: 400, textTransform: 'none', fontSize: 9, letterSpacing: 0, marginTop: 1 }}>{t('Cliquer pour modifier', 'Click to edit')}</div>}
                         </th>
                       ))}
                     </tr>
@@ -1350,7 +1360,7 @@ export default function Magazinier() {
                     {mesProduits.length === 0 ? (
                       <tr>
                         <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: 'var(--fs-ink-300)', fontStyle: 'italic' }}>
-                          Aucun produit en entrepôt — validez une réception pour alimenter l'entrepôt
+                          {t("Aucun produit en entrepôt — validez une réception pour alimenter l'entrepôt", 'No products in the warehouse — confirm a goods receipt to stock the warehouse')}
                         </td>
                       </tr>
                     ) : mesProduits.map((p, i) => {
@@ -1362,13 +1372,13 @@ export default function Magazinier() {
                           <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--fs-ink-900)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                               {p.name}
-                              {bas && <span style={{ fontSize: 10, background: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>À commander</span>}
+                              {bas && <span style={{ fontSize: 10, background: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>{t('À commander', 'To reorder')}</span>}
                               {p.category && <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', fontWeight: 400 }}>{p.category}</span>}
                             </div>
                             {p.stockMagazinAjuste && (
                               <div style={{ marginTop: 3, fontSize: 10, color: '#2563eb', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                                Quantité modifiée par l'administrateur
+                                {t("Quantité modifiée par l'administrateur", 'Quantity modified by the administrator')}
                               </div>
                             )}
                           </td>
@@ -1385,7 +1395,7 @@ export default function Magazinier() {
                                 if (v !== seuil) {
                                   updateProduct(p._id, { magazinierThreshold: v })
                                     .then(loadProducts)
-                                    .catch(() => addToast('Erreur mise à jour seuil', 'error'));
+                                    .catch(() => addToast(t('Erreur mise à jour seuil', 'Error updating threshold'), 'error'));
                                 }
                               }}
                               style={{ width: 64, padding: '5px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, fontSize: 13, textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: seuil > 0 ? 'var(--fs-ink-800)' : 'var(--fs-ink-300)', background: seuil > 0 ? '#fff' : 'var(--fs-ivory)' }}
@@ -1427,21 +1437,21 @@ export default function Magazinier() {
                   <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <I d={D.truck} size={14}/>
                     <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>
-                      Produits envoyés au gestionnaire
+                      {t('Produits envoyés au gestionnaire', 'Products sent to the manager')}
                     </p>
                     <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 20, padding: '2px 10px', color: 'var(--fs-ink-500)' }}>
-                      {(histo.envois ?? []).length} envoi{(histo.envois ?? []).length !== 1 ? 's' : ''}
+                      {(histo.envois ?? []).length} {t('envoi', 'transfer')}{(histo.envois ?? []).length !== 1 ? 's' : ''}
                     </span>
                   </div>
                   {(histo.envois ?? []).length === 0 ? (
                     <div style={{ padding: '28px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13, fontStyle: 'italic' }}>
-                      Aucun produit encore envoyé au gestionnaire
+                      {t('Aucun produit encore envoyé au gestionnaire', 'No product sent to the manager yet')}
                     </div>
                   ) : (
                     <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                       <thead>
                         <tr style={{ background: 'var(--fs-ivory)' }}>
-                          {['Produit', 'Qté envoyée', 'Stock entrepôt', 'Statut', 'Date'].map((h, i) => (
+                          {[t('Produit', 'Product'), t('Qté envoyée', 'Qty sent'), t('Stock entrepôt', 'Warehouse stock'), t('Statut', 'Status'), t('Date', 'Date')].map((h, i) => (
                             <th key={h} style={{ padding: '10px 16px', textAlign: i === 0 ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' }}>
                               {h}
                             </th>
@@ -1464,7 +1474,7 @@ export default function Magazinier() {
                               </td>
                               <td style={{ padding: '10px 16px', textAlign: 'center' }}>
                                 <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: e.statut === 'reçu' ? '#f0fdf4' : '#eff6ff', color: e.statut === 'reçu' ? '#16a34a' : '#2563eb' }}>
-                                  {e.statut === 'reçu' ? '✓ Reçu' : '🚚 En transit'}
+                                  {e.statut === 'reçu' ? t('✓ Reçu', '✓ Received') : t('🚚 En transit', '🚚 In transit')}
                                 </span>
                               </td>
                               <td style={{ padding: '10px 16px', textAlign: 'center', fontSize: 11, color: 'var(--fs-ink-400)' }}>
@@ -1508,7 +1518,7 @@ export default function Magazinier() {
                   <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-300)' }}>
                     <I d={D.search} size={13}/>
                   </span>
-                  <input value={etiqSearch} onChange={e => setEtiqSearch(e.target.value)} placeholder="Rechercher…"
+                  <input value={etiqSearch} onChange={e => setEtiqSearch(e.target.value)} placeholder={t('Rechercher…', 'Search…')}
                     style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff', width: '100%', boxSizing: 'border-box' }}/>
                 </div>
                 {/* Bouton imprimer */}
@@ -1518,7 +1528,7 @@ export default function Magazinier() {
                     border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff',
                     fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)', flexShrink: 0,
                   }}>
-                    <I d={D.print} size={13}/> Imprimer ({etiqSelected.size})
+                    <I d={D.print} size={13}/> {t('Imprimer', 'Print')} ({etiqSelected.size})
                   </button>
                 )}
               </div>
@@ -1530,11 +1540,11 @@ export default function Magazinier() {
                     <div style={{ width: 16, height: 16, borderRadius: 3, border: '2px solid var(--fs-wine-700)', background: etiqSelected.size === etiqDisplayed.length ? 'var(--fs-wine-700)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
                       {etiqSelected.size === etiqDisplayed.length && <I d={D.check} size={10}/>}
                     </div>
-                    Tout sélectionner ({etiqDisplayed.length})
+                    {t('Tout sélectionner', 'Select all')} ({etiqDisplayed.length})
                   </button>
                   {etiqSelected.size > 0 && (
                     <span style={{ fontSize: 12, color: 'var(--fs-wine-700)', fontWeight: 600 }}>
-                      {etiqSelected.size} étiquette(s) sélectionnée(s)
+                      {etiqSelected.size} {t('étiquette(s) sélectionnée(s)', 'label(s) selected')}
                     </span>
                   )}
                 </div>
@@ -1555,7 +1565,7 @@ export default function Magazinier() {
 
               {etiqDisplayed.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>
-                  Aucun produit trouvé
+                  {t('Aucun produit trouvé', 'No product found')}
                 </div>
               )}
             </div>

@@ -3,6 +3,8 @@ import { authHeaders } from '../api/http';
 import type { Product } from '../api/products';
 import { buildReceiptPDF } from '../components/ReceiptPrint';
 import { saveFacture } from '../api/factures';
+import { getSettings, storeIdentity } from '../api/settings';
+import { t } from '../i18n';
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 
@@ -85,10 +87,14 @@ export async function getLastSyncTime(): Promise<Date | null> {
 
 // Archive la facture PDF d'une vente synchronisée (mêmes données que la vente d'origine).
 async function archiveFactureSynchronisee(sale: PendingSale, numero: string, dateVente: Date): Promise<void> {
+  // Identité et offre du magasin (la synchro se fait en ligne : paramètres à jour)
+  const settings = await getSettings();
   const pdfBase64 = buildReceiptPDF({
+    store:        storeIdentity(settings),
+    offre:        settings.offreFacture,
     receiptNo:    numero,
     date:         dateVente,
-    cashierName:  sale.cashierName ?? 'Caissier',
+    cashierName:  sale.cashierName ?? t('Caissier', 'Cashier'),
     items:        sale.items.map(i => ({ name: i.name, unit: '', quantity: i.quantity, unitPrice: i.unitPrice })),
     subtotal:     sale.subtotal ?? sale.total,
     total:        sale.total,
@@ -101,7 +107,7 @@ async function archiveFactureSynchronisee(sale: PendingSale, numero: string, dat
   });
   await saveFacture({
     numero,
-    caissier:      sale.cashierName ?? 'Caissier',
+    caissier:      sale.cashierName ?? t('Caissier', 'Cashier'),
     montant:       sale.total,
     paymentMethod: sale.paymentLabel ?? sale.paymentMethod,
     items:         sale.items.map(i => ({ name: i.name, quantity: i.quantity, unitPrice: i.unitPrice })),
@@ -158,9 +164,9 @@ export async function syncPendingSales(
   await set(KEY_LAST_SYNC, Date.now());
 
   if (synced > 0) {
-    addToast(`${synced} vente(s) synchronisée(s) ✅`, 'success');
+    addToast(t(`${synced} vente(s) synchronisée(s) ✅`, `${synced} sale(s) synced ✅`), 'success');
   }
   if (remaining.length > 0) {
-    addToast(`${remaining.length} vente(s) non synchronisée(s)`, 'error');
+    addToast(t(`${remaining.length} vente(s) non synchronisée(s)`, `${remaining.length} sale(s) not synced`), 'error');
   }
 }

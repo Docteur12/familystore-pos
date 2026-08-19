@@ -23,10 +23,11 @@ import { getAllProducts, Product } from '../api/products';
 import { qtyUnitLabel } from '../utils/units';
 import { getBrandColor } from '../utils/text';
 import { localISODate, localISOMonth } from '../utils/dates';
+import { t, dateLocale } from '../i18n';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const fmt     = (n: number) => n.toLocaleString('fr-FR') + ' FCFA';
+const fmt     = (n: number) => n.toLocaleString(dateLocale()) + ' FCFA';
 const fmtShort = (n: number) => {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace('.', ',') + 'M';
   if (n >= 1_000)     return (n / 1_000).toFixed(0) + 'k';
@@ -41,10 +42,10 @@ function ChartTooltip({ active, payload, label }: any) {
     <div className="bg-white border border-bordeaux/20 rounded-xl shadow-xl px-4 py-3 text-sm">
       <p className="font-bold text-bordeaux mb-1">{label}</p>
       <p className="text-gray-700">
-        CA : <span className="font-bold">{Number(payload[0]?.value ?? 0).toLocaleString('fr-FR')} FCFA</span>
+        {t('CA :', 'Revenue:')} <span className="font-bold">{Number(payload[0]?.value ?? 0).toLocaleString(dateLocale())} FCFA</span>
       </p>
       {payload[1] && (
-        <p className="text-gray-500">Ventes : {payload[1].value}</p>
+        <p className="text-gray-500">{t('Ventes :', 'Sales:')} {payload[1].value}</p>
       )}
     </div>
   );
@@ -86,10 +87,10 @@ export default function Dashboard() {
     try {
       await downloadFile(
         `/api/reports/daily/pdf?date=${todayISO}`,
-        `rapport-journalier-${todayISO}.pdf`,
+        t(`rapport-journalier-${todayISO}.pdf`, `daily-report-${todayISO}.pdf`),
       );
     } catch (e: any) {
-      setReportError(e.message ?? 'Erreur PDF');
+      setReportError(e.message ?? t('Erreur PDF', 'PDF error'));
     } finally {
       setPdfLoading(false);
     }
@@ -101,10 +102,10 @@ export default function Dashboard() {
     try {
       await downloadFile(
         `/api/reports/monthly/excel?month=${selectedMonth}`,
-        `rapport-mensuel-${selectedMonth}.xlsx`,
+        t(`rapport-mensuel-${selectedMonth}.xlsx`, `monthly-report-${selectedMonth}.xlsx`),
       );
     } catch (e: any) {
-      setReportError(e.message ?? 'Erreur Excel');
+      setReportError(e.message ?? t('Erreur Excel', 'Excel error'));
     } finally {
       setXlsLoading(false);
     }
@@ -123,7 +124,7 @@ export default function Dashboard() {
         setTopProducts(top);
         setProducts(prods);
       })
-      .catch(err => setError(err instanceof Error ? err.message : 'Erreur chargement'))
+      .catch(err => setError(err instanceof Error ? err.message : t('Erreur chargement', 'Loading error')))
       .finally(() => setLoading(false));
   }, []);
 
@@ -131,8 +132,8 @@ export default function Dashboard() {
   const stockValue  = products.reduce((s, p) => s + p.stock * p.costPrice, 0);
   const stockAlerts = products.filter(p => p.stock <= p.alertThreshold);
 
-  const userName = getTokenPayload()?.name ?? 'Patron';
-  const dateLabel = new Date().toLocaleDateString('fr-FR', {
+  const userName = getTokenPayload()?.name ?? t('Patron', 'Owner');
+  const dateLabel = new Date().toLocaleDateString(dateLocale(), {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
@@ -164,31 +165,31 @@ export default function Dashboard() {
         {/* ── Row 1: 4 metric cards ── */}
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
-            title="CA du jour"
+            title={t('CA du jour', "Today's revenue")}
             value={statsToday ? fmt(statsToday.totalCA) : null}
-            subtitle={statsToday ? `${statsToday.marge}% de marge` : undefined}
+            subtitle={statsToday ? t(`${statsToday.marge}% de marge`, `${statsToday.marge}% margin`) : undefined}
             icon="💰"
             loading={loading}
           />
           <MetricCard
-            title="Bénéfice net"
+            title={t('Bénéfice net', 'Net profit')}
             value={statsToday ? fmt(statsToday.benefice) : null}
-            subtitle="Ventes − coût d'achat"
+            subtitle={t("Ventes − coût d'achat", 'Sales − purchase cost')}
             icon="📈"
             loading={loading}
             accent
           />
           <MetricCard
-            title="Ventes aujourd'hui"
+            title={t("Ventes aujourd'hui", 'Sales today')}
             value={statsToday ? String(statsToday.nbVentes) : null}
             subtitle={statsToday?.nbVentes === 1 ? 'transaction' : 'transactions'}
             icon="🧾"
             loading={loading}
           />
           <MetricCard
-            title="Valeur du stock"
+            title={t('Valeur du stock', 'Stock value')}
             value={loading ? null : fmt(stockValue)}
-            subtitle={`${products.length} produits`}
+            subtitle={t(`${products.length} produits`, `${products.length} products`)}
             icon="📦"
             loading={loading}
           />
@@ -201,11 +202,11 @@ export default function Dashboard() {
           <div className="lg:col-span-3 bg-white rounded-2xl shadow border border-cream-dark p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-bordeaux text-sm uppercase tracking-widest">
-                CA — 7 derniers jours
+                {t('CA — 7 derniers jours', 'Revenue — last 7 days')}
               </h3>
               {!loading && weekData.length > 0 && (
                 <span className="text-xs text-gray-400">
-                  Total :{' '}
+                  {t('Total :', 'Total:')}{' '}
                   <span className="font-semibold text-bordeaux">
                     {fmt(weekData.reduce((s, d) => s + d.totalCA, 0))}
                   </span>
@@ -251,7 +252,7 @@ export default function Dashboard() {
           {/* Top 5 products */}
           <div className="lg:col-span-2 bg-white rounded-2xl shadow border border-cream-dark p-5">
             <h3 className="font-bold text-bordeaux text-sm uppercase tracking-widest mb-4">
-              Top 5 — cette semaine
+              {t('Top 5 — cette semaine', 'Top 5 — this week')}
             </h3>
 
             {loading ? (
@@ -263,7 +264,7 @@ export default function Dashboard() {
             ) : topProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-32 text-gray-300 gap-2">
                 <span className="text-3xl">📊</span>
-                <span className="text-sm">Aucune vente cette semaine</span>
+                <span className="text-sm">{t('Aucune vente cette semaine', 'No sales this week')}</span>
               </div>
             ) : (
               <div className="space-y-2">
@@ -280,7 +281,7 @@ export default function Dashboard() {
           <section>
             <div className="flex items-center gap-2 mb-3">
               <h3 className="font-bold text-bordeaux text-sm uppercase tracking-widest">
-                Alertes stock
+                {t('Alertes stock', 'Stock alerts')}
               </h3>
               <span className="bg-red-500 text-white text-xs font-bold
                 px-2 py-0.5 rounded-full animate-pulse">
@@ -301,14 +302,14 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 text-green-600 text-sm font-medium bg-green-50
             border border-green-200 rounded-xl px-4 py-3">
             <span>✓</span>
-            <span>Tous les stocks sont au-dessus des seuils d'alerte.</span>
+            <span>{t("Tous les stocks sont au-dessus des seuils d'alerte.", 'All stock levels are above alert thresholds.')}</span>
           </div>
         )}
 
         {/* ── Row 4: Reports ── */}
         <section className="bg-white rounded-2xl shadow border border-cream-dark p-5">
           <h3 className="font-bold text-bordeaux text-sm uppercase tracking-widest mb-4">
-            Rapports
+            {t('Rapports', 'Reports')}
           </h3>
 
           {reportError && (
@@ -322,7 +323,7 @@ export default function Dashboard() {
 
             {/* Daily PDF */}
             <div className="flex-1 flex flex-col gap-2 bg-cream/50 rounded-xl p-4 border border-cream-dark">
-              <p className="font-semibold text-gray-700 text-sm">Rapport du jour</p>
+              <p className="font-semibold text-gray-700 text-sm">{t('Rapport du jour', 'Daily report')}</p>
               <p className="text-xs text-gray-400">{todayISO}</p>
               <button
                 onClick={handleDownloadPdf}
@@ -336,13 +337,13 @@ export default function Dashboard() {
                 ) : (
                   <span>↓</span>
                 )}
-                Télécharger PDF
+                {t('Télécharger PDF', 'Download PDF')}
               </button>
             </div>
 
             {/* Monthly Excel */}
             <div className="flex-1 flex flex-col gap-2 bg-cream/50 rounded-xl p-4 border border-cream-dark">
-              <p className="font-semibold text-gray-700 text-sm">Rapport mensuel</p>
+              <p className="font-semibold text-gray-700 text-sm">{t('Rapport mensuel', 'Monthly report')}</p>
               <input
                 type="month"
                 value={selectedMonth}
@@ -363,7 +364,7 @@ export default function Dashboard() {
                 ) : (
                   <span>↓</span>
                 )}
-                Télécharger Excel
+                {t('Télécharger Excel', 'Download Excel')}
               </button>
             </div>
 
@@ -443,7 +444,7 @@ function TopProductRow({ product, rank }: { product: TopProduct; rank: number })
           {product.totalQty}{qtyUnitLabel(product.unit) && ` ${qtyUnitLabel(product.unit)}`}
         </p>
         <p className="text-xs text-gray-400">
-          {product.totalRevenue.toLocaleString('fr-FR')} FCFA
+          {product.totalRevenue.toLocaleString(dateLocale())} FCFA
         </p>
       </div>
     </div>
@@ -465,7 +466,7 @@ function StockAlertCard({ product }: { product: Product }) {
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm text-gray-800 truncate">{product.name}</p>
         <p className="text-xs text-gray-500 mt-0.5">
-          Seuil : {product.alertThreshold}
+          {t('Seuil :', 'Threshold:')} {product.alertThreshold}
         </p>
       </div>
       <div className="text-right shrink-0">
@@ -473,7 +474,7 @@ function StockAlertCard({ product }: { product: Product }) {
           {product.stock}
         </p>
         <p className={`text-xs font-bold ${isRupture ? 'text-red-500' : 'text-amber-500'}`}>
-          {isRupture ? 'rupture' : 'bas'}
+          {isRupture ? t('rupture', 'out of stock') : t('bas', 'low')}
         </p>
       </div>
     </div>

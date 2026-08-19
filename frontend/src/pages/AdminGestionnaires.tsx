@@ -3,12 +3,13 @@ import AdminSidebar from '../components/AdminSidebar';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { createUser, deleteUser, getUsers, updateUser, UserRecord } from '../api/auth';
 import { getCaisses, CaisseRecord } from '../api/caisses';
+import { t } from '../i18n';
 
 const AVATAR_COLORS = ['#7A9EC2','#7AB87A','#9A7AC2','#7ABFBF','#C2B07A'];
 const avatarColor = (name: string) => AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 const initials    = (name: string) => name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
 
-const MODULES = ['Stock', 'Réceptions', 'Inventaire', 'Fournisseurs', 'Étiquettes', 'Dépôts'];
+const MODULES = [t('Stock', 'Stock'), t('Réceptions', 'Receipts'), t('Inventaire', 'Inventory'), t('Fournisseurs', 'Suppliers'), t('Étiquettes', 'Labels'), t('Dépôts', 'Depots')];
 
 function I({ d, size = 14 }: { d: string; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"><path d={d}/></svg>;
@@ -30,7 +31,7 @@ function Field({ label, value, onChange, type = 'text', placeholder = '' }: {
 function getExtra(id: string) {
   const h = id.charCodeAt(0);
   return {
-    date:    ['03 nov. 2023','15 jan. 2024','08 sep. 2024','22 nov. 2025'][h % 4],
+    date:    [t('03 nov. 2023', '03 Nov 2023'), t('15 jan. 2024', '15 Jan 2024'), t('08 sep. 2024', '08 Sep 2024'), t('22 nov. 2025', '22 Nov 2025')][h % 4],
     stars:   3 + (h % 3),
     modules: MODULES.slice(0, 3 + (h % 3)),
   };
@@ -50,15 +51,15 @@ function GestCard({ user, selected, onClick, onEdit, onDelete }: { user: UserRec
           <div style={{ width: 38, height: 38, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{initials(user.name)}</div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{user.name}</div>
-            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 1 }}>Gestionnaire stock</div>
+            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 1 }}>{t('Gestionnaire stock', 'Stock manager')}</div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ background: '#E8F0E5', color: 'var(--fs-success-700)', fontSize: 9, fontWeight: 800, padding: '3px 8px', borderRadius: 6, letterSpacing: '0.08em', border: '1px solid rgba(90,139,83,0.2)' }}>STOCK</span>
-          <button onClick={onEdit} title="Modifier" style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--fs-line)', background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={onEdit} title={t('Modifier', 'Edit')} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--fs-line)', background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <I d={D.edit} size={12}/>
           </button>
-          <button onClick={onDelete} title="Supprimer" style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--fs-line)', background: '#fff', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={onDelete} title={t('Supprimer', 'Delete')} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--fs-line)', background: '#fff', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <I d={D.trash} size={12}/>
           </button>
         </div>
@@ -91,7 +92,7 @@ function EditGestPanel({ user, caisses, isNarrow, onSaved, onCancel }: { user: U
 
   const handleSave = async () => {
     const fullName = `${prenom} ${nom}`.trim();
-    if (!fullName) { setError('Nom obligatoire.'); return; }
+    if (!fullName) { setError(t('Nom obligatoire.', 'Name is required.')); return; }
     setLoading(true); setError('');
     try {
       const patch: { name?: string; password?: string; assignedLocation?: string } = { assignedLocation: depot };
@@ -99,7 +100,7 @@ function EditGestPanel({ user, caisses, isNarrow, onSaved, onCancel }: { user: U
       if (pwd.length >= 6) patch.password = pwd;
       await updateUser(user._id, patch);
       onSaved();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : t('Erreur', 'Error')); }
     finally { setLoading(false); }
   };
 
@@ -107,7 +108,7 @@ function EditGestPanel({ user, caisses, isNarrow, onSaved, onCancel }: { user: U
     <div style={{ width: isNarrow ? '100%' : 310, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-success-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Modification</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-success-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>{t('Modification', 'Editing')}</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{user.name}</div>
         </div>
         <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}>
@@ -116,29 +117,29 @@ function EditGestPanel({ user, caisses, isNarrow, onSaved, onCancel }: { user: U
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {error && <div style={{ background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{error}</div>}
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Identité</p>
-        {[{ label: 'Prénom', val: prenom, set: setPrenom }, { label: 'Nom', val: nom, set: setNom }].map(f => (
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{t('Identité', 'Identity')}</p>
+        {[{ label: t('Prénom', 'First name'), val: prenom, set: setPrenom }, { label: t('Nom', 'Last name'), val: nom, set: setNom }].map(f => (
           <div key={f.label}>
             <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{f.label}</label>
             <input value={f.val} onChange={e => f.set(e.target.value)}
               style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}/>
           </div>
         ))}
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Affectation</p>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Affectation', 'Assignment')}</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Point de vente assigné</label>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{t('Point de vente assigné', 'Assigned point of sale')}</label>
           <select value={depot} onChange={e => setDepot(e.target.value)}
             style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-            <option value="">— Sélectionner —</option>
+            <option value="">{t('— Sélectionner —', '— Select —')}</option>
             {caisses.map(c => <option key={c._id} value={c.nom}>{c.nom}{c.ville ? ` (${c.ville})` : ''}</option>)}
           </select>
         </div>
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Réinitialiser le mot de passe</p>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Réinitialiser le mot de passe', 'Reset password')}</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Nouveau mot de passe</label>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{t('Nouveau mot de passe', 'New password')}</label>
           <div style={{ position: 'relative' }}>
             <input type={showPwd ? 'text' : 'password'} value={pwd} onChange={e => setPwd(e.target.value)}
-              placeholder="Laisser vide pour ne pas changer"
+              placeholder={t('Laisser vide pour ne pas changer', 'Leave blank to keep unchanged')}
               style={{ width: '100%', padding: '9px 36px 9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
             <button onClick={() => setShowPwd(p => !p)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}>
               <I d={D.eye} size={14}/>
@@ -147,9 +148,9 @@ function EditGestPanel({ user, caisses, isNarrow, onSaved, onCancel }: { user: U
         </div>
       </div>
       <div style={{ padding: '12px 18px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 8, flexShrink: 0 }}>
-        <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>Annuler</button>
+        <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>{t('Annuler', 'Cancel')}</button>
         <button onClick={handleSave} disabled={loading} style={{ flex: 2, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-success-700)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
-          {loading ? 'Enregistrement…' : 'Enregistrer'}
+          {loading ? t('Enregistrement…', 'Saving…') : t('Enregistrer', 'Save')}
         </button>
       </div>
     </div>
@@ -167,12 +168,12 @@ function DeleteGestPanel({ user, isNarrow, onDeleted, onCancel }: { user: UserRe
   };
   return (
     <div style={{ width: isNarrow ? '100%' : 310, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '24px 22px', flexShrink: 0 }}>
-      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 10 }}>Supprimer {user.name} ?</div>
-      <p style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginBottom: 20, lineHeight: 1.5 }}>Ce compte gestionnaire sera définitivement supprimé. Cette action est irréversible.</p>
+      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 10 }}>{t(`Supprimer ${user.name} ?`, `Delete ${user.name}?`)}</div>
+      <p style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginBottom: 20, lineHeight: 1.5 }}>{t('Ce compte gestionnaire sera définitivement supprimé. Cette action est irréversible.', 'This stock manager account will be permanently deleted. This action cannot be undone.')}</p>
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>Annuler</button>
+        <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>{t('Annuler', 'Cancel')}</button>
         <button onClick={handleDelete} disabled={loading} style={{ flex: 2, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-danger-700)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
-          {loading ? 'Suppression…' : 'Confirmer la suppression'}
+          {loading ? t('Suppression…', 'Deleting…') : t('Confirmer la suppression', 'Confirm deletion')}
         </button>
       </div>
     </div>
@@ -187,7 +188,7 @@ function FormPanel({ caisses, isNarrow, onCreated, onCancel }: { caisses: Caisse
   const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   const handleCreate = async () => {
-    if (!form.prenom || !form.nom || !form.password) { setError('Prénom, nom et mot de passe obligatoires.'); return; }
+    if (!form.prenom || !form.nom || !form.password) { setError(t('Prénom, nom et mot de passe obligatoires.', 'First name, last name and password are required.')); return; }
     setLoading(true); setError('');
     try {
       await createUser({
@@ -199,42 +200,42 @@ function FormPanel({ caisses, isNarrow, onCreated, onCancel }: { caisses: Caisse
         assignedLocation: form.assignedLocation || undefined,
       });
       onCreated();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : t('Erreur', 'Error')); }
     finally { setLoading(false); }
   };
 
   return (
     <div style={{ width: isNarrow ? '100%' : 310, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-success-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>+ Nouveau gestionnaire</div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Créer un compte gestionnaire</div>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-success-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>{t('+ Nouveau gestionnaire', '+ New stock manager')}</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Créer un compte gestionnaire', 'Create a stock manager account')}</div>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {error && <div style={{ background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{error}</div>}
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Identité</p>
-        <Field label="Prénom" value={form.prenom} onChange={v => set('prenom', v)} placeholder="Samuel"/>
-        <Field label="Nom" value={form.nom} onChange={v => set('nom', v)} placeholder="Onana"/>
-        <Field label="Téléphone" value={form.phone} onChange={v => set('phone', v)} placeholder="+237 6 XX XX XX XX"/>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{t('Identité', 'Identity')}</p>
+        <Field label={t('Prénom', 'First name')} value={form.prenom} onChange={v => set('prenom', v)} placeholder="Samuel"/>
+        <Field label={t('Nom', 'Last name')} value={form.nom} onChange={v => set('nom', v)} placeholder="Onana"/>
+        <Field label={t('Téléphone', 'Phone')} value={form.phone} onChange={v => set('phone', v)} placeholder="+237 6 XX XX XX XX"/>
         <Field label="Email" value={form.email} onChange={v => set('email', v)} placeholder="samuel.o@familystore.cm"/>
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Affectation</p>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Affectation', 'Assignment')}</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Point de vente assigné</label>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{t('Point de vente assigné', 'Assigned store')}</label>
           <select value={form.assignedLocation} onChange={e => set('assignedLocation', e.target.value)}
             style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-            <option value="">— Sélectionner —</option>
+            <option value="">{t('— Sélectionner —', '— Select —')}</option>
             {caisses.map(c => <option key={c._id} value={c.nom}>{c.nom}{c.ville ? ` (${c.ville})` : ''}</option>)}
           </select>
         </div>
-        <Field label="Date d'embauche" value={form.dateEmb} onChange={v => set('dateEmb', v)} type="date"/>
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Sécurité</p>
+        <Field label={t("Date d'embauche", 'Hire date')} value={form.dateEmb} onChange={v => set('dateEmb', v)} type="date"/>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Sécurité', 'Security')}</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Mot de passe *</label>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{t('Mot de passe *', 'Password *')}</label>
           <div style={{ position: 'relative' }}>
             <input
               type={showPwd ? 'text' : 'password'}
               value={form.password}
               onChange={e => set('password', e.target.value)}
-              placeholder="Min. 6 caractères"
+              placeholder={t('Min. 6 caractères', 'Min. 6 characters')}
               style={{ width: '100%', padding: '9px 36px 9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}
             />
             <button type="button" onClick={() => setShowPwd(p => !p)}
@@ -245,9 +246,9 @@ function FormPanel({ caisses, isNarrow, onCreated, onCancel }: { caisses: Caisse
         </div>
       </div>
       <div style={{ padding: '12px 18px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 10, flexShrink: 0 }}>
-        <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>Annuler</button>
+        <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>{t('Annuler', 'Cancel')}</button>
         <button onClick={handleCreate} disabled={loading} style={{ flex: 2, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-success-700)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
-          {loading ? 'Création…' : 'Créer le compte'}
+          {loading ? t('Création…', 'Creating…') : t('Créer le compte', 'Create account')}
         </button>
       </div>
     </div>
@@ -278,11 +279,11 @@ export default function AdminGestionnaires() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
             <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Personnel — Gestionnaires</p>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>Gestionnaires · {staff.length} comptes</h1>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Personnel — Gestionnaires', 'Staff — Stock managers')}</p>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>{t(`Gestionnaires · ${staff.length} comptes`, `Stock managers · ${staff.length} accounts`)}</h1>
             </div>
             <button onClick={() => setPanel({ type: 'create' })} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 8, background: 'var(--fs-success-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-              <I d={D.plus} size={13}/> Ajouter un gestionnaire
+              <I d={D.plus} size={13}/> {t('Ajouter un gestionnaire', 'Add a stock manager')}
             </button>
           </div>
         </div>

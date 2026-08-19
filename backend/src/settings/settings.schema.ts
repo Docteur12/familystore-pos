@@ -38,6 +38,38 @@ export class Settings {
   @Prop({ default: '#FF0000' })
   couleurPrincipale: string;   // couleur de la boutique (interface + PDF)
 
+  @Prop({ default: '#B8893E' })
+  couleurSecondaire: string;   // palette « gold » (accents, titres de la caisse)
+
+  // ── Identité imprimée (tickets, PDF, e-mails) ────────────────────────────
+  // Historiquement codée en dur « Family Store / BY RDCT / Beauté • Saveur •
+  // Bien-être ». Chaque tenant porte désormais la sienne.
+  @Prop({ default: '' })
+  slogan: string;              // ex. « Beauté • Saveur • Bien-être »
+
+  @Prop({ default: '' })
+  signatureTicket: string;     // ex. « BY RDCT » — vide pour ne rien imprimer
+
+  @Prop({ default: '' })
+  mentionsLegales: string;     // ex. « NIU : … • RC : … »
+
+  @Prop({ type: [String], default: [] })
+  telephonesTicket: string[];  // numéros imprimés sur le ticket (2-3 max)
+
+  // ── Modules optionnels ───────────────────────────────────────────────────
+  // Modules activés pour ce magasin (voir MODULES_DISPONIBLES). Un module
+  // absent n'apparaît ni dans les menus ni dans les routes du frontend.
+  // Vide = tous actifs (rétro-compatibilité des documents existants).
+  @Prop({ type: [String], default: [] })
+  modules: string[];
+
+  // ── Règles métier paramétrables ──────────────────────────────────────────
+  @Prop({
+    type: { inactiviteMinutes: Number, seedFournisseursDemo: Boolean },
+    default: { inactiviteMinutes: 10, seedFournisseursDemo: true },
+  })
+  metier: { inactiviteMinutes: number; seedFournisseursDemo: boolean };
+
   // Offre marketing imprimée en pied de facture — éditable (import/export CSV).
   // Les segments entre *astérisques* sont rendus en gras sur le ticket.
   @Prop({
@@ -54,3 +86,7 @@ export class Settings {
 }
 
 export const SettingsSchema = SchemaFactory.createForClass(Settings);
+
+/** Modules pouvant être désactivés par magasin (frontend : menus + routes). */
+export const MODULES_DISPONIBLES = ['partenaires'] as const;
+export type ModuleId = (typeof MODULES_DISPONIBLES)[number];

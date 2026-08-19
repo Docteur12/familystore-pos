@@ -3,7 +3,7 @@ import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import { updateUser } from '../api/auth';
 import { getTokenPayload } from '../api/dashboard';
-import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings, applyPrimaryColor, OffreFacture, OFFRE_DEFAULTS } from '../api/settings';
+import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings, applyPrimaryColor, applySecondaryColor, OffreFacture, OFFRE_DEFAULTS, MODULES_DISPONIBLES, ModuleId, METIER_DEFAULTS } from '../api/settings';
 import { useSettings } from '../contexts/SettingsContext';
 import { getPendingSales, getLastSyncTime, syncPendingSales } from '../services/offlineSync';
 import { getPrintSettings, savePrintSettings, PrintSettings } from '../components/ReceiptPrint';
@@ -11,6 +11,7 @@ import { getCategoryTree, importCategories } from '../api/categories';
 import { resetEntrepot } from '../api/magazinier';
 import { authHeaders } from '../api/http';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t } from '../i18n';
 
 // ── Styles partagés ──────────────────────────────────────────────────────────
 
@@ -93,6 +94,16 @@ interface SForm {
   whatsapp: string;
   langue: string;
   couleurPrincipale: string;
+  couleurSecondaire: string;
+  // Identité imprimée (tickets, PDF, e-mails)
+  slogan: string;
+  signatureTicket: string;
+  mentionsLegales: string;
+  telephonesTicket: string;   // un numéro par ligne
+  // Modules et règles métier
+  modules: ModuleId[];
+  inactiviteMinutes: string;
+  seedFournisseursDemo: boolean;
 }
 
 function toSForm(s: StoreSettings): SForm {
@@ -110,6 +121,15 @@ function toSForm(s: StoreSettings): SForm {
     whatsapp:          s.reseauxSociaux?.whatsapp ?? '',
     langue:            s.langue ?? 'fr',
     couleurPrincipale: s.couleurPrincipale ?? '#FF0000',
+    couleurSecondaire: s.couleurSecondaire ?? '#B8893E',
+    slogan:            s.slogan ?? '',
+    signatureTicket:   s.signatureTicket ?? '',
+    mentionsLegales:   s.mentionsLegales ?? '',
+    telephonesTicket:  (s.telephonesTicket ?? []).join('\n'),
+    // Liste vide côté serveur = tous les modules actifs (rétro-compatibilité)
+    modules:           (s.modules && s.modules.length) ? [...s.modules] : MODULES_DISPONIBLES.map(m => m.id),
+    inactiviteMinutes: String(s.metier?.inactiviteMinutes ?? METIER_DEFAULTS.inactiviteMinutes),
+    seedFournisseursDemo: s.metier?.seedFournisseursDemo ?? METIER_DEFAULTS.seedFournisseursDemo,
   };
 }
 
@@ -126,6 +146,16 @@ function fromSForm(f: SForm): Partial<StoreSettings> {
     reseauxSociaux:    { facebook: f.facebook.trim(), whatsapp: f.whatsapp.trim() },
     langue:            f.langue,
     couleurPrincipale: f.couleurPrincipale || '#FF0000',
+    couleurSecondaire: f.couleurSecondaire || '#B8893E',
+    slogan:            f.slogan.trim(),
+    signatureTicket:   f.signatureTicket.trim(),
+    mentionsLegales:   f.mentionsLegales.trim(),
+    telephonesTicket:  f.telephonesTicket.split(/\r?\n/).map(x => x.trim()).filter(Boolean),
+    modules:           f.modules,
+    metier: {
+      inactiviteMinutes:    Math.max(1, Math.min(240, Number(f.inactiviteMinutes) || METIER_DEFAULTS.inactiviteMinutes)),
+      seedFournisseursDemo: f.seedFournisseursDemo,
+    },
   };
 }
 
@@ -157,7 +187,7 @@ export default function AdminParametres() {
     try {
       const tree = await getCategoryTree();
       const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
-      const rows = ['Catégorie;Sous-catégorie'];
+      const rows = [t('Catégorie;Sous-catégorie', 'Category;Sub-category')];
       for (const [cat, subs] of Object.entries(tree)) {
         if (!subs.length) rows.push(`${esc(cat)};${esc('')}`);
         else subs.forEach(s => rows.push(`${esc(cat)};${esc(s)}`));
@@ -167,7 +197,7 @@ export default function AdminParametres() {
       const a = document.createElement('a');
       a.href = url; a.download = `categories_${new Date().toISOString().slice(0, 10)}.csv`;
       a.click(); URL.revokeObjectURL(url);
-    } catch { addToast('Erreur export catégories', 'error'); }
+    } catch { addToast(t('Erreur export catégories', 'Category export error'), 'error'); }
   };
 
   const importCatCsv = async (file: File) => {
@@ -179,11 +209,11 @@ export default function AdminParametres() {
         .map(l => parseCatLine(l))
         .map(c => ({ category: (c[0] || '').trim(), subCategory: (c[1] || '').trim() }))
         .filter(r => r.category);
-      if (rows.length === 0) { addToast('CSV vide ou invalide', 'error'); return; }
+      if (rows.length === 0) { addToast(t('CSV vide ou invalide', 'Empty or invalid CSV'), 'error'); return; }
       const { count } = await importCategories(rows);
-      addToast(`Catégories actualisées : ${count} ligne(s)`, 'success');
+      addToast(t(`Catégories actualisées : ${count} ligne(s)`, `Categories updated: ${count} row(s)`), 'success');
     } catch {
-      addToast('Erreur import — vérifiez le CSV (Catégorie ; Sous-catégorie)', 'error');
+      addToast(t('Erreur import — vérifiez le CSV (Catégorie ; Sous-catégorie)', 'Import error — check the CSV (Category; Sub-category)'), 'error');
     } finally {
       setCatBusy(false);
       if (catFileRef.current) catFileRef.current.value = '';
@@ -197,16 +227,16 @@ export default function AdminParametres() {
   useEffect(() => { getSettings().then(s => setOffre({ ...OFFRE_DEFAULTS, ...(s.offreFacture ?? {}) })).catch(() => {}); }, []);
 
   const OFFRE_KEYS: { key: keyof OffreFacture; csv: string; label: string; ph: string }[] = [
-    { key: 'titre',      csv: 'TITRE_OFFRE',    label: 'Titre de l\'offre',   ph: 'ex : Ne laissez pas votre remise expirer !' },
-    { key: 'message',    csv: 'MESSAGE_OFFRE',  label: 'Message de l\'offre', ph: 'ex : *Merci pour votre achat !* Family Store vous offre 5 %…' },
-    { key: 'validite',   csv: 'VALIDITE_OFFRE', label: 'Validité',            ph: 'ex : *Offre valable jusqu\'au 31 août 2026 uniquement.*' },
-    { key: 'cta',        csv: 'CALL_TO_ACTION', label: 'Appel à l\'action',   ph: 'ex : *Revenez avant le 31 août avec cette facture…*' },
-    { key: 'salutation', csv: 'SALUTATION_FIN', label: 'Salutation de fin',   ph: 'ex : *À très bientôt chez Family Store !*' },
+    { key: 'titre',      csv: 'TITRE_OFFRE',    label: t('Titre de l\'offre', 'Offer title'),   ph: t('ex : Ne laissez pas votre remise expirer !', "e.g.: Don't let your discount expire!") },
+    { key: 'message',    csv: 'MESSAGE_OFFRE',  label: t('Message de l\'offre', 'Offer message'), ph: t('ex : *Merci pour votre achat !* Family Store vous offre 5 %…', 'e.g.: *Thank you for your purchase!* Family Store offers you 5%…') },
+    { key: 'validite',   csv: 'VALIDITE_OFFRE', label: t('Validité', 'Validity'),            ph: t('ex : *Offre valable jusqu\'au 31 août 2026 uniquement.*', 'e.g.: *Offer valid until 31 August 2026 only.*') },
+    { key: 'cta',        csv: 'CALL_TO_ACTION', label: t('Appel à l\'action', 'Call to action'),   ph: t('ex : *Revenez avant le 31 août avec cette facture…*', 'e.g.: *Come back before 31 August with this receipt…*') },
+    { key: 'salutation', csv: 'SALUTATION_FIN', label: t('Salutation de fin', 'Closing greeting'),   ph: t('ex : *À très bientôt chez Family Store !*', 'e.g.: *See you soon at Family Store!*') },
   ];
 
-  const saveOffre = async (next: OffreFacture, msg = 'Offre marketing enregistrée ✅') => {
+  const saveOffre = async (next: OffreFacture, msg = t('Offre marketing enregistrée ✅', 'Marketing offer saved ✅')) => {
     try { await updateSettings({ offreFacture: next }); reloadSettings(); addToast(msg, 'success'); }
-    catch { addToast('Erreur sauvegarde de l\'offre', 'error'); }
+    catch { addToast(t('Erreur sauvegarde de l\'offre', 'Failed to save the offer'), 'error'); }
   };
 
   const exportOffreCsv = () => {
@@ -235,10 +265,10 @@ export default function AdminParametres() {
         next[entry.key] = m[2].replace(/""/g, '"').trim();
         found++;
       }
-      if (found === 0) { addToast('CSV invalide — aucune clé reconnue (TITRE_OFFRE, MESSAGE_OFFRE…)', 'error'); return; }
+      if (found === 0) { addToast(t('CSV invalide — aucune clé reconnue (TITRE_OFFRE, MESSAGE_OFFRE…)', 'Invalid CSV — no recognized key (TITRE_OFFRE, MESSAGE_OFFRE…)'), 'error'); return; }
       setOffre(next);
-      await saveOffre(next, `Offre importée : ${found} champ(s) mis à jour ✅`);
-    } catch { addToast('Erreur lecture du fichier CSV', 'error'); }
+      await saveOffre(next, t(`Offre importée : ${found} champ(s) mis à jour ✅`, `Offer imported: ${found} field(s) updated ✅`));
+    } catch { addToast(t('Erreur lecture du fichier CSV', 'Error reading the CSV file'), 'error'); }
     finally { setOffreBusy(false); if (offreFileRef.current) offreFileRef.current.value = ''; }
   };
 
@@ -252,8 +282,8 @@ export default function AdminParametres() {
   const handleResetMagazin = async () => {
     if (magResetText.trim().toUpperCase() !== 'RÉINITIALISER') return;
     setMagResetLoading(true);
-    try { await resetEntrepot(); setMagResetDone(true); setMagResetText(''); addToast('Stock entrepôt réinitialisé', 'success'); }
-    catch { addToast('Erreur lors de la réinitialisation de l\'entrepôt', 'error'); }
+    try { await resetEntrepot(); setMagResetDone(true); setMagResetText(''); addToast(t('Stock entrepôt réinitialisé', 'Warehouse stock reset'), 'success'); }
+    catch { addToast(t('Erreur lors de la réinitialisation de l\'entrepôt', 'Error resetting the warehouse'), 'error'); }
     finally { setMagResetLoading(false); }
   };
   const [cleanLoading, setCleanLoading] = useState(false);
@@ -267,9 +297,9 @@ export default function AdminParametres() {
       const res = await fetch('/api/admin/clean-transactions', { method: 'POST', headers: authHeaders() });
       if (!res.ok) throw new Error('Erreur serveur');
       setCleanDone(true);
-      addToast('Ventes et sessions de test supprimées — produits conservés ✓', 'success');
+      addToast(t('Ventes et sessions de test supprimées — produits conservés ✓', 'Test sales and sessions deleted — products kept ✓'), 'success');
     } catch {
-      addToast('Erreur lors du nettoyage', 'error');
+      addToast(t('Erreur lors du nettoyage', 'Error during cleanup'), 'error');
     } finally {
       setCleanLoading(false);
     }
@@ -281,11 +311,11 @@ export default function AdminParametres() {
     try {
       const res = await fetch('/api/admin/reset', { method: 'POST', headers: authHeaders() });
       if (!res.ok) throw new Error('Erreur serveur');
-      addToast('Base réinitialisée — bienvenue en production !', 'success');
+      addToast(t('Base réinitialisée — bienvenue en production !', 'Database reset — welcome to production!'), 'success');
       setResetText('');
       setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 2000);
     } catch {
-      addToast('Erreur lors de la réinitialisation', 'error');
+      addToast(t('Erreur lors de la réinitialisation', 'Error during reset'), 'error');
     } finally {
       setResetLoading(false);
     }
@@ -312,13 +342,13 @@ export default function AdminParametres() {
   }, [addToast, loadSyncStatus]);
 
   function formatLastSync(d: Date | null): string {
-    if (!d) return 'Jamais';
+    if (!d) return t('Jamais', 'Never');
     const diff = Math.floor((Date.now() - d.getTime()) / 60000);
-    if (diff < 1) return 'À l\'instant';
-    if (diff === 1) return 'Il y a 1 minute';
-    if (diff < 60) return `Il y a ${diff} minutes`;
+    if (diff < 1) return t('À l\'instant', 'Just now');
+    if (diff === 1) return t('Il y a 1 minute', '1 minute ago');
+    if (diff < 60) return t(`Il y a ${diff} minutes`, `${diff} minutes ago`);
     const h = Math.floor(diff / 60);
-    return `Il y a ${h} heure${h > 1 ? 's' : ''}`;
+    return t(`Il y a ${h} heure${h > 1 ? 's' : ''}`, `${h} hour${h > 1 ? 's' : ''} ago`);
   }
 
   // ── Print settings (localStorage) ───────────────────────────────────────
@@ -346,12 +376,16 @@ export default function AdminParametres() {
     setForm(prev => ({ ...prev, [k]: v }));
   }, []);
 
-  const mkChange = useCallback((k: keyof SForm) => (v: string) => setField(k, v), [setField]);
+  const mkChange = useCallback((k: keyof SForm) => (v: string) => setField(k, v as never), [setField]);
+  const toggleModule = useCallback((id: ModuleId) => setForm(prev => ({
+    ...prev,
+    modules: prev.modules.includes(id) ? prev.modules.filter(m => m !== id) : [...prev.modules, id],
+  })), []);
 
   const handleLogoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 500 * 1024) { alert('Logo trop lourd (max 500 Ko)'); return; }
+    if (file.size > 500 * 1024) { alert(t('Logo trop lourd (max 500 Ko)', 'Logo too large (max 500 KB)')); return; }
     const reader = new FileReader();
     reader.onload = ev => setField('logoUrl', ev.target?.result as string ?? '');
     reader.readAsDataURL(file);
@@ -362,15 +396,15 @@ export default function AdminParametres() {
     try {
       await updateSettings(fromSForm(form));
       reloadSettings();
-      addToast('Paramètres sauvegardés ✅', 'success');
+      addToast(t('Paramètres sauvegardés ✅', 'Settings saved ✅'), 'success');
     } catch (e: unknown) {
-      addToast(e instanceof Error ? e.message : 'Erreur sauvegarde', 'error');
+      addToast(e instanceof Error ? e.message : t('Erreur sauvegarde', 'Save error'), 'error');
     } finally { setSLoading(false); }
   }, [form, reloadSettings, addToast]);
 
   // ── Mon compte ───────────────────────────────────────────────────────────
   const payload   = getTokenPayload();
-  const nameParts = (payload?.name ?? 'Patron').split(' ');
+  const nameParts = (payload?.name ?? t('Patron', 'Owner')).split(' ');
 
   const [accPrenom,  setAccPrenom]  = useState(nameParts[0] ?? '');
   const [accNom,     setAccNom]     = useState(nameParts.slice(1).join(' ') ?? '');
@@ -380,9 +414,9 @@ export default function AdminParametres() {
   const [accLoading, setAccLoading] = useState(false);
 
   const handleAccSave = useCallback(async () => {
-    if (!accPrenom) { setAccError('Le prénom est obligatoire.'); return; }
-    if (accPwd && accPwd !== accPwd2) { setAccError('Les mots de passe ne correspondent pas.'); return; }
-    if (accPwd && accPwd.length < 6) { setAccError('Mot de passe : 6 caractères minimum.'); return; }
+    if (!accPrenom) { setAccError(t('Le prénom est obligatoire.', 'First name is required.')); return; }
+    if (accPwd && accPwd !== accPwd2) { setAccError(t('Les mots de passe ne correspondent pas.', 'Passwords do not match.')); return; }
+    if (accPwd && accPwd.length < 6) { setAccError(t('Mot de passe : 6 caractères minimum.', 'Password: 6 characters minimum.')); return; }
     setAccLoading(true); setAccError('');
     try {
       const patch: { name?: string; password?: string } = {};
@@ -393,9 +427,9 @@ export default function AdminParametres() {
         await updateUser(payload.sub, patch);
       }
       setAccPwd(''); setAccPwd2('');
-      addToast('Compte mis à jour ✅', 'success');
+      addToast(t('Compte mis à jour ✅', 'Account updated ✅'), 'success');
     } catch (e: unknown) {
-      setAccError(e instanceof Error ? e.message : 'Erreur');
+      setAccError(e instanceof Error ? e.message : t('Erreur', 'Error'));
     } finally { setAccLoading(false); }
   }, [accPrenom, accNom, accPwd, accPwd2, payload, addToast]);
 
@@ -411,15 +445,15 @@ export default function AdminParametres() {
 
         {/* Header */}
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0, paddingLeft: isMobile ? 52 : (isNarrow ? 16 : 28) }}>
-          <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Système</p>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>Paramètres magasin</h1>
+          <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Système', 'System')}</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>{t('Paramètres magasin', 'Store settings')}</h1>
         </div>
 
         <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '20px 16px' : '24px 28px', maxWidth: 660 }}>
 
           {/* ── Logo ──────────────────────────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
-            <p style={SECTION_TITLE}>Logo du magasin</p>
+            <p style={SECTION_TITLE}>{t('Logo du magasin', 'Store logo')}</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
               <div style={{ width: 80, height: 80, borderRadius: 12, border: '2px dashed var(--fs-line-2)', background: 'var(--fs-ivory)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
                 {form.logoUrl
@@ -430,22 +464,22 @@ export default function AdminParametres() {
                 <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: 'none' }}/>
                 <button onClick={() => logoInputRef.current?.click()}
                   style={{ padding: '8px 18px', border: '1.5px solid var(--fs-wine-700)', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-wine-700)', marginBottom: 6 }}>
-                  Choisir un logo
+                  {t('Choisir un logo', 'Choose a logo')}
                 </button>
                 {form.logoUrl && (
                   <button onClick={() => setField('logoUrl', '')}
                     style={{ marginLeft: 8, padding: '8px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-400)' }}>
-                    Supprimer
+                    {t('Supprimer', 'Remove')}
                   </button>
                 )}
-                <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '4px 0 0' }}>PNG, JPG · max 500 Ko · stocké en base64</p>
+                <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '4px 0 0' }}>{t('PNG, JPG · max 500 Ko · stocké en base64', 'PNG, JPG · max 500 KB · stored as base64')}</p>
               </div>
             </div>
           </div>
 
           {/* ── Couleur principale ───────────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
-            <p style={SECTION_TITLE}>Couleur de la boutique</p>
+            <p style={SECTION_TITLE}>{t('Couleur de la boutique', 'Store color')}</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 <div style={{ width: 52, height: 52, borderRadius: 10, background: form.couleurPrincipale || 'var(--fs-wine-700)', border: '2px solid var(--fs-line-2)', overflow: 'hidden', cursor: 'pointer' }}>
@@ -461,7 +495,7 @@ export default function AdminParametres() {
                 </div>
               </div>
               <div style={{ flex: 1 }}>
-                <label style={LABEL_STYLE}>Code couleur hex</label>
+                <label style={LABEL_STYLE}>{t('Code couleur hex', 'Hex color code')}</label>
                 <input
                   type="text"
                   value={form.couleurPrincipale || '#FF0000'}
@@ -473,45 +507,71 @@ export default function AdminParametres() {
                   style={{ ...INPUT_STYLE, fontFamily: 'var(--fs-font-mono)', width: 130 }}
                 />
                 <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '6px 0 0' }}>
-                  S'applique sur toute l'interface — boutons, sidebar, en-têtes.
+                  {t("S'applique sur toute l'interface — boutons, sidebar, en-têtes.", 'Applies across the whole interface — buttons, sidebar, headers.')}
                 </p>
               </div>
               <button onClick={() => { mkChange('couleurPrincipale')('#FF0000'); if (typeof applyPrimaryColor === 'function') applyPrimaryColor('#FF0000'); }}
                 style={{ padding: '7px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)' }}>
-                Défaut
+                {t('Défaut', 'Default')}
+              </button>
+            </div>
+          </div>
+
+          {/* ── Couleur secondaire (accents « or ») ─────────────────────────── */}
+          <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
+            <p style={SECTION_TITLE}>{t('Couleur secondaire (accents)', 'Secondary color (accents)')}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <div style={{ width: 52, height: 52, borderRadius: 10, background: form.couleurSecondaire || 'var(--fs-gold-500)', border: '2px solid var(--fs-line-2)', overflow: 'hidden', cursor: 'pointer' }}>
+                  <input type="color" value={form.couleurSecondaire || '#B8893E'}
+                    onChange={e => { mkChange('couleurSecondaire')(e.target.value); applySecondaryColor(e.target.value); }}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}/>
+                </div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={LABEL_STYLE}>{t('Code couleur hex', 'Hex color code')}</label>
+                <input type="text" value={form.couleurSecondaire || '#B8893E'}
+                  onChange={e => { mkChange('couleurSecondaire')(e.target.value); if (/^#[0-9A-Fa-f]{6}$/.test(e.target.value)) applySecondaryColor(e.target.value); }}
+                  placeholder="#B8893E" style={{ ...INPUT_STYLE, fontFamily: 'var(--fs-font-mono)', width: 130 }}/>
+                <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '6px 0 0' }}>
+                  {t('Titres de la caisse, filets décoratifs, mises en avant.', 'Checkout headings, decorative rules, highlights.')}
+                </p>
+              </div>
+              <button onClick={() => { mkChange('couleurSecondaire')('#B8893E'); applySecondaryColor('#B8893E'); }}
+                style={{ padding: '7px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)' }}>
+                {t('Défaut', 'Default')}
               </button>
             </div>
           </div>
 
           {/* ── Catégories de produits (éditable sans code) ──────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
-            <p style={SECTION_TITLE}>Catégories de produits</p>
+            <p style={SECTION_TITLE}>{t('Catégories de produits', 'Product categories')}</p>
             <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '0 0 12px', lineHeight: 1.5 }}>
-              Gérez les catégories et sous-catégories <strong>sans toucher au code</strong> : exportez le CSV, éditez-le dans Excel
-              (2 colonnes : <em>Catégorie ; Sous-catégorie</em>, une ligne par sous-catégorie), puis réimportez pour <strong>actualiser le serveur</strong>.
-              L'import <strong>remplace</strong> toute la liste. (Les administrateurs peuvent aussi ajouter une catégorie directement depuis la fiche produit, via « Autre… ».)
+              {t('Gérez les catégories et sous-catégories ', 'Manage categories and sub-categories ')}<strong>{t('sans toucher au code', 'without touching the code')}</strong>{t(' : exportez le CSV, éditez-le dans Excel', ': export the CSV, edit it in Excel')}
+              {t('(2 colonnes : ', '(2 columns: ')}<em>{t('Catégorie ; Sous-catégorie', 'Category; Sub-category')}</em>{t(', une ligne par sous-catégorie), puis réimportez pour ', ', one row per sub-category), then re-import to ')}<strong>{t('actualiser le serveur', 'update the server')}</strong>.
+              {t("L'import ", 'The import ')}<strong>{t('remplace', 'replaces')}</strong>{t(' toute la liste. (Les administrateurs peuvent aussi ajouter une catégorie directement depuis la fiche produit, via « Autre… ».)', ' the whole list. (Administrators can also add a category directly from the product form, via "Other…".)')}
             </p>
             <input ref={catFileRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
               onChange={e => { const f = e.target.files?.[0]; if (f) importCatCsv(f); }} />
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button onClick={exportCatCsv}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                ⬇ Exporter (CSV)
+                ⬇ {t('Exporter (CSV)', 'Export (CSV)')}
               </button>
               <button onClick={() => catFileRef.current?.click()} disabled={catBusy}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: catBusy ? 'default' : 'pointer', opacity: catBusy ? 0.6 : 1 }}>
-                ⬆ {catBusy ? 'Import…' : 'Importer (CSV)'}
+                ⬆ {catBusy ? t('Import…', 'Importing…') : t('Importer (CSV)', 'Import (CSV)')}
               </button>
             </div>
           </div>
 
           {/* ── Offre marketing du ticket (éditable sans code) ───────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
-            <p style={SECTION_TITLE}>Offre marketing (facture)</p>
+            <p style={SECTION_TITLE}>{t('Offre marketing (facture)', 'Marketing offer (receipt)')}</p>
             <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '0 0 12px', lineHeight: 1.5 }}>
-              Personnalisez les textes imprimés en <strong>pied de ticket</strong> sans toucher au code : modifiez les champs ci-dessous
-              ou passez par Excel (<strong>Exporter</strong> le CSV, l'éditer, puis <strong>Importer</strong>).
-              Les mots entourés d'astérisques <em>*comme ceci*</em> sont imprimés <strong>en gras</strong>. Un champ vide n'est pas imprimé.
+              {t('Personnalisez les textes imprimés en ', 'Customize the texts printed at the ')}<strong>{t('pied de ticket', 'bottom of the receipt')}</strong>{t(' sans toucher au code : modifiez les champs ci-dessous ou passez par Excel (', ' without touching the code: edit the fields below or use Excel (')}<strong>{t('Exporter', 'Export')}</strong>{t(' le CSV, l\'éditer, puis ', ' the CSV, edit it, then ')}<strong>{t('Importer', 'Import')}</strong>{t(').', ').')}
+              {t(' Les mots entourés d\'astérisques ', ' Words wrapped in asterisks ')}<em>{t('*comme ceci*', '*like this*')}</em>{t(' sont imprimés ', ' are printed ')}<strong>{t('en gras', 'in bold')}</strong>{t('. Un champ vide n\'est pas imprimé.', '. An empty field is not printed.')}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
               {OFFRE_KEYS.map(k => (
@@ -530,56 +590,78 @@ export default function AdminParametres() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button onClick={() => saveOffre(offre)}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                💾 Enregistrer l'offre
+                💾 {t("Enregistrer l'offre", 'Save the offer')}
               </button>
               <button onClick={exportOffreCsv}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                ⬇ Exporter (CSV)
+                ⬇ {t('Exporter (CSV)', 'Export (CSV)')}
               </button>
               <button onClick={() => offreFileRef.current?.click()} disabled={offreBusy}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 600, cursor: offreBusy ? 'default' : 'pointer', opacity: offreBusy ? 0.6 : 1 }}>
-                ⬆ {offreBusy ? 'Import…' : 'Importer (CSV)'}
+                ⬆ {offreBusy ? t('Import…', 'Importing…') : t('Importer (CSV)', 'Import (CSV)')}
               </button>
             </div>
           </div>
 
           {/* ── Informations générales ────────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
-            <p style={SECTION_TITLE}>Informations générales</p>
+            <p style={SECTION_TITLE}>{t('Informations générales', 'General information')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <Field label="Nom du magasin"  value={form.nomMagasin} onChange={mkChange('nomMagasin')} placeholder="Family Store"/>
-              <Field label="Adresse"         value={form.adresse}    onChange={mkChange('adresse')}    placeholder="Rue de la Joie, Akwa"/>
+              <Field label={t('Nom du magasin', 'Store name')}  value={form.nomMagasin} onChange={mkChange('nomMagasin')} placeholder="Family Store"/>
+              <Field label={t('Adresse', 'Address')}         value={form.adresse}    onChange={mkChange('adresse')}    placeholder="Rue de la Joie, Akwa"/>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
-                <Field label="Ville"         value={form.ville}      onChange={mkChange('ville')}      placeholder="Douala"/>
-                <Field label="Téléphone"     value={form.telephone}  onChange={mkChange('telephone')}  placeholder="+237 6XX XXX XXX"/>
+                <Field label={t('Ville', 'City')}         value={form.ville}      onChange={mkChange('ville')}      placeholder="Douala"/>
+                <Field label={t('Téléphone', 'Phone')}     value={form.telephone}  onChange={mkChange('telephone')}  placeholder="+237 6XX XXX XXX"/>
               </div>
-              <Field label="Email de contact" value={form.email}     onChange={mkChange('email')}      type="email" placeholder="contact@familystore.cm"/>
+              <Field label={t('Email de contact', 'Contact email')} value={form.email}     onChange={mkChange('email')}      type="email" placeholder="contact@familystore.cm"/>
+            </div>
+          </div>
+
+          {/* ── Identité imprimée (tickets, PDF, e-mails) ────────────────── */}
+          <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
+            <p style={SECTION_TITLE}>{t('Identité sur les tickets et documents', 'Identity on receipts and documents')}</p>
+            <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '0 0 12px', lineHeight: 1.5 }}>
+              {t("En-tête du ticket de caisse, des PDF et des e-mails. Un champ vide n'imprime rien.", 'Header of the receipt, PDFs and e-mails. An empty field prints nothing.')}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
+                <Field label={t('Signature (sous le nom)', 'Signature (under the name)')} value={form.signatureTicket} onChange={mkChange('signatureTicket')} placeholder={t('ex : BY RDCT', 'e.g.: BY RDCT')}/>
+                <Field label={t('Slogan', 'Slogan')} value={form.slogan} onChange={mkChange('slogan')} placeholder={t('ex : Beauté • Saveur • Bien-être', 'e.g.: Beauty • Flavour • Well-being')}/>
+              </div>
+              <Field label={t('Mentions légales', 'Legal notice')} value={form.mentionsLegales} onChange={mkChange('mentionsLegales')} placeholder={t('ex : NIU : MO2211… • RC : RC/DLN/2021/…', 'e.g.: NIU: MO2211… • RC: RC/DLN/2021/…')}/>
+              <div>
+                <label style={LABEL_STYLE}>{t('Téléphones imprimés sur le ticket (un par ligne)', 'Phone numbers printed on the receipt (one per line)')}</label>
+                <textarea value={form.telephonesTicket} onChange={e => setField('telephonesTicket', e.target.value)} rows={2}
+                  placeholder={'+237 6XX XXX XXX\n+237 6XX XXX XXX'}
+                  style={{ ...INPUT_STYLE, resize: 'vertical', fontFamily: 'var(--fs-font-mono)' }}/>
+                <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '4px 0 0' }}>{t('Vide : le téléphone de contact ci-dessus est utilisé.', 'Empty: the contact phone above is used.')}</p>
+              </div>
             </div>
           </div>
 
           {/* ── Horaires ─────────────────────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
-            <p style={SECTION_TITLE}>Horaires d'ouverture</p>
+            <p style={SECTION_TITLE}>{t("Horaires d'ouverture", 'Opening hours')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
-              <Field label="Heure d'ouverture" value={form.ouverture} onChange={mkChange('ouverture')} type="time"/>
-              <Field label="Heure de fermeture" value={form.fermeture} onChange={mkChange('fermeture')} type="time"/>
+              <Field label={t("Heure d'ouverture", 'Opening time')} value={form.ouverture} onChange={mkChange('ouverture')} type="time"/>
+              <Field label={t('Heure de fermeture', 'Closing time')} value={form.fermeture} onChange={mkChange('fermeture')} type="time"/>
             </div>
             <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '10px 0 0' }}>
-              Horaires affichés sur les tickets et rapports.
+              {t('Horaires affichés sur les tickets et rapports.', 'Hours shown on receipts and reports.')}
             </p>
           </div>
 
           {/* ── Fiscal & Monnaie ─────────────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
-            <p style={SECTION_TITLE}>Monnaie</p>
-            <Field label="Devise" value={form.devise} onChange={mkChange('devise')} placeholder="XAF"/>
+            <p style={SECTION_TITLE}>{t('Monnaie', 'Currency')}</p>
+            <Field label={t('Devise', 'Currency')} value={form.devise} onChange={mkChange('devise')} placeholder="XAF"/>
           </div>
 
           {/* ── Langue ───────────────────────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
-            <p style={SECTION_TITLE}>Langue de l'interface</p>
+            <p style={SECTION_TITLE}>{t("Langue de l'interface", 'Interface language')}</p>
             <SelectField
-              label="Langue"
+              label={t('Langue', 'Language')}
               value={form.langue}
               onChange={mkChange('langue')}
               options={[
@@ -589,25 +671,48 @@ export default function AdminParametres() {
             />
           </div>
 
+          {/* ── Modules & règles métier ──────────────────────────────────── */}
+          <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
+            <p style={SECTION_TITLE}>{t('Modules et règles métier', 'Modules and business rules')}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {MODULES_DISPONIBLES.map(m => (
+                <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.modules.includes(m.id)} onChange={() => toggleModule(m.id)}/>
+                  <span>{t('Module', 'Module')} <strong>{m.label}</strong></span>
+                </label>
+              ))}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, cursor: 'pointer' }}>
+                <input type="checkbox" checked={form.seedFournisseursDemo} onChange={e => setField('seedFournisseursDemo', e.target.checked)}/>
+                <span>{t('Créer les ', 'Create the ')}<strong>{t('fournisseurs de démonstration', 'demo suppliers')}</strong>{t(' quand la liste est vide', ' when the list is empty')}</span>
+              </label>
+              <div style={{ maxWidth: 260 }}>
+                <Field label={t('Déconnexion après inactivité (minutes)', 'Sign out after inactivity (minutes)')} value={form.inactiviteMinutes} onChange={mkChange('inactiviteMinutes')} type="number" placeholder="10"/>
+              </div>
+            </div>
+            <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '10px 0 0' }}>
+              {t("Un module désactivé disparaît des menus et de l'accueil. La caisse garde son propre verrouillage par PIN.", 'A disabled module disappears from the menus and the home page. The checkout keeps its own PIN lock.')}
+            </p>
+          </div>
+
           {/* ── Réseaux sociaux ──────────────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
-            <p style={SECTION_TITLE}>Réseaux sociaux</p>
+            <p style={SECTION_TITLE}>{t('Réseaux sociaux', 'Social media')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <Field label="Page Facebook"   value={form.facebook} onChange={mkChange('facebook')} placeholder="https://facebook.com/familystore"/>
+              <Field label={t('Page Facebook', 'Facebook page')}   value={form.facebook} onChange={mkChange('facebook')} placeholder="https://facebook.com/familystore"/>
               <Field label="WhatsApp Business" value={form.whatsapp} onChange={mkChange('whatsapp')} placeholder="+237 6XX XXX XXX"/>
             </div>
           </div>
 
           {/* ── Impression des reçus ─────────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
-            <p style={SECTION_TITLE}>Impression des reçus</p>
+            <p style={SECTION_TITLE}>{t('Impression des reçus', 'Receipt printing')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
               {/* Toggle impression automatique */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>Impression automatique</div>
-                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>Imprimer le reçu dès la validation d'une vente</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{t('Impression automatique', 'Automatic printing')}</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>{t("Imprimer le reçu dès la validation d'une vente", 'Print the receipt as soon as a sale is confirmed')}</div>
                 </div>
                 <button
                   onClick={() => updatePrint('auto', !printSettings.auto)}
@@ -627,7 +732,7 @@ export default function AdminParametres() {
 
               {/* Nombre de copies */}
               <div>
-                <label style={LABEL_STYLE}>Nombre de copies</label>
+                <label style={LABEL_STYLE}>{t('Nombre de copies', 'Number of copies')}</label>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {[1, 2].map(n => (
                     <button
@@ -640,7 +745,7 @@ export default function AdminParametres() {
                         fontSize: 13, fontWeight: 700, cursor: 'pointer',
                       }}
                     >
-                      {n} copie{n > 1 ? 's' : ''}
+                      {t(`${n} copie${n > 1 ? 's' : ''}`, `${n} cop${n > 1 ? 'ies' : 'y'}`)}
                     </button>
                   ))}
                 </div>
@@ -651,16 +756,16 @@ export default function AdminParametres() {
 
           {/* ── Synchronisation hors-ligne ───────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
-            <p style={SECTION_TITLE}>Synchronisation hors-ligne</p>
+            <p style={SECTION_TITLE}>{t('Synchronisation hors-ligne', 'Offline synchronization')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--fs-ivory)', borderRadius: 8, fontSize: 13 }}>
-                <span style={{ color: 'var(--fs-ink-500)', fontWeight: 500 }}>Dernière synchronisation</span>
+                <span style={{ color: 'var(--fs-ink-500)', fontWeight: 500 }}>{t('Dernière synchronisation', 'Last synchronization')}</span>
                 <span style={{ color: 'var(--fs-ink-900)', fontWeight: 600, fontFamily: 'var(--fs-font-mono)' }}>{formatLastSync(lastSync)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: syncPending > 0 ? '#fff7ed' : 'var(--fs-ivory)', borderRadius: 8, fontSize: 13, border: syncPending > 0 ? '1px solid #fed7aa' : 'none' }}>
-                <span style={{ color: 'var(--fs-ink-500)', fontWeight: 500 }}>Ventes en attente</span>
+                <span style={{ color: 'var(--fs-ink-500)', fontWeight: 500 }}>{t('Ventes en attente', 'Pending sales')}</span>
                 <span style={{ color: syncPending > 0 ? '#c2410c' : '#16a34a', fontWeight: 700, fontFamily: 'var(--fs-font-mono)' }}>
-                  {syncPending > 0 ? `${syncPending} vente(s)` : 'Aucune'}
+                  {syncPending > 0 ? t(`${syncPending} vente(s)`, `${syncPending} sale(s)`) : t('Aucune', 'None')}
                 </span>
               </div>
               <button
@@ -674,7 +779,7 @@ export default function AdminParametres() {
                   border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700,
                   cursor: isSyncing || syncPending === 0 ? 'not-allowed' : 'pointer',
                 }}>
-                {isSyncing ? 'Synchronisation…' : 'Forcer la synchronisation'}
+                {isSyncing ? t('Synchronisation…', 'Syncing…') : t('Forcer la synchronisation', 'Force synchronization')}
               </button>
             </div>
           </div>
@@ -682,7 +787,7 @@ export default function AdminParametres() {
           {/* ── Bouton Enregistrer ────────────────────────────────────────── */}
           <button onClick={handleSaveSettings} disabled={sLoading}
             style={{ padding: '11px 32px', background: sLoading ? 'var(--fs-ink-400)' : 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: sLoading ? 'not-allowed' : 'pointer', opacity: sLoading ? 0.8 : 1 }}>
-            {sLoading ? 'Enregistrement…' : 'Enregistrer les modifications'}
+            {sLoading ? t('Enregistrement…', 'Saving…') : t('Enregistrer les modifications', 'Save changes')}
           </button>
 
           {/* ── Mon compte ───────────────────────────────────────────────── */}
@@ -693,26 +798,26 @@ export default function AdminParametres() {
               </div>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{accPrenom} {accNom}</div>
-                <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>Patron · {payload?.email ?? ''}</div>
+                <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{t('Patron', 'Owner')} · {payload?.email ?? ''}</div>
               </div>
             </div>
 
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', boxShadow: 'var(--fs-shadow-sm)' }}>
-              <p style={SECTION_TITLE}>Mon compte</p>
+              <p style={SECTION_TITLE}>{t('Mon compte', 'My account')}</p>
               {accError && <div style={{ background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', padding: '8px 12px', borderRadius: 8, marginBottom: 12, fontSize: 12, fontWeight: 600 }}>{accError}</div>}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
-                  <Field label="Prénom" value={accPrenom} onChange={onAccPrenom} placeholder="Prénom"/>
-                  <Field label="Nom"    value={accNom}    onChange={onAccNom}    placeholder="Nom de famille"/>
+                  <Field label={t('Prénom', 'First name')} value={accPrenom} onChange={onAccPrenom} placeholder={t('Prénom', 'First name')}/>
+                  <Field label={t('Nom', 'Last name')}    value={accNom}    onChange={onAccNom}    placeholder={t('Nom de famille', 'Last name')}/>
                 </div>
                 <Field label="Email" value={payload?.email ?? ''} onChange={() => {}} disabled placeholder="email@familystore.cm"/>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
-                  <Field label="Nouveau mot de passe"     value={accPwd}  onChange={onAccPwd}  type="password" placeholder="Laisser vide pour ne pas changer"/>
-                  <Field label="Confirmer le mot de passe" value={accPwd2} onChange={onAccPwd2} type="password" placeholder="Répéter le mot de passe"/>
+                  <Field label={t('Nouveau mot de passe', 'New password')}     value={accPwd}  onChange={onAccPwd}  type="password" placeholder={t('Laisser vide pour ne pas changer', 'Leave blank to keep unchanged')}/>
+                  <Field label={t('Confirmer le mot de passe', 'Confirm password')} value={accPwd2} onChange={onAccPwd2} type="password" placeholder={t('Répéter le mot de passe', 'Repeat the password')}/>
                 </div>
                 <button onClick={handleAccSave} disabled={accLoading}
                   style={{ alignSelf: 'flex-start', padding: '10px 24px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: accLoading ? 0.7 : 1 }}>
-                  {accLoading ? 'Enregistrement…' : 'Mettre à jour mon compte'}
+                  {accLoading ? t('Enregistrement…', 'Saving…') : t('Mettre à jour mon compte', 'Update my account')}
                 </button>
               </div>
             </div>
@@ -722,10 +827,10 @@ export default function AdminParametres() {
           <div style={{ marginTop: 32, border: '2px solid #fca5a5', borderRadius: 12, overflow: 'hidden' }}>
             <div style={{ background: '#fef2f2', padding: '14px 20px', borderBottom: '1px solid #fca5a5' }}>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: '#991b1b', letterSpacing: '0.05em' }}>
-                ⚠️ ZONE DE DANGER — Mise en production
+                ⚠️ {t('ZONE DE DANGER — Mise en production', 'DANGER ZONE — Going live')}
               </p>
               <p style={{ margin: '4px 0 0', fontSize: 12, color: '#b91c1c' }}>
-                Actions irréversibles.
+                {t('Actions irréversibles.', 'Irreversible actions.')}
               </p>
             </div>
             <div style={{ padding: '16px 20px', background: '#fff', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -733,21 +838,21 @@ export default function AdminParametres() {
               {/* ── Nettoyage données test (garde produits) ── */}
               <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#C2410C' }}>🧹 Nettoyer les données de test</p>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#C2410C' }}>🧹 {t('Nettoyer les données de test', 'Clean test data')}</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--fs-ink-600)', lineHeight: 1.5 }}>
-                    Supprime : <strong>ventes · factures · sessions · mouvements · dépenses · logs</strong><br/>
-                    Conserve : <strong>produits · caissiers · gestionnaires · caisses</strong>
+                    {t('Supprime : ', 'Deletes: ')}<strong>{t('ventes · factures · sessions · mouvements · dépenses · logs', 'sales · invoices · sessions · movements · expenses · logs')}</strong><br/>
+                    {t('Conserve : ', 'Keeps: ')}<strong>{t('produits · caissiers · gestionnaires · caisses', 'products · cashiers · managers · cash registers')}</strong>
                   </p>
                 </div>
                 {cleanDone ? (
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>✓ Nettoyage effectué avec succès</p>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>✓ {t('Nettoyage effectué avec succès', 'Cleanup completed successfully')}</p>
                 ) : (
                   <>
-                    <input value={cleanText} onChange={e => setCleanText(e.target.value)} placeholder="Tapez NETTOYER pour confirmer"
+                    <input value={cleanText} onChange={e => setCleanText(e.target.value)} placeholder={t('Tapez NETTOYER pour confirmer', 'Type NETTOYER to confirm')}
                       style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', boxSizing: 'border-box' }}/>
                     <button onClick={handleCleanTransactions} disabled={cleanLoading || cleanText.trim().toUpperCase() !== 'NETTOYER'}
                       style={{ alignSelf: 'flex-start', padding: '9px 18px', background: '#EA580C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: (cleanLoading || cleanText.trim().toUpperCase() !== 'NETTOYER') ? 'not-allowed' : 'pointer', opacity: (cleanLoading || cleanText.trim().toUpperCase() !== 'NETTOYER') ? 0.5 : 1 }}>
-                      {cleanLoading ? 'Nettoyage…' : 'Supprimer les données de test uniquement'}
+                      {cleanLoading ? t('Nettoyage…', 'Cleaning…') : t('Supprimer les données de test uniquement', 'Delete test data only')}
                     </button>
                   </>
                 )}
@@ -758,21 +863,21 @@ export default function AdminParametres() {
               {/* ── Réinitialiser le magazin (entrepôt) ── */}
               <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div>
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#C2410C' }}>📦 Réinitialiser le magazin (entrepôt)</p>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#C2410C' }}>📦 {t('Réinitialiser le magazin (entrepôt)', 'Reset the warehouse')}</p>
                   <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--fs-ink-600)', lineHeight: 1.5 }}>
-                    Remet à <strong>zéro le stock entrepôt</strong> de tous les produits et <strong>supprime l'historique des réceptions</strong>.<br/>
-                    N'affecte <strong>pas</strong> le stock caisse, les ventes ni les produits.
+                    {t('Remet à ', 'Resets ')}<strong>{t('zéro le stock entrepôt', 'the warehouse stock to zero')}</strong>{t(' de tous les produits et ', ' for all products and ')}<strong>{t("supprime l'historique des réceptions", 'deletes the receiving history')}</strong>.<br/>
+                    {t("N'affecte ", 'Does ')}<strong>{t('pas', 'not')}</strong>{t(' le stock caisse, les ventes ni les produits.', ' affect the register stock, sales or products.')}
                   </p>
                 </div>
                 {magResetDone ? (
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>✓ Magazin réinitialisé</p>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>✓ {t('Magazin réinitialisé', 'Warehouse reset')}</p>
                 ) : (
                   <>
-                    <input value={magResetText} onChange={e => setMagResetText(e.target.value)} placeholder="Tapez RÉINITIALISER pour confirmer"
+                    <input value={magResetText} onChange={e => setMagResetText(e.target.value)} placeholder={t('Tapez RÉINITIALISER pour confirmer', 'Type RÉINITIALISER to confirm')}
                       style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', boxSizing: 'border-box' }}/>
                     <button onClick={handleResetMagazin} disabled={magResetLoading || magResetText.trim().toUpperCase() !== 'RÉINITIALISER'}
                       style={{ alignSelf: 'flex-start', padding: '9px 18px', background: '#EA580C', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: (magResetLoading || magResetText.trim().toUpperCase() !== 'RÉINITIALISER') ? 'not-allowed' : 'pointer', opacity: (magResetLoading || magResetText.trim().toUpperCase() !== 'RÉINITIALISER') ? 0.5 : 1 }}>
-                      {magResetLoading ? 'Réinitialisation…' : 'Réinitialiser le magazin'}
+                      {magResetLoading ? t('Réinitialisation…', 'Resetting…') : t('Réinitialiser le magazin', 'Reset the warehouse')}
                     </button>
                   </>
                 )}
@@ -781,15 +886,15 @@ export default function AdminParametres() {
               <div style={{ borderTop: '1px solid #fca5a5' }}/>
 
               <div style={{ fontSize: 12, color: 'var(--fs-ink-600)', lineHeight: 1.6 }}>
-                <strong>Réinitialisation complète :</strong> supprime <strong>tout</strong> y compris les produits · caissiers · gestionnaires.<br/>
-                Conserve : votre compte <strong>Admin Patron</strong> + configuration des caisses.
+                <strong>{t('Réinitialisation complète :', 'Full reset:')}</strong>{t(' supprime ', ' deletes ')}<strong>{t('tout', 'everything')}</strong>{t(' y compris les produits · caissiers · gestionnaires.', ' including products · cashiers · managers.')}<br/>
+                {t('Conserve : votre compte ', 'Keeps: your ')}<strong>{t('Admin Patron', 'Owner Admin')}</strong>{t(' + configuration des caisses.', ' account + cash register configuration.')}
               </div>
 
-              <input value={resetText} onChange={e => setResetText(e.target.value)} placeholder="Tapez TOUT SUPPRIMER pour confirmer"
+              <input value={resetText} onChange={e => setResetText(e.target.value)} placeholder={t('Tapez TOUT SUPPRIMER pour confirmer', 'Type TOUT SUPPRIMER to confirm')}
                 style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', boxSizing: 'border-box' }}/>
               <button onClick={handleReset} disabled={resetLoading || resetText.trim().toUpperCase() !== 'TOUT SUPPRIMER'}
                 style={{ alignSelf: 'flex-start', padding: '10px 20px', background: '#991b1b', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 800, cursor: (resetLoading || resetText.trim().toUpperCase() !== 'TOUT SUPPRIMER') ? 'not-allowed' : 'pointer', opacity: (resetLoading || resetText.trim().toUpperCase() !== 'TOUT SUPPRIMER') ? 0.5 : 1 }}>
-                {resetLoading ? 'Réinitialisation en cours…' : '🗑️ Réinitialiser pour la mise en production'}
+                {resetLoading ? t('Réinitialisation en cours…', 'Reset in progress…') : t('🗑️ Réinitialiser pour la mise en production', '🗑️ Reset for production go-live')}
               </button>
             </div>
           </div>

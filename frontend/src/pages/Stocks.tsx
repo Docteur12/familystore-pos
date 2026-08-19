@@ -4,6 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSettings } from '../contexts/SettingsContext';
 import { getAllProducts, deleteProduct, updateProduct, Product } from '../api/products';
 import { normalizeName, formatProductName, extractVolume, getBrandColor, contientTexte } from '../utils/text';
 import { inferCategoryFromName } from '../data/categories';
@@ -17,6 +18,7 @@ import OfflineSyncBanner                       from '../components/OfflineSyncBa
 import ImportExportProduits                    from '../components/ImportExportProduits';
 import { queueAjoutStock }                     from '../services/offlineMagazin';
 import { createDemande, getDemandes, marquerRecu, annulerEnvoi, retourEntrepot, DemandeStock } from '../api/magazinier';
+import { t, dateLocale } from '../i18n';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
@@ -70,10 +72,10 @@ function daysUntil(d: Date) {
 
 function fmtDate(d: Date | null) {
   if (!d) return '—';
-  return d.toLocaleDateString('fr-FR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  return d.toLocaleDateString(dateLocale(), { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
 
-function fmtN(n: number) { return n.toLocaleString('fr-FR'); }
+function fmtN(n: number) { return n.toLocaleString(dateLocale()); }
 
 type ExpiryStatus = 'ok' | 'near' | 'soon' | 'expired';
 function expiryStatus(d: Date | null): ExpiryStatus {
@@ -86,23 +88,23 @@ function expiryStatus(d: Date | null): ExpiryStatus {
 }
 
 const EXPIRY_BADGE: Record<ExpiryStatus, { bg: string; color: string; label: (d: number | null) => string }> = {
-  ok:      { bg: '#E8F0E5', color: '#3F6B3A', label: d => d !== null ? `${d} j` : '—' },
-  near:    { bg: '#F7ECD4', color: '#8B5A14', label: d => d !== null ? `${d} j` : '—' },
-  soon:    { bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', label: d => d !== null ? `${d} j` : '—' },
-  expired: { bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', label: _ => 'Expiré'                    },
+  ok:      { bg: '#E8F0E5', color: '#3F6B3A', label: d => d !== null ? t(`${d} j`, `${d} d`) : '—' },
+  near:    { bg: '#F7ECD4', color: '#8B5A14', label: d => d !== null ? t(`${d} j`, `${d} d`) : '—' },
+  soon:    { bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', label: d => d !== null ? t(`${d} j`, `${d} d`) : '—' },
+  expired: { bg: 'var(--fs-wine-100)', color: 'var(--fs-wine-700)', label: _ => t('Expiré', 'Expired')                    },
 };
 
 // ── Tri colonnes ────────────────────────────────────────────────────────────────
 
 type StockSortKey = 'name' | 'sku' | 'location' | 'price' | 'stock' | 'alertThreshold' | 'expiry';
 const STOCK_COLS: { key: StockSortKey | null; label: string; align: 'left' | 'center' | 'right' }[] = [
-  { key: 'name',           label: 'Produit',    align: 'left'   },
+  { key: 'name',           label: t('Produit', 'Product'),    align: 'left'   },
   { key: 'sku',            label: 'SKU',        align: 'left'   },
-  { key: 'location',       label: 'Emplac.',    align: 'left'   },
-  { key: 'price',          label: 'Prix',       align: 'center' },
+  { key: 'location',       label: t('Emplac.', 'Loc.'),    align: 'left'   },
+  { key: 'price',          label: t('Prix', 'Price'),       align: 'center' },
   { key: 'stock',          label: 'Stock',      align: 'center' },
-  { key: 'alertThreshold', label: 'Seuil',      align: 'center' },
-  { key: 'expiry',         label: 'Péremption', align: 'left'   },
+  { key: 'alertThreshold', label: t('Seuil', 'Threshold'),      align: 'center' },
+  { key: 'expiry',         label: t('Péremption', 'Expiry'), align: 'left'   },
   { key: null,             label: '',           align: 'left'   },
 ];
 function stockSortVal(p: Product, key: StockSortKey): string | number {
@@ -223,7 +225,7 @@ function StockBar({ stock, threshold, max }: { stock: number; threshold: number;
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 5 }}>
         <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>0</span>
-        <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Seuil {threshold}</span>
+        <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{t('Seuil', 'Threshold')} {threshold}</span>
         <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Max {max}</span>
       </div>
     </div>
@@ -258,10 +260,10 @@ function ReceptionModal({ product, onConfirm, onClose }:
       <div style={{ background: '#fff', borderRadius: 14, width: 360, overflow: 'hidden', boxShadow: 'var(--fs-shadow-lg)' }}>
         <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px' }}>
           <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{product.name}</p>
-          <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '3px 0 0' }}>Stock actuel : <b style={{ color: '#f5ebd9' }}>{product.stock}</b></p>
+          <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '3px 0 0' }}>{t('Stock actuel :', 'Current stock:')} <b style={{ color: '#f5ebd9' }}>{product.stock}</b></p>
         </div>
         <div style={{ padding: '20px' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Ajout rapide</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>{t('Ajout rapide', 'Quick add')}</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
             {[10, 50, 100].map(n => (
               <button key={n} onClick={() => selectQty(n)} style={{
@@ -273,15 +275,15 @@ function ReceptionModal({ product, onConfirm, onClose }:
             ))}
           </div>
           <input type="number" min={1} value={input} onChange={e => handleInput(e.target.value)}
-            placeholder="Quantité manuelle"
+            placeholder={t('Quantité manuelle', 'Manual quantity')}
             style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--fs-line-2)', outline: 'none', fontSize: 15, fontWeight: 600, textAlign: 'center', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', marginBottom: 12 }}/>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={confirm} disabled={qty <= 0 || loading}
               style={{ flex: 1, padding: '11px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
-              {loading ? 'Enregistrement…' : `Confirmer +${qty}`}
+              {loading ? t('Enregistrement…', 'Saving…') : t(`Confirmer +${qty}`, `Confirm +${qty}`)}
             </button>
             <button onClick={onClose} style={{ flex: 1, padding: '11px', background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
-              Annuler
+              {t('Annuler', 'Cancel')}
             </button>
           </div>
         </div>
@@ -313,19 +315,19 @@ function DemandeModal({ product, onConfirm, onClose }:
       style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: '#fff', borderRadius: 14, width: 400, overflow: 'hidden', boxShadow: 'var(--fs-shadow-lg)' }}>
         <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px' }}>
-          <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>Demande au magasinier</p>
+          <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{t('Demande au magasinier', 'Warehouse request')}</p>
           <p style={{ color: 'rgba(245,235,217,0.7)', fontSize: 12, margin: '3px 0 0' }}>{product.name}{product.localName ? ` · ${product.localName}` : ''}</p>
         </div>
         <div style={{ padding: '20px' }}>
           <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Disponible en entrepôt</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{t('Disponible en entrepôt', 'Available in warehouse')}</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: '#15803d', fontFamily: 'var(--fs-font-mono)' }}>
               {max}
             </div>
           </div>
           <div style={{ marginBottom: 6 }}>
             <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>
-              Quantité demandée
+              {t('Quantité demandée', 'Requested quantity')}
             </label>
             <input
               type="number" min={1} max={max} value={qty}
@@ -334,15 +336,15 @@ function DemandeModal({ product, onConfirm, onClose }:
               autoFocus
               style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${!qty ? 'var(--fs-line-2)' : valid ? '#86efac' : '#fca5a5'}`, outline: 'none', fontSize: 16, fontWeight: 700, textAlign: 'center', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', marginBottom: 4 }}
             />
-            {n > max && <p style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, margin: '2px 0 0' }}>⚠ Quantité supérieure au stock entrepôt ({max})</p>}
+            {n > max && <p style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, margin: '2px 0 0' }}>{t(`⚠ Quantité supérieure au stock entrepôt (${max})`, `⚠ Quantity exceeds warehouse stock (${max})`)}</p>}
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
             <button onClick={confirm} disabled={!valid || loading}
               style={{ flex: 2, padding: '11px', background: valid ? 'var(--fs-wine-700)' : 'var(--fs-line-2)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: valid ? 'pointer' : 'not-allowed', opacity: loading ? 0.7 : 1 }}>
-              {loading ? 'Envoi…' : 'Confirmer la demande'}
+              {loading ? t('Envoi…', 'Sending…') : t('Confirmer la demande', 'Confirm request')}
             </button>
             <button onClick={onClose} style={{ flex: 1, padding: '11px', background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
-              Annuler
+              {t('Annuler', 'Cancel')}
             </button>
           </div>
         </div>
@@ -374,23 +376,23 @@ function RetourModal({ product, onConfirm, onClose }:
       style={{ position: 'fixed', inset: 0, zIndex: 250, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: '#fff', borderRadius: 14, width: 400, overflow: 'hidden', boxShadow: 'var(--fs-shadow-lg)' }}>
         <div style={{ background: '#b45309', padding: '16px 20px' }}>
-          <p style={{ fontWeight: 700, color: '#fff', fontSize: 15, margin: 0 }}>↩ Retour à l'entrepôt</p>
+          <p style={{ fontWeight: 700, color: '#fff', fontSize: 15, margin: 0 }}>{t('↩ Retour à l\'entrepôt', '↩ Return to warehouse')}</p>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, margin: '3px 0 0' }}>{product.name}{product.localName ? ` · ${product.localName}` : ''}</p>
         </div>
         <div style={{ padding: '20px' }}>
           <div style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 20 }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Stock boutique</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{t('Stock boutique', 'Store stock')}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-mono)' }}>{product.stock}</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>Entrepôt</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{t('Entrepôt', 'Warehouse')}</div>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#15803d', fontFamily: 'var(--fs-font-mono)' }}>{product.stockMagazin ?? 0}</div>
             </div>
           </div>
           <div style={{ marginBottom: 6 }}>
             <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 6 }}>
-              Quantité à retourner à l'entrepôt
+              {t('Quantité à retourner à l\'entrepôt', 'Quantity to return to the warehouse')}
             </label>
             <input
               type="number" min={1} max={max} value={qty}
@@ -399,15 +401,15 @@ function RetourModal({ product, onConfirm, onClose }:
               autoFocus
               style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${!qty ? 'var(--fs-line-2)' : valid ? '#86efac' : '#fca5a5'}`, outline: 'none', fontSize: 16, fontWeight: 700, textAlign: 'center', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', marginBottom: 4 }}
             />
-            {n > max && <p style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, margin: '2px 0 0' }}>⚠ Quantité supérieure au stock boutique ({max})</p>}
+            {n > max && <p style={{ fontSize: 11, color: '#dc2626', fontWeight: 600, margin: '2px 0 0' }}>{t(`⚠ Quantité supérieure au stock boutique (${max})`, `⚠ Quantity exceeds store stock (${max})`)}</p>}
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
             <button onClick={confirm} disabled={!valid || loading}
               style={{ flex: 2, padding: '11px', background: valid ? '#b45309' : 'var(--fs-line-2)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: valid ? 'pointer' : 'not-allowed', opacity: loading ? 0.7 : 1 }}>
-              {loading ? 'Retour…' : 'Confirmer le retour'}
+              {loading ? t('Retour…', 'Returning…') : t('Confirmer le retour', 'Confirm return')}
             </button>
             <button onClick={onClose} style={{ flex: 1, padding: '11px', background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
-              Annuler
+              {t('Annuler', 'Cancel')}
             </button>
           </div>
         </div>
@@ -467,11 +469,11 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
       <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ background: color, color: 'var(--fs-ink-700)', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            {product.category ?? 'Autre'}
+            {product.category ?? t('Autre', 'Other')}
           </span>
           {lowStock && (
             <span style={{ background: 'var(--fs-wine-100)', color: 'var(--fs-danger-700)', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              À SURVEILLER
+              {t('À SURVEILLER', 'NEEDS ATTENTION')}
             </span>
           )}
         </div>
@@ -497,16 +499,16 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
         {/* Color block with location */}
         <div style={{ margin: '12px 16px', height: 90, background: `linear-gradient(135deg, ${color}, ${color}cc)`, borderRadius: 10, position: 'relative', display: 'flex', alignItems: 'flex-end', padding: '10px 12px' }}>
           <span style={{ background: 'rgba(255,255,255,0.9)', color: 'var(--fs-ink-700)', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 6 }}>
-            Emplacement {location}
+            {t('Emplacement', 'Location')} {location}
           </span>
         </div>
 
         {/* Stock bar */}
         <div style={{ padding: '0 16px 14px', borderBottom: '1px solid var(--fs-line)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Niveau de stock</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('Niveau de stock', 'Stock level')}</span>
             <span style={{ fontSize: 18, fontWeight: 800, color: lowStock ? 'var(--fs-danger-700)' : 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-mono)' }}>
-              {product.stock} <span style={{ fontSize: 12, fontWeight: 500 }}>unités</span>
+              {product.stock} <span style={{ fontSize: 12, fontWeight: 500 }}>{t('unités', 'units')}</span>
             </span>
           </div>
           <StockBar stock={product.stock} threshold={product.alertThreshold} max={maxStock}/>
@@ -518,9 +520,9 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
             {pendingDelivery ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 2 }}>Livraison en transit</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', marginBottom: 2 }}>{t('Livraison en transit', 'Delivery in transit')}</div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#1e40af' }}>
-                    {pendingDelivery.quantiteDemandee} envoyé{pendingDelivery.quantiteDemandee > 1 ? 's' : ''} par le magasinier
+                    {t(`${pendingDelivery.quantiteDemandee} envoyé${pendingDelivery.quantiteDemandee > 1 ? 's' : ''} par le magasinier`, `${pendingDelivery.quantiteDemandee} sent by the warehouse keeper`)}
                   </div>
                 </div>
                 {onRecu && (
@@ -528,14 +530,14 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
                     padding: '7px 14px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8,
                     fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
                   }}>
-                    <I d={D.check} size={12}/> Reçu ✓
+                    <I d={D.check} size={12}/> {t('Reçu ✓', 'Received ✓')}
                   </button>
                 )}
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>Stock entrepôt</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>{t('Stock entrepôt', 'Warehouse stock')}</div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: '#15803d', fontFamily: 'var(--fs-font-mono)' }}>
                     {product.stockMagazin}
                   </div>
@@ -546,15 +548,15 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
                       padding: '7px 12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8,
                       fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
                     }}>
-                      <I d={D.truck} size={12}/> Demander
+                      <I d={D.truck} size={12}/> {t('Demander', 'Request')}
                     </button>
                   )}
                   {onRetour && product.stock > 0 && (
-                    <button onClick={onRetour} title="Retourner des produits de la boutique vers l'entrepôt" style={{
+                    <button onClick={onRetour} title={t('Retourner des produits de la boutique vers l\'entrepôt', 'Return products from the store to the warehouse')} style={{
                       padding: '7px 12px', background: '#fff7ed', color: '#b45309', border: '1px solid #fdba74', borderRadius: 8,
                       fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
                     }}>
-                      ↩ Retour entrepôt
+                      {t('↩ Retour entrepôt', '↩ Return to warehouse')}
                     </button>
                   )}
                 </div>
@@ -566,10 +568,10 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
         {/* Price grid */}
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--fs-line)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           {[
-            { label: 'Prix de vente', value: `${fmtN(product.price)} XAF`, accent: false },
-            { label: 'Coût achat',    value: `${fmtN(product.costPrice)} XAF`, accent: false },
-            { label: 'Marge',         value: `${marge}%`, accent: true },
-            { label: 'Valeur stock',  value: `${fmtN(stockValue)} XAF`, accent: false },
+            { label: t('Prix de vente', 'Selling price'), value: `${fmtN(product.price)} XAF`, accent: false },
+            { label: t('Coût achat', 'Purchase cost'),    value: `${fmtN(product.costPrice)} XAF`, accent: false },
+            { label: t('Marge', 'Margin'),         value: `${marge}%`, accent: true },
+            { label: t('Valeur stock', 'Stock value'),  value: `${fmtN(stockValue)} XAF`, accent: false },
           ].map(({ label, value, accent }) => (
             <div key={label}>
               <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>{label}</div>
@@ -581,14 +583,14 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
         {/* Info rows */}
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--fs-line)' }}>
           {[
-            { icon: D.catalogue,    label: 'Vitesse de vente', val: `~${speed} unités / jour` },
+            { icon: D.catalogue,    label: t('Vitesse de vente', 'Sales velocity'), val: t(`~${speed} unités / jour`, `~${speed} units / day`) },
             ...(product.expiryDate ? [{
               icon: D.etiquettes,
-              label: 'Date de péremption',
+              label: t('Date de péremption', 'Expiry date'),
               val: (() => {
                 const d = new Date(product.expiryDate!);
                 const days = Math.ceil((d.getTime() - Date.now()) / 86400000);
-                return `${fmtDate(d)} · ${days > 0 ? `${days} j restants` : 'Expiré'}`;
+                return `${fmtDate(d)} · ${days > 0 ? t(`${days} j restants`, `${days} d left`) : t('Expiré', 'Expired')}`;
               })(),
             }] : []),
           ].map(row => (
@@ -605,10 +607,10 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
         {/* Mouvements récents */}
         <div style={{ padding: '14px 16px' }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
-            Mouvements récents
+            {t('Mouvements récents', 'Recent movements')}
           </p>
           {movements.length === 0 ? (
-            <p style={{ fontSize: 12, color: 'var(--fs-ink-300)', fontStyle: 'italic' }}>Aucun mouvement</p>
+            <p style={{ fontSize: 12, color: 'var(--fs-ink-300)', fontStyle: 'italic' }}>{t('Aucun mouvement', 'No movements')}</p>
           ) : movements.slice(0, 6).map(m => (
             <div key={m._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--fs-line)' }}>
               <div>
@@ -622,7 +624,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
                 <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginLeft: 6 }}>{m.reason}</span>
               </div>
               <span style={{ fontSize: 10, color: 'var(--fs-ink-300)', fontFamily: 'var(--fs-font-mono)' }}>
-                {new Date(m.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                {new Date(m.createdAt).toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short' })}
               </span>
             </div>
           ))}
@@ -633,19 +635,19 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
       {confirmDel ? (
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--fs-line)', flexShrink: 0 }}>
           <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 10px', lineHeight: 1.4 }}>
-            Supprimer <strong>{product.name}</strong> ?<br/>
-            <span style={{ fontWeight: 400, color: 'var(--fs-ink-400)' }}>Cette action est irréversible.</span>
+            {t('Supprimer', 'Delete')} <strong>{product.name}</strong>{t(' ?', '?')}<br/>
+            <span style={{ fontWeight: 400, color: 'var(--fs-ink-400)' }}>{t('Cette action est irréversible.', 'This action is irreversible.')}</span>
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setConfirmDel(false)}
               style={{ flex: 1, padding: '9px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>
-              Annuler
+              {t('Annuler', 'Cancel')}
             </button>
             <button
               onClick={async () => { setDeleting(true); await onDelete(); setDeleting(false); }}
               disabled={deleting}
               style={{ flex: 2, padding: '9px', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-danger-700)', color: '#fff', opacity: deleting ? 0.7 : 1 }}>
-              {deleting ? 'Suppression…' : 'Confirmer la suppression'}
+              {deleting ? t('Suppression…', 'Deleting…') : t('Confirmer la suppression', 'Confirm deletion')}
             </button>
           </div>
         </div>
@@ -656,7 +658,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
               width: '100%', padding: '10px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: 8,
               fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}>
-              <I d={D.check} size={13}/> Confirmer réception — {pendingDelivery.quantiteDemandee}
+              <I d={D.check} size={13}/> {t('Confirmer réception', 'Confirm receipt')} — {pendingDelivery.quantiteDemandee}
             </button>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
@@ -665,14 +667,14 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
               border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
             }}>
-              <I d={D.plus} size={12}/> Réception
+              <I d={D.plus} size={12}/> {t('Réception', 'Receive')}
             </button>
             <button onClick={onEdit} style={{
               flex: 1, padding: '9px 6px', background: 'var(--fs-ivory)',
               border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, color: 'var(--fs-ink-700)',
             }}>
-              <I d={D.edit} size={12}/> Modifier
+              <I d={D.edit} size={12}/> {t('Modifier', 'Edit')}
             </button>
             <button onClick={() => setConfirmDel(true)} style={{
               padding: '9px 10px', background: 'var(--fs-danger-100)',
@@ -693,6 +695,8 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
 type TabMode = 'all' | 'low' | 'expiry' | 'dup';
 
 export default function Stocks() {
+  const { settings } = useSettings();
+  const nomMagasin = settings.nomMagasin || 'Family Store';
   const { toasts, addToast, removeToast } = useToast();
   const isMobile = useIsMobile();
   const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu
@@ -739,9 +743,9 @@ export default function Stocks() {
     try {
       await createDemande({ produitId: demandeProduct._id, quantiteDemandee: qty });
       setDemandeProduct(null);
-      addToast(`Demande envoyée au magasinier — ${qty} unités`, 'success');
+      addToast(t(`Demande envoyée au magasinier — ${qty} unités`, `Request sent to the warehouse keeper — ${qty} units`), 'success');
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+      addToast(err instanceof Error ? err.message : t('Erreur', 'Error'), 'error');
     }
   };
 
@@ -754,12 +758,12 @@ export default function Stocks() {
       if (delivery?.type === 'envoi') {
         // Stock caisse mis à jour automatiquement côté backend
         fetchProducts();
-        addToast(`Réception confirmée ✓ — +${delivery.quantiteDemandee} ajouté au stock`, 'success');
+        addToast(t(`Réception confirmée ✓ — +${delivery.quantiteDemandee} ajouté au stock`, `Receipt confirmed ✓ — +${delivery.quantiteDemandee} added to stock`), 'success');
       } else {
-        addToast('Réception confirmée ✓ — pensez à mettre à jour le stock manuellement', 'success');
+        addToast(t('Réception confirmée ✓ — pensez à mettre à jour le stock manuellement', 'Receipt confirmed ✓ — remember to update the stock manually'), 'success');
       }
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+      addToast(err instanceof Error ? err.message : t('Erreur', 'Error'), 'error');
     } finally { setRecuLoading(null); }
   };
 
@@ -773,9 +777,9 @@ export default function Stocks() {
     try {
       await annulerEnvoi(demandeId);
       setPendingDeliveries(prev => prev.filter(d => d._id !== demandeId));
-      addToast(`Envoi annulé — ${delivery?.quantiteDemandee ?? ''} ${delivery?.produit?.name ?? ''} remis dans le stock entrepôt du magasinier`, 'success');
+      addToast(t(`Envoi annulé — ${delivery?.quantiteDemandee ?? ''} ${delivery?.produit?.name ?? ''} remis dans le stock entrepôt du magasinier`, `Shipment cancelled — ${delivery?.quantiteDemandee ?? ''} ${delivery?.produit?.name ?? ''} put back into the warehouse keeper's stock`), 'success');
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+      addToast(err instanceof Error ? err.message : t('Erreur', 'Error'), 'error');
     } finally { setRecuLoading(null); }
   };
 
@@ -787,10 +791,10 @@ export default function Stocks() {
       const r = await retourEntrepot({ produitId: retourProduct._id, quantite: qty });
       setProducts(prev => prev.map(p => p._id === retourProduct._id ? { ...p, stock: r.stock, stockMagazin: r.stockMagazin } : p));
       setSelected(prev => prev && prev._id === retourProduct._id ? { ...prev, stock: r.stock, stockMagazin: r.stockMagazin } : prev);
-      addToast(`↩ ${qty} ${retourProduct.name} retourné(s) à l'entrepôt`, 'success');
+      addToast(t(`↩ ${qty} ${retourProduct.name} retourné(s) à l'entrepôt`, `↩ ${qty} ${retourProduct.name} returned to the warehouse`), 'success');
       setRetourProduct(null);
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+      addToast(err instanceof Error ? err.message : t('Erreur', 'Error'), 'error');
     }
   };
 
@@ -844,7 +848,7 @@ export default function Stocks() {
 
   const handleExport = () => {
     const BOM = '\uFEFF';
-    const headers = ['SKU','Nom','Catégorie','Prix vente','Prix achat','Marge%','Stock','Seuil','Emplacement','Fournisseur','Date péremption'];
+    const headers = ['SKU',t('Nom','Name'),t('Catégorie','Category'),t('Prix vente','Selling price'),t('Prix achat','Purchase price'),t('Marge%','Margin%'),'Stock',t('Seuil','Threshold'),t('Emplacement','Location'),t('Fournisseur','Supplier'),t('Date péremption','Expiry date')];
     const rows = products.map(p => {
       const marge = p.costPrice > 0 ? Math.round(((p.price - p.costPrice) / p.price) * 1000) / 10 : 0;
       return [skuOf(p), p.name, p.category ?? '', p.price, p.costPrice, marge, p.stock, p.alertThreshold, locationOf(p), supplierOf(p), fmtDate(expiryOf(p))]
@@ -862,7 +866,7 @@ export default function Stocks() {
 
   // Export PDF (en-tête à la couleur de la boutique).
   const handleExportPdf = async () => {
-    if (products.length === 0) { addToast('Aucun produit à exporter', 'error'); return; }
+    if (products.length === 0) { addToast(t('Aucun produit à exporter', 'No products to export'), 'error'); return; }
     try {
       const { jsPDF } = await import('jspdf');
       const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -876,17 +880,17 @@ export default function Stocks() {
       const cX = { nom: margin, cat: 92, prix: 150, stock: 174, seuil: 196 };
       doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.rect(0, 0, 210, 24, 'F');
       doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-      doc.text('Family Store — Catalogue produits', margin, 12);
+      doc.text(t(`${nomMagasin} — Catalogue produits`, `${nomMagasin} — Product catalog`), margin, 12);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-      doc.text(`${products.length} produit(s)  ·  ${new Date().toLocaleDateString('fr-FR')}`, margin, 19);
+      doc.text(t(`${products.length} produit(s)  ·  ${new Date().toLocaleDateString(dateLocale())}`, `${products.length} product(s)  ·  ${new Date().toLocaleDateString(dateLocale())}`), margin, 19);
       let y = 34;
       const header = () => {
         doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-        doc.text('Produit', cX.nom, y);
-        doc.text('Catégorie', cX.cat, y);
-        doc.text('Prix', cX.prix, y, { align: 'right' });
+        doc.text(t('Produit', 'Product'), cX.nom, y);
+        doc.text(t('Catégorie', 'Category'), cX.cat, y);
+        doc.text(t('Prix', 'Price'), cX.prix, y, { align: 'right' });
         doc.text('Stock', cX.stock, y, { align: 'right' });
-        doc.text('Seuil', cX.seuil, y, { align: 'right' });
+        doc.text(t('Seuil', 'Threshold'), cX.seuil, y, { align: 'right' });
         y += 2; doc.setDrawColor(180); doc.line(margin, y, 196, y); y += 5;
       };
       header();
@@ -905,15 +909,15 @@ export default function Stocks() {
       }
       doc.save(`catalogue_produits_${new Date().toISOString().slice(0, 10)}.pdf`);
     } catch {
-      addToast('Erreur export PDF', 'error');
+      addToast(t('Erreur export PDF', 'PDF export error'), 'error');
     }
   };
 
   // Export Excel (.xls) — tableau HTML ouvert nativement par Excel (pas de dépendance).
   const handleExportExcel = () => {
-    if (products.length === 0) { addToast('Aucun produit à exporter', 'error'); return; }
+    if (products.length === 0) { addToast(t('Aucun produit à exporter', 'No products to export'), 'error'); return; }
     const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const headers = ['SKU', 'Nom', 'Catégorie', 'Sous-catégorie', 'Prix vente', 'Prix achat', 'Marge%', 'Stock', 'Seuil', 'Emplacement', 'Fournisseur', 'Valeur', 'Unité', 'Date péremption'];
+    const headers = ['SKU', t('Nom', 'Name'), t('Catégorie', 'Category'), t('Sous-catégorie', 'Subcategory'), t('Prix vente', 'Selling price'), t('Prix achat', 'Purchase price'), t('Marge%', 'Margin%'), 'Stock', t('Seuil', 'Threshold'), t('Emplacement', 'Location'), t('Fournisseur', 'Supplier'), t('Valeur', 'Value'), t('Unité', 'Unit'), t('Date péremption', 'Expiry date')];
     const rowsHtml = products.map(p => {
       const marge = p.costPrice > 0 ? Math.round(((p.price - p.costPrice) / p.price) * 1000) / 10 : 0;
       const cells = [skuOf(p), p.name, p.category ?? '', p.subCategory ?? '', p.price, p.costPrice, marge, p.stock, p.alertThreshold, locationOf(p), supplierOf(p), p.valeur ?? '', p.unit ?? '', fmtDate(expiryOf(p))];
@@ -925,7 +929,7 @@ export default function Stocks() {
     const a = document.createElement('a');
     a.href = url; a.download = `catalogue_produits_${new Date().toISOString().slice(0, 10)}.xls`;
     a.click(); URL.revokeObjectURL(url);
-    addToast('Export Excel prêt', 'success');
+    addToast(t('Export Excel prêt', 'Excel export ready'), 'success');
   };
 
   // ── Recatégorisation en masse (CSV éditable dans Excel) ─────────────────────
@@ -936,7 +940,7 @@ export default function Stocks() {
   const handleExportRecat = () => {
     const BOM = '﻿';
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const headers = ['_id (NE PAS MODIFIER)', 'Nom', 'Catégorie actuelle', 'Sous-catégorie actuelle', 'Nouvelle catégorie', 'Nouvelle sous-catégorie'];
+    const headers = [t('_id (NE PAS MODIFIER)', '_id (DO NOT MODIFY)'), t('Nom', 'Name'), t('Catégorie actuelle', 'Current category'), t('Sous-catégorie actuelle', 'Current subcategory'), t('Nouvelle catégorie', 'New category'), t('Nouvelle sous-catégorie', 'New subcategory')];
     const rows = products.map(p => {
       // Proposition intelligente déduite du nom (sinon on garde l'actuel).
       const inf    = inferCategoryFromName(p.name);
@@ -950,7 +954,7 @@ export default function Stocks() {
     const a    = document.createElement('a');
     a.href = url; a.download = `recategorisation_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
-    addToast('Export prêt — éditez les colonnes « Nouvelle… » dans Excel puis réimportez', 'success');
+    addToast(t('Export prêt — éditez les colonnes « Nouvelle… » dans Excel puis réimportez', 'Export ready — edit the "New…" columns in Excel then re-import'), 'success');
   };
 
   // Import : met à jour catégorie/sous-catégorie par _id (le reste intact).
@@ -985,10 +989,10 @@ export default function Stocks() {
         if (batch.length >= 10) { await Promise.all(batch); batch = []; }
       }
       await Promise.all(batch);
-      addToast(`Recatégorisation : ${updated} mis à jour${skipped ? ` · ${skipped} inchangé(s)` : ''}`, 'success');
+      addToast(t(`Recatégorisation : ${updated} mis à jour${skipped ? ` · ${skipped} inchangé(s)` : ''}`, `Recategorization: ${updated} updated${skipped ? ` · ${skipped} unchanged` : ''}`), 'success');
       fetchProducts();
     } catch {
-      addToast('Erreur import — vérifiez le fichier CSV', 'error');
+      addToast(t('Erreur import — vérifiez le fichier CSV', 'Import error — check the CSV file'), 'error');
     } finally {
       setRecatBusy(false);
       if (recatInputRef.current) recatInputRef.current.value = '';
@@ -1002,8 +1006,8 @@ export default function Stocks() {
       formatProductName(p.name) !== p.name ||
       (!!p.localName && formatProductName(p.localName) !== p.localName);
     const toFix = products.filter(needsFix);
-    if (toFix.length === 0) { addToast('Tous les noms sont déjà au bon format ✓', 'success'); return; }
-    if (!window.confirm(`Corriger ${toFix.length} produit(s) (nom + nom local) ? Chaque mot prendra une majuscule en 1ʳᵉ lettre (le reste en minuscule), sauf les petits mots (le, la, les, de, du, un, une, à, pour…). Ex. « baby love kopf » → « Baby Love Kopf ».`)) return;
+    if (toFix.length === 0) { addToast(t('Tous les noms sont déjà au bon format ✓', 'All names are already correctly formatted ✓'), 'success'); return; }
+    if (!window.confirm(t(`Corriger ${toFix.length} produit(s) (nom + nom local) ? Chaque mot prendra une majuscule en 1ʳᵉ lettre (le reste en minuscule), sauf les petits mots (le, la, les, de, du, un, une, à, pour…). Ex. « baby love kopf » → « Baby Love Kopf ».`, `Fix ${toFix.length} product(s) (name + local name)? Each word will start with a capital letter (rest lowercase), except small words (le, la, les, de, du, un, une, à, pour…). E.g. "baby love kopf" → "Baby Love Kopf".`))) return;
     setNormBusy(true);
     try {
       let updated = 0;
@@ -1015,10 +1019,10 @@ export default function Stocks() {
         if (batch.length >= 10) { await Promise.all(batch); batch = []; }
       }
       await Promise.all(batch);
-      addToast(`${updated} nom(s) normalisé(s) ✓`, 'success');
+      addToast(t(`${updated} nom(s) normalisé(s) ✓`, `${updated} name(s) normalized ✓`), 'success');
       fetchProducts();
     } catch {
-      addToast('Erreur lors de la normalisation', 'error');
+      addToast(t('Erreur lors de la normalisation', 'Error while normalizing names'), 'error');
     } finally {
       setNormBusy(false);
     }
@@ -1030,8 +1034,8 @@ export default function Stocks() {
     const toFix = products
       .map(p => ({ p, ext: extractVolume(p.name) }))
       .filter(({ p, ext }) => ext && ((p.valeur ?? '').trim() === '' || ext.cleaned !== p.name));
-    if (toFix.length === 0) { addToast('Aucun volume à extraire (déjà fait ou non détecté)', 'success'); return; }
-    if (!window.confirm(`Extraire le volume de ${toFix.length} produit(s) ? Le volume détecté dans le nom (ex. « …500ml ») est mis dans le champ « Valeur » et retiré du nom. Action en masse.`)) return;
+    if (toFix.length === 0) { addToast(t('Aucun volume à extraire (déjà fait ou non détecté)', 'No volume to extract (already done or not detected)'), 'success'); return; }
+    if (!window.confirm(t(`Extraire le volume de ${toFix.length} produit(s) ? Le volume détecté dans le nom (ex. « …500ml ») est mis dans le champ « Valeur » et retiré du nom. Action en masse.`, `Extract the volume from ${toFix.length} product(s)? The volume detected in the name (e.g. "…500ml") is moved to the "Value" field and removed from the name. Bulk action.`))) return;
     setVolBusy(true);
     try {
       let updated = 0;
@@ -1044,10 +1048,10 @@ export default function Stocks() {
         if (batch.length >= 10) { await Promise.all(batch); batch = []; }
       }
       await Promise.all(batch);
-      addToast(`${updated} volume(s) extrait(s) ✓`, 'success');
+      addToast(t(`${updated} volume(s) extrait(s) ✓`, `${updated} volume(s) extracted ✓`), 'success');
       fetchProducts();
     } catch {
-      addToast('Erreur lors de l\'extraction des volumes', 'error');
+      addToast(t('Erreur lors de l\'extraction des volumes', 'Error while extracting volumes'), 'error');
     } finally {
       setVolBusy(false);
     }
@@ -1062,9 +1066,9 @@ export default function Stocks() {
       groups.set(k, [...(groups.get(k) ?? []), p]);
     }
     const dupGroups = [...groups.values()].filter(g => g.length > 1);
-    if (dupGroups.length === 0) { addToast('Aucun doublon à fusionner', 'success'); return; }
+    if (dupGroups.length === 0) { addToast(t('Aucun doublon à fusionner', 'No duplicates to merge'), 'success'); return; }
     const totalFiches = dupGroups.reduce((s, g) => s + g.length, 0);
-    if (!window.confirm(`Fusionner ${dupGroups.length} groupe(s) de doublons (${totalFiches} fiches → ${dupGroups.length}) ?\nLes stocks (caisse + entrepôt) seront additionnés sur une seule fiche, les doublons supprimés. Action irréversible.`)) return;
+    if (!window.confirm(t(`Fusionner ${dupGroups.length} groupe(s) de doublons (${totalFiches} fiches → ${dupGroups.length}) ?\nLes stocks (caisse + entrepôt) seront additionnés sur une seule fiche, les doublons supprimés. Action irréversible.`, `Merge ${dupGroups.length} duplicate group(s) (${totalFiches} records → ${dupGroups.length})?\nStocks (store + warehouse) will be added onto a single record, duplicates deleted. This action is irreversible.`))) return;
     setMergeBusy(true);
     try {
       let merged = 0;
@@ -1086,10 +1090,10 @@ export default function Stocks() {
         await ajusterStockEntrepot(primary._id, totalMag).catch(() => {});
         merged++;
       }
-      addToast(`${merged} groupe(s) de doublons fusionné(s) ✓`, 'success');
+      addToast(t(`${merged} groupe(s) de doublons fusionné(s) ✓`, `${merged} duplicate group(s) merged ✓`), 'success');
       fetchProducts();
     } catch {
-      addToast('Erreur lors de la fusion', 'error');
+      addToast(t('Erreur lors de la fusion', 'Error while merging'), 'error');
     } finally {
       setMergeBusy(false);
     }
@@ -1102,15 +1106,15 @@ export default function Stocks() {
       await deleteProduct(selected._id);
       setSelected(null);
       setProducts(prev => prev.filter(p => p._id !== selected._id));
-      addToast(`"${name}" supprimé avec succès`, 'success');
+      addToast(t(`"${name}" supprimé avec succès`, `"${name}" deleted successfully`), 'success');
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur suppression', 'error');
+      addToast(err instanceof Error ? err.message : t('Erreur suppression', 'Delete error'), 'error');
     }
   };
 
   const handleProductUpdated = () => {
     setEditProduct(null);
-    addToast('Produit mis à jour avec succès', 'success');
+    addToast(t('Produit mis à jour avec succès', 'Product updated successfully'), 'success');
     getAllProducts().then(list => {
       setProducts(list);
       setSelected(prev => prev ? (list.find(p => p._id === prev._id) ?? prev) : null);
@@ -1136,12 +1140,12 @@ export default function Stocks() {
           setProducts(prev => prev.map(p => p._id === reception._id ? { ...p, stock: p.stock + qty } : p));
           if (selected?._id === reception._id) setSelected(prev => prev ? { ...prev, stock: prev.stock + qty } : null);
           setReception(null);
-          addToast(`📴 Hors connexion — +${qty} ${reception.name} enregistré sur cet ordinateur, envoi automatique au retour du réseau.`, 'warning');
+          addToast(t(`📴 Hors connexion — +${qty} ${reception.name} enregistré sur cet ordinateur, envoi automatique au retour du réseau.`, `📴 Offline — +${qty} ${reception.name} saved on this computer, will be sent automatically when the network is back.`), 'warning');
         } catch {
-          addToast('❌ Échec — ajout NON enregistré (stockage local indisponible).', 'error');
+          addToast(t('❌ Échec — ajout NON enregistré (stockage local indisponible).', '❌ Failure — addition NOT saved (local storage unavailable).'), 'error');
         }
       } else {
-        addToast(msg || 'Erreur', 'error');
+        addToast(msg || t('Erreur', 'Error'), 'error');
       }
     }
   };
@@ -1188,13 +1192,13 @@ export default function Stocks() {
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
             <div style={{ paddingLeft: isMobile ? 44 : 0 }}>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>
-                Gestion de stock
+                {t('Gestion de stock', 'Inventory')}
               </p>
               <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, letterSpacing: '-0.01em', display: 'flex', alignItems: 'center', gap: 10 }}>
-                Catalogue produits
+                {t('Catalogue produits', 'Product catalog')}
                 {pendingDeliveries.length > 0 && (
                   <span style={{ background: '#2563eb', color: '#fff', fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 20, fontFamily: 'var(--fs-font-mono)', letterSpacing: 0 }}>
-                    {pendingDeliveries.length} livraison{pendingDeliveries.length > 1 ? 's' : ''} en transit
+                    {t(`${pendingDeliveries.length} livraison${pendingDeliveries.length > 1 ? 's' : ''} en transit`, `${pendingDeliveries.length} deliver${pendingDeliveries.length > 1 ? 'ies' : 'y'} in transit`)}
                   </span>
                 )}
               </h1>
@@ -1209,7 +1213,7 @@ export default function Stocks() {
                 </span>
                 <input
                   type="text" value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Rechercher SKU, nom, fournisseur..."
+                  placeholder={t('Rechercher SKU, nom, fournisseur...', 'Search SKU, name, supplier...')}
                   style={{
                     width: '100%', paddingLeft: 34, paddingRight: 12, paddingTop: 8, paddingBottom: 8,
                     border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-md)',
@@ -1223,37 +1227,37 @@ export default function Stocks() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: isNarrow ? 'flex-start' : 'flex-end' }}>
               <input ref={recatInputRef} type="file" accept=".csv,text/csv" style={{ display: 'none' }}
                 onChange={e => { const f = e.target.files?.[0]; if (f) handleImportRecat(f); }} />
-              <button onClick={handleExportRecat} title="Exporter un CSV pour recatégoriser les produits dans Excel" style={{
+              <button onClick={handleExportRecat} title={t('Exporter un CSV pour recatégoriser les produits dans Excel', 'Export a CSV to recategorize products in Excel')} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
                 border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-md)',
                 background: '#fff', color: 'var(--fs-ink-600)', fontSize: 12, fontWeight: 600,
                 cursor: 'pointer', fontFamily: 'var(--fs-font-sans)',
               }}>
-                ⬇ Export recat.
+                ⬇ {t('Export recat.', 'Recat. export')}
               </button>
-              <button onClick={() => recatInputRef.current?.click()} disabled={recatBusy} title="Importer le CSV recatégorisé (met à jour catégorie/sous-catégorie)" style={{
+              <button onClick={() => recatInputRef.current?.click()} disabled={recatBusy} title={t('Importer le CSV recatégorisé (met à jour catégorie/sous-catégorie)', 'Import the recategorized CSV (updates category/subcategory)')} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
                 border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-md)',
                 background: '#fff', color: 'var(--fs-ink-600)', fontSize: 12, fontWeight: 600,
                 cursor: recatBusy ? 'default' : 'pointer', opacity: recatBusy ? 0.6 : 1, fontFamily: 'var(--fs-font-sans)',
               }}>
-                ⬆ {recatBusy ? 'Import…' : 'Import recat.'}
+                ⬆ {recatBusy ? t('Import…', 'Importing…') : t('Import recat.', 'Recat. import')}
               </button>
-              <button onClick={handleNormalizeNames} disabled={normBusy} title="Corrige les noms en MAJUSCULES (BALEA → Balea) + 1ʳᵉ lettre du nom ; laisse les minuscules" style={{
+              <button onClick={handleNormalizeNames} disabled={normBusy} title={t('Corrige les noms en MAJUSCULES (BALEA → Balea) + 1ʳᵉ lettre du nom ; laisse les minuscules', 'Fixes UPPERCASE names (BALEA → Balea) + capitalizes the first letter; leaves lowercase as is')} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
                 border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-md)',
                 background: '#fff', color: 'var(--fs-ink-600)', fontSize: 12, fontWeight: 600,
                 cursor: normBusy ? 'default' : 'pointer', opacity: normBusy ? 0.6 : 1, fontFamily: 'var(--fs-font-sans)',
               }}>
-                Aa {normBusy ? 'Normalisation…' : 'Normaliser noms'}
+                Aa {normBusy ? t('Normalisation…', 'Normalizing…') : t('Normaliser noms', 'Normalize names')}
               </button>
-              <button onClick={handleExtractVolumes} disabled={volBusy} title="Extrait le volume du nom (…500ml) vers le champ Valeur" style={{
+              <button onClick={handleExtractVolumes} disabled={volBusy} title={t('Extrait le volume du nom (…500ml) vers le champ Valeur', 'Extracts the volume from the name (…500ml) into the Value field')} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px',
                 border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-md)',
                 background: '#fff', color: 'var(--fs-ink-600)', fontSize: 12, fontWeight: 600,
                 cursor: volBusy ? 'default' : 'pointer', opacity: volBusy ? 0.6 : 1, fontFamily: 'var(--fs-font-sans)',
               }}>
-                🧴 {volBusy ? 'Extraction…' : 'Extraire volumes'}
+                🧴 {volBusy ? t('Extraction…', 'Extracting…') : t('Extraire volumes', 'Extract volumes')}
               </button>
               <button onClick={handleExport} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
@@ -1263,7 +1267,7 @@ export default function Stocks() {
               }}>
                 <I d={D.export} size={13}/> CSV
               </button>
-              <button onClick={handleExportPdf} title="Exporter le catalogue en PDF" style={{
+              <button onClick={handleExportPdf} title={t('Exporter le catalogue en PDF', 'Export the catalog as PDF')} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
                 border: '1.5px solid var(--fs-wine-700)', borderRadius: 'var(--fs-r-md)',
                 background: 'none', color: 'var(--fs-wine-700)', fontSize: 13, fontWeight: 600,
@@ -1271,7 +1275,7 @@ export default function Stocks() {
               }}>
                 <I d={D.export} size={13}/> PDF
               </button>
-              <button onClick={handleExportExcel} title="Exporter le catalogue en Excel (consultation)" style={{
+              <button onClick={handleExportExcel} title={t('Exporter le catalogue en Excel', 'Export the catalog as Excel')} style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
                 border: '1.5px solid var(--fs-wine-700)', borderRadius: 'var(--fs-r-md)',
                 background: 'none', color: 'var(--fs-wine-700)', fontSize: 13, fontWeight: 600,
@@ -1287,7 +1291,7 @@ export default function Stocks() {
                 background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700,
                 cursor: 'pointer', fontFamily: 'var(--fs-font-sans)',
               }}>
-                <I d={D.plus} size={13}/> Nouveau produit
+                <I d={D.plus} size={13}/> {t('Nouveau produit', 'New product')}
               </button>
             </div>
           </div>
@@ -1298,17 +1302,17 @@ export default function Stocks() {
 
         {/* Metric cards */}
         <div style={{ display: isNarrow ? 'grid' : 'flex', gridTemplateColumns: isNarrow ? '1fr 1fr' : undefined, gap: isNarrow ? 10 : 14, padding: isNarrow ? '14px 16px' : '16px 24px', flexShrink: 0 }}>
-          <MetricCard title="Références actives" value={products.length} sub="+12" subColor="var(--fs-success-700)" icon={D.pkg}/>
-          <MetricCard title="Valeur du stock" value={`${fmtN(stockValue)} XAF`} sub="+6,2 %" subColor="var(--fs-success-700)" icon={D.export} accent/>
-          <MetricCard title="Stock faible" value={lowCount} sub={lowCount > 0 ? `${lowCount} à réapprovisionner` : 'Tout est OK'} subColor={lowCount > 0 ? 'var(--fs-warning-700)' : undefined} icon={D.alertes} onClick={lowCount > 0 ? () => setTab('low') : undefined}/>
-          <MetricCard title="Péremption < 6 mois" value={expiryCount} sub={expiryCount > 0 ? 'À surveiller ↓' : 'Aucune alerte'} subColor={expiryCount > 0 ? 'var(--fs-danger-700)' : undefined} icon={D.bell} onClick={expiryCount > 0 ? () => setTab('expiry') : undefined}/>
+          <MetricCard title={t('Références actives', 'Active SKUs')} value={products.length} sub="+12" subColor="var(--fs-success-700)" icon={D.pkg}/>
+          <MetricCard title={t('Valeur du stock', 'Stock value')} value={`${fmtN(stockValue)} XAF`} sub={t('+6,2 %', '+6.2%')} subColor="var(--fs-success-700)" icon={D.export} accent/>
+          <MetricCard title={t('Stock faible', 'Low stock')} value={lowCount} sub={lowCount > 0 ? t(`${lowCount} à réapprovisionner`, `${lowCount} to restock`) : t('Tout est OK', 'All good')} subColor={lowCount > 0 ? 'var(--fs-warning-700)' : undefined} icon={D.alertes} onClick={lowCount > 0 ? () => setTab('low') : undefined}/>
+          <MetricCard title={t('Péremption < 6 mois', 'Expiry < 6 months')} value={expiryCount} sub={expiryCount > 0 ? t('À surveiller ↓', 'Needs attention ↓') : t('Aucune alerte', 'No alerts')} subColor={expiryCount > 0 ? 'var(--fs-danger-700)' : undefined} icon={D.bell} onClick={expiryCount > 0 ? () => setTab('expiry') : undefined}/>
         </div>
 
         {/* Livraisons en transit */}
         {pendingDeliveries.length > 0 && (
           <div style={{ margin: '0 24px 10px', background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 10, padding: '12px 16px', flexShrink: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#1d4ed8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <I d={D.truck} size={12}/> Livraisons en transit — en attente de réception ({pendingDeliveries.length})
+              <I d={D.truck} size={12}/> {t('Livraisons en transit — en attente de réception', 'Deliveries in transit — awaiting receipt')} ({pendingDeliveries.length})
             </div>
             {/* Hauteur plafonnée + défilement interne : le bloc ne doit jamais écraser le tableau produits */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxHeight: 168, overflowY: 'auto', paddingRight: 4 }}>
@@ -1319,17 +1323,17 @@ export default function Stocks() {
                       <div style={{ fontSize: 13, fontWeight: 700, color: d.type === 'envoi' ? '#15803d' : '#1e40af' }}>{d.produit.name}</div>
                       {d.type === 'envoi' && (
                         <span style={{ fontSize: 10, fontWeight: 700, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '1px 7px', color: '#15803d' }}>
-                          Envoi direct
+                          {t('Envoi direct', 'Direct shipment')}
                         </span>
                       )}
                     </div>
                     <div style={{ fontSize: 11, color: d.type === 'envoi' ? '#16a34a' : '#3b82f6', marginTop: 2 }}>
                       {d.quantiteDemandee}
-                      {d.type === 'envoi' ? ' · envoyé spontanément par le magasinier' : ' · en réponse à votre demande'}
+                      {d.type === 'envoi' ? t(' · envoyé spontanément par le magasinier', ' · sent spontaneously by the warehouse keeper') : t(' · en réponse à votre demande', ' · in response to your request')}
                     </div>
                     {d.type === 'envoi' && (
                       <div style={{ fontSize: 10, color: '#16a34a', marginTop: 1, fontStyle: 'italic' }}>
-                        Le stock sera mis à jour automatiquement à la réception
+                        {t('Le stock sera mis à jour automatiquement à la réception', 'Stock will be updated automatically upon receipt')}
                       </div>
                     )}
                   </div>
@@ -1338,16 +1342,16 @@ export default function Stocks() {
                       onClick={() => handleRecu(d._id)}
                       disabled={recuLoading === d._id}
                       style={{ padding: '6px 14px', background: d.type === 'envoi' ? '#16a34a' : '#2563eb', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: recuLoading === d._id ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <I d={D.check} size={11}/> {recuLoading === d._id ? '…' : 'Reçu ✓'}
+                      <I d={D.check} size={11}/> {recuLoading === d._id ? '…' : t('Reçu ✓', 'Received ✓')}
                     </button>
                     {/* Annulation : 1er clic = demande de confirmation, 2e clic = annule (stock restitué à l'entrepôt) */}
                     <button
                       onClick={() => handleAnnuler(d._id)}
                       onMouseLeave={() => { if (confirmAnnulId === d._id) setConfirmAnnulId(null); }}
                       disabled={recuLoading === d._id}
-                      title="Refuser cet envoi — les quantités retournent dans le stock entrepôt du magasinier"
+                      title={t('Refuser cet envoi — les quantités retournent dans le stock entrepôt du magasinier', 'Refuse this shipment — the quantities go back into the warehouse keeper\'s stock')}
                       style={{ padding: '6px 12px', background: confirmAnnulId === d._id ? '#dc2626' : '#fff', color: confirmAnnulId === d._id ? '#fff' : '#dc2626', border: '1px solid #fca5a5', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-                      {confirmAnnulId === d._id ? 'Confirmer l\'annulation ?' : '✕ Annuler'}
+                      {confirmAnnulId === d._id ? t('Confirmer l\'annulation ?', 'Confirm cancellation?') : t('✕ Annuler', '✕ Cancel')}
                     </button>
                   </div>
                 </div>
@@ -1360,10 +1364,10 @@ export default function Stocks() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', padding: isNarrow ? '0 16px 10px' : '0 24px 10px', flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {([
-              { id: 'all',    label: 'Tous',             count: products.length },
-              { id: 'low',    label: 'Stock bas',        count: lowCount        },
-              { id: 'expiry', label: 'Péremption proche',count: expiryCount     },
-              ...(dupIds.size > 0 ? [{ id: 'dup' as TabMode, label: 'Doublons', count: dupIds.size }] : []),
+              { id: 'all',    label: t('Tous', 'All'),             count: products.length },
+              { id: 'low',    label: t('Stock bas', 'Low stock'),        count: lowCount        },
+              { id: 'expiry', label: t('Péremption proche', 'Expiring soon'),count: expiryCount     },
+              ...(dupIds.size > 0 ? [{ id: 'dup' as TabMode, label: t('Doublons', 'Duplicates'), count: dupIds.size }] : []),
             ] as { id: TabMode; label: string; count: number }[]).map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{
                 padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
@@ -1389,11 +1393,11 @@ export default function Stocks() {
             {tab === 'dup' && dupIds.size > 0 && (
               <button onClick={handleMergeDuplicates} disabled={mergeBusy}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: mergeBusy ? 'default' : 'pointer', opacity: mergeBusy ? 0.6 : 1, fontFamily: 'var(--fs-font-sans)' }}>
-                {mergeBusy ? 'Fusion…' : 'Fusionner les doublons'}
+                {mergeBusy ? t('Fusion…', 'Merging…') : t('Fusionner les doublons', 'Merge duplicates')}
               </button>
             )}
             <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
-              <I d={D.filter} size={13}/> Filtres
+              <I d={D.filter} size={13}/> {t('Filtres', 'Filters')}
             </button>
             <button onClick={fetchProducts} style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: loading ? 'var(--fs-ink-300)' : 'var(--fs-ink-500)' }}>
               <I d={D.refresh} size={14}/>
@@ -1429,9 +1433,9 @@ export default function Stocks() {
             </thead>
             <tbody>
               {loading && products.length === 0 ? (
-                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</td></tr>
+                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Chargement…', 'Loading…')}</td></tr>
               ) : displayed.length === 0 ? (
-                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Aucun produit trouvé</td></tr>
+                <tr><td colSpan={8} style={{ textAlign: 'center', padding: '48px', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Aucun produit trouvé', 'No products found')}</td></tr>
               ) : displayed.map((p, idx) => {
                 const expiry   = expiryOf(p);
                 const loc      = locationOf(p);

@@ -1,4 +1,5 @@
 import { authHeaders } from './http';
+import { t } from '../i18n';
 
 export interface UserRecord {
   _id:              string;
@@ -18,13 +19,13 @@ export interface UserActivity extends UserRecord {
 
 export async function getUsers(): Promise<UserRecord[]> {
   const res = await fetch('/api/auth/users', { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement utilisateurs');
+  if (!res.ok) throw new Error(t('Erreur chargement utilisateurs', 'Failed to load users'));
   return res.json();
 }
 
 export async function getUserActivity(): Promise<UserActivity[]> {
   const res = await fetch('/api/auth/users/activity', { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement activité');
+  if (!res.ok) throw new Error(t('Erreur chargement activité', 'Failed to load activity'));
   return res.json();
 }
 
@@ -37,8 +38,8 @@ export async function createUser(data: {
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
-  if (res.status === 409) throw new Error('Cet email est déjà utilisé');
-  if (!res.ok) throw new Error('Erreur création compte');
+  if (res.status === 409) throw new Error(t('Cet email est déjà utilisé', 'This email is already in use'));
+  if (!res.ok) throw new Error(t('Erreur création compte', 'Failed to create account'));
   return res.json();
 }
 
@@ -51,7 +52,7 @@ export async function updateUser(
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Erreur modification compte');
+  if (!res.ok) throw new Error(t('Erreur modification compte', 'Failed to update account'));
   return res.json();
 }
 
@@ -60,7 +61,7 @@ export async function deleteUser(id: string): Promise<void> {
     method: 'DELETE',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Erreur suppression compte');
+  if (!res.ok) throw new Error(t('Erreur suppression compte', 'Failed to delete account'));
 }
 
 export async function forgotPassword(email: string): Promise<{ message: string }> {
@@ -69,7 +70,7 @@ export async function forgotPassword(email: string): Promise<{ message: string }
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
   });
-  if (res.status === 404) throw new Error('Aucun compte associé à cet email');
-  if (!res.ok) throw new Error('Erreur lors de la réinitialisation');
+  if (res.status === 404) throw new Error(t('Aucun compte associé à cet email', 'No account found for this email'));
+  if (!res.ok) throw new Error(t('Erreur lors de la réinitialisation', 'Failed to reset password'));
   return res.json();
 }

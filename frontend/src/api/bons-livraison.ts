@@ -1,4 +1,5 @@
 import { authHeaders } from './http';
+import { t } from '../i18n';
 
 export interface BLLigne {
   productId:      string;
@@ -36,7 +37,7 @@ export interface BonLivraisonInput {
 
 export async function getBonsLivraison(): Promise<BonLivraisonRecord[]> {
   const res = await fetch('/api/bons-livraison', { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement bons de livraison');
+  if (!res.ok) throw new Error(t('Erreur chargement bons de livraison', 'Failed to load delivery notes'));
   return res.json();
 }
 
@@ -46,6 +47,6 @@ export async function createBonLivraison(data: BonLivraisonInput): Promise<BonLi
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur enregistrement BL');
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? t('Erreur enregistrement BL', 'Failed to save delivery note'));
   return res.json();
 }

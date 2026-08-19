@@ -3,25 +3,26 @@ import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { getSales, deleteSale, Sale, PM_LABELS } from '../api/sales';
+import { t, dateLocale } from '../i18n';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
+const fmtN = (n: number) => Math.round(n).toLocaleString(dateLocale());
 
 function fmtDatetime(iso: string) {
   const d = new Date(iso);
   return {
-    date:  d.toLocaleDateString('fr-FR'),
-    heure: d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+    date:  d.toLocaleDateString(dateLocale()),
+    heure: d.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' }),
   };
 }
 
 function relTime(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60)    return 'À l\'instant';
-  if (diff < 3600)  return `Il y a ${Math.floor(diff / 60)} min`;
-  if (diff < 86400) return `Il y a ${Math.floor(diff / 3600)} h`;
-  return `Il y a ${Math.floor(diff / 86400)} j`;
+  if (diff < 60)    return t('À l\'instant', 'Just now');
+  if (diff < 3600)  return t(`Il y a ${Math.floor(diff / 60)} min`, `${Math.floor(diff / 60)} min ago`);
+  if (diff < 86400) return t(`Il y a ${Math.floor(diff / 3600)} h`, `${Math.floor(diff / 3600)} h ago`);
+  return t(`Il y a ${Math.floor(diff / 86400)} j`, `${Math.floor(diff / 86400)} d ago`);
 }
 
 // ── SVG Icon ──────────────────────────────────────────────────────────────────
@@ -99,22 +100,22 @@ function periodRange(
 }
 
 const PERIODS: Array<{ key: Period; label: string }> = [
-  { key: 'today',  label: "Aujourd'hui" },
-  { key: 'week',   label: 'Cette semaine' },
-  { key: 'month',  label: 'Ce mois' },
-  { key: 'custom', label: 'Plage dates' },
-  { key: 'all',    label: 'Tout' },
+  { key: 'today',  label: t("Aujourd'hui", 'Today') },
+  { key: 'week',   label: t('Cette semaine', 'This week') },
+  { key: 'month',  label: t('Ce mois', 'This month') },
+  { key: 'custom', label: t('Plage dates', 'Date range') },
+  { key: 'all',    label: t('Tout', 'All') },
 ];
 
 type JSortKey = 'ticket' | 'date' | 'cashier' | 'articles' | 'pm' | 'paye' | 'total';
 
 const JOURNAL_COLS: { key: JSortKey; label: string; align: 'left' | 'right' }[] = [
-  { key: 'ticket',   label: 'Ticket #',      align: 'left' },
-  { key: 'date',     label: 'Date · Heure',  align: 'left' },
-  { key: 'cashier',  label: 'Caissière',     align: 'left' },
-  { key: 'articles', label: 'Articles',      align: 'left' },
-  { key: 'pm',       label: 'Mode paiement', align: 'left' },
-  { key: 'paye',     label: 'Montant payé',  align: 'right' },
+  { key: 'ticket',   label: t('Ticket #', 'Receipt #'),          align: 'left' },
+  { key: 'date',     label: t('Date · Heure', 'Date · Time'),    align: 'left' },
+  { key: 'cashier',  label: t('Caissière', 'Cashier'),           align: 'left' },
+  { key: 'articles', label: t('Articles', 'Items'),              align: 'left' },
+  { key: 'pm',       label: t('Mode paiement', 'Payment method'), align: 'left' },
+  { key: 'paye',     label: t('Montant payé', 'Amount paid'),    align: 'right' },
   { key: 'total',    label: 'Total',         align: 'right' },
 ];
 
@@ -133,7 +134,10 @@ const journalSortVal = (s: Sale, key: JSortKey): string | number => {
 // ── Export CSV ────────────────────────────────────────────────────────────────
 
 function exportCSV(sales: Sale[]) {
-  const header = 'Date;Heure;Ticket #;Mode de paiement;Nb articles;Montant payé;Monnaie rendue;Total XAF';
+  const header = t(
+    'Date;Heure;Ticket #;Mode de paiement;Nb articles;Montant payé;Monnaie rendue;Total XAF',
+    'Date;Time;Receipt #;Payment method;No. of items;Amount paid;Change given;Total XAF',
+  );
   const rows = sales.map(s => {
     const { date, heure } = fmtDatetime(s.dateVente ?? s.createdAt);
     const nbArt = s.items.reduce((n, it) => n + it.quantity, 0);
@@ -152,7 +156,7 @@ function exportCSV(sales: Sale[]) {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = `journal-ventes-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = t(`journal-ventes-${new Date().toISOString().slice(0, 10)}.csv`, `sales-journal-${new Date().toISOString().slice(0, 10)}.csv`);
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -172,7 +176,7 @@ function TicketDetail({ sale }: { sale: Sale }) {
           <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--fs-wine-50)' }}>
-                {['Article', 'Qté', 'Prix unit.', 'Sous-total'].map((h, i) => (
+                {[t('Article', 'Item'), t('Qté', 'Qty'), t('Prix unit.', 'Unit price'), t('Sous-total', 'Subtotal')].map((h, i) => (
                   <th key={h} style={{ padding: '6px 12px', textAlign: i >= 1 ? 'right' : 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
                 ))}
               </tr>
@@ -191,22 +195,22 @@ function TicketDetail({ sale }: { sale: Sale }) {
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 24, padding: '8px 12px', background: 'var(--fs-wine-50)', borderTop: '1px solid var(--fs-line)' }}>
             {(sale.offreAmt ?? 0) > 0 && (
               <span style={{ fontSize: 11, color: 'var(--fs-danger-700)', fontWeight: 700 }}>
-                Sous-total : {fmtN(sale.subtotal || sale.items.reduce((s, it) => s + it.unitPrice * it.quantity, 0))} XAF
-                &nbsp;·&nbsp; Réduction facture{(sale.offrePct ?? 0) > 0 ? ` (−${sale.offrePct} %)` : ''} : −{fmtN(sale.offreAmt ?? 0)} XAF
+                {t('Sous-total :', 'Subtotal:')} {fmtN(sale.subtotal || sale.items.reduce((s, it) => s + it.unitPrice * it.quantity, 0))} XAF
+                &nbsp;·&nbsp; {t('Réduction facture', 'Invoice discount')}{(sale.offrePct ?? 0) > 0 ? ` (−${sale.offrePct} %)` : ''} : −{fmtN(sale.offreAmt ?? 0)} XAF
               </span>
             )}
             {benefice > 0 && (
               <span style={{ fontSize: 11, color: 'var(--fs-success-700)', fontWeight: 600 }}>
-                Marge : {fmtN(benefice)} XAF
+                {t('Marge :', 'Margin:')} {fmtN(benefice)} XAF
               </span>
             )}
             {sale.change > 0 && (
               <span style={{ fontSize: 11, color: 'var(--fs-ink-500)' }}>
-                Monnaie rendue : <strong>{fmtN(sale.change)} XAF</strong>
+                {t('Monnaie rendue :', 'Change given:')} <strong>{fmtN(sale.change)} XAF</strong>
               </span>
             )}
             <span style={{ fontSize: 12, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>
-              Total : {fmtN(sale.total)} XAF
+              {t('Total :', 'Total:')} {fmtN(sale.total)} XAF
             </span>
           </div>
         </div>
@@ -249,7 +253,7 @@ export default function AdminJournal() {
       setLastRefresh(new Date());
       if (!silent) setPage(0); // reset page on manual reload
     } catch {
-      if (!silent) addToast('Erreur chargement des ventes', 'error');
+      if (!silent) addToast(t('Erreur chargement des ventes', 'Error loading sales'), 'error');
     } finally {
       if (!silent) setLoading(false);
     }
@@ -269,9 +273,9 @@ export default function AdminJournal() {
       await deleteSale(deleteTarget._id);
       setSales(prev => prev.filter(s => s._id !== deleteTarget._id));
       setDeleteTarget(null);
-      addToast('Vente supprimée — stock restauré ✓', 'success');
+      addToast(t('Vente supprimée — stock restauré ✓', 'Sale deleted — stock restored ✓'), 'success');
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+      addToast(err instanceof Error ? err.message : t('Erreur', 'Error'), 'error');
     } finally {
       setDeleting(false);
     }
@@ -290,20 +294,20 @@ export default function AdminJournal() {
     const va = journalSortVal(a, sort.key);
     const vb = journalSortVal(b, sort.key);
     if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sortDir;
-    return String(va).localeCompare(String(vb), 'fr') * sortDir;
+    return String(va).localeCompare(String(vb), dateLocale()) * sortDir;
   });
 
   // ── Liste caissières (depuis TOUTES les ventes, pas les filtrées) ──────────
 
   const allCashiers = Array.from(
     new Set(sales.map(s => s.cashierName).filter(Boolean))
-  ).sort((a, b) => (a ?? '').localeCompare(b ?? '', 'fr')) as string[];
+  ).sort((a, b) => (a ?? '').localeCompare(b ?? '', dateLocale())) as string[];
 
   // ── Stats par caissière ──────────────────────────────────────────────────
 
   const byCashier: Record<string, { nbVentes: number; ca: number }> = {};
   for (const s of filtered) {
-    const name = s.cashierName || 'Inconnu';
+    const name = s.cashierName || t('Inconnu', 'Unknown');
     if (!byCashier[name]) byCashier[name] = { nbVentes: 0, ca: 0 };
     byCashier[name].nbVentes++;
     byCashier[name].ca += s.total;
@@ -346,19 +350,19 @@ export default function AdminJournal() {
         <div onClick={e => { if (e.target === e.currentTarget) setDeleteTarget(null); }}
           style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: '26px 30px', maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', marginBottom: 6 }}>Supprimer cette vente ?</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', marginBottom: 6 }}>{t('Supprimer cette vente ?', 'Delete this sale?')}</div>
             <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 18 }}>
-              Vente <strong>#{deleteTarget._id.slice(-6).toUpperCase()}</strong> de <strong>{fmtN(deleteTarget.total)} XAF</strong>.<br/>
-              Le <strong>stock sera restauré</strong> et la vente retirée de la comptabilité. Action irréversible, tracée dans le journal d'audit.
+              {t('Vente', 'Sale')} <strong>#{deleteTarget._id.slice(-6).toUpperCase()}</strong> {t('de', 'of')} <strong>{fmtN(deleteTarget.total)} XAF</strong>.<br/>
+              {t('Le', 'The')} <strong>{t('stock sera restauré', 'stock will be restored')}</strong> {t('et la vente retirée de la comptabilité. Action irréversible, tracée dans le journal d\'audit.', 'and the sale removed from accounting. This action is irreversible and logged in the audit trail.')}
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setDeleteTarget(null)}
                 style={{ flex: 1, padding: '11px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
-                Annuler
+                {t('Annuler', 'Cancel')}
               </button>
               <button onClick={handleDeleteSale} disabled={deleting}
                 style={{ flex: 1, padding: '11px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#dc2626', color: '#fff', opacity: deleting ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
-                {deleting ? 'Suppression…' : 'Oui, supprimer'}
+                {deleting ? t('Suppression…', 'Deleting…') : t('Oui, supprimer', 'Yes, delete')}
               </button>
             </div>
           </div>
@@ -371,8 +375,8 @@ export default function AdminJournal() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 12, flexWrap: 'wrap' }}>
             <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Pilotage</p>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>Journal des ventes</h1>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Pilotage', 'Management')}</p>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>{t('Journal des ventes', 'Sales journal')}</h1>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -409,7 +413,7 @@ export default function AdminJournal() {
               {/* Filtre caissière — dropdown */}
               <select value={cashierFilter} onChange={e => { setCashierFilter(e.target.value); setPage(0); }}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff', color: cashierFilter ? 'var(--fs-wine-700)' : 'var(--fs-ink-500)', minWidth: 170 }}>
-                <option value="">👤 Toutes les caissières</option>
+                <option value="">{t('👤 Toutes les caissières', '👤 All cashiers')}</option>
                 {allCashiers.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
 
@@ -420,7 +424,7 @@ export default function AdminJournal() {
               </button>
 
               {/* Refresh manuel */}
-              <button onClick={() => load()} title="Rafraîchir"
+              <button onClick={() => load()} title={t('Rafraîchir', 'Refresh')}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', display: 'flex', alignItems: 'center' }}>
                 <I d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
               </button>
@@ -431,7 +435,7 @@ export default function AdminJournal() {
         {/* Barre stats */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: isNarrow ? '10px 16px' : '10px 28px', background: 'var(--fs-wine-50)', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, flexWrap: 'wrap' }}>
           <div>
-            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Tickets </span>
+            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('Tickets', 'Receipts')} </span>
             <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{filtered.length}</span>
             {pages > 1 && (
               <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 500, marginLeft: 6 }}>
@@ -440,11 +444,11 @@ export default function AdminJournal() {
             )}
           </div>
           <div>
-            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Articles </span>
+            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('Articles', 'Items')} </span>
             <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{fmtN(nbArt)}</span>
           </div>
           <div>
-            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>CA total </span>
+            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('CA total', 'Total revenue')} </span>
             <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>{fmtN(totalCA)} XAF</span>
           </div>
           {/* Breakdown par mode paiement */}
@@ -473,7 +477,7 @@ export default function AdminJournal() {
                     border: '1.5px solid var(--fs-line-2)', borderRadius: 12,
                     padding: '3px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer',
                   }}>
-                  👤 {name} · {st.nbVentes}v · {fmtN(st.ca)} XAF
+                  👤 {name} · {st.nbVentes}{t('v', 's')} · {fmtN(st.ca)} XAF
                 </button>
               ))}
             </div>
@@ -483,7 +487,7 @@ export default function AdminJournal() {
         {/* Table */}
         <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '0 16px 28px' : '0 28px 28px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
+            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Chargement…', 'Loading…')}</div>
           ) : (
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', overflowX: 'auto', marginTop: 16 }}>
               <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 760 : undefined }}>
@@ -507,8 +511,8 @@ export default function AdminJournal() {
                     <tr>
                       <td colSpan={9} style={{ padding: '48px', textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13 }}>
                         {sales.length === 0
-                          ? 'Aucune vente enregistrée sur cette période.'
-                          : 'Aucune vente correspond à la recherche.'}
+                          ? t('Aucune vente enregistrée sur cette période.', 'No sales recorded for this period.')
+                          : t('Aucune vente correspond à la recherche.', 'No sales match the search.')}
                       </td>
                     </tr>
                   ) : paginated.map((s, i) => {
@@ -519,7 +523,7 @@ export default function AdminJournal() {
                     const pmCfg  = PM_COLORS[s.paymentMethod] ?? { bg: '#f5f5f5', color: '#555' };
                     const artSummary = s.items.length === 1
                       ? `${s.items[0].quantity}× ${s.items[0].name}`
-                      : `${nbArtS} article${nbArtS > 1 ? 's' : ''} (${s.items.length} réf.)`;
+                      : t(`${nbArtS} article${nbArtS > 1 ? 's' : ''} (${s.items.length} réf.)`, `${nbArtS} item${nbArtS > 1 ? 's' : ''} (${s.items.length} ref.)`);
 
                     return (
                       <React.Fragment key={s._id}>
@@ -540,9 +544,9 @@ export default function AdminJournal() {
                             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-800)' }}>{date}</div>
                             <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 1 }}>{heure}</div>
                             {s.syncOffline && (
-                              <div title={`Vente faite hors connexion, synchronisée le ${fmtDatetime(s.createdAt).date} à ${fmtDatetime(s.createdAt).heure}`}
+                              <div title={t(`Vente faite hors connexion, synchronisée le ${fmtDatetime(s.createdAt).date} à ${fmtDatetime(s.createdAt).heure}`, `Sale made offline, synced on ${fmtDatetime(s.createdAt).date} at ${fmtDatetime(s.createdAt).heure}`)}
                                 style={{ fontSize: 9, fontWeight: 700, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '1px 6px', marginTop: 3, display: 'inline-block' }}>
-                                ⇅ synchronisée
+                                ⇅ {t('synchronisée', 'synced')}
                               </div>
                             )}
                           </td>
@@ -582,7 +586,7 @@ export default function AdminJournal() {
                           </td>
                           {/* Supprimer */}
                           <td style={{ padding: '10px 12px', textAlign: 'center', width: 40 }}>
-                            <button onClick={e => { e.stopPropagation(); setDeleteTarget(s); }} title="Supprimer cette vente"
+                            <button onClick={e => { e.stopPropagation(); setDeleteTarget(s); }} title={t('Supprimer cette vente', 'Delete this sale')}
                               style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, padding: '5px 8px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex', alignItems: 'center' }}>
                               <I d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2" size={13}/>
                             </button>
@@ -602,19 +606,19 @@ export default function AdminJournal() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginTop: 16, padding: '0 2px' }}>
               <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={safePage === 0}
                 style={{ padding: '8px 16px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, cursor: safePage === 0 ? 'not-allowed' : 'pointer', opacity: safePage === 0 ? 0.4 : 1, color: 'var(--fs-ink-600)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <I d="M15 18l-6-6 6-6" size={12} /> Précédent
+                <I d="M15 18l-6-6 6-6" size={12} /> {t('Précédent', 'Previous')}
               </button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ fontSize: 12, color: 'var(--fs-ink-500)' }}>
-                  Page <strong>{safePage + 1}</strong> sur <strong>{pages}</strong>
+                  Page <strong>{safePage + 1}</strong> {t('sur', 'of')} <strong>{pages}</strong>
                 </span>
                 <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>
-                  ({filtered.length} ticket{filtered.length > 1 ? 's' : ''} · {fmtN(totalCA)} XAF)
+                  ({filtered.length} {t('ticket', 'receipt')}{filtered.length > 1 ? 's' : ''} · {fmtN(totalCA)} XAF)
                 </span>
               </div>
               <button onClick={() => setPage(p => Math.min(pages - 1, p + 1))} disabled={safePage >= pages - 1}
                 style={{ padding: '8px 16px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, cursor: safePage >= pages - 1 ? 'not-allowed' : 'pointer', opacity: safePage >= pages - 1 ? 0.4 : 1, color: 'var(--fs-ink-600)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                Suivant <I d="M9 18l6-6-6-6" size={12} />
+                {t('Suivant', 'Next')} <I d="M9 18l6-6-6-6" size={12} />
               </button>
             </div>
           )}

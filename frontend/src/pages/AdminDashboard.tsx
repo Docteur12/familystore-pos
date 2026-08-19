@@ -10,24 +10,28 @@ import {
   getPaymentBreakdown, getTokenPayload,
   StatsToday, PeriodDay, TopProduct, PaymentSlice,
 } from '../api/dashboard';
-import { getBrandColor } from '../utils/text';
+import { getBrandColor, contientTexte } from '../utils/text';
+import { matchesStockStatus } from '../utils/stock';
+import { localISODate } from '../utils/dates';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { getAllProducts, Product } from '../api/products';
 import ProductTooltip from '../components/ProductTooltip';
 import { getPartenairesStats, PartenairesStats } from '../api/partenaires';
+import { useSettings } from '../contexts/SettingsContext';
+import { t, dateLocale } from '../i18n';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type CatalogSortKey = 'name' | 'category' | 'subCategory' | 'price' | 'stock' | 'alertThreshold' | 'status';
 
 const CATALOG_COLS: { key: CatalogSortKey; label: string }[] = [
-  { key: 'name',           label: 'Produit' },
-  { key: 'category',       label: 'Catégorie' },
-  { key: 'subCategory',    label: 'Sous-catégorie' },
-  { key: 'price',          label: 'Prix vente' },
+  { key: 'name',           label: t('Produit', 'Product') },
+  { key: 'category',       label: t('Catégorie', 'Category') },
+  { key: 'subCategory',    label: t('Sous-catégorie', 'Subcategory') },
+  { key: 'price',          label: t('Prix vente', 'Sale price') },
   { key: 'stock',          label: 'Stock' },
-  { key: 'alertThreshold', label: 'Seuil' },
-  { key: 'status',         label: 'Statut' },
+  { key: 'alertThreshold', label: t('Seuil', 'Threshold') },
+  { key: 'status',         label: t('Statut', 'Status') },
 ];
 
 const catalogSortVal = (p: Product, key: CatalogSortKey): string | number => {
@@ -42,9 +46,9 @@ const catalogSortVal = (p: Product, key: CatalogSortKey): string | number => {
   }
 };
 
-const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
+const fmtN = (n: number) => Math.round(n).toLocaleString(dateLocale());
 const fmtK = (n: number) => n >= 1_000_000
-  ? (n / 1_000_000).toFixed(2).replace('.', ',') + 'M'
+  ? (n / 1_000_000).toFixed(2).replace('.', t(',', '.')) + 'M'
   : n >= 1_000 ? Math.round(n / 1_000) + 'K' : String(Math.round(n));
 
 function evoPct(current: number, prev: number): string | null {
@@ -95,9 +99,16 @@ const PM_ICONS: Record<string, string> = {
 type ChartTab = 'Jour' | 'Mois' | 'T1' | 'T2' | 'T3' | 'T4' | 'An';
 
 const TAB_LABELS: Record<ChartTab, string> = {
-  Jour: 'Journalier', Mois: 'Mois en cours',
-  T1: '1er trimestre', T2: '2e trimestre', T3: '3e trimestre', T4: '4e trimestre',
-  An: 'Annuel',
+  Jour: t('Journalier', 'Daily'), Mois: t('Mois en cours', 'Current month'),
+  T1: t('1er trimestre', 'Q1'), T2: t('2e trimestre', 'Q2'), T3: t('3e trimestre', 'Q3'), T4: t('4e trimestre', 'Q4'),
+  An: t('Annuel', 'Annual'),
+};
+
+// Libellés courts des boutons d'onglets (les clés ChartTab restent techniques)
+const TAB_SHORT: Record<ChartTab, string> = {
+  Jour: t('Jour', 'Day'), Mois: t('Mois', 'Month'),
+  T1: t('T1', 'Q1'), T2: t('T2', 'Q2'), T3: t('T3', 'Q3'), T4: t('T4', 'Q4'),
+  An: t('An', 'Year'),
 };
 
 type DateRange = { days?: number; dateFrom?: string; dateTo?: string };
@@ -107,13 +118,13 @@ function getTabRange(tab: ChartTab): DateRange {
   if (tab === 'Jour') return { days: 1 };
   if (tab === 'Mois') {
     const s = new Date(y, now.getMonth(), 1);
-    return { dateFrom: s.toISOString().slice(0, 10), dateTo: now.toISOString().slice(0, 10) };
+    return { dateFrom: localISODate(s), dateTo: localISODate(now) };
   }
   if (tab === 'T1') return { dateFrom: `${y}-01-01`, dateTo: `${y}-03-31` };
   if (tab === 'T2') return { dateFrom: `${y}-04-01`, dateTo: `${y}-06-30` };
   if (tab === 'T3') return { dateFrom: `${y}-07-01`, dateTo: `${y}-09-30` };
   if (tab === 'T4') return { dateFrom: `${y}-10-01`, dateTo: `${y}-12-31` };
-  return { dateFrom: `${y}-01-01`, dateTo: now.toISOString().slice(0, 10) }; // An
+  return { dateFrom: `${y}-01-01`, dateTo: localISODate(now) }; // An
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -127,7 +138,7 @@ function MetricCard({ title, value, sub, sup, accent }: {
         <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(245,235,217,0.6)', marginBottom: 6 }}>{title}</div>
         <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', letterSpacing: '-0.01em', lineHeight: 1, marginBottom: 4 }}>{value}</div>
         {sup && <div style={{ fontSize: 12, color: 'var(--fs-gold-400)', fontWeight: 600 }}>{sup}</div>}
-        {!sup && <div style={{ fontSize: 11, color: 'rgba(245,235,217,0.3)' }}>Pas de données semaine préc.</div>}
+        {!sup && <div style={{ fontSize: 11, color: 'rgba(245,235,217,0.3)' }}>{t('Pas de données semaine préc.', 'No data from previous week')}</div>}
       </div>
     );
   }
@@ -150,11 +161,11 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   return (
     <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 8, padding: '8px 12px', boxShadow: 'var(--fs-shadow-md)', fontSize: 12 }}>
       <div style={{ fontWeight: 700, color: 'var(--fs-ink-500)', marginBottom: 4 }}>{label}</div>
-      {ca  && <div style={{ fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>CA : {fmtN(ca.value)} XAF</div>}
+      {ca  && <div style={{ fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>{t('CA :', 'Revenue:')} {fmtN(ca.value)} XAF</div>}
       {nb > 0 && (
         <>
-          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 2 }}>{nb} vente{nb > 1 ? 's' : ''}</div>
-          {avg && <div style={{ fontSize: 11, color: 'var(--fs-ink-500)', marginTop: 2 }}>Moy : {fmtN(avg.value)} · Min : {fmtN(min?.value ?? 0)} · Max : {fmtN(max?.value ?? 0)}</div>}
+          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 2 }}>{nb} {t('vente', 'sale')}{nb > 1 ? 's' : ''}</div>
+          {avg && <div style={{ fontSize: 11, color: 'var(--fs-ink-500)', marginTop: 2 }}>{t('Moy :', 'Avg:')} {fmtN(avg.value)} · {t('Min :', 'Min:')} {fmtN(min?.value ?? 0)} · {t('Max :', 'Max:')} {fmtN(max?.value ?? 0)}</div>}
         </>
       )}
     </div>
@@ -169,7 +180,7 @@ export default function AdminDashboard() {
   const isMobile  = useIsMobile();
   const payload  = getTokenPayload();
   const prenom   = payload?.name?.split(' ')[0] ?? '';
-  const today    = new Date().toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+  const today    = new Date().toLocaleDateString(dateLocale(), { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
 
   const [stats,         setStats]         = useState<StatsToday | null>(null);
   const [period,        setPeriod]        = useState<PeriodDay[]>([]);
@@ -180,6 +191,8 @@ export default function AdminDashboard() {
   const [products,      setProducts]      = useState<Product[]>([]);
   const productById = useMemo(() => new Map(products.map(p => [p._id, p])), [products]);
   const [partStats,     setPartStats]     = useState<PartenairesStats | null>(null);
+  const { hasModule } = useSettings();
+  const modulePartenaires = hasModule('partenaires');
   const [prodSearch,    setProdSearch]    = useState('');
   const [prodSort,      setProdSort]      = useState<{ key: CatalogSortKey; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' });
 
@@ -188,17 +201,20 @@ export default function AdminDashboard() {
   }, []);
 
   const catalogRows = useMemo(() => {
-    const q = prodSearch.toLowerCase();
+    // Recherche sur nom, catégorie, sous-catégorie ET statut de stock
+    // (« rupture », « stock bas », « ok ») — insensible aux accents.
+    const q = prodSearch.trim();
     const filtered = products.filter(p => !q
-      || p.name.toLowerCase().includes(q)
-      || (p.category ?? '').toLowerCase().includes(q)
-      || (p.subCategory ?? '').toLowerCase().includes(q));
+      || contientTexte(p.name, q)
+      || contientTexte(p.category, q)
+      || contientTexte(p.subCategory, q)
+      || matchesStockStatus(p, q));
     const dir = prodSort.dir === 'asc' ? 1 : -1;
     return [...filtered].sort((a, b) => {
       const va = catalogSortVal(a, prodSort.key);
       const vb = catalogSortVal(b, prodSort.key);
       if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir;
-      return String(va).localeCompare(String(vb), 'fr') * dir;
+      return String(va).localeCompare(String(vb), dateLocale()) * dir;
     });
   }, [products, prodSearch, prodSort]);
   const [prodPanel,     setProdPanel]     = useState<'low' | 'expiry' | null>(null);
@@ -213,7 +229,7 @@ export default function AdminDashboard() {
       setStats(s);
       setLastRefresh(new Date());
     } catch {
-      if (!silent) addToast('Erreur chargement des statistiques', 'error');
+      if (!silent) addToast(t('Erreur chargement des statistiques', 'Error loading statistics'), 'error');
     }
   }, [addToast]);
 
@@ -230,10 +246,14 @@ export default function AdminDashboard() {
       setProdCount(prods.length);
       setProdLowCount(prods.filter(p => p.stock <= p.alertThreshold).length);
     }).catch(() => {});
-    getPartenairesStats().then(setPartStats).catch(() => {});
     // Dérivés expiry pour le panneau
 
   }, []);
+
+  // Créances partenaires — uniquement si le module est activé pour ce magasin
+  useEffect(() => {
+    if (modulePartenaires) getPartenairesStats().then(setPartStats).catch(() => {});
+  }, [modulePartenaires]);
 
   // Rechargement graphe + top produits + paiements selon l'onglet
   useEffect(() => {
@@ -279,16 +299,16 @@ export default function AdminDashboard() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '10px 14px 10px 56px' : '12px 28px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
             <div>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Tableau de bord</p>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Tableau de bord', 'Dashboard')}</p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>
-                {prenom ? `Bonjour ${prenom}, ` : ''}activité du jour
+                {prenom ? t(`Bonjour ${prenom}, `, `Hello ${prenom}, `) : ''}{t('activité du jour', "today's activity")}
               </h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {/* Live indicator */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--fs-ink-400)' }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', display: 'inline-block', boxShadow: '0 0 0 2px #bbf7d0' }}/>
-                {lastRefresh.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                {lastRefresh.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', border: '1px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, color: 'var(--fs-ink-600)', background: '#fff' }}>
                 <I d={D.calendar} size={13}/>
@@ -296,12 +316,12 @@ export default function AdminDashboard() {
               </div>
               <button onClick={() => loadLive()}
                 style={{ padding: '7px 10px', border: '1px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', display: 'flex', alignItems: 'center' }}
-                title="Rafraîchir">
+                title={t('Rafraîchir', 'Refresh')}>
                 <I d={D.refresh} size={13}/>
               </button>
               <a href="/admin/rapports"
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', cursor: 'pointer' }}>
-                <I d={D.export} size={13}/> Rapports
+                <I d={D.export} size={13}/> {t('Rapports', 'Reports')}
               </a>
             </div>
           </div>
@@ -313,20 +333,20 @@ export default function AdminDashboard() {
           {/* KPI cards */}
           <div style={{ display: isMobile ? 'grid' : 'flex', gridTemplateColumns: 'repeat(2, 1fr)', gap: isMobile ? 10 : 14, marginBottom: 18 }}>
             <MetricCard
-              title="Chiffre d'affaires"
+              title={t("Chiffre d'affaires", 'Revenue')}
               value={`${fmtN(ca)} XAF`}
-              sup={evoCA ? `${evoCA} vs même jour semaine dernière` : null}
+              sup={evoCA ? t(`${evoCA} vs même jour semaine dernière`, `${evoCA} vs same day last week`) : null}
               accent
             />
             {/* Tickets + MIN/MAX/MOYENNE */}
             <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 18px', boxShadow: 'var(--fs-shadow-sm)', minWidth: 0 }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 8 }}>
-                Tickets — {tickets} encaissé{tickets !== 1 ? 's' : ''}
+                {t(`Tickets — ${tickets} encaissé${tickets !== 1 ? 's' : ''}`, `Receipts — ${tickets} collected`)}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {[
                   { label: 'MIN', value: minTicket, color: '#7AB87A' },
-                  { label: 'MOY', value: avgTicket, color: 'var(--fs-wine-700)' },
+                  { label: t('MOY', 'AVG'), value: avgTicket, color: 'var(--fs-wine-700)' },
                   { label: 'MAX', value: maxTicket, color: '#D1A660' },
                 ].map(s => (
                   <div key={s.label} style={{ flex: 1, background: 'var(--fs-ivory)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}>
@@ -340,12 +360,12 @@ export default function AdminDashboard() {
               </div>
             </div>
             <MetricCard
-              title="Bénéfice brut"
+              title={t('Bénéfice brut', 'Gross profit')}
               value={`${fmtN(benefice)} XAF`}
-              sub={`Marge ${marge} % sur coût d'achat`}
+              sub={t(`Marge ${marge} % sur coût d'achat`, `${marge}% margin on cost price`)}
             />
             <div style={{ flex: 1, background: '#fff', border: `1px solid ${prodPanel ? 'var(--fs-wine-700)' : 'var(--fs-line)'}`, borderRadius: 12, padding: '16px 20px', boxShadow: prodPanel ? '0 0 0 3px rgba(122,29,46,0.1)' : 'var(--fs-shadow-sm)', minWidth: 0 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 8 }}>Catalogue produits</div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 8 }}>{t('Catalogue produits', 'Product catalogue')}</div>
               <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)', lineHeight: 1, marginBottom: 6 }}>
                 {prodCount === null ? '…' : prodCount}
               </div>
@@ -358,12 +378,12 @@ export default function AdminDashboard() {
                       <>
                         <button onClick={() => setProdPanel(p => p === 'low' ? null : 'low')} style={{ textAlign: 'left', background: 'none', border: 'none', cursor: prodLowCount > 0 ? 'pointer' : 'default', padding: 0 }}>
                           <span style={{ fontSize: 11, color: prodLowCount > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)', fontWeight: 600 }}>
-                            {prodLowCount > 0 ? `⚠ ${prodLowCount} stock bas →` : '✓ Stocks OK'}
+                            {prodLowCount > 0 ? t(`⚠ ${prodLowCount} stock bas →`, `⚠ ${prodLowCount} low stock →`) : t('✓ Stocks OK', '✓ Stock OK')}
                           </span>
                         </button>
                         {expCount > 0 && (
                           <button onClick={() => setProdPanel(p => p === 'expiry' ? null : 'expiry')} style={{ textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                            <span style={{ fontSize: 11, color: '#D97706', fontWeight: 600 }}>📅 {expCount} péremption &lt; 6 mois →</span>
+                            <span style={{ fontSize: 11, color: '#D97706', fontWeight: 600 }}>📅 {expCount} {t('péremption', 'expiring')} &lt; {t('6 mois', '6 months')} →</span>
                           </button>
                         )}
                       </>
@@ -373,15 +393,15 @@ export default function AdminDashboard() {
               )}
             </div>
             <MetricCard
-              title="Marge nette"
+              title={t('Marge nette', 'Net margin')}
               value={`${marge} %`}
-              sub={ca > 0 ? `CA : ${fmtK(ca)} XAF · ${tickets} ticket${tickets > 1 ? 's' : ''}` : 'En attente de ventes'}
+              sub={ca > 0 ? t(`CA : ${fmtK(ca)} XAF · ${tickets} ticket${tickets > 1 ? 's' : ''}`, `Revenue: ${fmtK(ca)} XAF · ${tickets} receipt${tickets > 1 ? 's' : ''}`) : t('En attente de ventes', 'Awaiting sales')}
             />
 
-            {/* Partenaires — créances (cliquable → espace Partenaires) */}
-            <div onClick={() => { window.location.href = '/partenaires'; }} title="Ouvrir l'espace Partenaires"
+            {/* Partenaires — créances (cliquable → espace Partenaires) — module optionnel */}
+            {modulePartenaires && <div onClick={() => { window.location.href = '/partenaires'; }} title={t("Ouvrir l'espace Partenaires", 'Open the Partners area')}
               style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)', minWidth: 0, cursor: 'pointer' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 8 }}>Partenaires — créances</div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 8 }}>{t('Partenaires — créances', 'Partners — receivables')}</div>
               <div style={{ fontSize: 22, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: (partStats?.totalCreances ?? 0) > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)', lineHeight: 1, marginBottom: 6 }}>
                 {partStats === null ? '…' : fmtN(partStats.totalCreances)}<span style={{ fontSize: 11, fontWeight: 700 }}> XAF</span>
               </div>
@@ -393,10 +413,10 @@ export default function AdminDashboard() {
                       <span style={{ color: 'var(--fs-danger-700)', fontWeight: 700, fontFamily: 'var(--fs-font-mono)', flexShrink: 0 }}>{fmtN(d.solde)}</span>
                     </div>
                   ))}
-                  <span style={{ fontSize: 11, color: 'var(--fs-wine-700)', fontWeight: 600, marginTop: 2 }}>Ouvrir l'espace →</span>
+                  <span style={{ fontSize: 11, color: 'var(--fs-wine-700)', fontWeight: 600, marginTop: 2 }}>{t("Ouvrir l'espace →", 'Open the area →')}</span>
                 </div>
               )}
-            </div>
+            </div>}
           </div>
 
           {/* Panneau produits à surveiller */}
@@ -405,7 +425,7 @@ export default function AdminDashboard() {
             const liste = prodPanel === 'low'
               ? products.filter(p => p.stock <= p.alertThreshold).sort((a, b) => a.stock - b.stock)
               : products.filter(p => p.expiryDate && new Date(p.expiryDate) <= in6m).sort((a, b) => new Date(a.expiryDate!).getTime() - new Date(b.expiryDate!).getTime());
-            const titre = prodPanel === 'low' ? `⚠ Produits en stock bas (${liste.length})` : `📅 Péremption < 6 mois (${liste.length})`;
+            const titre = prodPanel === 'low' ? t(`⚠ Produits en stock bas (${liste.length})`, `⚠ Low-stock products (${liste.length})`) : t(`📅 Péremption < 6 mois (${liste.length})`, `📅 Expiring < 6 months (${liste.length})`);
             return (
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -421,11 +441,11 @@ export default function AdminDashboard() {
                         <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 3 }}>
                           {prodPanel === 'low'
                             ? <span style={{ color: p.stock === 0 ? 'var(--fs-danger-700)' : '#D97706', fontWeight: 600 }}>
-                                {p.stock === 0 ? 'RUPTURE' : `Stock : ${p.stock} / Seuil : ${p.alertThreshold}`}
+                                {p.stock === 0 ? t('RUPTURE', 'OUT OF STOCK') : t(`Stock : ${p.stock} / Seuil : ${p.alertThreshold}`, `Stock: ${p.stock} / Threshold: ${p.alertThreshold}`)}
                               </span>
                             : daysLeft !== null
                               ? <span style={{ color: daysLeft < 0 ? 'var(--fs-danger-700)' : '#D97706', fontWeight: 600 }}>
-                                  {daysLeft < 0 ? '🔴 Expiré' : `⏱ ${daysLeft} j — ${new Date(p.expiryDate!).toLocaleDateString('fr-FR')}`}
+                                  {daysLeft < 0 ? t('🔴 Expiré', '🔴 Expired') : t(`⏱ ${daysLeft} j — ${new Date(p.expiryDate!).toLocaleDateString(dateLocale())}`, `⏱ ${daysLeft} d — ${new Date(p.expiryDate!).toLocaleDateString(dateLocale())}`)}
                                 </span>
                               : '—'
                           }
@@ -436,7 +456,7 @@ export default function AdminDashboard() {
                 </div>
                 {liste.length > 9 && (
                   <div style={{ marginTop: 10, fontSize: 11, color: 'var(--fs-ink-400)', textAlign: 'center' }}>
-                    + {liste.length - 9} autres — consultez la page Stocks pour la liste complète
+                    {t(`+ ${liste.length - 9} autres — consultez la page Stocks pour la liste complète`, `+ ${liste.length - 9} more — see the Stock page for the full list`)}
                   </div>
                 )}
               </div>
@@ -450,23 +470,23 @@ export default function AdminDashboard() {
             <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Évolution des ventes</div>
-                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>Chiffre d'affaires · toutes caisses</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Évolution des ventes', 'Sales trend')}</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{t("Chiffre d'affaires · toutes caisses", 'Revenue · all registers')}</div>
                 </div>
                 <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                  {(['Jour','Mois','T1','T2','T3','T4','An'] as ChartTab[]).map(t => (
-                    <button key={t} onClick={() => setChartTab(t)} style={{
+                  {(['Jour','Mois','T1','T2','T3','T4','An'] as ChartTab[]).map(tb => (
+                    <button key={tb} onClick={() => setChartTab(tb)} style={{
                       padding: '4px 9px', borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: 'none',
-                      background: chartTab === t ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
-                      color:      chartTab === t ? '#fff' : 'var(--fs-ink-400)',
-                    }}>{t}</button>
+                      background: chartTab === tb ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
+                      color:      chartTab === tb ? '#fff' : 'var(--fs-ink-400)',
+                    }}>{TAB_SHORT[tb]}</button>
                   ))}
                 </div>
               </div>
               <div style={{ height: isMobile ? 160 : 180 }}>
                 {chartData.length === 0 || chartData.every(d => d.value === 0) ? (
                   <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fs-ink-300)', fontSize: 12 }}>
-                    Aucune donnée pour cette période
+                    {t('Aucune donnée pour cette période', 'No data for this period')}
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
@@ -478,9 +498,9 @@ export default function AdminDashboard() {
                       <Tooltip content={<ChartTooltip/>}/>
                       <Line type="monotone" dataKey="value" stroke={brand} strokeWidth={2.5}
                         dot={{ fill: brand, r: 3, strokeWidth: 0 }}
-                        activeDot={{ fill: '#D1A660', r: 5, strokeWidth: 0 }} name="CA"/>
+                        activeDot={{ fill: '#D1A660', r: 5, strokeWidth: 0 }} name={t('CA', 'Revenue')}/>
                       <Line type="monotone" dataKey="avgTicket" stroke="#7A9EC2" strokeWidth={1.5}
-                        strokeDasharray="4 3" dot={false} name="Moyenne"/>
+                        strokeDasharray="4 3" dot={false} name={t('Moyenne', 'Average')}/>
                       <Line type="monotone" dataKey="minTicket" stroke="#7AB87A" strokeWidth={1}
                         strokeDasharray="2 4" dot={false} name="MIN"/>
                       <Line type="monotone" dataKey="maxTicket" stroke="#D1A660" strokeWidth={1}
@@ -493,10 +513,10 @@ export default function AdminDashboard() {
 
             {/* Top produits */}
             <div style={{ width: 280, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)', display: isMobile ? 'none' : undefined }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Meilleures ventes</div>
-              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Par volume · {TAB_LABELS[chartTab]}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>{t('Meilleures ventes', 'Best sellers')}</div>
+              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>{t('Par volume', 'By volume')} · {TAB_LABELS[chartTab]}</div>
               {topProds.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 11, padding: '24px 0' }}>Aucune vente enregistrée</div>
+                <div style={{ textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 11, padding: '24px 0' }}>{t('Aucune vente enregistrée', 'No sales recorded')}</div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {topProds.slice(0, 5).map((p, i) => {
@@ -531,11 +551,11 @@ export default function AdminDashboard() {
 
             {/* Donut modes de paiement */}
             <div style={{ width: isMobile ? '100%' : 220, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 16px', boxShadow: 'var(--fs-shadow-sm)', flexShrink: isMobile ? undefined : 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Modes de paiement</div>
-              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 10 }}>Répartition · {TAB_LABELS[chartTab]}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>{t('Modes de paiement', 'Payment methods')}</div>
+              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 10 }}>{t('Répartition', 'Breakdown')} · {TAB_LABELS[chartTab]}</div>
 
               {payment.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--fs-ink-300)', fontSize: 11 }}>Aucune donnée</div>
+                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--fs-ink-300)', fontSize: 11 }}>{t('Aucune donnée', 'No data')}</div>
               ) : (
                 <>
                   <div style={{ position: 'relative', height: 130 }}>
@@ -575,12 +595,12 @@ export default function AdminDashboard() {
             <div style={{ marginTop: 18, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
               <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Catalogue produits</div>
-                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{prodCount} référence{prodCount !== 1 ? 's' : ''} · {prodLowCount > 0 ? <span style={{ color: 'var(--fs-danger-700)', fontWeight: 600 }}>⚠ {prodLowCount} stock bas</span> : <span style={{ color: 'var(--fs-success-700)', fontWeight: 600 }}>✓ Stocks OK</span>}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Catalogue produits', 'Product catalogue')}</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{prodCount} {t('référence', 'SKU')}{prodCount !== 1 ? 's' : ''} · {prodLowCount > 0 ? <span style={{ color: 'var(--fs-danger-700)', fontWeight: 600 }}>⚠ {prodLowCount} {t('stock bas', 'low stock')}</span> : <span style={{ color: 'var(--fs-success-700)', fontWeight: 600 }}>{t('✓ Stocks OK', '✓ Stock OK')}</span>}</div>
                 </div>
                 <input
                   value={prodSearch} onChange={e => setProdSearch(e.target.value)}
-                  placeholder="Rechercher un produit…"
+                  placeholder={t('Rechercher un produit, une catégorie, « rupture », « stock bas »…', 'Search a product, a category, "out of stock", "low stock"…')}
                   style={{ padding: '7px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, outline: 'none', width: 200, fontFamily: 'var(--fs-font-sans)' }}
                 />
               </div>
@@ -618,7 +638,7 @@ export default function AdminDashboard() {
                                 background: out ? 'var(--fs-danger-100)' : low ? '#FFF7ED' : '#F0FDF4',
                                 color:      out ? 'var(--fs-danger-700)' : low ? '#EA580C' : '#16A34A',
                               }}>
-                                {out ? 'Rupture' : low ? 'Stock bas' : 'OK'}
+                                {out ? t('Rupture', 'Out of stock') : low ? t('Stock bas', 'Low stock') : 'OK'}
                               </span>
                             </td>
                           </tr>

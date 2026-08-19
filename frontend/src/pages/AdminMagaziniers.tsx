@@ -7,6 +7,7 @@ import NouveauProduitModal from '../components/NouveauProduitModal';
 import { getDemandes, DemandeStock, ajusterStockEntrepot, getAllReceptions, ReceptionFull } from '../api/magazinier';
 import { contientTexte } from '../utils/text';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t, dateLocale } from '../i18n';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -62,10 +63,10 @@ function MagazinierCard({ user, selected, onEdit, onDelete }: {
           <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
-          <button onClick={onEdit} title="Modifier" style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--fs-line)', background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={onEdit} title={t('Modifier', 'Edit')} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--fs-line)', background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-500)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <I d={D.edit} size={12}/>
           </button>
-          <button onClick={onDelete} title="Supprimer" style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--fs-line)', background: '#fff', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={onDelete} title={t('Supprimer', 'Delete')} style={{ width: 28, height: 28, borderRadius: 6, border: '1px solid var(--fs-line)', background: '#fff', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <I d={D.trash} size={12}/>
           </button>
         </div>
@@ -75,13 +76,13 @@ function MagazinierCard({ user, selected, onEdit, onDelete }: {
         <div style={{ flex: 1, background: 'var(--fs-ivory)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ color: 'var(--fs-wine-700)' }}><I d={D.pkg} size={13}/></span>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Accès</div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-800)' }}>Réceptions · Envois</div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('Accès', 'Access')}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-800)' }}>{t('Réceptions · Envois', 'Receipts · Shipments')}</div>
           </div>
         </div>
         <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}/>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a' }}>Actif</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a' }}>{t('Actif', 'Active')}</span>
         </div>
       </div>
       {user.assignedLocation && (
@@ -109,7 +110,7 @@ function EditPanel({ user, caisses, onSaved, onCancel, onDeleted, isNarrow }: {
 
   const handleSave = async () => {
     const fullName = `${prenom} ${nom}`.trim();
-    if (!fullName) { setError('Le nom est obligatoire.'); return; }
+    if (!fullName) { setError(t('Le nom est obligatoire.', 'Name is required.')); return; }
     setLoading(true); setError('');
     try {
       const patch: { name?: string; password?: string; assignedLocation?: string } = { assignedLocation: location };
@@ -118,7 +119,7 @@ function EditPanel({ user, caisses, onSaved, onCancel, onDeleted, isNarrow }: {
       await updateUser(user._id, patch);
       onSaved();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erreur');
+      setError(e instanceof Error ? e.message : t('Erreur', 'Error'));
     } finally { setLoading(false); }
   };
 
@@ -132,7 +133,7 @@ function EditPanel({ user, caisses, onSaved, onCancel, onDeleted, isNarrow }: {
     <div style={{ width: isNarrow ? '100%' : 320, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', borderTop: isNarrow ? '1px solid var(--fs-line)' : 'none', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>Modification</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>{t('Modification', 'Editing')}</div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{user.name}</div>
         </div>
         <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}><I d={D.close} size={16}/></button>
@@ -140,23 +141,23 @@ function EditPanel({ user, caisses, onSaved, onCancel, onDeleted, isNarrow }: {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {error && <div style={{ background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{error}</div>}
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Identité</p>
-        <Field label="Prénom" value={prenom} onChange={setPrenom}/>
-        <Field label="Nom" value={nom} onChange={setNom}/>
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Affectation</p>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{t('Identité', 'Identity')}</p>
+        <Field label={t('Prénom', 'First name')} value={prenom} onChange={setPrenom}/>
+        <Field label={t('Nom', 'Last name')} value={nom} onChange={setNom}/>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Affectation', 'Assignment')}</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>🏭 Dépôt / Entrepôt assigné</label>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>🏭 {t('Dépôt / Entrepôt assigné', 'Assigned depot / warehouse')}</label>
           <input
             type="text"
             value={location}
             onChange={e => setLocation(e.target.value)}
-            placeholder="ex: Dépôt principal, Entrepôt Nord…"
+            placeholder={t('ex: Dépôt principal, Entrepôt Nord…', 'e.g. Main depot, North warehouse…')}
             style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}
           />
         </div>
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Nouveau mot de passe</p>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Nouveau mot de passe', 'New password')}</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Mot de passe (laisser vide pour ne pas changer)</label>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{t('Mot de passe (laisser vide pour ne pas changer)', 'Password (leave blank to keep unchanged)')}</label>
           <div style={{ position: 'relative' }}>
             <input type={showPwd ? 'text' : 'password'} value={pwd} onChange={e => setPwd(e.target.value)} placeholder="••••••••"
               style={{ width: '100%', padding: '9px 36px 9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
@@ -172,18 +173,18 @@ function EditPanel({ user, caisses, onSaved, onCancel, onDeleted, isNarrow }: {
           <button onClick={() => setConfirm(true)} style={{ padding: '10px 14px', border: 'none', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)' }}>
             <I d={D.trash} size={12}/>
           </button>
-          <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>Annuler</button>
+          <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>{t('Annuler', 'Cancel')}</button>
           <button onClick={handleSave} disabled={loading} style={{ flex: 2, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-wine-700)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
-            {loading ? 'Enregistrement…' : 'Enregistrer'}
+            {loading ? t('Enregistrement…', 'Saving…') : t('Enregistrer', 'Save')}
           </button>
         </div>
       ) : (
         <div style={{ padding: '14px 18px', borderTop: '1px solid var(--fs-line)', flexShrink: 0 }}>
-          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 10px' }}>Supprimer <strong>{user.name}</strong> ?</p>
+          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 10px' }}>{t('Supprimer', 'Delete')} <strong>{user.name}</strong>{t(' ?', '?')}</p>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setConfirm(false)} style={{ flex: 1, padding: '9px', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)' }}>Annuler</button>
+            <button onClick={() => setConfirm(false)} style={{ flex: 1, padding: '9px', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 12, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)' }}>{t('Annuler', 'Cancel')}</button>
             <button onClick={handleDelete} disabled={deleting} style={{ flex: 1, padding: '9px', border: 'none', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-danger-700)', color: '#fff', opacity: deleting ? 0.7 : 1 }}>
-              {deleting ? '…' : 'Confirmer'}
+              {deleting ? '…' : t('Confirmer', 'Confirm')}
             </button>
           </div>
         </div>
@@ -206,8 +207,8 @@ function CreatePanel({ caisses, onCreated, onCancel, isNarrow }: { caisses: Cais
     : '';
 
   const handleCreate = async () => {
-    if (!form.prenom || !form.nom) { setError('Prénom et nom obligatoires.'); return; }
-    if (form.password.length < 4) { setError('Mot de passe : 4 caractères minimum.'); return; }
+    if (!form.prenom || !form.nom) { setError(t('Prénom et nom obligatoires.', 'First and last name are required.')); return; }
+    if (form.password.length < 4) { setError(t('Mot de passe : 4 caractères minimum.', 'Password: 4 characters minimum.')); return; }
     setLoading(true); setError('');
     try {
       await createUser({
@@ -219,7 +220,7 @@ function CreatePanel({ caisses, onCreated, onCancel, isNarrow }: { caisses: Cais
         assignedLocation: form.assignedLocation || undefined,
       });
       onCreated();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Erreur'); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : t('Erreur', 'Error')); }
     finally { setLoading(false); }
   };
 
@@ -227,8 +228,8 @@ function CreatePanel({ caisses, onCreated, onCancel, isNarrow }: { caisses: Cais
     <div style={{ width: isNarrow ? '100%' : 320, borderLeft: isNarrow ? 'none' : '1px solid var(--fs-line)', borderTop: isNarrow ? '1px solid var(--fs-line)' : 'none', background: '#fff', display: 'flex', flexDirection: 'column', overflow: 'hidden', flexShrink: 0 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--fs-line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>+ Nouveau magasinier</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Créer un compte</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 2 }}>{t('+ Nouveau magasinier', '+ New warehouse keeper')}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Créer un compte', 'Create an account')}</div>
         </div>
         <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}><I d={D.close} size={16}/></button>
       </div>
@@ -236,30 +237,30 @@ function CreatePanel({ caisses, onCreated, onCancel, isNarrow }: { caisses: Cais
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {error && <div style={{ background: 'var(--fs-danger-100)', color: 'var(--fs-danger-700)', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{error}</div>}
 
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Identité</p>
-        <Field label="Prénom *" value={form.prenom} onChange={v => set('prenom', v)} placeholder="Jean"/>
-        <Field label="Nom *"    value={form.nom}    onChange={v => set('nom', v)}    placeholder="Kamdem"/>
-        <Field label="Téléphone" value={form.phone}  onChange={v => set('phone', v)}  placeholder="+237 6 91 23 45 67"/>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{t('Identité', 'Identity')}</p>
+        <Field label={t('Prénom *', 'First name *')} value={form.prenom} onChange={v => set('prenom', v)} placeholder="Jean"/>
+        <Field label={t('Nom *', 'Last name *')}    value={form.nom}    onChange={v => set('nom', v)}    placeholder="Kamdem"/>
+        <Field label={t('Téléphone', 'Phone')} value={form.phone}  onChange={v => set('phone', v)}  placeholder="+237 6 91 23 45 67"/>
         <Field label="Email"     value={form.email}  onChange={v => set('email', v)}  type="email" placeholder={identifiant || 'jean.k@familystore.cm'}/>
 
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Affectation</p>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Affectation', 'Assignment')}</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>🏭 Dépôt / Entrepôt assigné</label>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>🏭 {t('Dépôt / Entrepôt assigné', 'Assigned depot / warehouse')}</label>
           <input
             type="text"
             value={form.assignedLocation}
             onChange={e => set('assignedLocation', e.target.value)}
-            placeholder="ex: Dépôt principal, Entrepôt Nord…"
+            placeholder={t('ex: Dépôt principal, Entrepôt Nord…', 'e.g. Main depot, North warehouse…')}
             style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}
           />
         </div>
 
-        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>Accès</p>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Accès', 'Access')}</p>
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>Mot de passe *</label>
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{t('Mot de passe *', 'Password *')}</label>
           <div style={{ position: 'relative' }}>
             <input type={showPwd ? 'text' : 'password'} value={form.password}
-              onChange={e => set('password', e.target.value)} placeholder="Min. 4 caractères"
+              onChange={e => set('password', e.target.value)} placeholder={t('Min. 4 caractères', 'Min. 4 characters')}
               style={{ width: '100%', padding: '9px 36px 9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
             <button onClick={() => setShowPwd(p => !p)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', display: 'flex' }}>
               <I d={D.eye} size={14}/>
@@ -269,14 +270,14 @@ function CreatePanel({ caisses, onCreated, onCancel, isNarrow }: { caisses: Cais
 
         <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 12px', fontSize: 11, color: '#1d4ed8' }}>
           <I d={D.mail} size={11}/>{' '}
-          Accès : <strong>Réceptions</strong>, <strong>Demandes en attente</strong>, <strong>Historique</strong> — sans accès aux prix ni au CA.
+          {t('Accès : ', 'Access: ')}<strong>{t('Réceptions', 'Receipts')}</strong>, <strong>{t('Demandes en attente', 'Pending requests')}</strong>, <strong>{t('Historique', 'History')}</strong>{t(' — sans accès aux prix ni au CA.', ' — no access to prices or revenue.')}
         </div>
       </div>
 
       <div style={{ padding: '12px 18px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 8, flexShrink: 0 }}>
-        <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>Annuler</button>
+        <button onClick={onCancel} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: 'none', color: 'var(--fs-ink-500)' }}>{t('Annuler', 'Cancel')}</button>
         <button onClick={handleCreate} disabled={loading} style={{ flex: 2, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: 'var(--fs-wine-700)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
-          {loading ? 'Création…' : 'Créer le compte'}
+          {loading ? t('Création…', 'Creating…') : t('Créer le compte', 'Create account')}
         </button>
       </div>
     </div>
@@ -291,7 +292,7 @@ const CAT_COLORS: Record<string, string> = {
   'bien-être': '#A8E0D4', 'maison': '#D4C8B8',
 };
 const catColor = (c?: string) => CAT_COLORS[c?.toLowerCase() ?? ''] ?? '#DDD4C8';
-const fmtN = (n: number) => n.toLocaleString('fr-FR');
+const fmtN = (n: number) => n.toLocaleString(dateLocale());
 
 function StockEntrepotView({ products, demandes, onReload }: {
   products: Product[];
@@ -309,7 +310,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const isMobile = useIsMobile();
   const isNarrow = useIsMobile(1024);
-  const knownCategories = [...new Set(products.map(p => p.category).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, 'fr'));
+  const knownCategories = [...new Set(products.map(p => p.category).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, dateLocale()));
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -371,8 +372,8 @@ function StockEntrepotView({ products, demandes, onReload }: {
                 <I d={D.warehouse} size={20}/>
               </div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)' }}>Modifier le stock entrepôt ?</div>
-                <div style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginTop: 2 }}>Vérifiez la quantité avant de confirmer.</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{t('Modifier le stock entrepôt ?', 'Edit warehouse stock?')}</div>
+                <div style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginTop: 2 }}>{t('Vérifiez la quantité avant de confirmer.', 'Check the quantity before confirming.')}</div>
               </div>
             </div>
             <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 8 }}>
@@ -386,7 +387,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setConfirmAdj(null)} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
-                Annuler
+                {t('Annuler', 'Cancel')}
               </button>
               <button
                 onClick={async () => {
@@ -399,7 +400,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
                 }}
                 disabled={adjusting !== null}
                 style={{ flex: 1, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#2563eb', color: '#fff', fontFamily: 'var(--fs-font-sans)' }}>
-                Confirmer la modification
+                {t('Confirmer la modification', 'Confirm the change')}
               </button>
             </div>
           </div>
@@ -415,19 +416,19 @@ function StockEntrepotView({ products, demandes, onReload }: {
                 <I d={D.trash} size={20}/>
               </div>
               <div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)' }}>Supprimer ce produit ?</div>
-                <div style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginTop: 2 }}>Cette action est irréversible.</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{t('Supprimer ce produit ?', 'Delete this product?')}</div>
+                <div style={{ fontSize: 12, color: 'var(--fs-ink-500)', marginTop: 2 }}>{t('Cette action est irréversible.', 'This action cannot be undone.')}</div>
               </div>
             </div>
             <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 20 }}>
-              Le produit <strong>{deleteTarget.name}</strong> sera définitivement supprimé du catalogue. L'opération sera enregistrée dans le journal d'audit.
+              {t('Le produit', 'The product')} <strong>{deleteTarget.name}</strong> {t("sera définitivement supprimé du catalogue. L'opération sera enregistrée dans le journal d'audit.", 'will be permanently removed from the catalogue. The operation will be recorded in the audit log.')}
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setDeleteTarget(null)} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
-                Annuler
+                {t('Annuler', 'Cancel')}
               </button>
               <button onClick={handleDelete} disabled={deleting} style={{ flex: 1, padding: '10px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#dc2626', color: '#fff', opacity: deleting ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
-                {deleting ? 'Suppression…' : 'Oui, supprimer'}
+                {deleting ? t('Suppression…', 'Deleting…') : t('Oui, supprimer', 'Yes, delete')}
               </button>
             </div>
           </div>
@@ -437,11 +438,11 @@ function StockEntrepotView({ products, demandes, onReload }: {
       {/* Métriques */}
       <div style={{ display: isNarrow ? 'grid' : 'flex', gridTemplateColumns: isNarrow ? (isMobile ? '1fr' : 'repeat(2, 1fr)') : undefined, gap: 12, padding: isNarrow ? '16px 16px' : '16px 24px', flexShrink: 0 }}>
         {[
-          { label: 'Total unités entrepôt', value: fmtN(totalEntrepot), color: 'var(--fs-wine-700)', sub: `${avecStock.length} référence${avecStock.length !== 1 ? 's' : ''} avec stock` },
-          { label: 'Valeur entrepôt (≈)', value: `${fmtN(valeurEntrepot)} XAF`, color: 'var(--fs-ink-900)', sub: "Sur la base du prix d'achat" },
-          { label: 'Références en stock', value: avecStock.length, color: '#15803d', sub: `sur ${products.length} produits au total` },
-          { label: 'Stock bas / critique', value: basCount, color: basCount > 0 ? '#dc2626' : '#15803d', sub: basCount > 0 ? 'sous le seuil commande' : 'tout est OK' },
-          { label: 'Envois au gestionnaire', value: demandes.length, color: '#2563eb', sub: `${demandes.filter(d => d.statut === 'reçu').length} reçu${demandes.filter(d => d.statut === 'reçu').length !== 1 ? 's' : ''} · ${demandes.filter(d => d.statut === 'envoyé').length} en transit` },
+          { label: t('Total unités entrepôt', 'Total warehouse units'), value: fmtN(totalEntrepot), color: 'var(--fs-wine-700)', sub: t(`${avecStock.length} référence${avecStock.length !== 1 ? 's' : ''} avec stock`, `${avecStock.length} item${avecStock.length !== 1 ? 's' : ''} with stock`) },
+          { label: t('Valeur entrepôt (≈)', 'Warehouse value (≈)'), value: `${fmtN(valeurEntrepot)} XAF`, color: 'var(--fs-ink-900)', sub: t("Sur la base du prix d'achat", 'Based on the purchase price') },
+          { label: t('Références en stock', 'Items in stock'), value: avecStock.length, color: '#15803d', sub: t(`sur ${products.length} produits au total`, `out of ${products.length} products in total`) },
+          { label: t('Stock bas / critique', 'Low / critical stock'), value: basCount, color: basCount > 0 ? '#dc2626' : '#15803d', sub: basCount > 0 ? t('sous le seuil commande', 'below the reorder threshold') : t('tout est OK', 'everything is OK') },
+          { label: t('Envois au gestionnaire', 'Shipments to stock manager'), value: demandes.length, color: '#2563eb', sub: t(`${demandes.filter(d => d.statut === 'reçu').length} reçu${demandes.filter(d => d.statut === 'reçu').length !== 1 ? 's' : ''} · ${demandes.filter(d => d.statut === 'envoyé').length} en transit`, `${demandes.filter(d => d.statut === 'reçu').length} received · ${demandes.filter(d => d.statut === 'envoyé').length} in transit`) },
         ].map(m => (
           <div key={m.label} style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', boxShadow: 'var(--fs-shadow-sm)' }}>
             <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{m.label}</div>
@@ -455,8 +456,8 @@ function StockEntrepotView({ products, demandes, onReload }: {
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: isNarrow ? '0 16px 12px' : '0 24px 12px', flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 4 }}>
           {([
-            { id: 'tous', label: 'Tous',       count: products.length },
-            { id: 'bas',  label: 'Stock bas',  count: basCount        },
+            { id: 'tous', label: t('Tous', 'All'),       count: products.length },
+            { id: 'bas',  label: t('Stock bas', 'Low stock'),  count: basCount        },
           ] as { id: typeof filtre; label: string; count: number }[]).map(f => (
             <button key={f.id} onClick={() => setFiltre(f.id)} style={{
               padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
@@ -476,22 +477,22 @@ function StockEntrepotView({ products, demandes, onReload }: {
           <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-300)' }}>
             <I d={D.search} size={13}/>
           </span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un produit…"
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('Rechercher un produit…', 'Search for a product…')}
             style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff', width: '100%', boxSizing: 'border-box' }}/>
         </div>
         {/* Filtre par catégorie */}
         <select value={catFiltre} onChange={e => setCatFiltre(e.target.value)}
           style={{ padding: '8px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, background: '#fff', cursor: 'pointer', color: catFiltre ? 'var(--fs-ink-800)' : 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
-          <option value="">Toutes les catégories</option>
+          <option value="">{t('Toutes les catégories', 'All categories')}</option>
           {knownCategories.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         {(search || catFiltre || filtre !== 'tous') && (
           <button onClick={() => { setSearch(''); setCatFiltre(''); setFiltre('tous'); }}
             style={{ padding: '7px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, cursor: 'pointer', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
-            Réinitialiser
+            {t('Réinitialiser', 'Reset')}
           </button>
         )}
-        <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{displayed.length} produit{displayed.length !== 1 ? 's' : ''} affiché{displayed.length !== 1 ? 's' : ''}</span>
+        <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{t(`${displayed.length} produit${displayed.length !== 1 ? 's' : ''} affiché${displayed.length !== 1 ? 's' : ''}`, `${displayed.length} product${displayed.length !== 1 ? 's' : ''} shown`)}</span>
       </div>
 
       {/* Tableau */}
@@ -499,13 +500,13 @@ function StockEntrepotView({ products, demandes, onReload }: {
         {products.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>
             <I d={D.warehouse} size={36}/><br/><br/>
-            Aucun produit — le magasinier n'a pas encore enregistré de réception.
+            {t("Aucun produit — le magasinier n'a pas encore enregistré de réception.", 'No products — the warehouse keeper has not recorded any receipt yet.')}
           </div>
         ) : (
           <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 820 : undefined, borderCollapse: 'collapse', background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
             <thead>
               <tr style={{ background: 'var(--fs-ivory)' }}>
-                {['Produit', 'Catégorie', 'Stock entrepôt', 'Stock caisse', 'Seuil commande', 'Valeur (≈)', 'État', ''].map((h, i) => (
+                {[t('Produit', 'Product'), t('Catégorie', 'Category'), t('Stock entrepôt', 'Warehouse stock'), t('Stock caisse', 'Store stock'), t('Seuil commande', 'Reorder threshold'), t('Valeur (≈)', 'Value (≈)'), t('État', 'Status'), ''].map((h, i) => (
                   <th key={h} style={{
                     padding: '10px 14px', textAlign: i >= 2 ? 'center' : 'left',
                     fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)',
@@ -514,7 +515,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
                     position: 'sticky', top: 0, background: 'var(--fs-ivory)', zIndex: 1,
                   }}>
                     {h}
-                    {h === 'Stock entrepôt' && <div style={{ fontWeight: 400, textTransform: 'none', fontSize: 9, letterSpacing: 0, marginTop: 1, color: '#2563eb' }}>Cliquer pour modifier</div>}
+                    {i === 2 && <div style={{ fontWeight: 400, textTransform: 'none', fontSize: 9, letterSpacing: 0, marginTop: 1, color: '#2563eb' }}>{t('Cliquer pour modifier', 'Click to edit')}</div>}
                   </th>
                 ))}
               </tr>
@@ -523,7 +524,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
               {displayed.length === 0 ? (
                 <tr>
                   <td colSpan={8} style={{ padding: '48px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 14 }}>
-                    Aucun produit trouvé
+                    {t('Aucun produit trouvé', 'No products found')}
                   </td>
                 </tr>
               ) : displayed.map((p, idx) => {
@@ -584,7 +585,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
                     <td style={{ padding: '11px 14px', textAlign: 'center' }}>
                       {bas ? (
                         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
-                          <I d={D.alert} size={10}/> À commander
+                          <I d={D.alert} size={10}/> {t('À commander', 'To reorder')}
                         </span>
                       ) : (
                         <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: '#f0fdf4', color: '#16a34a', border: '1px solid #86efac' }}>
@@ -594,11 +595,11 @@ function StockEntrepotView({ products, demandes, onReload }: {
                     </td>
                     <td style={{ padding: '11px 14px', textAlign: 'center' }}>
                       <div style={{ display: 'inline-flex', gap: 6 }}>
-                        <button onClick={() => setEditProduct(p)} title="Modifier le produit"
+                        <button onClick={() => setEditProduct(p)} title={t('Modifier le produit', 'Edit product')}
                           style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex', alignItems: 'center' }}>
                           <I d={D.edit} size={13}/>
                         </button>
-                        <button onClick={() => setDeleteTarget(p)} title="Supprimer le produit"
+                        <button onClick={() => setDeleteTarget(p)} title={t('Supprimer le produit', 'Delete product')}
                           style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex', alignItems: 'center' }}>
                           <I d={D.trash} size={13}/>
                         </button>
@@ -615,20 +616,20 @@ function StockEntrepotView({ products, demandes, onReload }: {
         <div style={{ marginTop: 20, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
           <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <I d={D.truck} size={14}/>
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Envois du magasinier au gestionnaire</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Envois du magasinier au gestionnaire', 'Shipments from warehouse keeper to stock manager')}</span>
             <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 20, padding: '2px 10px', color: 'var(--fs-ink-500)' }}>
-              {demandes.length} envoi{demandes.length !== 1 ? 's' : ''}
+              {demandes.length} {t('envoi', 'shipment')}{demandes.length !== 1 ? 's' : ''}
             </span>
           </div>
           {demandes.length === 0 ? (
             <div style={{ padding: '28px', textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13, fontStyle: 'italic' }}>
-              Aucun produit encore envoyé au gestionnaire
+              {t('Aucun produit encore envoyé au gestionnaire', 'No products sent to the stock manager yet')}
             </div>
           ) : (
             <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 720 : undefined, borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--fs-ivory)' }}>
-                  {['Produit', 'Qté envoyée', 'Demandé par', 'Statut', 'Date envoi'].map((h, i) => (
+                  {[t('Produit', 'Product'), t('Qté envoyée', 'Qty sent'), t('Demandé par', 'Requested by'), t('Statut', 'Status'), t('Date envoi', 'Ship date')].map((h, i) => (
                     <th key={h} style={{ padding: '9px 14px', textAlign: i === 0 ? 'left' : 'center', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap', position: 'sticky', top: 0, background: 'var(--fs-ivory)', zIndex: 1 }}>
                       {h}
                     </th>
@@ -650,11 +651,11 @@ function StockEntrepotView({ products, demandes, onReload }: {
                     </td>
                     <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, background: d.statut === 'reçu' ? '#f0fdf4' : '#eff6ff', color: d.statut === 'reçu' ? '#16a34a' : '#2563eb', border: `1px solid ${d.statut === 'reçu' ? '#86efac' : '#bfdbfe'}` }}>
-                        {d.statut === 'reçu' ? '✓ Reçu' : '🚚 En transit'}
+                        {d.statut === 'reçu' ? t('✓ Reçu', '✓ Received') : t('🚚 En transit', '🚚 In transit')}
                       </span>
                     </td>
                     <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: 11, color: 'var(--fs-ink-400)' }}>
-                      {d.dateEnvoi ? new Date(d.dateEnvoi).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      {d.dateEnvoi ? new Date(d.dateEnvoi).toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     </td>
                   </tr>
                 ))}
@@ -718,7 +719,7 @@ export default function AdminMagaziniers() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
             <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>Personnel — Entrepôt</p>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>{t('Personnel — Entrepôt', 'Staff — Warehouse')}</p>
               {/* Onglets */}
               <div style={{ display: 'flex', gap: 4 }}>
                 <button onClick={() => { setViewMode('equipe'); setPanel(null); }} style={{
@@ -727,7 +728,7 @@ export default function AdminMagaziniers() {
                   background: viewMode === 'equipe' ? 'var(--fs-wine-700)' : '#fff',
                   color: viewMode === 'equipe' ? '#fff' : 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)',
                 }}>
-                  <I d={D.users} size={13}/> Équipe
+                  <I d={D.users} size={13}/> {t('Équipe', 'Team')}
                   <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 10, background: viewMode === 'equipe' ? 'rgba(255,255,255,0.25)' : 'var(--fs-ivory)', color: viewMode === 'equipe' ? '#fff' : 'var(--fs-ink-400)' }}>
                     {users.length}
                   </span>
@@ -738,7 +739,7 @@ export default function AdminMagaziniers() {
                   background: viewMode === 'stock' ? 'var(--fs-wine-700)' : '#fff',
                   color: viewMode === 'stock' ? '#fff' : 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)',
                 }}>
-                  <I d={D.warehouse} size={13}/> Stock entrepôt
+                  <I d={D.warehouse} size={13}/> {t('Stock entrepôt', 'Warehouse stock')}
                   <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 10, background: viewMode === 'stock' ? 'rgba(255,255,255,0.25)' : 'var(--fs-ivory)', color: viewMode === 'stock' ? '#fff' : 'var(--fs-ink-400)' }}>
                     {magazinierProducts.length}
                   </span>
@@ -748,7 +749,7 @@ export default function AdminMagaziniers() {
             {viewMode === 'equipe' && (
               <button onClick={() => setPanel({ type: 'create' })}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                <I d={D.plus} size={13}/> Ajouter un magasinier
+                <I d={D.plus} size={13}/> {t('Ajouter un magasinier', 'Add a warehouse keeper')}
               </button>
             )}
           </div>
@@ -761,7 +762,7 @@ export default function AdminMagaziniers() {
               {users.length === 0 ? (
                 <div style={{ textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, padding: '60px 0' }}>
                   <I d={D.pkg} size={36}/><br/><br/>
-                  Aucun magasinier — cliquez sur <strong>Ajouter</strong> pour créer le premier compte.
+                  {t('Aucun magasinier — cliquez sur', 'No warehouse keeper — click')} <strong>{t('Ajouter', 'Add')}</strong> {t('pour créer le premier compte.', 'to create the first account.')}
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 14 }}>

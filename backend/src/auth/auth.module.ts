@@ -8,12 +8,14 @@ import { RolesGuard } from './roles.guard';
 import { User, UserSchema } from '../schemas/user.schema';
 import { AuditLog, AuditLogSchema } from '../schemas/audit-log.schema';
 import { getJwtSecret } from '../config/jwt-secret';
+import { Settings, SettingsSchema } from '../settings/settings.schema';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: User.name,     schema: UserSchema     },
       { name: AuditLog.name, schema: AuditLogSchema },
+      { name: Settings.name, schema: SettingsSchema },
     ]),
     JwtModule.register({
       global: true,

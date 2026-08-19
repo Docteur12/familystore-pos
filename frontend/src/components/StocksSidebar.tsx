@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useSettings } from '../contexts/SettingsContext';
 import { Link, useLocation } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
 import { getAllReceptions } from '../api/magazinier';
 import { getEcartsCount }  from '../api/ecarts';
 import { useIsMobile } from '../hooks/useIsMobile';
 import StoreLogo from './StoreLogo';
+import { t } from '../i18n';
 
 const LS_RECEPTION_SEEN = 'receptions_last_seen';
 const SIDEBAR_W   = 190;
@@ -34,19 +36,21 @@ const D = {
 };
 
 const NAV_ITEMS = [
-  { id: 'dashboard',    label: 'Tableau de bord',   icon: D.dashboard,    path: '/stocks/dashboard'    },
-  { id: 'catalogue',   label: 'Catalogue produits', icon: D.catalogue,    path: '/stocks'              },
-  { id: 'receptions',  label: 'Réceptions',         icon: D.reception,    path: '/stocks/receptions'   },
-  { id: 'inventaire',  label: 'Inventaire',         icon: D.inventaire,   path: '/stocks/inventaire'   },
-  { id: 'alertes',     label: 'Alertes & seuils',   icon: D.alertes,      path: '/stocks/alertes'      },
-  { id: 'etiquettes',  label: 'Étiquettes / SKU',   icon: D.etiquettes,   path: '/stocks/etiquettes'   },
-  { id: 'depots',      label: 'Dépôts',             icon: D.depots,       path: '/stocks/depots'       },
-  { id: 'fournisseurs',label: 'Fournisseurs',        icon: D.fournisseurs, path: '/stocks/fournisseurs' },
-  { id: 'ecarts',      label: 'Écarts de stock',     icon: D.alertes,      path: '/stocks/ecarts'       },
-  { id: 'divers',      label: 'Articles divers',     icon: D.divers,       path: '/stocks/divers'       },
+  { id: 'dashboard',    label: t('Tableau de bord', 'Dashboard'),   icon: D.dashboard,    path: '/stocks/dashboard'    },
+  { id: 'catalogue',   label: t('Catalogue produits', 'Product catalog'), icon: D.catalogue,    path: '/stocks'              },
+  { id: 'receptions',  label: t('Réceptions', 'Goods receipts'),         icon: D.reception,    path: '/stocks/receptions'   },
+  { id: 'inventaire',  label: t('Inventaire', 'Stocktaking'),         icon: D.inventaire,   path: '/stocks/inventaire'   },
+  { id: 'alertes',     label: t('Alertes & seuils', 'Alerts & thresholds'),   icon: D.alertes,      path: '/stocks/alertes'      },
+  { id: 'etiquettes',  label: t('Étiquettes / SKU', 'Labels / SKU'),   icon: D.etiquettes,   path: '/stocks/etiquettes'   },
+  { id: 'depots',      label: t('Dépôts', 'Depots'),             icon: D.depots,       path: '/stocks/depots'       },
+  { id: 'fournisseurs',label: t('Fournisseurs', 'Suppliers'),        icon: D.fournisseurs, path: '/stocks/fournisseurs' },
+  { id: 'ecarts',      label: t('Écarts de stock', 'Stock discrepancies'),     icon: D.alertes,      path: '/stocks/ecarts'       },
+  { id: 'divers',      label: t('Articles divers', 'Miscellaneous items'),     icon: D.divers,       path: '/stocks/divers'       },
 ];
 
 export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number }) {
+  const { settings } = useSettings();
+  const nomMagasin = settings.nomMagasin || 'Family Store';
   const location = useLocation();
   const payload  = getTokenPayload();
   const isMobile = useIsMobile();
@@ -92,7 +96,7 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
         <button
           className="fs-hamburger"
           onClick={() => setIsOpen(o => !o)}
-          aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+          aria-label={isOpen ? t('Fermer le menu', 'Close menu') : t('Ouvrir le menu', 'Open menu')}
           style={{
             position: 'fixed', top: 12, left: isOpen ? SIDEBAR_W + 8 : 12,
             zIndex: 201, width: 36, height: 36, borderRadius: 8,
@@ -125,15 +129,15 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
             <StoreLogo width={150}/>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 13, fontWeight: 700, color: '#f5ebd9', letterSpacing: '0.04em' }}>FAMILY STORE</div>
-            <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.08em' }}>Gestion de stock</div>
+            <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 13, fontWeight: 700, color: '#f5ebd9', letterSpacing: '0.04em' }}>{nomMagasin.toUpperCase()}</div>
+            <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.08em' }}>{t('Gestion de stock', 'Inventory management')}</div>
           </div>
         </div>
 
         {/* Nav */}
         <div style={{ padding: '12px 0 6px', flex: 1, overflowY: 'auto' }}>
           <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', padding: '0 14px', marginBottom: 6 }}>
-            Gestion
+            {t('Gestion', 'Management')}
           </p>
           {NAV_ITEMS.map(item => {
             const isActive = item.id === activeId;
@@ -175,17 +179,17 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
         {payload?.role === 'patron' && (
           <Link to="/admin/dashboard"
             style={{ margin: '0 10px 8px', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: 'var(--fs-gold-400)', fontSize: 12, fontWeight: 700 }}>
-            <I d="M15 18l-6-6 6-6" size={13}/> Retour admin
+            <I d="M15 18l-6-6 6-6" size={13}/> {t('Retour admin', 'Back to admin')}
           </Link>
         )}
 
         {/* Dépôt */}
         <div style={{ margin: '0 10px 10px', padding: '10px 12px', background: 'rgba(255,255,255,0.07)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
           <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--fs-gold-400)', marginBottom: 4 }}>
-            Dépôt principal
+            {t('Dépôt principal', 'Main depot')}
           </div>
           <div style={{ fontSize: 11, fontWeight: 600, color: '#fff' }}>Akwa · Douala</div>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>4 dépôts</div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{t('4 dépôts', '4 depots')}</div>
         </div>
 
         {/* User */}
@@ -196,10 +200,10 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
             <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>
-              {payload?.role === 'gestionnaire' ? 'Chef de stock'
-                : payload?.role === 'magazinier' ? 'Manutentionnaire'
-                : payload?.role === 'patron' ? 'Administrateur'
-                : 'Chef de stock'}
+              {payload?.role === 'gestionnaire' ? t('Chef de stock', 'Stock manager')
+                : payload?.role === 'magazinier' ? t('Manutentionnaire', 'Warehouse keeper')
+                : payload?.role === 'patron' ? t('Administrateur', 'Administrator')
+                : t('Chef de stock', 'Stock manager')}
             </div>
           </div>
           <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}

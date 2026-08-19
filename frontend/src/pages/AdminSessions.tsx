@@ -3,12 +3,13 @@ import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import { forceCloseSession, getSessions, corrigerDureesSessions, SessionRecord } from '../api/sessions';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t, dateLocale } from '../i18n';
 
 const PAGE_SIZE = 50;
-const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
+const fmtN = (n: number) => Math.round(n).toLocaleString(dateLocale());
 
 function duration(debut: string, fin: string | null): string {
-  if (!fin) return 'En cours';
+  if (!fin) return t('En cours', 'In progress');
   const ms = new Date(fin).getTime() - new Date(debut).getTime();
   if (ms < 0) return '—';
   const totalMin = Math.floor(ms / 60_000);
@@ -16,7 +17,7 @@ function duration(debut: string, fin: string | null): string {
   const h    = Math.floor((totalMin % 1440) / 60);
   const m    = totalMin % 60;
   // Au-delà de 24 h, on affiche les jours (sinon « 53h49 » paraît faux).
-  if (days > 0) return `${days}j ${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}`;
+  if (days > 0) return t(`${days}j ${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}`, `${days}d ${String(h).padStart(2, '0')}h${String(m).padStart(2, '0')}`);
   return `${h}h${String(m).padStart(2, '0')}`;
 }
 
@@ -27,11 +28,11 @@ function sameDay(a: string, b: string): boolean {
 }
 
 function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  return new Date(iso).toLocaleDateString(dateLocale(), { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
 function I({ d, size = 13 }: { d: string; size?: number }) {
@@ -85,7 +86,7 @@ export default function AdminSessions() {
       setActiveTotal(activeRes.total);
       setPage(p);
     } catch {
-      addToast('Erreur chargement des sessions', 'error');
+      addToast(t('Erreur chargement des sessions', 'Error loading sessions'), 'error');
     } finally {
       setLoading(false);
     }
@@ -95,10 +96,10 @@ export default function AdminSessions() {
     setClosing(id);
     try {
       await forceCloseSession(id);
-      addToast('Session fermée', 'success');
+      addToast(t('Session fermée', 'Session closed'), 'success');
       load(page);
     } catch {
-      addToast('Erreur lors de la fermeture', 'error');
+      addToast(t('Erreur lors de la fermeture', 'Error while closing'), 'error');
     } finally {
       setClosing(null);
     }
@@ -106,14 +107,14 @@ export default function AdminSessions() {
 
   const [correction, setCorrection] = useState(false);
   const handleCorriger = async () => {
-    if (!window.confirm('Recaler les durées anciennes manifestement gonflées (> 16 h) à l’heure de la dernière vente ? Action unique et sans risque.')) return;
+    if (!window.confirm(t('Recaler les durées anciennes manifestement gonflées (> 16 h) à l’heure de la dernière vente ? Action unique et sans risque.', 'Reset old, clearly inflated durations (> 16 h) to the time of the last sale? One-time and safe action.'))) return;
     setCorrection(true);
     try {
       const { corrected } = await corrigerDureesSessions();
-      addToast(corrected > 0 ? `${corrected} durée(s) corrigée(s)` : 'Aucune durée à corriger', 'success');
+      addToast(corrected > 0 ? t(`${corrected} durée(s) corrigée(s)`, `${corrected} duration(s) corrected`) : t('Aucune durée à corriger', 'No duration to correct'), 'success');
       load(page);
     } catch {
-      addToast('Erreur lors de la correction', 'error');
+      addToast(t('Erreur lors de la correction', 'Error while correcting'), 'error');
     } finally {
       setCorrection(false);
     }
@@ -136,11 +137,11 @@ export default function AdminSessions() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 12, flexWrap: 'wrap' }}>
             <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Personnel</p>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>Sessions de travail</h1>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Personnel', 'Staff')}</p>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>{t('Sessions de travail', 'Work sessions')}</h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <input placeholder="Caissière…" value={cashier} onChange={e => setCashier(e.target.value)}
+              <input placeholder={t('Caissière…', 'Cashier…')} value={cashier} onChange={e => setCashier(e.target.value)}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, width: 140 }} />
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12 }} />
@@ -150,19 +151,19 @@ export default function AdminSessions() {
               <button
                 onClick={() => setActiveOnly(a => !a)}
                 style={{ padding: '7px 12px', border: `1.5px solid ${activeOnly ? '#EA580C' : 'var(--fs-line-2)'}`, borderRadius: 8, background: activeOnly ? '#FFF7ED' : '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: activeOnly ? '#EA580C' : 'var(--fs-ink-500)' }}>
-                ● Actives
+                ● {t('Actives', 'Active')}
               </button>
               <button onClick={() => load(0)}
                 style={{ padding: '7px 14px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                Filtrer
+                {t('Filtrer', 'Filter')}
               </button>
               <button onClick={() => { setDateFrom(''); setDateTo(''); setCashier(''); setActiveOnly(false); }}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
-                Réinitialiser
+                {t('Réinitialiser', 'Reset')}
               </button>
-              <button onClick={handleCorriger} disabled={correction} title="Recale les durées anciennes gonflées (> 16 h)"
+              <button onClick={handleCorriger} disabled={correction} title={t('Recale les durées anciennes gonflées (> 16 h)', 'Reset old inflated durations (> 16 h)')}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, cursor: correction ? 'default' : 'pointer', color: 'var(--fs-ink-500)', opacity: correction ? 0.6 : 1 }}>
-                {correction ? 'Correction…' : 'Corriger les durées'}
+                {correction ? t('Correction…', 'Correcting…') : t('Corriger les durées', 'Correct durations')}
               </button>
             </div>
           </div>
@@ -171,37 +172,37 @@ export default function AdminSessions() {
         {/* Barre stats */}
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: isNarrow ? 12 : 20, padding: isNarrow ? '10px 16px' : '10px 28px', background: 'var(--fs-wine-50)', borderBottom: '1px solid var(--fs-line)', flexShrink: 0 }}>
           <div>
-            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Sessions </span>
+            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('Sessions ', 'Sessions ')}</span>
             <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{total}</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: activeTotal > 0 ? '#EA580C' : 'var(--fs-ink-300)', display: 'inline-block' }}/>
-            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Actives </span>
+            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('Actives ', 'Active ')}</span>
             <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: activeTotal > 0 ? '#EA580C' : 'var(--fs-ink-900)' }}>{activeTotal}</span>
           </div>
           <div>
-            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Ventes </span>
+            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('Ventes ', 'Sales ')}</span>
             <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{totalVentes}</span>
           </div>
           <div>
-            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>CA affiché </span>
+            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('CA affiché ', 'Displayed revenue ')}</span>
             <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>{fmtN(totalEncaisse)} XAF</span>
           </div>
           {pages > 1 && (
-            <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fs-ink-400)' }}>Page {page + 1} / {pages}</div>
+            <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fs-ink-400)' }}>{t('Page', 'Page')} {page + 1} / {pages}</div>
           )}
         </div>
 
         {/* Table */}
         <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '0 16px 28px' : '0 28px 28px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
+            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Chargement…', 'Loading…')}</div>
           ) : (
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflowY: 'hidden', overflowX: isNarrow ? 'auto' : 'hidden', marginTop: 16 }}>
               <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 760 : undefined }}>
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
-                    {['Caissière', 'Caisse', 'Date', 'Début', 'Fin', 'Durée', 'Ventes', 'CA', 'Statut', ''].map(h => (
+                    {[t('Caissière', 'Cashier'), t('Caisse', 'Register'), t('Date', 'Date'), t('Début', 'Start'), t('Fin', 'End'), t('Durée', 'Duration'), t('Ventes', 'Sales'), t('CA', 'Revenue'), t('Statut', 'Status'), ''].map(h => (
                       <th key={h} style={TH}>{h}</th>
                     ))}
                   </tr>
@@ -210,7 +211,7 @@ export default function AdminSessions() {
                   {sessions.length === 0 ? (
                     <tr>
                       <td colSpan={10} style={{ padding: 48, textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13 }}>
-                        Aucune session enregistrée.
+                        {t('Aucune session enregistrée.', 'No session recorded.')}
                       </td>
                     </tr>
                   ) : sessions.map((s, i) => (
@@ -262,7 +263,7 @@ export default function AdminSessions() {
                           color:      s.closed ? '#16A34A' : '#EA580C',
                           fontSize: 11, fontWeight: 700,
                         }}>
-                          {s.closed ? '✓ Fermée' : '● Active'}
+                          {s.closed ? t('✓ Fermée', '✓ Closed') : t('● Active', '● Active')}
                         </span>
                       </td>
                       <td style={{ padding: '10px 12px' }}>
@@ -270,9 +271,9 @@ export default function AdminSessions() {
                           <button
                             onClick={() => handleForceClose(s._id)}
                             disabled={closing === s._id}
-                            title="Forcer la fermeture"
+                            title={t('Forcer la fermeture', 'Force close')}
                             style={{ padding: '4px 10px', border: '1px solid #EA580C', borderRadius: 6, background: closing === s._id ? '#FFF7ED' : '#fff', color: '#EA580C', fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: closing === s._id ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-                            {closing === s._id ? '…' : 'Fermer'}
+                            {closing === s._id ? '…' : t('Fermer', 'Close')}
                           </button>
                         )}
                       </td>
@@ -287,12 +288,12 @@ export default function AdminSessions() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 20 }}>
               <button onClick={() => load(page - 1)} disabled={page === 0}
                 style={{ padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.4 : 1, color: 'var(--fs-ink-600)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <I d="M15 18l-6-6 6-6" size={12} /> Précédent
+                <I d="M15 18l-6-6 6-6" size={12} /> {t('Précédent', 'Previous')}
               </button>
               <span style={{ fontSize: 12, color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-mono)' }}>{page + 1} / {pages}</span>
               <button onClick={() => load(page + 1)} disabled={page >= pages - 1}
                 style={{ padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, cursor: page >= pages - 1 ? 'not-allowed' : 'pointer', opacity: page >= pages - 1 ? 0.4 : 1, color: 'var(--fs-ink-600)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                Suivant <I d="M9 18l6-6-6-6" size={12} />
+                {t('Suivant', 'Next')} <I d="M9 18l6-6-6-6" size={12} />
               </button>
             </div>
           )}

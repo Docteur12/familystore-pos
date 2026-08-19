@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useSettings } from '../contexts/SettingsContext';
 import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
+import { t, dateLocale } from '../i18n';
 
 // ── Barcode canvas renderer ────────────────────────────────────────────────────
 // Simple Code39 encoding (5 bars + 4 spaces per char, narrow/wide pattern)
@@ -64,7 +66,7 @@ const CAT_COLORS: Record<string, string> = {
 };
 const catColor = (c?: string) => CAT_COLORS[c?.toLowerCase() ?? ''] ?? '#DDD4C8';
 
-function fmtN(n: number) { return n.toLocaleString('fr-FR'); }
+function fmtN(n: number) { return n.toLocaleString(dateLocale()); }
 
 function I({ d, size = 14 }: { d: string; size?: number }) {
   return (
@@ -84,7 +86,7 @@ type Template = 'mini' | 'standard' | 'grande';
 const TEMPLATES: { id: Template; label: string; size: string }[] = [
   { id: 'mini',     label: 'Mini',     size: '57×32 mm' },
   { id: 'standard', label: 'Standard', size: '90×50 mm' },
-  { id: 'grande',   label: 'Grande',   size: '100×70 mm' },
+  { id: 'grande',   label: t('Grande', 'Large'),   size: '100×70 mm' },
 ];
 
 // ── Label card ────────────────────────────────────────────────────────────────
@@ -136,7 +138,7 @@ function LabelCard({ product, template, selected, onToggle }: {
 
       {!isMini && (
         <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
-          {product.category ?? 'Non classé'}
+          {product.category ?? t('Non classé', 'Uncategorized')}
         </div>
       )}
 
@@ -149,13 +151,13 @@ function LabelCard({ product, template, selected, onToggle }: {
       {/* Price */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <div>
-          {!isMini && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', fontWeight: 600, marginBottom: 1 }}>PRIX DE VENTE</div>}
+          {!isMini && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', fontWeight: 600, marginBottom: 1 }}>{t('PRIX DE VENTE', 'SELLING PRICE')}</div>}
           <div style={{ fontSize: isMini ? 14 : isLarge ? 20 : 16, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-800)' }}>
             {fmtN(product.price)} <span style={{ fontSize: isMini ? 9 : 11, fontWeight: 600 }}>XAF</span>
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          {!isMini && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', fontWeight: 600, marginBottom: 1 }}>UNITÉ</div>}
+          {!isMini && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', fontWeight: 600, marginBottom: 1 }}>{t('UNITÉ', 'UNIT')}</div>}
           <div style={{ fontSize: isMini ? 10 : 12, fontWeight: 700, color: 'var(--fs-ink-600)' }}>{product.unit}{product.valeur ? ` · ${product.valeur}` : ''}</div>
         </div>
       </div>
@@ -166,6 +168,8 @@ function LabelCard({ product, template, selected, onToggle }: {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function StocksEtiquettes() {
+  const { settings } = useSettings();
+  const nomMagasin = settings.nomMagasin || 'Family Store';
   const [products,  setProducts]  = useState<Product[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [search,    setSearch]    = useState('');
@@ -210,7 +214,7 @@ export default function StocksEtiquettes() {
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) return;
     win.document.write(`
-      <html><head><title>Étiquettes — Family Store</title>
+      <html><head><title>${t(`Étiquettes — ${nomMagasin}`, `Labels — ${nomMagasin}`)}</title>
       <style>
         @page { size: ${sizes[template]}; margin: 3mm; }
         body { margin: 0; font-family: Arial, sans-serif; }
@@ -270,8 +274,8 @@ export default function StocksEtiquettes() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 24px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
             <div>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
-              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Étiquettes / SKU</h1>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Gestion de stock', 'Stock management')}</p>
+              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{t('Étiquettes / SKU', 'Labels / SKU')}</h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, justifyContent: 'center' }}>
               {TEMPLATES.map(t => (
@@ -289,13 +293,13 @@ export default function StocksEtiquettes() {
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-300)' }}><I d={D.search} size={13}/></span>
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher…"
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('Rechercher…', 'Search…')}
                   style={{ paddingLeft: 30, paddingRight: 12, paddingTop: 8, paddingBottom: 8, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: 'var(--fs-ivory)', width: 200 }}/>
               </div>
               {selected.size > 0 && (
                 <button onClick={handleBatchPrint}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)' }}>
-                  <I d={D.print} size={13}/> Imprimer ({selected.size})
+                  <I d={D.print} size={13}/> {t('Imprimer', 'Print')} ({selected.size})
                 </button>
               )}
             </div>
@@ -309,11 +313,11 @@ export default function StocksEtiquettes() {
               <div style={{ width: 16, height: 16, borderRadius: 3, border: '2px solid var(--fs-wine-700)', background: selected.size === displayed.length ? 'var(--fs-wine-700)' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
                 {selected.size === displayed.length && <I d={D.check} size={10}/>}
               </div>
-              Tout sélectionner ({displayed.length})
+              {t('Tout sélectionner', 'Select all')} ({displayed.length})
             </button>
             {selected.size > 0 && (
               <span style={{ fontSize: 12, color: 'var(--fs-wine-700)', fontWeight: 600 }}>
-                {selected.size} étiquette(s) sélectionnée(s)
+                {selected.size} {t('étiquette(s) sélectionnée(s)', 'label(s) selected')}
               </span>
             )}
           </div>
@@ -322,7 +326,7 @@ export default function StocksEtiquettes() {
         {/* Grid */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
+            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Chargement…', 'Loading…')}</div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${template === 'mini' ? 200 : template === 'grande' ? 280 : 240}px, 1fr))`, gap: 14 }}>
               {displayed.map(p => (
