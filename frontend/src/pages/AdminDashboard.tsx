@@ -622,7 +622,7 @@ export default function AdminDashboard() {
                                 background: out ? 'var(--fs-danger-100)' : low ? '#FFF7ED' : '#F0FDF4',
                                 color:      out ? 'var(--fs-danger-700)' : low ? '#EA580C' : '#16A34A',
                               }}>
-                                {out ? 'Rupture' : low ? 'Stock bas' : 'OK'}
+                                {out ? 'Rupture' : low ? 'Stock bas' : 'En stock'}
                               </span>
                             </td>
                           </tr>
