@@ -11,6 +11,7 @@ import { AuditLog, AuditLogSchema }                 from '../schemas/audit-log.s
 import { StockMovement, StockMovementSchema }       from '../schemas/stock-movement.schema';
 import { Reception, ReceptionSchema }               from '../schemas/reception.schema';
 import { DemandeStock, DemandeStockSchema }         from '../schemas/demande-stock.schema';
+import { User, UserSchema }                         from '../schemas/user.schema';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { DemandeStock, DemandeStockSchema }         from '../schemas/demande-sto
       { name: StockMovement.name, schema: StockMovementSchema },
       { name: Reception.name,     schema: ReceptionSchema     },
       { name: DemandeStock.name,  schema: DemandeStockSchema  },
+      { name: User.name,          schema: UserSchema          },
     ]),
   ],
   controllers: [AdminController],
