@@ -15,6 +15,12 @@ import * as nodemailer from 'nodemailer';
 import { User, UserDocument } from '../schemas/user.schema';
 import { AuditLog, AuditLogDocument } from '../schemas/audit-log.schema';
 import { Settings, SettingsDocument } from '../settings/settings.schema';
+import { runWithTenant } from '../tenancy/tenant-context';
+
+// Hachage bcrypt d'une valeur qui n'est le mot de passe de personne. Sert
+// uniquement à consommer le même temps de calcul quand l'e-mail est inconnu,
+// pour que la durée de réponse ne trahisse pas l'existence d'un compte.
+const HASH_LEURRE = bcrypt.hashSync('mot-de-passe-leurre-jamais-utilise', 10);
 
 @Injectable()
 export class AuthService {
@@ -27,17 +33,89 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
+  /**
+   * Connexion à deux champs, y compris en multi-magasin — pas de code boutique.
+   *
+   * L'e-mail est cherché dans TOUS les magasins (il n'est unique que par
+   * tenant depuis le cloisonnement), puis le mot de passe est vérifié sur
+   * chaque candidat. Selon le nombre de couples valides :
+   *   0 → réponse neutre, identique à un mot de passe faux ;
+   *   1 → connexion directe, comme aujourd'hui ;
+   *   n → écran « quelle boutique ? », limité aux magasins où le couple est
+   *       valide, via un jeton de sélection de 5 minutes.
+   *
+   * Aucune information n'est donnée avant validation du mot de passe : un
+   * e-mail inconnu et un mot de passe faux sont indiscernables, y compris en
+   * durée de réponse (voir le calcul à vide plus bas). L'oracle d'énumération
+   * corrigé le 03/08 ne doit pas se rouvrir ici.
+   */
   async login(email: string, password: string) {
-    const user = await this.userModel
-      .findOne({ email: email.toLowerCase() })
-      .populate('caisseId');
-    if (!user) {
+    const emailNormalise = email.toLowerCase();
+
+    const candidats = await this.userModel
+      .find({ email: emailNormalise })
+      .setOptions({ skipTenant: true }); // SKIP-TENANT: résolution multi-tenant au login, la boutique est inconnue à ce stade
+
+    const valides: UserDocument[] = [];
+    for (const candidat of candidats) {
+      if (await bcrypt.compare(password, candidat.password)) valides.push(candidat);
+    }
+
+    if (valides.length === 0) {
+      // Comparaison à vide : sans elle, un e-mail inconnu répondrait beaucoup
+      // plus vite qu'un mot de passe faux — un oracle d'énumération au chrono.
+      if (candidats.length === 0) await bcrypt.compare(password, HASH_LEURRE);
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      throw new UnauthorizedException('Email ou mot de passe incorrect');
+
+    if (valides.length === 1) return this.emettreJeton(valides[0]);
+
+    return this.proposerChoixBoutique(valides);
+  }
+
+  /** Deuxième écran : la liste ne contient QUE les magasins déjà authentifiés. */
+  private async proposerChoixBoutique(valides: UserDocument[]) {
+    const boutiques = [];
+    for (const utilisateur of valides) {
+      const tenantId = String((utilisateur as any).tenant);
+      const nom = await runWithTenant(tenantId, async () => {
+        const s: any = await this.settingsModel.findOne().lean();
+        return (s?.nomMagasin as string) || 'Magasin';
+      });
+      boutiques.push({ tenantId, nom });
     }
+
+    // Le jeton porte les comptes validés : au second appel, le client ne peut
+    // choisir QUE parmi eux — un tenantId arbitraire est refusé.
+    const selectionToken = await this.jwtService.signAsync(
+      {
+        typ: 'choix-boutique',
+        comptes: valides.map(u => ({ tenantId: String((u as any).tenant), userId: String(u._id) })),
+      },
+      { expiresIn: '5m' },
+    );
+
+    return { choixBoutique: true as const, selectionToken, boutiques };
+  }
+
+  /** Finalise une connexion après le choix de la boutique. */
+  async loginBoutique(selectionToken: string, tenantId: string) {
+    let payload: any;
+    try {
+      payload = await this.jwtService.verifyAsync(selectionToken);
+    } catch {
+      throw new UnauthorizedException('Token invalide ou expiré');
+    }
+    if (payload?.typ !== 'choix-boutique') throw new UnauthorizedException('Token invalide ou expiré');
+
+    const compte = (payload.comptes ?? []).find((c: any) => c.tenantId === String(tenantId));
+    if (!compte) throw new UnauthorizedException('Accès non autorisé');
+
+    // `await` À L'INTÉRIEUR du contexte : une Query Mongoose est paresseuse,
+    // elle ne s'exécute qu'au moment où on l'attend. L'attendre au dehors la
+    // ferait tourner hors contexte tenant — et le plugin lèverait.
+    const user = await runWithTenant(compte.tenantId, async () => this.userModel.findById(compte.userId).exec());
+    if (!user) throw new UnauthorizedException('Utilisateur introuvable');
     return this.emettreJeton(user);
   }
 
@@ -55,7 +133,14 @@ export class AuthService {
   }
 
   // Émission du jeton (login et renouvellement) pour un utilisateur authentifié.
-  private async emettreJeton(user: any) {
+  private async emettreJeton(userDoc: any) {
+    const tenantId = String(userDoc.tenant);
+    // La caisse est chargée DANS le contexte du magasin : au login en mode
+    // multi, aucun tenant n'est encore posé par l'interceptor, et le plugin
+    // lèverait. C'est aussi ce qui garantit qu'on ne peut pas rattacher la
+    // caisse d'un autre magasin.
+    const user = await runWithTenant(tenantId, () => userDoc.populate('caisseId'));
+
     const caisse = user.caisseId
       ? {
           _id:   user.caisseId._id,
@@ -70,7 +155,8 @@ export class AuthService {
       : null;
     // v2 : jetons sans PIN en clair, durée 24 h. L'AuthGuard rejette les
     // jetons antérieurs (30 jours, PIN lisible) — reconnexion unique.
-    const payload = { v: 2, sub: user._id, email: user.email, name: user.name, role: user.role, caisse };
+    // tenantId : lu par TenantInterceptor en mode multi pour poser le contexte.
+    const payload = { v: 2, sub: user._id, email: user.email, name: user.name, role: user.role, tenantId, caisse };
     return {
       access_token: await this.jwtService.signAsync(payload),
       user: { id: user._id, name: user.name, email: user.email, role: user.role, caisse },

@@ -41,6 +41,11 @@ export default function Login() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMsg, setForgotMsg] = useState<string | null>(null);
   const [expiredNotice, setExpiredNotice] = useState(false);
+  // Multi-magasin : renseigné quand le serveur demande de choisir la boutique.
+  const [choixBoutique, setChoixBoutique] = useState<{
+    selectionToken: string;
+    boutiques: { tenantId: string; nom: string }[];
+  } | null>(null);
 
   // Affiche un message si on a été redirigé suite à une session expirée (401).
   useEffect(() => {
@@ -64,6 +69,40 @@ export default function Login() {
     }
   };
 
+  /** Session ouverte : jeton stocké, paramètres rechargés, aiguillage par rôle. */
+  const entrer = (accessToken: string) => {
+    localStorage.setItem('access_token', accessToken);
+    reloadSettings(); // paramètres complets du magasin (le login n'avait que l'identité publique)
+    const pl = JSON.parse(atob(accessToken.split('.')[1]));
+    if (pl.role === 'patron')            navigate('/admin/dashboard');
+    else if (pl.role === 'gestionnaire') navigate('/stocks/dashboard');
+    else if (pl.role === 'magazinier')   navigate('/magazinier');
+    else if (pl.role === 'commercial')   navigate('/partenaires');
+    else                                 navigate('/caisse-pin');
+  };
+
+  /** Second temps du multi-magasin : la boutique désignée délivre le jeton. */
+  const choisirBoutique = async (tenantId: string) => {
+    if (!choixBoutique) return;
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/login/boutique', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectionToken: choixBoutique.selectionToken, tenantId }),
+      });
+      if (!res.ok) throw new Error(t('Session de connexion expirée, recommencez.', 'Sign-in session expired, please start again.'));
+      const data = await res.json();
+      entrer(data.access_token);
+    } catch (err: any) {
+      setChoixBoutique(null);
+      setError(err.message ?? t('Erreur inconnue', 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -77,14 +116,14 @@ export default function Login() {
       if (res.status === 401) throw new Error(t('Email ou mot de passe incorrect', 'Incorrect email or password'));
       if (!res.ok)           throw new Error(t('Erreur serveur, réessayez', 'Server error, please try again'));
       const data = await res.json();
-      localStorage.setItem('access_token', data.access_token);
-      reloadSettings(); // paramètres complets du magasin (le login n'avait que l'identité publique)
-      const pl = JSON.parse(atob(data.access_token.split('.')[1]));
-      if (pl.role === 'patron')            navigate('/admin/dashboard');
-      else if (pl.role === 'gestionnaire') navigate('/stocks/dashboard');
-      else if (pl.role === 'magazinier')   navigate('/magazinier');
-      else if (pl.role === 'commercial')   navigate('/partenaires');
-      else                                 navigate('/caisse-pin');
+      // Multi-magasin : le mot de passe est bon mais le même e-mail existe dans
+      // plusieurs boutiques — on demande laquelle. La liste ne contient que
+      // celles où ce couple e-mail/mot de passe est valide (voir AuthService).
+      if (data.choixBoutique) {
+        setChoixBoutique({ selectionToken: data.selectionToken, boutiques: data.boutiques ?? [] });
+        return;
+      }
+      entrer(data.access_token);
     } catch (err: any) {
       setError(err.message ?? t('Erreur inconnue', 'Unknown error'));
     } finally {
@@ -150,7 +189,49 @@ export default function Login() {
             opacity: 0.7,
           }}/>
 
-          {forgotMode ? (
+          {choixBoutique ? (
+            /* Multi-magasin : le mot de passe est déjà validé, il reste à
+               désigner la boutique. Seules celles où ce couple est valide
+               figurent ici — le serveur refuse toute autre. */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 6px' }}>
+                  {t('Quelle boutique ?', 'Which store?')}
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: 0 }}>
+                  {t('Ce compte donne accès à plusieurs boutiques.', 'This account gives access to several stores.')}
+                </p>
+              </div>
+
+              {choixBoutique.boutiques.map(b => (
+                <button
+                  key={b.tenantId}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => choisirBoutique(b.tenantId)}
+                  style={{
+                    padding: '14px 16px', borderRadius: 10, cursor: loading ? 'default' : 'pointer',
+                    border: '1.5px solid var(--fs-line-2)', background: '#fff',
+                    fontSize: 15, fontWeight: 600, color: 'var(--fs-ink-900)',
+                    textAlign: 'left', fontFamily: 'var(--fs-font-sans)',
+                  }}
+                >
+                  {b.nom}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => { setChoixBoutique(null); setPassword(''); }}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', marginTop: 4,
+                  fontSize: 12, color: 'var(--fs-ink-400)', textDecoration: 'underline',
+                }}
+              >
+                {t('Retour à la connexion', 'Back to sign in')}
+              </button>
+            </div>
+          ) : forgotMode ? (
             <form onSubmit={handleForgot} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <div>
                 <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 6px' }}>{t('Mot de passe oublié', 'Forgot password')}</p>

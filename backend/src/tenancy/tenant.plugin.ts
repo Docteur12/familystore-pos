@@ -53,6 +53,15 @@ export function tenantPlugin(schema: Schema): void {
   // 2. Lectures et écritures par filtre : on ajoute { tenant } au where.
   //    `this` est la Query — this.getFilter() expose le filtre courant.
   const appliquerFiltreTenant = function (this: any) {
+    // Échappatoire au niveau REQUÊTE — distincte du `skipTenant` de schéma.
+    // Une poignée d'opérations doivent légitimement traverser les magasins :
+    // au login en mode multi, l'e-mail est cherché dans tous les tenants
+    // puisqu'on ne sait pas encore de quelle boutique vient l'utilisateur.
+    // Chaque usage est justifié par un `// SKIP-TENANT:` et surveillé par
+    // test/tenancy/skip-tenant-governance.spec.ts — impossible d'en glisser
+    // un en silence.
+    if (this.getOptions?.()?.skipTenant) return;
+
     const tenant = getTenantIdStrict();
     const filtre = this.getFilter();
     // Ne jamais écraser un filtre tenant déjà posé explicitement (rare, mais

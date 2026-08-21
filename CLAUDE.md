@@ -103,21 +103,24 @@ module. Le plugin est *fail-closed* — hors contexte tenant, il lève.
   index composites). C'est l'outil de la « vérification chiffrée » exigée par
   la règle n° 3.
 
-### ⛔ Le mode `multi` NE FONCTIONNE PAS aujourd'hui
+### Mode `multi` — état réel
 
-`TENANT_MODE=multi` est câblé mais inutilisable : **`auth.service` ne met
-jamais `tenantId` dans le JWT**, alors que `tenant.interceptor` le lit
-(`req.user.tenantId`). Sans lui, aucun tenant n'est posé et le plugin lève —
-le login lui-même échoue, faute de tenant pour chercher l'utilisateur.
+Le jeton porte désormais `tenantId` (posé par `emettreJeton`, lu par
+`TenantInterceptor`) : c'est le point « `tenantId` dans le JWT + guards » de la
+phase 1, réalisé le 21/08/2026 avec la décision sur la connexion (plus bas).
+Les parcours **authentifiés** fonctionnent donc en `multi`, et la suite
+d'isolation le prouve route par route.
 
-C'est le point « `tenantId` dans le JWT + guards » de la phase 1, jamais
-réalisé. Il est **bloqué par une décision produit** : en `multi`, retrouver le
-magasin au moment du login suppose un code boutique (l'e-mail n'est plus
-unique globalement — voir plus bas). Conséquence annexe :
-`GET /api/settings/public`, sans authentification, répond 500 en `multi`.
+Restent à traiter avant un vrai lancement mutualisé :
 
-La suite d'isolation forge donc ses jetons avec `tenantId` : elle éprouve
-l'isolation des routes, pas la résolution du tenant à la connexion.
+- **`GET /api/settings/public` répond 500 en `multi`** : sans JWT, aucun tenant
+  n'est résolu et le plugin lève. C'est la route qui habille la page de
+  connexion (nom, logo, couleurs). Il faudra déduire le magasin de l'origine
+  (sous-domaine ou domaine dédié) — sans quoi, sur une origine partagée, on ne
+  sait pas quelle marque afficher avant de savoir qui se connecte.
+- Attention en écrivant du code hors requête : une **Query Mongoose est
+  paresseuse**. `runWithTenant(t, () => model.find(...))` sort du contexte
+  avant l'exécution et lève ; il faut `async () => model.find(...).exec()`.
 
 Le code hors requête HTTP (crons) doit s'exécuter dans `runWithTenant(...)` :
 voir `fournisseurs.service.ts` pour le motif.
@@ -193,15 +196,30 @@ Reste : cloisonnement du stockage hors-ligne par tenant (sans objet tant que
 chaque magasin a son origine ; requis en mode `multi` mutualisé), vrais
 refresh tokens révocables.
 
-### ⚠️ Décision produit non tranchée
+### ✅ Connexion multi-magasin — tranché le 21/08/2026 : pas de code boutique
 
-L'unicité de l'email est passée de **globale** à **par tenant**
-(`{tenant, email}`). Deux magasins peuvent donc partager une adresse, ce qui
-interdit une connexion à deux champs sans code boutique. Sans effet en mode
-single ; **à trancher avant tout lancement mutualisé**.
+L'unicité de l'e-mail est **par tenant** (`{tenant, email}`) : deux magasins
+peuvent partager une adresse. La connexion reste néanmoins **à deux champs**.
 
-Contexte : `AUDIT-SAAS.md` §2.4 et le commentaire dans
-`backend/src/schemas/user.schema.ts`.
+`AuthService.login` cherche l'e-mail dans tous les magasins (unique usage
+autorisé de `skipTenant` dans un service — voir la dérogation nommée dans
+`test/tenancy/skip-tenant-governance.spec.ts`), valide le mot de passe sur
+chaque candidat, puis :
+
+| Couples valides | Réponse |
+|---|---|
+| 0 | `401` identique à un mot de passe faux — **plus un calcul bcrypt à vide** pour que la durée ne trahisse pas l'existence du compte |
+| 1 | jeton immédiat |
+| n | `{ choixBoutique, selectionToken, boutiques[] }` — l'écran « quelle boutique ? » ne liste **que** les magasins où le couple est valide |
+
+Le `selectionToken` (5 min) porte les comptes validés : `POST
+/api/auth/login/boutique` refuse tout `tenantId` hors de cette liste. Aucune
+information n'est jamais donnée avant validation du mot de passe — l'oracle
+d'énumération corrigé le 03/08 ne doit pas se rouvrir.
+
+Éprouvé par `test/tenancy/login-multi-tenant.e2e.spec.ts`.
+
+Contexte : `AUDIT-SAAS.md` §2.4 et `backend/src/schemas/user.schema.ts`.
 
 ---
 
