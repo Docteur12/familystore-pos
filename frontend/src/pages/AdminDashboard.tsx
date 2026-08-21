@@ -638,7 +638,7 @@ export default function AdminDashboard() {
                                 background: out ? 'var(--fs-danger-100)' : low ? '#FFF7ED' : '#F0FDF4',
                                 color:      out ? 'var(--fs-danger-700)' : low ? '#EA580C' : '#16A34A',
                               }}>
-                                {out ? t('Rupture', 'Out of stock') : low ? t('Stock bas', 'Low stock') : 'OK'}
+                                {out ? t('Rupture', 'Out of stock') : low ? t('Stock bas', 'Low stock') : t('En stock', 'In stock')}
                               </span>
                             </td>
                           </tr>

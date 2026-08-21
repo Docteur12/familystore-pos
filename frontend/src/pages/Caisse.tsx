@@ -1251,14 +1251,14 @@ export default function Caisse() {
             </span>
           )}
 
-          {/* Filtre de disponibilité : Tous / Disponibles / Ruptures */}
+          {/* Filtre de disponibilité : Tous / En stock / Ruptures */}
           <div
             role="group" aria-label={t('Filtrer par disponibilité', 'Filter by availability')}
             style={{ display: 'flex', border: '1.5px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-sm)', overflow: 'hidden' }}
           >
             {([
               { key: 'all',         label: t('Tous', 'All'),        title: t('Tous les produits (en stock et en rupture)', 'All products (in stock and out of stock)') },
-              { key: 'available',   label: t('Disponibles', 'Available'), title: t('Uniquement les produits en stock', 'Only products in stock') },
+              { key: 'available',   label: t('En stock', 'In stock'), title: t('Uniquement les produits en stock', 'Only products in stock') },
               { key: 'unavailable', label: t('Ruptures', 'Out of stock'),    title: t('Uniquement les produits en rupture de stock', 'Only products that are out of stock') },
             ] as { key: StockFilter; label: string; title: string }[]).map((opt, i) => {
               const active = stockFilter === opt.key;
