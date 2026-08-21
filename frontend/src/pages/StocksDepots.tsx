@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t } from '../i18n';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -33,8 +34,8 @@ const LS_DEPOTS = 'fs_depots';
 const LS_TRANSFERTS = 'fs_transferts';
 
 const DEFAULT_DEPOTS: Depot[] = [
-  { id: '1', name: 'Dépôt principal', address: 'Rue de la Joie, Akwa', city: 'Douala', phone: '+237 6XX XXX XXX', localisation: 'Bâtiment A', main: true },
-  { id: '2', name: 'Entrepôt secondaire', address: 'Zone industrielle', city: 'Douala', phone: '+237 6XX XXX XXX', localisation: 'Bâtiment B', main: false },
+  { id: '1', name: t('Dépôt principal', 'Main depot'), address: 'Rue de la Joie, Akwa', city: 'Douala', phone: '+237 6XX XXX XXX', localisation: t('Bâtiment A', 'Building A'), main: true },
+  { id: '2', name: t('Entrepôt secondaire', 'Secondary warehouse'), address: t('Zone industrielle', 'Industrial zone'), city: 'Douala', phone: '+237 6XX XXX XXX', localisation: t('Bâtiment B', 'Building B'), main: false },
 ];
 
 function loadDepots(): Depot[] {
@@ -144,8 +145,8 @@ export default function StocksDepots() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 24px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
             <div style={{ paddingLeft: isMobile ? 44 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
-              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Dépôts</h1>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Gestion de stock', 'Stock management')}</p>
+              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{t('Dépôts', 'Depots')}</h1>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {(['depots', 'transferts'] as ViewMode[]).map(v => (
@@ -156,18 +157,18 @@ export default function StocksDepots() {
                   color: view === v ? '#fff' : 'var(--fs-ink-500)',
                   fontFamily: 'var(--fs-font-sans)',
                 }}>
-                  {v === 'depots' ? `Dépôts (${depots.length})` : `Transferts (${transferts.length})`}
+                  {v === 'depots' ? `${t('Dépôts', 'Depots')} (${depots.length})` : `${t('Transferts', 'Transfers')} (${transferts.length})`}
                 </button>
               ))}
               {view === 'depots' ? (
                 <button onClick={() => setShowForm(true)}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  <I d={D.plus} size={13}/> Nouveau dépôt
+                  <I d={D.plus} size={13}/> {t('Nouveau dépôt', 'New depot')}
                 </button>
               ) : (
                 <button onClick={() => setShowTransf(true)}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 16px', border: 'none', borderRadius: 8, background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  <I d={D.transfer} size={13}/> Nouveau transfert
+                  <I d={D.transfer} size={13}/> {t('Nouveau transfert', 'New transfer')}
                 </button>
               )}
             </div>
@@ -181,16 +182,16 @@ export default function StocksDepots() {
               {showForm && (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 20, boxShadow: 'var(--fs-shadow-md)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', margin: 0 }}>Nouveau dépôt</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', margin: 0 }}>{t('Nouveau dépôt', 'New depot')}</p>
                     <button onClick={() => setShowForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)' }}><I d={D.x} size={15}/></button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr 1fr' : '1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
                     {([
-                      { key: 'name',         label: 'Nom *',          placeholder: 'ex: Entrepôt Nord' },
-                      { key: 'city',         label: 'Ville',          placeholder: 'ex: Douala' },
-                      { key: 'address',      label: 'Adresse',        placeholder: 'ex: Rue de la Joie' },
-                      { key: 'phone',        label: 'Téléphone',      placeholder: '+237 6XX XXX XXX' },
-                      { key: 'localisation', label: 'Localisation',   placeholder: 'ex: Bâtiment C, Allée A-12' },
+                      { key: 'name',         label: t('Nom *', 'Name *'),                placeholder: t('ex: Entrepôt Nord', 'e.g. North warehouse') },
+                      { key: 'city',         label: t('Ville', 'City'),                  placeholder: t('ex: Douala', 'e.g. Douala') },
+                      { key: 'address',      label: t('Adresse', 'Address'),             placeholder: t('ex: Rue de la Joie', 'e.g. Rue de la Joie') },
+                      { key: 'phone',        label: t('Téléphone', 'Phone'),             placeholder: '+237 6XX XXX XXX' },
+                      { key: 'localisation', label: t('Localisation', 'Location'),       placeholder: t('ex: Bâtiment C, Allée A-12', 'e.g. Building C, Aisle A-12') },
                     ] as { key: keyof typeof form; label: string; placeholder: string }[]).map(f => (
                       <div key={f.key}>
                         <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{f.label}</label>
@@ -201,7 +202,7 @@ export default function StocksDepots() {
                     ))}
                   </div>
                   <button onClick={handleAddDepot} style={{ padding: '10px 24px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                    Enregistrer
+                    {t('Enregistrer', 'Save')}
                   </button>
                 </div>
               )}
@@ -212,7 +213,7 @@ export default function StocksDepots() {
                   <div key={depot.id} style={{ background: '#fff', border: `1px solid ${depot.main ? 'rgba(122,29,46,0.3)' : 'var(--fs-line)'}`, borderRadius: 12, padding: '18px 20px', boxShadow: 'var(--fs-shadow-sm)', position: 'relative' }}>
                     {depot.main && (
                       <div style={{ position: 'absolute', top: 14, right: 14, background: 'var(--fs-wine-50)', color: 'var(--fs-wine-800)', fontSize: 9, fontWeight: 700, padding: '2px 8px', borderRadius: 8, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                        Principal
+                        {t('Principal', 'Main')}
                       </div>
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
@@ -239,12 +240,12 @@ export default function StocksDepots() {
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: '1px solid var(--fs-line)' }}>
                       <div style={{ fontSize: 12, color: 'var(--fs-ink-400)' }}>
-                        <span style={{ fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)', fontSize: 14 }}>{depot.main ? productCount : 0}</span> références
+                        <span style={{ fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)', fontSize: 14 }}>{depot.main ? productCount : 0}</span> {t('références', 'SKUs')}
                       </div>
                       {!depot.main && (
                         <button onClick={() => handleDeleteDepot(depot.id)}
                           style={{ background: 'var(--fs-danger-100)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '5px 10px', fontSize: 12, color: 'var(--fs-danger-700)', cursor: 'pointer', fontWeight: 600 }}>
-                          Supprimer
+                          {t('Supprimer', 'Delete')}
                         </button>
                       )}
                     </div>
@@ -258,38 +259,38 @@ export default function StocksDepots() {
               {showTransf && (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 20, boxShadow: 'var(--fs-shadow-md)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', margin: 0 }}>Nouveau transfert inter-dépôt</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', margin: 0 }}>{t('Nouveau transfert inter-dépôt', 'New inter-depot transfer')}</p>
                     <button onClick={() => setShowTransf(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)' }}><I d={D.x} size={15}/></button>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr 1fr' : '1fr 1fr 1fr 1fr 1fr', gap: 12, marginBottom: 14 }}>
                     <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Dépôt source *</label>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('Dépôt source *', 'Source depot *')}</label>
                       <select value={tForm.depotSourceId} onChange={e => setTForm(p => ({ ...p, depotSourceId: e.target.value }))}
                         style={{ width: '100%', padding: '8px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-                        <option value="">— Dépôt —</option>
+                        <option value="">{t('— Dépôt —', '— Depot —')}</option>
                         {depots.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Dépôt destination *</label>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('Dépôt destination *', 'Destination depot *')}</label>
                       <select value={tForm.depotDestId} onChange={e => setTForm(p => ({ ...p, depotDestId: e.target.value }))}
                         style={{ width: '100%', padding: '8px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-                        <option value="">— Dépôt —</option>
+                        <option value="">{t('— Dépôt —', '— Depot —')}</option>
                         {depots.filter(d => d.id !== tForm.depotSourceId).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Produit *</label>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('Produit *', 'Product *')}</label>
                       <select value={tForm.productId} onChange={e => setTForm(p => ({ ...p, productId: e.target.value }))}
                         style={{ width: '100%', padding: '8px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
-                        <option value="">— Produit —</option>
+                        <option value="">{t('— Produit —', '— Product —')}</option>
                         {products.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>Quantité *</label>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>{t('Quantité *', 'Quantity *')}</label>
                       <input type="number" min={1} value={tForm.quantite} onChange={e => setTForm(p => ({ ...p, quantite: e.target.value }))}
-                        placeholder="ex: 20"
+                        placeholder={t('ex: 20', 'e.g. 20')}
                         style={{ width: '100%', padding: '8px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)' }}/>
                     </div>
                     <div>
@@ -299,35 +300,35 @@ export default function StocksDepots() {
                     </div>
                   </div>
                   <button onClick={handleAddTransfert} style={{ padding: '10px 24px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                    Enregistrer le transfert
+                    {t('Enregistrer le transfert', 'Save transfer')}
                   </button>
                 </div>
               )}
 
               {/* Transfers table */}
               {transferts.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Aucun transfert enregistré</div>
+                <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Aucun transfert enregistré', 'No transfers recorded')}</div>
               ) : (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflowX: 'auto', boxShadow: 'var(--fs-shadow-sm)' }}>
                   <table className="fs-grid" style={{ width: '100%', minWidth: 680, borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: 'var(--fs-ivory)' }}>
-                        {['Date', 'Produit', 'Source', 'Destination', 'Quantité', 'Statut'].map(h => (
+                        {[t('Date', 'Date'), t('Produit', 'Product'), t('Source', 'Source'), t('Destination', 'Destination'), t('Quantité', 'Quantity'), t('Statut', 'Status')].map(h => (
                           <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {transferts.map((t, i) => (
-                        <tr key={t.id} style={{ background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
-                          <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-500)' }}>{t.date}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{t.productName}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{t.depotSourceName}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{t.depotDestName}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>{t.quantite}</td>
+                      {transferts.map((tr, i) => (
+                        <tr key={tr.id} style={{ background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
+                          <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-500)' }}>{tr.date}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{tr.productName}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{tr.depotSourceName}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{tr.depotDestName}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 14, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>{tr.quantite}</td>
                           <td style={{ padding: '10px 14px' }}>
                             <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 10, background: '#E8F0E5', color: 'var(--fs-success-700)' }}>
-                              Effectué
+                              {t('Effectué', 'Completed')}
                             </span>
                           </td>
                         </tr>

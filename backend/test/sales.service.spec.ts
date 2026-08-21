@@ -22,6 +22,7 @@ import { getModelToken } from '@nestjs/mongoose';
 
 import { SalesService } from '../src/sales/sales.service';
 import { MailService } from '../src/mail/mail.service';
+import { Settings, SettingsSchema } from '../src/settings/settings.schema';
 import { Sale, SaleSchema } from '../src/schemas/sale.schema';
 import { Product, ProductSchema, ProductDocument } from '../src/schemas/product.schema';
 import { StockMovement, StockMovementSchema } from '../src/schemas/stock-movement.schema';
@@ -48,6 +49,7 @@ describe('SalesService — parcours de vente', () => {
           { name: Product.name,       schema: ProductSchema },
           { name: StockMovement.name, schema: StockMovementSchema },
           { name: EcartStock.name,    schema: EcartStockSchema },
+          { name: Settings.name,      schema: SettingsSchema },
         ]),
       ],
       providers: [SalesService, MailService],

@@ -6,6 +6,31 @@ import { RolesGuard }      from '../auth/roles.guard';
 import { Roles }           from '../auth/roles.decorator';
 import { AuditService }    from '../audit/audit.service';
 
+// Identité publique du magasin — affichée AVANT connexion (page de login,
+// écran PIN) : nom, logo, couleurs, langue. Aucune donnée sensible.
+// En mode multi-tenant, la résolution du tenant sur une route sans JWT relève
+// de l'onboarding (phase ultérieure) : hors contexte tenant, le plugin lève et
+// le frontend retombe sur ses valeurs par défaut.
+@Controller('settings/public')
+export class SettingsPublicController {
+  constructor(private settingsService: SettingsService) {}
+
+  @Get()
+  async get() {
+    const s: any = await this.settingsService.get();
+    return {
+      nomMagasin:        s.nomMagasin,
+      logoUrl:           s.logoUrl,
+      couleurPrincipale: s.couleurPrincipale,
+      couleurSecondaire: s.couleurSecondaire,
+      langue:            s.langue,
+      slogan:            s.slogan,
+      signatureTicket:   s.signatureTicket,
+      ville:             s.ville,
+    };
+  }
+}
+
 @Controller('settings')
 @UseGuards(AuthGuard)
 export class SettingsController {

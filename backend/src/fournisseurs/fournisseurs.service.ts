@@ -8,6 +8,7 @@ import { VersementFournisseur, VersementFournisseurDocument } from '../schemas/v
 import { RetourFournisseur, RetourFournisseurDocument } from '../schemas/retour-fournisseur.schema';
 import { StockMovement, StockMovementDocument } from '../schemas/stock-movement.schema';
 import { StockSnapshot, StockSnapshotDocument } from '../schemas/stock-snapshot.schema';
+import { Settings, SettingsDocument } from '../settings/settings.schema';
 import { runWithTenant, DEFAULT_TENANT_ID, getTenantMode } from '../tenancy/tenant-context';
 
 type FournisseurData = {
@@ -45,6 +46,7 @@ export class FournisseursService implements OnModuleInit {
     @InjectModel(RetourFournisseur.name)    private retourModel: Model<RetourFournisseurDocument>,
     @InjectModel(StockMovement.name)        private movementModel: Model<StockMovementDocument>,
     @InjectModel(StockSnapshot.name)        private snapModel: Model<StockSnapshotDocument>,
+    @InjectModel(Settings.name)             private settingsModel: Model<SettingsDocument>,
   ) {}
 
   // Photo quotidienne de la valeur du stock : au démarrage puis toutes les heures
@@ -63,9 +65,18 @@ export class FournisseursService implements OnModuleInit {
 
   // ── Fiches fournisseurs (existant) ──────────────────────────────────────────
 
+  // Les 7 fournisseurs de démonstration ne sont créés que si le magasin le
+  // souhaite (Paramètres → règles métier). Radiance, par exemple, crée les siens.
+  private async seedDemoActive(): Promise<boolean> {
+    try {
+      const s = await this.settingsModel.findOne().lean();
+      return (s as any)?.metier?.seedFournisseursDemo !== false;
+    } catch { return true; }
+  }
+
   async findAll() {
     const count = await this.model.estimatedDocumentCount();
-    if (count === 0) await this.model.insertMany(DEFAULTS);
+    if (count === 0 && (await this.seedDemoActive())) await this.model.insertMany(DEFAULTS);
     return this.model.find().sort({ name: 1 });
   }
 

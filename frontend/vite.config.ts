@@ -1,11 +1,77 @@
 // @node_modules\fork-ts-checker-webpack-plugin\
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-export default defineConfig({
+// ── Marque au moment du build ─────────────────────────────────────────────────
+// Un seul dépôt sert plusieurs magasins (Family Store, Radiance…). Tout ce qui
+// se lit en base passe par les Paramètres ; ce qui doit être figé dans le
+// bundle (titre de l'onglet, manifeste PWA, langue du document, couleur de
+// thème, URL de l'API) est piloté par des variables VITE_* — définies dans
+// .env.production pour Family Store, surchargées site par site sur Netlify.
+function brandFromEnv(mode: string) {
+  const env = { ...loadEnv(mode, process.cwd(), 'VITE_'), ...process.env };
+  return {
+    name:       env.VITE_APP_NAME       || 'Family Store POS',
+    shortName:  env.VITE_APP_SHORT_NAME || 'Family Store',
+    lang:       env.VITE_APP_LANG       || 'fr',
+    themeColor: env.VITE_THEME_COLOR    || '#8B1A2B',
+    bgColor:    env.VITE_BG_COLOR       || '#F5F0E8',
+    apiUrl:     (env.VITE_API_URL       || 'https://familystore-pos.onrender.com').replace(/\/+$/, ''),
+  };
+}
+type Brand = ReturnType<typeof brandFromEnv>;
+
+// Vite remplace lui-même %VITE_*% dans index.html à partir de import.meta.env :
+// on y expose les valeurs résolues (défauts compris) pour qu'aucun jeton ne
+// reste vide quand la variable n'est pas définie.
+function exposeBrand(b: Brand) {
+  process.env.VITE_APP_NAME    = b.name;
+  process.env.VITE_APP_LANG    = b.lang;
+  process.env.VITE_THEME_COLOR = b.themeColor;
+}
+
+// index.html : remplace %VITE_APP_NAME%, %VITE_APP_LANG%, %VITE_THEME_COLOR%.
+function htmlBrand(b: Brand): Plugin {
+  return {
+    name: 'html-brand',
+    transformIndexHtml(html) {
+      return html
+        .replace(/%VITE_APP_NAME%/g, b.name)
+        .replace(/%VITE_APP_LANG%/g, b.lang)
+        .replace(/%VITE_THEME_COLOR%/g, b.themeColor);
+    },
+  };
+}
+
+// Netlify : le proxy /api → backend est propre à chaque site. On génère
+// dist/_redirects à la fin du build à partir de VITE_API_URL (netlify.toml ne
+// sait pas interpoler une variable d'environnement dans une redirection).
+function netlifyRedirects(b: Brand): Plugin {
+  return {
+    name: 'netlify-redirects',
+    apply: 'build',
+    closeBundle() {
+      const out = resolve(process.cwd(), 'dist');
+      mkdirSync(out, { recursive: true });
+      writeFileSync(resolve(out, '_redirects'), [
+        `/api/*  ${b.apiUrl}/api/:splat  200!`,
+        '/*      /index.html               200',
+        '',
+      ].join('\n'));
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  const brand = brandFromEnv(mode);
+  return {
   plugins: [
     react(),
+    htmlBrand(brand),
+    netlifyRedirects(brand),
     VitePWA({
       // Mise à jour appliquée au PROCHAIN démarrage, jamais en pleine vente.
       // ⚠️ NE PAS mettre 'autoUpdate' : ce mode force self.skipWaiting() dans le
@@ -16,15 +82,15 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: 'auto',
       manifest: {
-        name: 'Family Store POS',
-        short_name: 'Family Store',
-        description: 'Caisse Family Store',
-        lang: 'fr',
+        name: brand.name,
+        short_name: brand.shortName,
+        description: `Caisse ${brand.shortName}`,
+        lang: brand.lang,
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        background_color: '#F5F0E8',
-        theme_color: '#8B1A2B',
+        background_color: brand.bgColor,
+        theme_color: brand.themeColor,
         icons: [
           { src: '/favicon-32x32.png',   sizes: '32x32',   type: 'image/png' },
           { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
@@ -72,4 +138,5 @@ export default defineConfig({
       '/api': 'http://localhost:3004',
     },
   },
+  };
 });

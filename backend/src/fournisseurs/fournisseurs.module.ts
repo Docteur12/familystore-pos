@@ -7,6 +7,7 @@ import { VersementFournisseur, VersementFournisseurSchema } from '../schemas/ver
 import { RetourFournisseur, RetourFournisseurSchema } from '../schemas/retour-fournisseur.schema';
 import { StockMovement, StockMovementSchema } from '../schemas/stock-movement.schema';
 import { StockSnapshot, StockSnapshotSchema } from '../schemas/stock-snapshot.schema';
+import { Settings, SettingsSchema } from '../settings/settings.schema';
 import { FournisseursService } from './fournisseurs.service';
 import { FournisseursController } from './fournisseurs.controller';
 import { AuthModule } from '../auth/auth.module';
@@ -21,6 +22,7 @@ import { AuthModule } from '../auth/auth.module';
       { name: RetourFournisseur.name,    schema: RetourFournisseurSchema },
       { name: StockMovement.name,        schema: StockMovementSchema },
       { name: StockSnapshot.name,        schema: StockSnapshotSchema },
+      { name: Settings.name,              schema: SettingsSchema },
     ]),
     AuthModule,
   ],

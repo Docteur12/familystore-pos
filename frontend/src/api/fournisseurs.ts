@@ -1,4 +1,5 @@
 import { authHeaders } from './http';
+import { t } from '../i18n';
 
 export interface FournisseurRecord {
   _id:                string;
@@ -17,7 +18,7 @@ export type FournisseurInput = Omit<FournisseurRecord, '_id'>;
 
 export async function getFournisseurs(): Promise<FournisseurRecord[]> {
   const res = await fetch('/api/fournisseurs', { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement fournisseurs');
+  if (!res.ok) throw new Error(t('Erreur chargement fournisseurs', 'Failed to load suppliers'));
   return res.json();
 }
 
@@ -27,7 +28,7 @@ export async function createFournisseur(data: FournisseurInput): Promise<Fournis
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Erreur création fournisseur');
+  if (!res.ok) throw new Error(t('Erreur création fournisseur', 'Failed to create supplier'));
   return res.json();
 }
 
@@ -37,7 +38,7 @@ export async function updateFournisseur(id: string, data: Partial<FournisseurInp
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
-  if (!res.ok) throw new Error('Erreur modification fournisseur');
+  if (!res.ok) throw new Error(t('Erreur modification fournisseur', 'Failed to update supplier'));
   return res.json();
 }
 
@@ -46,7 +47,7 @@ export async function deleteFournisseur(id: string): Promise<void> {
     method: 'DELETE',
     headers: authHeaders(),
   });
-  if (!res.ok) throw new Error('Erreur suppression fournisseur');
+  if (!res.ok) throw new Error(t('Erreur suppression fournisseur', 'Failed to delete supplier'));
 }
 
 // ── Évaluation des fournisseurs (vendu / à verser / versé / dette) ─────────────
@@ -76,7 +77,7 @@ export interface EvaluationFournisseurs {
 
 export async function getEvaluationFournisseurs(periode: PeriodeEval): Promise<EvaluationFournisseurs> {
   const res = await fetch(`/api/fournisseurs/evaluation?periode=${periode}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement évaluation');
+  if (!res.ok) throw new Error(t('Erreur chargement évaluation', 'Failed to load evaluation'));
   return res.json();
 }
 
@@ -92,7 +93,7 @@ export async function getSerieVentes(opts: { fournisseur?: string; productId?: s
   if (opts.productId) p.set('productId', opts.productId);
   p.set('granularite', opts.granularite);
   const res = await fetch(`/api/fournisseurs/serie-ventes?${p}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement série de ventes');
+  if (!res.ok) throw new Error(t('Erreur chargement série de ventes', 'Failed to load sales series'));
   return res.json();
 }
 
@@ -107,7 +108,7 @@ export interface SnapshotStock {
 
 export async function getStockEvolution(jours = 90): Promise<SnapshotStock[]> {
   const res = await fetch(`/api/fournisseurs/stock-evolution?jours=${jours}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement évolution du stock');
+  if (!res.ok) throw new Error(t('Erreur chargement évolution du stock', 'Failed to load stock history'));
   return res.json();
 }
 
@@ -125,19 +126,19 @@ export interface VersementFournisseur {
 
 export async function getVersementsFournisseur(fournisseur?: string): Promise<VersementFournisseur[]> {
   const res = await fetch(`/api/fournisseurs/versements${fournisseur ? `?fournisseur=${encodeURIComponent(fournisseur)}` : ''}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement versements');
+  if (!res.ok) throw new Error(t('Erreur chargement versements', 'Failed to load payments'));
   return res.json();
 }
 
 export async function createVersementFournisseur(data: { fournisseur: string; montant: number; note?: string; date?: string }): Promise<VersementFournisseur> {
   const res = await fetch('/api/fournisseurs/versements', { method: 'POST', headers: authHeaders(), body: JSON.stringify(data) });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur enregistrement du versement');
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? t('Erreur enregistrement du versement', 'Failed to save the payment'));
   return res.json();
 }
 
 export async function deleteVersementFournisseur(id: string): Promise<void> {
   const res = await fetch(`/api/fournisseurs/versements/${id}`, { method: 'DELETE', headers: authHeaders() });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur suppression du versement');
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? t('Erreur suppression du versement', 'Failed to delete the payment'));
 }
 
 // ── Retours aux fournisseurs ───────────────────────────────────────────────────
@@ -154,17 +155,17 @@ export interface RetourFournisseur {
 
 export async function getRetoursFournisseur(fournisseur?: string): Promise<RetourFournisseur[]> {
   const res = await fetch(`/api/fournisseurs/retours${fournisseur ? `?fournisseur=${encodeURIComponent(fournisseur)}` : ''}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement retours');
+  if (!res.ok) throw new Error(t('Erreur chargement retours', 'Failed to load returns'));
   return res.json();
 }
 
 export async function createRetourFournisseur(data: { fournisseur: string; note?: string; lignes: { productId: string; quantite: number; origine: 'boutique' | 'entrepot' }[] }): Promise<RetourFournisseur> {
   const res = await fetch('/api/fournisseurs/retours', { method: 'POST', headers: authHeaders(), body: JSON.stringify(data) });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur enregistrement du retour');
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? t('Erreur enregistrement du retour', 'Failed to save the return'));
   return res.json();
 }
 
 export async function deleteRetourFournisseur(id: string): Promise<void> {
   const res = await fetch(`/api/fournisseurs/retours/${id}`, { method: 'DELETE', headers: authHeaders() });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? 'Erreur annulation du retour');
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message ?? t('Erreur annulation du retour', 'Failed to cancel the return'));
 }

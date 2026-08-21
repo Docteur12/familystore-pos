@@ -4,20 +4,21 @@ import ToastContainer, { useToast } from '../components/Toast';
 import { getComptaMonth, ComptaMonth } from '../api/comptabilite';
 import { authHeaders } from '../api/http';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t, dateLocale } from '../i18n';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
 const PM_LABELS: Record<string, string> = {
-  cash:         'Espèces',
+  cash:         t('Espèces', 'Cash'),
   mtn_momo:     'MTN MoMo',
   orange_money:  'Orange Money',
-  card:          'Carte bancaire',
-  credit:        'Crédit',
+  card:          t('Carte bancaire', 'Bank card'),
+  credit:        t('Crédit', 'Credit'),
   mobile_money:  'Mobile Money',
 };
 
 const fmtN = (n: number) =>
-  Math.round(n).toLocaleString('fr-FR');
+  Math.round(n).toLocaleString(dateLocale());
 
 // ── Génère les 6 derniers mois ────────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ function buildMonths(count = 6): Array<{ year: number; month: number; label: str
     result.push({
       year:  d.getFullYear(),
       month: d.getMonth() + 1,
-      label: d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+      label: d.toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' }),
     });
   }
   return result;
@@ -139,7 +140,7 @@ export default function AdminComptabilite() {
       const d = await getComptaMonth(year, month);
       setData(d);
     } catch {
-      addToast('Erreur chargement des données comptables', 'error');
+      addToast(t('Erreur chargement des données comptables', 'Error loading accounting data'), 'error');
     } finally {
       setLoading(false);
     }
@@ -158,7 +159,7 @@ export default function AdminComptabilite() {
       const ca       = valid.reduce((s, d) => s + d.ca, 0);
       const agg: ComptaMonth = {
         year: curYear, month: 0,
-        label:       tab === 'An' ? `Annuel ${curYear}` : `${tab} ${curYear}`,
+        label:       tab === 'An' ? t(`Annuel ${curYear}`, `Annual ${curYear}`) : t(`${tab} ${curYear}`, `Q${tab.slice(1)} ${curYear}`),
         ca,
         coutAchats:  valid.reduce((s, d) => s + d.coutAchats, 0),
         margesBrute: valid.reduce((s, d) => s + d.margesBrute, 0),
@@ -170,7 +171,7 @@ export default function AdminComptabilite() {
       };
       setQtrData(agg);
     } catch {
-      addToast('Erreur chargement trimestriel', 'error');
+      addToast(t('Erreur chargement trimestriel', 'Error loading quarterly data'), 'error');
     } finally {
       setLoading(false);
     }
@@ -202,10 +203,10 @@ export default function AdminComptabilite() {
       const url     = URL.createObjectURL(blob);
       const slug    = `${year}-${String(month).padStart(2, '0')}`;
       const ext     = type === 'pdf' ? 'pdf' : 'xlsx';
-      downloadFile(url, `rapport-comptable-${slug}.${ext}`);
+      downloadFile(url, t(`rapport-comptable-${slug}.${ext}`, `accounting-report-${slug}.${ext}`));
       URL.revokeObjectURL(url);
     } catch {
-      addToast(`Erreur export ${type.toUpperCase()}`, 'error');
+      addToast(t(`Erreur export ${type.toUpperCase()}`, `${type.toUpperCase()} export error`), 'error');
     } finally {
       setExporting(null);
     }
@@ -214,7 +215,7 @@ export default function AdminComptabilite() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   const selLabel = qtrTab
-    ? (qtrTab === 'An' ? `Annuel ${new Date().getFullYear()}` : `${qtrTab} ${new Date().getFullYear()}`)
+    ? (qtrTab === 'An' ? t(`Annuel ${new Date().getFullYear()}`, `Annual ${new Date().getFullYear()}`) : t(`${qtrTab} ${new Date().getFullYear()}`, `Q${qtrTab.slice(1)} ${new Date().getFullYear()}`))
     : MONTHS[monthIdx].label;
   const capLabel = selLabel.charAt(0).toUpperCase() + selLabel.slice(1);
 
@@ -229,20 +230,20 @@ export default function AdminComptabilite() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', flexWrap: 'wrap', flexDirection: isNarrow ? 'column' : 'row', gap: isNarrow ? 10 : 16 }}>
             <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Pilotage</p>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Pilotage', 'Management')}</p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>
-                Comptabilité — {capLabel}
+                {t('Comptabilité', 'Accounting')} — {capLabel}
               </h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {/* Sélecteur mois */}
               <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                {(['T1','T2','T3','T4','An'] as QtrTab[]).map(t => (
-                  <button key={t} onClick={() => { setQtrTab(t); }} style={{
+                {(['T1','T2','T3','T4','An'] as QtrTab[]).map(q => (
+                  <button key={q} onClick={() => { setQtrTab(q); }} style={{
                     padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
-                    background: qtrTab === t ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
-                    color:      qtrTab === t ? '#fff' : 'var(--fs-ink-500)',
-                  }}>{t}</button>
+                    background: qtrTab === q ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
+                    color:      qtrTab === q ? '#fff' : 'var(--fs-ink-500)',
+                  }}>{q === 'An' ? t('An', 'Yr') : t(q, `Q${q.slice(1)}`)}</button>
                 ))}
                 <div style={{ width: 1, background: 'var(--fs-line)', margin: '0 4px' }}/>
                 {MONTHS.map((m, i) => (
@@ -275,16 +276,16 @@ export default function AdminComptabilite() {
         {d && (
           <div style={{ display: 'flex', gap: 10, padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0, flexWrap: 'wrap', background: '#fff', borderBottom: '1px solid var(--fs-line)' }}>
             {[
-              { label: 'CA TTC',       value: d.ca,          color: 'var(--fs-ink-800)' },
-              { label: 'Marge brute',  value: d.margesBrute, color: 'var(--fs-success-700)' },
-              { label: 'Dépenses',     value: d.depenses,    color: 'var(--fs-danger-700)' },
-              { label: 'Bénéfice net', value: d.beneficeNet, color: d.beneficeNet >= 0 ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' },
-              { label: 'Nb ventes',    value: d.nbVentes,    color: 'var(--fs-ink-600)', noXaf: true },
+              { label: t('CA TTC', 'Revenue incl. tax'),       value: d.ca,          color: 'var(--fs-ink-800)' },
+              { label: t('Marge brute', 'Gross margin'),  value: d.margesBrute, color: 'var(--fs-success-700)' },
+              { label: t('Dépenses', 'Expenses'),     value: d.depenses,    color: 'var(--fs-danger-700)' },
+              { label: t('Bénéfice net', 'Net profit'), value: d.beneficeNet, color: d.beneficeNet >= 0 ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' },
+              { label: t('Nb ventes', 'Sales count'),    value: d.nbVentes,    color: 'var(--fs-ink-600)', noXaf: true },
             ].map(k => (
               <div key={k.label} style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '8px 16px', minWidth: 120 }}>
                 <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 3 }}>{k.label}</div>
                 <div style={{ fontSize: 18, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: k.color }}>
-                  {(k as any).noXaf ? k.value.toLocaleString('fr-FR') : fmtN(k.value)}
+                  {(k as any).noXaf ? k.value.toLocaleString(dateLocale()) : fmtN(k.value)}
                 </div>
                 {!(k as any).noXaf && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)' }}>XAF</div>}
               </div>
@@ -298,7 +299,7 @@ export default function AdminComptabilite() {
             <Skeleton isNarrow={isNarrow} />
           ) : !d ? (
             <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--fs-ink-400)', fontSize: 14 }}>
-              Aucune donnée disponible pour cette période.
+              {t('Aucune donnée disponible pour cette période.', 'No data available for this period.')}
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: 16 }}>
@@ -306,37 +307,37 @@ export default function AdminComptabilite() {
               {/* Colonne gauche */}
               <div>
                 {/* Compte de résultat */}
-                <Card title="Compte de résultat">
-                  <Row label="Chiffre d'affaires TTC" value={d.ca} bold />
-                  <Row label="Coût des marchandises vendues" value={d.coutAchats} accent="neg" indent
-                    sub="Somme des prix d'achat × quantités vendues"
+                <Card title={t('Compte de résultat', 'Income statement')}>
+                  <Row label={t("Chiffre d'affaires TTC", 'Revenue incl. tax')} value={d.ca} bold />
+                  <Row label={t('Coût des marchandises vendues', 'Cost of goods sold')} value={d.coutAchats} accent="neg" indent
+                    sub={t("Somme des prix d'achat × quantités vendues", 'Sum of purchase prices × quantities sold')}
                     pct={d.ca > 0 ? (d.coutAchats / d.ca) * 100 : 0} />
-                  <Row label="Marge brute" value={d.margesBrute} bold accent="pos"
+                  <Row label={t('Marge brute', 'Gross margin')} value={d.margesBrute} bold accent="pos"
                     pct={d.ca > 0 ? (d.margesBrute / d.ca) * 100 : 0} />
                   {d.depenses > 0 && (
-                    <Row label="Total dépenses" value={d.depenses} accent="neg" indent
-                      sub="Charges enregistrées sur la période"
+                    <Row label={t('Total dépenses', 'Total expenses')} value={d.depenses} accent="neg" indent
+                      sub={t('Charges enregistrées sur la période', 'Expenses recorded over the period')}
                       pct={d.ca > 0 ? (d.depenses / d.ca) * 100 : 0} />
                   )}
                   <div style={{ marginTop: 8, background: d.beneficeNet >= 0 ? 'var(--fs-success-100)' : 'var(--fs-danger-100)', borderRadius: 8, padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: d.beneficeNet >= 0 ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' }}>Bénéfice net</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: d.beneficeNet >= 0 ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' }}>{t('Bénéfice net', 'Net profit')}</div>
                     <div>
                       <div style={{ fontSize: 20, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: d.beneficeNet >= 0 ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' }}>
                         {fmtN(d.beneficeNet)} XAF
                       </div>
-                      <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', textAlign: 'right' }}>Marge nette : {margePct.toFixed(1)}%</div>
+                      <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', textAlign: 'right' }}>{t('Marge nette : ', 'Net margin: ')}{margePct.toFixed(1)}%</div>
                     </div>
                   </div>
                 </Card>
 
                 {/* Dépenses par catégorie */}
                 {d.depensesParCategorie.length > 0 && (
-                  <Card title="Répartition des dépenses">
+                  <Card title={t('Répartition des dépenses', 'Expense breakdown')}>
                     {d.depensesParCategorie.map(cat => (
                       <div key={cat.category} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--fs-line)' }}>
                         <div>
                           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-800)' }}>{cat.category}</div>
-                          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{cat.count} opération{cat.count > 1 ? 's' : ''}</div>
+                          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{cat.count} {t('opération', 'transaction')}{cat.count > 1 ? 's' : ''}</div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <div style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-danger-700)' }}>{fmtN(cat.total)} XAF</div>
@@ -347,7 +348,7 @@ export default function AdminComptabilite() {
                       </div>
                     ))}
                     {d.depensesParCategorie.length === 0 && (
-                      <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', textAlign: 'center', padding: '16px 0' }}>Aucune dépense enregistrée</div>
+                      <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', textAlign: 'center', padding: '16px 0' }}>{t('Aucune dépense enregistrée', 'No expenses recorded')}</div>
                     )}
                   </Card>
                 )}
@@ -356,12 +357,12 @@ export default function AdminComptabilite() {
               {/* Colonne droite */}
               <div>
                 {/* Synthèse financière */}
-                <Card title="Synthèse financière">
+                <Card title={t('Synthèse financière', 'Financial summary')}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                     {[
-                      { label: 'Chiffre d\'affaires', value: d.ca,          color: 'var(--fs-ink-800)' },
-                      { label: 'Marge brute',   value: d.margesBrute, color: 'var(--fs-success-700)' },
-                      { label: 'Bénéfice net',  value: d.beneficeNet, color: d.beneficeNet >= 0 ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' },
+                      { label: t('Chiffre d\'affaires', 'Revenue'), value: d.ca,          color: 'var(--fs-ink-800)' },
+                      { label: t('Marge brute', 'Gross margin'),   value: d.margesBrute, color: 'var(--fs-success-700)' },
+                      { label: t('Bénéfice net', 'Net profit'),  value: d.beneficeNet, color: d.beneficeNet >= 0 ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' },
                     ].map(item => (
                       <div key={item.label} style={{ background: 'var(--fs-ivory)', borderRadius: 8, padding: '12px 14px' }}>
                         <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>{item.label}</div>
@@ -374,7 +375,7 @@ export default function AdminComptabilite() {
 
                 {/* Ventes par mode de paiement */}
                 {d.ventesParPaiement.length > 0 && (
-                  <Card title="Ventes par mode de paiement">
+                  <Card title={t('Ventes par mode de paiement', 'Sales by payment method')}>
                     {d.ventesParPaiement.map(vp => (
                       <div key={vp.mode} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--fs-line)' }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-700)' }}>
@@ -397,8 +398,8 @@ export default function AdminComptabilite() {
                 {d.nbVentes === 0 && (
                   <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '32px 20px', textAlign: 'center' }}>
                     <div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fs-ink-500)' }}>Aucune vente enregistrée pour {selLabel}</div>
-                    <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', marginTop: 4 }}>Les données apparaîtront ici dès la première vente.</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--fs-ink-500)' }}>{t(`Aucune vente enregistrée pour ${selLabel}`, `No sales recorded for ${selLabel}`)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', marginTop: 4 }}>{t('Les données apparaîtront ici dès la première vente.', 'Data will appear here as soon as the first sale is made.')}</div>
                   </div>
                 )}
               </div>

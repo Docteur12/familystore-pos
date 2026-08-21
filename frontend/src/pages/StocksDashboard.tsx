@@ -7,6 +7,7 @@ import { getStatsWeek, getTopProducts, PeriodDay, TopProduct } from '../api/dash
 import { createDemande } from '../api/magazinier';
 import ToastContainer, { useToast } from '../components/Toast';
 import { qtyUnitLabel } from '../utils/units';
+import { t, dateLocale } from '../i18n';
 
 function I({ d, size = 15 }: { d: string; size?: number }) {
   return (
@@ -25,15 +26,15 @@ const D = {
 };
 
 const SHORTCUTS = [
-  { label: 'Réceptions',   path: '/stocks/receptions',   d: 'M5 12H3l9-9 9 9h-2M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7',  color: 'var(--fs-wine-700)' },
-  { label: 'Inventaire',   path: '/stocks/inventaire',   d: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 0 2-2h2a2 2 0 0 1 2 2', color: '#2563EB' },
-  { label: 'Alertes',      path: '/stocks/alertes',      d: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0', color: '#D97706' },
-  { label: 'Étiquettes',   path: '/stocks/etiquettes',   d: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01', color: '#7C3AED' },
-  { label: 'Fournisseurs', path: '/stocks/fournisseurs', d: 'M1 3h15v13H1zM16 8h4l3 3v5h-7V8z', color: '#059669' },
-  { label: 'Catalogue',    path: '/stocks',              d: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z', color: '#6B7280' },
+  { label: t('Réceptions', 'Goods receipt'),   path: '/stocks/receptions',   d: 'M5 12H3l9-9 9 9h-2M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7',  color: 'var(--fs-wine-700)' },
+  { label: t('Inventaire', 'Stock count'),   path: '/stocks/inventaire',   d: 'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 0 2-2h2a2 2 0 0 1 2 2', color: '#2563EB' },
+  { label: t('Alertes', 'Alerts'),      path: '/stocks/alertes',      d: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0', color: '#D97706' },
+  { label: t('Étiquettes', 'Labels'),   path: '/stocks/etiquettes',   d: 'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01', color: '#7C3AED' },
+  { label: t('Fournisseurs', 'Suppliers'), path: '/stocks/fournisseurs', d: 'M1 3h15v13H1zM16 8h4l3 3v5h-7V8z', color: '#059669' },
+  { label: t('Catalogue', 'Catalog'),    path: '/stocks',              d: 'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z', color: '#6B7280' },
 ];
 
-function fmtN(n: number) { return n.toLocaleString('fr-FR'); }
+function fmtN(n: number) { return n.toLocaleString(dateLocale()); }
 
 const CAT_COLORS: Record<string, string> = {
   'beauté': '#F5C4B2', 'hygiène': '#B8D8EC', 'parfumerie': '#D8C4E8',
@@ -59,14 +60,14 @@ export default function StocksDashboard() {
   const handleDemander = useCallback(async () => {
     if (!demandeModal) return;
     const qty = parseInt(demandeQty);
-    if (!qty || qty < 1) { addToast('Quantité invalide', 'error'); return; }
+    if (!qty || qty < 1) { addToast(t('Quantité invalide', 'Invalid quantity'), 'error'); return; }
     setDSending(true);
     try {
       await createDemande({ produitId: demandeModal.product._id, quantiteDemandee: qty });
-      addToast(`Demande envoyée au magasinier — ${demandeModal.product.name}`, 'success');
+      addToast(t(`Demande envoyée au magasinier — ${demandeModal.product.name}`, `Request sent to the warehouse — ${demandeModal.product.name}`), 'success');
       setDemandeModal(null); setDemandeQty('');
     } catch (e: unknown) {
-      addToast(e instanceof Error ? e.message : 'Erreur', 'error');
+      addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error');
     } finally { setDSending(false); }
   }, [demandeModal, demandeQty, addToast]);
 
@@ -102,10 +103,10 @@ export default function StocksDashboard() {
     .slice(0, 5);
 
   const kpis = [
-    { label: 'Références',      value: products.length,   sub: 'produits actifs',              icon: D.pkg,     accent: false, panel: null as 'stock'|'expiry'|null },
-    { label: 'Valeur du stock', value: fmtN(stockValue),  sub: 'XAF coût achat',               icon: D.receipt, accent: true,  panel: null as 'stock'|'expiry'|null },
-    { label: 'Stock faible',    value: lowCount,           sub: `dont ${ruptureCount} ruptures`, icon: D.bell,    accent: false, panel: 'stock' as 'stock'|'expiry'|null, link: true },
-    { label: 'Péremption < 6 mois', value: expiryProds.length, sub: expiryProds.length > 0 ? 'À surveiller' : 'Aucun', icon: D.bell, accent: false, panel: 'expiry' as 'stock'|'expiry'|null, link: expiryProds.length > 0 },
+    { label: t('Références', 'SKUs'),      value: products.length,   sub: t('produits actifs', 'active products'),              icon: D.pkg,     accent: false, panel: null as 'stock'|'expiry'|null },
+    { label: t('Valeur du stock', 'Stock value'), value: fmtN(stockValue),  sub: t('XAF coût achat', 'XAF purchase cost'),               icon: D.receipt, accent: true,  panel: null as 'stock'|'expiry'|null },
+    { label: t('Stock faible', 'Low stock'),    value: lowCount,           sub: t(`dont ${ruptureCount} ruptures`, `incl. ${ruptureCount} out of stock`), icon: D.bell,    accent: false, panel: 'stock' as 'stock'|'expiry'|null, link: true },
+    { label: t('Péremption < 6 mois', 'Expiry < 6 months'), value: expiryProds.length, sub: expiryProds.length > 0 ? t('À surveiller', 'To watch') : t('Aucun', 'None'), icon: D.bell, accent: false, panel: 'expiry' as 'stock'|'expiry'|null, link: expiryProds.length > 0 },
   ];
 
   return (
@@ -119,14 +120,14 @@ export default function StocksDashboard() {
           onClick={() => setDemandeModal(null)}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}
             onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>Demande au magasinier</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>{t('Demande au magasinier', 'Warehouse request')}</p>
             <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', margin: '0 0 16px' }}>{demandeModal.product.name}</h3>
             <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: '0 0 14px' }}>
-              Stock actuel : <strong style={{ color: 'var(--fs-danger-700)' }}>{demandeModal.product.stock}</strong>
+              {t('Stock actuel :', 'Current stock:')} <strong style={{ color: 'var(--fs-danger-700)' }}>{demandeModal.product.stock}</strong>
             </p>
             <div style={{ marginBottom: 20 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 5 }}>
-                Quantité à demander
+                {t('Quantité à demander', 'Quantity to request')}
               </label>
               <input
                 type="number" min={1} autoFocus
@@ -134,17 +135,17 @@ export default function StocksDashboard() {
                 onChange={e => setDemandeQty(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleDemander(); if (e.key === 'Escape') setDemandeModal(null); }}
                 style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 14, outline: 'none', boxSizing: 'border-box' }}
-                placeholder="Quantité"
+                placeholder={t('Quantité', 'Quantity')}
               />
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setDemandeModal(null)}
                 style={{ flex: 1, padding: '10px', background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
-                Annuler
+                {t('Annuler', 'Cancel')}
               </button>
               <button onClick={handleDemander} disabled={dSending}
                 style={{ flex: 1, padding: '10px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: dSending ? 0.7 : 1 }}>
-                {dSending ? 'Envoi…' : 'Envoyer la demande'}
+                {dSending ? t('Envoi…', 'Sending…') : t('Envoyer la demande', 'Send request')}
               </button>
             </div>
           </div>
@@ -156,11 +157,11 @@ export default function StocksDashboard() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 24px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
-              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Tableau de bord</h1>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Gestion de stock', 'Inventory')}</p>
+              <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{t('Tableau de bord', 'Dashboard')}</h1>
             </div>
             <span style={{ fontSize: 12, color: 'var(--fs-ink-400)' }}>
-              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {new Date().toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </span>
           </div>
         </div>
@@ -199,12 +200,12 @@ export default function StocksDashboard() {
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>
-                  {alertPanel === 'stock' ? `⚠ Produits sous le seuil d'alerte (${lowCount})` : `📅 Produits expirant dans moins de 6 mois (${expiryProds.length})`}
+                  {alertPanel === 'stock' ? t(`⚠ Produits sous le seuil d'alerte (${lowCount})`, `⚠ Products below alert threshold (${lowCount})`) : t(`📅 Produits expirant dans moins de 6 mois (${expiryProds.length})`, `📅 Products expiring within 6 months (${expiryProds.length})`)}
                 </p>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={() => navigate(alertPanel === 'stock' ? '/stocks/alertes' : '/stocks')}
                     style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-wine-700)', background: 'none', border: '1px solid var(--fs-wine-700)', padding: '4px 12px', borderRadius: 7, cursor: 'pointer' }}>
-                    Voir tout →
+                    {t('Voir tout →', 'View all →')}
                   </button>
                   <button onClick={() => setAlertPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fs-ink-400)', fontSize: 16 }}>✕</button>
                 </div>
@@ -218,9 +219,9 @@ export default function StocksDashboard() {
                         <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
                           {alertPanel === 'stock'
-                            ? `Stock : ${p.stock} / Seuil : ${p.alertThreshold}`
+                            ? t(`Stock : ${p.stock} / Seuil : ${p.alertThreshold}`, `Stock: ${p.stock} / Threshold: ${p.alertThreshold}`)
                             : daysLeft !== null
-                              ? daysLeft < 0 ? '🔴 Expiré' : `⏱ ${daysLeft} j restants (${new Date(p.expiryDate!).toLocaleDateString('fr-FR')})`
+                              ? daysLeft < 0 ? t('🔴 Expiré', '🔴 Expired') : t(`⏱ ${daysLeft} j restants (${new Date(p.expiryDate!).toLocaleDateString(dateLocale())})`, `⏱ ${daysLeft} days left (${new Date(p.expiryDate!).toLocaleDateString(dateLocale())})`)
                               : '—'
                           }
                         </div>
@@ -228,7 +229,7 @@ export default function StocksDashboard() {
                       {alertPanel === 'stock' && (
                         <button onClick={() => { setDemandeModal({ product: p }); setDemandeQty(''); }}
                           style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', background: '#FEF0E0', color: '#92400e', border: '1px solid #FCD34D', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}>
-                          + Demander
+                          {t('+ Demander', '+ Request')}
                         </button>
                       )}
                     </div>
@@ -242,11 +243,11 @@ export default function StocksDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 290px', gap: 14 }}>
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 16px' }}>
-                Activité des ventes — 7 derniers jours
+                {t('Activité des ventes — 7 derniers jours', 'Sales activity — last 7 days')}
               </p>
               {loading || weekData.length === 0 ? (
                 <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fs-ink-300)', fontSize: 13 }}>
-                  {loading ? 'Chargement…' : 'Aucune donnée'}
+                  {loading ? t('Chargement…', 'Loading…') : t('Aucune donnée', 'No data')}
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={160}>
@@ -254,7 +255,7 @@ export default function StocksDashboard() {
                     <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false}/>
                     <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} tickFormatter={v => fmtN(v)} width={60}/>
                     <Tooltip
-                      formatter={(v: number) => [`${fmtN(v)} XAF`, 'CA']}
+                      formatter={(v: number) => [`${fmtN(v)} XAF`, t('CA', 'Revenue')]}
                       contentStyle={{ border: '1px solid var(--fs-line)', borderRadius: 8, fontSize: 12, boxShadow: 'none' }}
                     />
                     <Bar dataKey="totalCA" fill="var(--fs-wine-700)" radius={[4, 4, 0, 0]}/>
@@ -265,7 +266,7 @@ export default function StocksDashboard() {
 
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px', boxShadow: 'var(--fs-shadow-sm)' }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 12px' }}>
-                Raccourcis
+                {t('Raccourcis', 'Shortcuts')}
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {SHORTCUTS.map(sc => (
@@ -290,11 +291,11 @@ export default function StocksDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 14px' }}>
-                Top 5 produits vendus
+                {t('Top 5 produits vendus', 'Top 5 products sold')}
               </p>
               {topProds.length === 0 ? (
                 <div style={{ color: 'var(--fs-ink-300)', fontSize: 13, padding: '20px 0', textAlign: 'center' }}>
-                  {loading ? 'Chargement…' : 'Aucune vente enregistrée'}
+                  {loading ? t('Chargement…', 'Loading…') : t('Aucune vente enregistrée', 'No sales recorded')}
                 </div>
               ) : topProds.map((p, i) => (
                 <div key={p._id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0', borderBottom: i < topProds.length - 1 ? '1px solid var(--fs-line)' : 'none' }}>
@@ -310,11 +311,11 @@ export default function StocksDashboard() {
 
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 14px' }}>
-                À réapprovisionner
+                {t('À réapprovisionner', 'To restock')}
               </p>
               {lowProducts.length === 0 ? (
                 <div style={{ color: 'var(--fs-ink-300)', fontSize: 13, padding: '20px 0', textAlign: 'center' }}>
-                  {loading ? 'Chargement…' : '✓ Tous les stocks sont suffisants'}
+                  {loading ? t('Chargement…', 'Loading…') : t('✓ Tous les stocks sont suffisants', '✓ All stock levels are sufficient')}
                 </div>
               ) : lowProducts.map((p, i) => {
                 const ratio = p.alertThreshold > 0 ? Math.min(1, p.stock / p.alertThreshold) : 1;
@@ -324,12 +325,12 @@ export default function StocksDashboard() {
                       <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{p.name}</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                         <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: p.stock === 0 ? 'var(--fs-danger-700)' : '#D97706' }}>
-                          {p.stock} <span style={{ fontSize: 10, fontWeight: 400 }}>u.</span>
+                          {p.stock} <span style={{ fontSize: 10, fontWeight: 400 }}>{t('u.', 'u.')}</span>
                         </span>
                         <button
                           onClick={() => { setDemandeModal({ product: p }); setDemandeQty(''); }}
                           style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', background: '#FEF0E0', color: '#92400e', border: '1px solid #FCD34D', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                          + Demander
+                          {t('+ Demander', '+ Request')}
                         </button>
                       </div>
                     </div>

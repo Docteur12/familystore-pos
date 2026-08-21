@@ -62,6 +62,41 @@ module. Le plugin est *fail-closed* — hors contexte tenant, il lève.
 Le code hors requête HTTP (crons) doit s'exécuter dans `runWithTenant(...)` :
 voir `fournisseurs.service.ts` pour le motif.
 
+### Phase 2 — un magasin = une configuration, plus un fork
+
+Tout ce qui distinguait `radiance-pos` de ce dépôt est devenu de la
+**configuration** ; le fork n'a plus de raison d'être (à archiver une fois
+Radiance redéployé sur ce code).
+
+- **Langue** : `frontend/src/i18n/index.ts` — `t('fr', 'en')` inline, pas de
+  catalogue de clés ; `dateLocale()` pour les dates. La langue vient de
+  `Settings.langue` (synchronisée par `SettingsContext`, rechargement de la
+  page au changement). **Toute nouvelle chaîne visible doit passer par `t()`.**
+  Le backend reste en FR ; ses messages d'erreur sont traduits côté client par
+  `i18n/backend-messages.ts` (appliqué dans `api/fetchInterceptor.ts`) —
+  **ajouter la traduction là** à chaque nouveau message d'exception.
+- **Identité imprimée** (nom, signature « BY RDCT », slogan, mentions légales,
+  téléphones du ticket, couleur secondaire) : `Settings`, plus rien en dur.
+  Frontend : `storeIdentity(settings)` → `ReceiptData.store` ; backend :
+  `ReportsService.brand()`, `MailService.appName()`.
+  `GET /api/settings/public` expose l'identité avant connexion (login, PIN).
+- **Modules optionnels** : `Settings.modules` (liste vide = tout actif) ;
+  `useSettings().hasModule('partenaires')` filtre menus et routes
+  (`RequireModule` dans `App.tsx`). Seul `partenaires` est optionnel à ce jour.
+- **Règles métier** : `Settings.metier` — `inactiviteMinutes`,
+  `seedFournisseursDemo`.
+- **Build** : titre, manifeste PWA, langue du document, couleur de thème et URL
+  de l'API sont des `VITE_*` (défauts Family Store dans
+  `frontend/.env.production`, surcharge par site Netlify — voir `DEPLOY.md`).
+  `dist/_redirects` est généré au build ; `netlify.toml` ne porte plus l'URL.
+- **Migration à faire avant le déploiement de ce code** :
+  `npm run migrate:settings -- --execute` sur la base `familystore` (écrit
+  l'identité Family Store historique dans `Settings`). Voir `DEPLOY.md` §6.
+
+Restes connus : `pages/PartenairesAgencesMaquette.tsx` (maquette) non traduite ;
+seed des catégories (`categories.service.ts`, `data/categories.ts`) en FR
+uniquement ; `desktop-caisse/` porte encore `POS_URL`/`productName` en dur.
+
 ### ⚠️ Décision produit non tranchée
 
 L'unicité de l'email est passée de **globale** à **par tenant**

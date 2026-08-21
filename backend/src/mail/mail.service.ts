@@ -1,13 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Settings, SettingsDocument } from '../settings/settings.schema';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private transporter: Transporter;
 
-  constructor() {
+  constructor(@InjectModel(Settings.name) private settingsModel: Model<SettingsDocument>) {
     this.transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -15,6 +18,14 @@ export class MailService {
         pass: process.env.EMAIL_PASS,
       },
     });
+  }
+
+  // Nom d'application affiché dans les e-mails : « <nom du magasin> POS ».
+  private async appName(): Promise<string> {
+    try {
+      const s = await this.settingsModel.findOne().lean();
+      return `${((s as any)?.nomMagasin || 'Family Store').trim()} POS`;
+    } catch { return 'Family Store POS'; }
   }
 
   async sendStockAlert(
@@ -29,13 +40,14 @@ export class MailService {
 
     const subject = `⚠️ Alerte stock — ${productName}`;
     const recipient = process.env.EMAIL_ALERT_TO ?? process.env.EMAIL_USER;
+    const app = await this.appName();
 
     await this.transporter.sendMail({
-      from: `"Family Store POS" <${process.env.EMAIL_USER}>`,
+      from: `"${app}" <${process.env.EMAIL_USER}>`,
       to: recipient,
       subject,
-      html: this.buildAlertHtml(productName, currentStock, alertThreshold),
-      text: this.buildAlertText(productName, currentStock, alertThreshold),
+      html: this.buildAlertHtml(productName, currentStock, alertThreshold, app),
+      text: this.buildAlertText(productName, currentStock, alertThreshold, app),
     });
 
     this.logger.log(`[MailAlert] Email envoyé → ${recipient} | "${productName}" stock: ${currentStock}`);
@@ -43,9 +55,9 @@ export class MailService {
 
   // ── Templates ─────────────────────────────────────────────────────────────
 
-  private buildAlertText(name: string, stock: number, threshold: number): string {
+  private buildAlertText(name: string, stock: number, threshold: number, app: string): string {
     return [
-      `⚠️ ALERTE STOCK — Family Store POS`,
+      `⚠️ ALERTE STOCK — ${app}`,
       ``,
       `Produit        : ${name}`,
       `Stock restant  : ${stock} unité(s)`,
@@ -53,11 +65,11 @@ export class MailService {
       ``,
       `Veuillez réapprovisionner ce produit dès que possible.`,
       ``,
-      `— Family Store POS`,
+      `— ${app}`,
     ].join('\n');
   }
 
-  private buildAlertHtml(name: string, stock: number, threshold: number): string {
+  private buildAlertHtml(name: string, stock: number, threshold: number, app: string): string {
     const critical = stock === 0;
     const stockColor = critical ? '#dc2626' : '#d97706';
     const badge = critical ? 'RUPTURE DE STOCK' : 'STOCK BAS';
@@ -180,7 +192,7 @@ export class MailService {
             <td style="background:#f9fafb;border-top:1px solid #f3f4f6;
                        padding:16px 32px;text-align:center;">
               <p style="margin:0;font-size:12px;color:#9ca3af;">
-                Family Store POS &mdash; Alerte automatique
+                ${app} &mdash; Alerte automatique
                 &mdash; ${new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
             </td>

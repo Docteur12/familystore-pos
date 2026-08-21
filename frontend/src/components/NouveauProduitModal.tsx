@@ -8,11 +8,16 @@ import { formatProductName } from '../utils/text';
 import { queueProduitLocal } from '../services/offlineMagazin';
 import { CATEGORY_TREE, normalizeTree } from '../data/categories';
 import { getCategoryTree, addCategory, CategoryTree } from '../api/categories';
+import { t, dateLocale } from '../i18n';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const CATEGORIES = ['Beauté', 'Hygiène', 'Parfumerie', 'Épicerie', 'Boissons', 'Alimentation', 'Bien-être', 'Maison'];
 const UNITS = ['unité', 'kg', 'g', 'L', 'mL', 'pièce', 'boîte', 'sachet', 'bouteille'];
+// Libellés affichés des unités — les VALEURS envoyées au backend restent en français.
+const UNIT_LABELS: Record<string, string> = {
+  'unité': t('unité', 'unit'), 'pièce': t('pièce', 'piece'), 'boîte': t('boîte', 'box'), 'bouteille': t('bouteille', 'bottle'),
+};
 
 const INPUT_STYLE: React.CSSProperties = {
   width: '100%',
@@ -101,7 +106,7 @@ function BarcodeField({ value, onChange, onCameraScan }: { value: string; onChan
 
   return (
     <div>
-      <label style={LABEL_STYLE}>Code-barres / EAN</label>
+      <label style={LABEL_STYLE}>{t('Code-barres / EAN', 'Barcode / EAN')}</label>
       <div style={{ display: 'flex', gap: 6 }}>
         <input
           ref={inputRef}
@@ -109,7 +114,7 @@ function BarcodeField({ value, onChange, onCameraScan }: { value: string; onChan
           value={value}
           onChange={e => handleChange(e.target.value)}
           onBlur={() => { if (!value) setScanMode(false); }}
-          placeholder={scanMode ? 'Pointez le scanner sur le produit...' : 'Scanner ou taper le code'}
+          placeholder={scanMode ? t('Pointez le scanner sur le produit...', 'Point the scanner at the product...') : t('Scanner ou taper le code', 'Scan or type the code')}
           style={{
             ...INPUT_STYLE,
             border: scanMode ? '1.5px solid var(--fs-wine-700)' : '1.5px solid var(--fs-line-2)',
@@ -117,15 +122,15 @@ function BarcodeField({ value, onChange, onCameraScan }: { value: string; onChan
             animation: scanMode ? 'scanPulse 1.2s ease-in-out infinite' : 'none',
           }}
         />
-        <button type="button" onClick={activateScan} style={ICON_BTN} title="Mode scan USB">
-          📷 Scanner
+        <button type="button" onClick={activateScan} style={ICON_BTN} title={t('Mode scan USB', 'USB scan mode')}>
+          📷 {t('Scanner', 'Scan')}
         </button>
-        <button type="button" onClick={generate} style={ICON_BTN} title="Générer un code interne">
-          🎲 Générer
+        <button type="button" onClick={generate} style={ICON_BTN} title={t('Générer un code interne', 'Generate an internal code')}>
+          🎲 {t('Générer', 'Generate')}
         </button>
         {onCameraScan && (
-          <button type="button" onClick={onCameraScan} style={ICON_BTN} title="Scanner avec caméra">
-            📱 Caméra
+          <button type="button" onClick={onCameraScan} style={ICON_BTN} title={t('Scanner avec caméra', 'Scan with camera')}>
+            📱 {t('Caméra', 'Camera')}
           </button>
         )}
       </div>
@@ -355,12 +360,12 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.price || !form.stock) {
-      setError('Nom, prix et stock initial sont requis.');
+      setError(t('Nom, prix et stock initial sont requis.', 'Name, price and initial stock are required.'));
       return;
     }
     let finalCategory = form.category;
     if (form.category === '__new__') {
-      if (!newCatInput.trim()) { setError('Saisissez le nom de la nouvelle catégorie'); return; }
+      if (!newCatInput.trim()) { setError(t('Saisissez le nom de la nouvelle catégorie', 'Enter the name of the new category')); return; }
       finalCategory = formatProductName(newCatInput.trim());
     }
     let finalSubCategory = form.subCategory;
@@ -403,7 +408,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
       onClose();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '';
-      const reseau = !msg || /fetch|network|réseau|hors connexion|Failed/i.test(msg);
+      const reseau = !msg || /fetch|network|réseau|hors connexion|offline|Failed/i.test(msg);
       // CRÉATION hors connexion → file locale + synchronisation automatique
       if (reseau && !product && !foundProduct) {
         try {
@@ -414,7 +419,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
         } catch { /* stockage local indisponible → message classique */ }
       }
       // Échec réseau en MODIFICATION → l'enregistrement n'a PAS abouti : message explicite.
-      setError(reseau ? 'Échec — enregistrement NON effectué. Vérifiez votre connexion et réessayez.' : msg);
+      setError(reseau ? t('Échec — enregistrement NON effectué. Vérifiez votre connexion et réessayez.', 'Failed — the record was NOT saved. Check your connection and try again.') : msg);
     } finally {
       setLoading(false);
     }
@@ -437,8 +442,8 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
         {/* Header */}
         <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{product ? 'Modifier le produit' : 'Nouveau produit'}</p>
-            <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '2px 0 0' }}>{product ? (product.localName ? `${product.name} · ${product.localName}` : product.name) : 'Remplir le formulaire et enregistrer'}</p>
+            <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{product ? t('Modifier le produit', 'Edit product') : t('Nouveau produit', 'New product')}</p>
+            <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '2px 0 0' }}>{product ? (product.localName ? `${product.name} · ${product.localName}` : product.name) : t('Remplir le formulaire et enregistrer', 'Fill in the form and save')}</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.7)', cursor: 'pointer', display: 'flex' }}>
             <CloseIcon/>
@@ -455,24 +460,24 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
 
           {/* Nom d'origine + nom local (hamburger) */}
           <div>
-            <label style={LABEL_STYLE}>Nom d'origine *</label>
+            <label style={LABEL_STYLE}>{t("Nom d'origine *", 'Original name *')}</label>
             <input
               type="text"
               value={form.name}
               onChange={e => setField('name')(e.target.value)}
               onBlur={e => { const v = e.target.value.trim(); if (v) setField('name')(formatProductName(v)); }}
-              placeholder="ex: Nivea Shampoing 400ml"
+              placeholder={t('ex: Nivea Shampoing 400ml', 'e.g. Nivea Shampoo 400ml')}
               style={INPUT_STYLE}
             />
           </div>
           <div>
-            <label style={LABEL_STYLE}>Nom local <span style={{ fontWeight: 400, textTransform: 'none' }}>(optionnel)</span></label>
+            <label style={LABEL_STYLE}>{t('Nom local', 'Local name')} <span style={{ fontWeight: 400, textTransform: 'none' }}>{t('(optionnel)', '(optional)')}</span></label>
             <input
               type="text"
               value={form.localName}
               onChange={e => setField('localName')(e.target.value)}
               onBlur={e => { const v = e.target.value.trim(); if (v) setField('localName')(formatProductName(v)); }}
-              placeholder="ex: Shampoua ya asali"
+              placeholder={t('ex: Shampoua ya asali', 'e.g. Shampoua ya asali')}
               style={INPUT_STYLE}
             />
             {form.name && form.localName && (
@@ -487,66 +492,66 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
             <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 18 }}>🔍</span>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>Produit déjà enregistré — informations chargées</div>
-                <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 2 }}>Modifiez les champs si nécessaire puis cliquez <strong>Mettre à jour</strong>.</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>{t('Produit déjà enregistré — informations chargées', 'Product already registered — details loaded')}</div>
+                <div style={{ fontSize: 11, color: '#3b82f6', marginTop: 2 }}>{t('Modifiez les champs si nécessaire puis cliquez', 'Edit the fields if needed, then click')} <strong>{t('Mettre à jour', 'Update')}</strong>.</div>
               </div>
             </div>
           )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label style={LABEL_STYLE}>Catégorie</label>
+              <label style={LABEL_STYLE}>{t('Catégorie', 'Category')}</label>
               <select
                 value={form.category}
                 onChange={e => setForm(f => ({ ...f, category: e.target.value, subCategory: '' }))}
                 style={{ ...INPUT_STYLE, background: '#fff', cursor: 'pointer' }}
               >
-                <option value="">— Choisir une catégorie —</option>
+                <option value="">{t('— Choisir une catégorie —', '— Choose a category —')}</option>
                 {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                {isPatron && <option value="__new__">➕ Autre catégorie…</option>}
+                {isPatron && <option value="__new__">{t('➕ Autre catégorie…', '➕ Other category…')}</option>}
               </select>
               {form.category === '__new__' && (
                 <input
                   autoFocus value={newCatInput}
                   onChange={e => setNewCatInput(e.target.value)}
-                  placeholder="Nouvelle catégorie"
+                  placeholder={t('Nouvelle catégorie', 'New category')}
                   style={{ ...INPUT_STYLE, marginTop: 6 }}
                 />
               )}
             </div>
             <div>
-              <label style={LABEL_STYLE}>Sous-catégorie <span style={{ fontWeight: 400, textTransform: 'none' }}>(optionnel)</span></label>
+              <label style={LABEL_STYLE}>{t('Sous-catégorie', 'Subcategory')} <span style={{ fontWeight: 400, textTransform: 'none' }}>{t('(optionnel)', '(optional)')}</span></label>
               <select
                 value={form.subCategory}
                 onChange={e => setField('subCategory')(e.target.value)}
                 disabled={!form.category || form.category === '__new__'}
                 style={{ ...INPUT_STYLE, background: (!form.category || form.category === '__new__') ? 'var(--fs-ivory)' : '#fff', cursor: (!form.category || form.category === '__new__') ? 'not-allowed' : 'pointer' }}
               >
-                <option value="">— Aucune —</option>
+                <option value="">{t('— Aucune —', '— None —')}</option>
                 {allSubCategories.map(s => <option key={s} value={s}>{s}</option>)}
-                {isPatron && form.category && form.category !== '__new__' && <option value="__newsub__">➕ Autre sous-catégorie…</option>}
+                {isPatron && form.category && form.category !== '__new__' && <option value="__newsub__">{t('➕ Autre sous-catégorie…', '➕ Other subcategory…')}</option>}
               </select>
               {form.subCategory === '__newsub__' && (
                 <input
                   autoFocus value={newSubInput}
                   onChange={e => setNewSubInput(e.target.value)}
-                  placeholder="Nouvelle sous-catégorie"
+                  placeholder={t('Nouvelle sous-catégorie', 'New subcategory')}
                   style={{ ...INPUT_STYLE, marginTop: 6 }}
                 />
               )}
             </div>
             <div>
-              <label style={LABEL_STYLE}>Unité</label>
+              <label style={LABEL_STYLE}>{t('Unité', 'Unit')}</label>
               <select
                 value={form.unit}
                 onChange={e => setField('unit')(e.target.value)}
                 style={{ ...INPUT_STYLE, background: '#fff' }}
               >
-                {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                {UNITS.map(u => <option key={u} value={u}>{UNIT_LABELS[u] ?? u}</option>)}
               </select>
             </div>
             <div>
-              <label style={LABEL_STYLE}>Valeur <span style={{ fontWeight: 400, textTransform: 'none' }}>(nombre — unité = champ Unité)</span></label>
+              <label style={LABEL_STYLE}>{t('Valeur', 'Value')} <span style={{ fontWeight: 400, textTransform: 'none' }}>{t('(nombre — unité = champ Unité)', '(number — unit = Unit field)')}</span></label>
               <input
                 type="number"
                 inputMode="decimal"
@@ -554,17 +559,17 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
                 step="any"
                 value={form.valeur}
                 onChange={e => setField('valeur')(e.target.value.replace(/[^0-9.,]/g, ''))}
-                placeholder="ex: 50"
+                placeholder={t('ex: 50', 'e.g. 50')}
                 style={INPUT_STYLE}
               />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
-              <label style={LABEL_STYLE}>Fournisseur <span style={{ fontWeight: 400, textTransform: 'none' }}>(optionnel)</span></label>
+              <label style={LABEL_STYLE}>{t('Fournisseur', 'Supplier')} <span style={{ fontWeight: 400, textTransform: 'none' }}>{t('(optionnel)', '(optional)')}</span></label>
               <AutocompleteInput
                 value={form.fournisseur}
                 onChange={v => setField('fournisseur')(v)}
                 suggestions={fournisseurs}
-                placeholder="Choisir un fournisseur…"
+                placeholder={t('Choisir un fournisseur…', 'Choose a supplier…')}
               />
             </div>
           </div>
@@ -572,25 +577,25 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
           {/* Prix achat + marge → prix vente */}
           {priceLocked && (
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-wine-700)', background: 'var(--fs-wine-50)', border: '1px solid rgba(122,29,46,0.15)', borderRadius: 8, padding: '8px 12px', marginBottom: 4 }}>
-              🔒 Prix {product?.prixModifiePar ? `ajouté/modifié par ${product.prixModifiePar}` : 'fixé par le magasinier'}
+              🔒 {t('Prix', 'Price')} {product?.prixModifiePar ? `${t('ajouté/modifié par', 'added/edited by')} ${product.prixModifiePar}` : t('fixé par le magasinier', 'set by the warehouse keeper')}
               {product?.prixModifieParRole ? ` (${product.prixModifieParRole})` : ''}
-              {product?.prixModifieLe ? ` le ${new Date(product.prixModifieLe).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })} à ${new Date(product.prixModifieLe).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''}
-              {' '}— non modifiable.
+              {product?.prixModifieLe ? ` ${t('le', 'on')} ${new Date(product.prixModifieLe).toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short', year: 'numeric' })} ${t('à', 'at')} ${new Date(product.prixModifieLe).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}` : ''}
+              {' '}— {t('non modifiable.', 'not editable.')}
             </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 8, alignItems: 'end' }}>
             <div>
-              <label style={LABEL_STYLE}>Prix d'achat (XAF)</label>
+              <label style={LABEL_STYLE}>{t("Prix d'achat (XAF)", 'Purchase price (XAF)')}</label>
               <input
                 type="number" min={0} value={form.costPrice}
                 onChange={e => { setField('costPrice')(e.target.value); applyMarkup(e.target.value, markupPct); }}
-                placeholder="ex: 300"
+                placeholder={t('ex: 300', 'e.g. 300')}
                 disabled={priceLocked}
                 style={{ ...INPUT_STYLE, ...(priceLocked ? { background: 'var(--fs-ivory)', color: 'var(--fs-ink-500)', cursor: 'not-allowed' } : {}) }}
               />
             </div>
             <div style={{ textAlign: 'center' }}>
-              <label style={{ ...LABEL_STYLE, textAlign: 'center' }}>Marge %</label>
+              <label style={{ ...LABEL_STYLE, textAlign: 'center' }}>{t('Marge %', 'Markup %')}</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <input
                   type="number" min={0} max={500} step={1}
@@ -604,11 +609,11 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
               </div>
             </div>
             <div>
-              <label style={LABEL_STYLE}>Prix de vente * (XAF)</label>
+              <label style={LABEL_STYLE}>{t('Prix de vente * (XAF)', 'Selling price * (XAF)')}</label>
               <input
                 type="number" min={0} value={form.price}
                 onChange={e => { setField('price')(e.target.value); setMarkupPct(''); }}
-                placeholder="ex: 500"
+                placeholder={t('ex: 500', 'e.g. 500')}
                 disabled={priceLocked}
                 style={{ ...INPUT_STYLE, background: priceLocked ? 'var(--fs-ivory)' : (markupPct ? '#f0fdf4' : '#fff'), color: priceLocked ? 'var(--fs-ink-500)' : undefined, cursor: priceLocked ? 'not-allowed' : undefined, borderColor: markupPct && !priceLocked ? '#86efac' : undefined }}
               />
@@ -616,12 +621,12 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
           </div>
           {markupPct && form.costPrice && form.price && (
             <div style={{ fontSize: 11, color: 'var(--fs-success-700)', fontWeight: 600, marginTop: -4 }}>
-              {form.costPrice} XAF × {markupPct}% de marge → {form.price} XAF
+              {form.costPrice} XAF × {markupPct}% {t('de marge', 'markup')} → {form.price} XAF
             </div>
           )}
 
           <div>
-            <label style={LABEL_STYLE}>🏷️ Réduction (%)</label>
+            <label style={LABEL_STYLE}>🏷️ {t('Réduction (%)', 'Discount (%)')}</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input
                 type="number" min={0} max={100} step={1}
@@ -633,25 +638,25 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
               <span style={{ fontSize: 13, color: 'var(--fs-ink-500)' }}>%</span>
               {parseFloat(form.discount) > 0 && form.price && (
                 <span style={{ fontSize: 12, color: '#c0392b', fontWeight: 700 }}>
-                  Prix client : {Math.round(parseFloat(form.price) * (1 - parseFloat(form.discount) / 100)).toLocaleString('fr-FR')} XAF
+                  {t('Prix client :', 'Customer price:')} {Math.round(parseFloat(form.price) * (1 - parseFloat(form.discount) / 100)).toLocaleString(dateLocale())} XAF
                 </span>
               )}
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <FormField label="Stock initial *" value={form.stock} onChange={setField('stock')} type="number" placeholder="ex: 50"/>
+            <FormField label={t('Stock initial *', 'Initial stock *')} value={form.stock} onChange={setField('stock')} type="number" placeholder={t('ex: 50', 'e.g. 50')}/>
             <div>
-              <label style={LABEL_STYLE}>Seuil d'alerte <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(auto 10%)</span></label>
+              <label style={LABEL_STYLE}>{t("Seuil d'alerte", 'Alert threshold')} <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>{t('(auto 10%)', '(auto 10%)')}</span></label>
               <div style={{ ...INPUT_STYLE, background: 'var(--fs-ivory)', color: 'var(--fs-ink-500)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontWeight: 700, fontFamily: 'var(--fs-font-mono)' }}>{computedThreshold}</span>
-                <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>= 10% de la quantité max ({maxQty})</span>
+                <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{t('= 10% de la quantité max', '= 10% of the max quantity')} ({maxQty})</span>
               </div>
             </div>
           </div>
 
           <div>
-            <label style={LABEL_STYLE}>📅 Date de péremption <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>(défaut : +1 an)</span></label>
+            <label style={LABEL_STYLE}>📅 {t('Date de péremption', 'Expiry date')} <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>{t('(défaut : +1 an)', '(default: +1 year)')}</span></label>
             <input
               type="date"
               value={form.expiryDate}
@@ -659,7 +664,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
               style={{ ...INPUT_STYLE }}
             />
             {form.expiryDate && new Date(form.expiryDate) < new Date() && (
-              <div style={{ marginTop: 4, fontSize: 11, color: '#c0392b', fontWeight: 600 }}>⚠ Date déjà expirée</div>
+              <div style={{ marginTop: 4, fontSize: 11, color: '#c0392b', fontWeight: 600 }}>{t('⚠ Date déjà expirée', '⚠ Date already expired')}</div>
             )}
           </div>
         </div>
@@ -672,14 +677,14 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
             style={{ flex: 1, padding: '11px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}
           >
             {loading
-              ? ((product || foundProduct) ? 'Mise à jour…' : 'Enregistrement…')
-              : ((product || foundProduct) ? 'Mettre à jour' : 'Enregistrer le produit')}
+              ? ((product || foundProduct) ? t('Mise à jour…', 'Updating…') : t('Enregistrement…', 'Saving…'))
+              : ((product || foundProduct) ? t('Mettre à jour', 'Update') : t('Enregistrer le produit', 'Save product'))}
           </button>
           <button
             onClick={onClose}
             style={{ flex: 1, padding: '11px', background: 'none', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}
           >
-            Annuler
+            {t('Annuler', 'Cancel')}
           </button>
         </div>
 

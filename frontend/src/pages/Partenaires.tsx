@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSettings } from '../contexts/SettingsContext';
 import StoreLogo from '../components/StoreLogo';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
@@ -18,12 +19,13 @@ import {
 import { getUsers, createUser, updateUser, deleteUser, UserRecord } from '../api/auth';
 import ToastContainer, { useToast } from '../components/Toast';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t, dateLocale } from '../i18n';
 
-const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
+const fmtN = (n: number) => Math.round(n).toLocaleString(dateLocale());
 function fmtDateTime(d: string) {
   const dt = new Date(d);
-  return dt.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
-    + ' à ' + dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  return dt.toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short', year: 'numeric' })
+    + t(' à ', ' at ') + dt.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
 }
 
 function I({ d, size = 15 }: { d: string; size?: number }) {
@@ -79,7 +81,7 @@ function ProductSelect({ products, value, onChange }: {
   // (une ancienne limite de 40 masquait des produits pourtant en entrepôt).
   const filtered = products
     .filter(p => !search.trim() || contientTexte(p.name, search) || contientTexte(p.barcode, search))
-    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    .sort((a, b) => a.name.localeCompare(b.name, dateLocale()));
   return (
     <div style={{ position: 'relative' }}>
       <input
@@ -87,22 +89,22 @@ function ProductSelect({ products, value, onChange }: {
         onChange={e => { setSearch(e.target.value); setOpen(true); }}
         onFocus={() => { setSearch(''); setOpen(true); }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder="Chercher un produit (entrepôt)…"
+        placeholder={t('Chercher un produit (entrepôt)…', 'Search a product (warehouse)…')}
         style={{ ...INPUT, cursor: 'text' }}
       />
       {open && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 8, boxShadow: 'var(--fs-shadow-md)', zIndex: 20, maxHeight: 220, overflowY: 'auto', marginTop: 2 }}>
-          {filtered.length === 0 && <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fs-ink-400)' }}>Aucun produit en entrepôt</div>}
+          {filtered.length === 0 && <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fs-ink-400)' }}>{t('Aucun produit en entrepôt', 'No product in the warehouse')}</div>}
           {filtered.length > 20 && (
             <div style={{ padding: '5px 12px', fontSize: 10, color: 'var(--fs-ink-400)', background: 'var(--fs-ivory)', position: 'sticky', top: 0 }}>
-              {filtered.length} produits — tapez pour filtrer
+              {t(`${filtered.length} produits — tapez pour filtrer`, `${filtered.length} products — type to filter`)}
             </div>
           )}
           {filtered.map(p => (
             <button key={p._id} type="button" onMouseDown={() => { onChange(p._id); setOpen(false); }}
               style={{ width: '100%', padding: '7px 12px', border: 'none', background: p._id === value ? 'var(--fs-ivory)' : '#fff', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--fs-line)', display: 'block' }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
-              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Entrepôt : {p.stockMagazin ?? 0} · Boutique : {p.stock}</div>
+              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{t('Entrepôt', 'Warehouse')} : {p.stockMagazin ?? 0} · {t('Boutique', 'Shop')} : {p.stock}</div>
             </button>
           ))}
         </div>
@@ -139,50 +141,50 @@ function EditLivraisonModal({ livraison, onClose, onSaved, onError }: {
     const valides = lignes
       .map(l => ({ productId: l.productId, quantite: parseInt(l.quantite) || 0, prixUnitaire: parseInt(l.prix) || 0 }))
       .filter(l => l.quantite > 0);
-    if (valides.length === 0) { onError('Gardez au moins un produit avec une quantité — sinon supprimez la livraison'); return; }
+    if (valides.length === 0) { onError(t('Gardez au moins un produit avec une quantité — sinon supprimez la livraison', 'Keep at least one product with a quantity — otherwise delete the delivery')); return; }
     setBusy(true);
     try {
       await updateLivraison(livraison._id, { lignes: valides, montantPaye: Math.max(0, parseInt(paye) || 0) });
       onSaved();
-    } catch (e: unknown) { onError(e instanceof Error ? e.message : 'Erreur modification'); }
+    } catch (e: unknown) { onError(e instanceof Error ? e.message : t('Erreur modification', 'Update error')); }
     finally { setBusy(false); }
   };
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ background: '#fff', borderRadius: 14, padding: '24px 26px', maxWidth: 560, width: '100%', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-        <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800, color: 'var(--fs-ink-900)' }}>Modifier la livraison {livraison.numeroBL}</p>
+        <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{t('Modifier la livraison', 'Edit delivery')} {livraison.numeroBL}</p>
         <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--fs-ink-500)' }}>
-          {typeof livraison.partenaire === 'object' ? livraison.partenaire.name : ''} — le stock entrepôt sera ajusté automatiquement (différence entre l'ancienne et la nouvelle quantité).
+          {typeof livraison.partenaire === 'object' ? livraison.partenaire.name : ''} — {t('le stock entrepôt sera ajusté automatiquement (différence entre l\'ancienne et la nouvelle quantité).', 'warehouse stock will be adjusted automatically (difference between the old and the new quantity).')}
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 76px 100px 32px', gap: 6, fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-          <span>Produit</span><span style={{ textAlign: 'center' }}>Qté</span><span style={{ textAlign: 'center' }}>Prix U.</span><span/>
+          <span>{t('Produit', 'Product')}</span><span style={{ textAlign: 'center' }}>{t('Qté', 'Qty')}</span><span style={{ textAlign: 'center' }}>{t('Prix U.', 'Unit price')}</span><span/>
         </div>
         {lignes.map((l, i) => (
           <div key={l.productId} style={{ display: 'grid', gridTemplateColumns: '1fr 76px 100px 32px', gap: 6, marginBottom: 6, alignItems: 'center' }}>
             <div style={{ fontSize: 12.5, color: 'var(--fs-ink-800)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={l.productName}>{l.productName}</div>
             <input type="number" min={0} value={l.quantite} onChange={e => setLigne(i, { quantite: e.target.value })} style={{ ...INPUT, textAlign: 'center', padding: '7px 6px' }}/>
             <input type="number" min={0} value={l.prix} onChange={e => setLigne(i, { prix: e.target.value })} style={{ ...INPUT, textAlign: 'center', padding: '7px 6px' }}/>
-            <button onClick={() => retirer(i)} title="Retirer ce produit (quantité remise en entrepôt)"
+            <button onClick={() => retirer(i)} title={t('Retirer ce produit (quantité remise en entrepôt)', 'Remove this product (quantity returned to the warehouse)')}
               style={{ padding: 6, border: '1px solid rgba(194,62,36,0.25)', borderRadius: 7, background: '#fef2f2', color: 'var(--fs-danger-700)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✕</button>
           </div>
         ))}
 
         <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--fs-line)' }}>
           <div style={{ width: 150 }}>
-            <label style={LABEL}>Montant payé (XAF)</label>
+            <label style={LABEL}>{t('Montant payé (XAF)', 'Amount paid (XAF)')}</label>
             <input type="number" min={0} value={paye} onChange={e => setPaye(e.target.value)} style={{ ...INPUT, textAlign: 'center' }}/>
           </div>
           <div style={{ flex: 1, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--fs-ink-500)' }}>Nouveau total</span><strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(total)} XAF</strong></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--fs-ink-500)' }}>Reste dû</span><strong style={{ fontFamily: 'var(--fs-font-mono)', color: (total - (parseInt(paye) || 0)) > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(Math.max(0, total - (parseInt(paye) || 0)))} XAF</strong></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--fs-ink-500)' }}>{t('Nouveau total', 'New total')}</span><strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(total)} XAF</strong></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--fs-ink-500)' }}>{t('Reste dû', 'Balance due')}</span><strong style={{ fontFamily: 'var(--fs-font-mono)', color: (total - (parseInt(paye) || 0)) > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(Math.max(0, total - (parseInt(paye) || 0)))} XAF</strong></div>
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
-          <button onClick={onClose} disabled={busy} style={{ padding: '9px 18px', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Annuler</button>
-          <button onClick={enregistrer} disabled={busy} style={{ ...BTN_PRIMARY, opacity: busy ? 0.6 : 1 }}>{busy ? 'Enregistrement…' : 'Enregistrer les modifications'}</button>
+          <button onClick={onClose} disabled={busy} style={{ padding: '9px 18px', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{t('Annuler', 'Cancel')}</button>
+          <button onClick={enregistrer} disabled={busy} style={{ ...BTN_PRIMARY, opacity: busy ? 0.6 : 1 }}>{busy ? t('Enregistrement…', 'Saving…') : t('Enregistrer les modifications', 'Save changes')}</button>
         </div>
       </div>
     </div>
@@ -190,6 +192,8 @@ function EditLivraisonModal({ livraison, onClose, onSaved, onError }: {
 }
 
 export default function Partenaires({ embedded = false, allowedTabs, initialTab }: { embedded?: boolean; allowedTabs?: Tab[]; initialTab?: Tab } = {}) {
+  const { settings } = useSettings();
+  const nomMagasin = settings.nomMagasin || 'Family Store';
   const navigate = useNavigate();
   const brand = getBrandColor();
   const payload = getTokenPayload();
@@ -269,25 +273,25 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
     const ag = agenceLabel(c.agence);
     const tot = c.lignes.reduce((s, l) => s + l.quantite * l.prixUnitaire, 0);
     const win = window.open('', '_blank', 'width=800,height=900'); if (!win) return;
-    win.document.write(`<html><head><title>Bon de commande ${c.numero}</title><style>${STYLE_BON}</style></head><body>
-      <h2>Bon de commande — ${part}</h2>
-      <div class="sub">${[ag, c.numero, new Date(c.createdAt).toLocaleDateString('fr-FR')].filter(Boolean).join(' · ')}</div>
-      <table><thead><tr><th>Produit</th><th style="text-align:center">Qté</th><th style="text-align:right">Prix U.</th><th style="text-align:right">Montant</th></tr></thead><tbody>${lignesHtml(c.lignes)}</tbody></table>
-      <div class="tot">Total estimé : ${fmtN(tot)} XAF</div>
-      <div class="sign"><div>Cachet / signature magasin</div><div>Signature partenaire</div></div>
+    win.document.write(`<html><head><title>${t('Bon de commande', 'Purchase order')} ${c.numero}</title><style>${STYLE_BON}</style></head><body>
+      <h2>${t('Bon de commande', 'Purchase order')} — ${part}</h2>
+      <div class="sub">${[ag, c.numero, new Date(c.createdAt).toLocaleDateString(dateLocale())].filter(Boolean).join(' · ')}</div>
+      <table><thead><tr><th>${t('Produit', 'Product')}</th><th style="text-align:center">${t('Qté', 'Qty')}</th><th style="text-align:right">${t('Prix U.', 'Unit price')}</th><th style="text-align:right">${t('Montant', 'Amount')}</th></tr></thead><tbody>${lignesHtml(c.lignes)}</tbody></table>
+      <div class="tot">${t('Total estimé', 'Estimated total')} : ${fmtN(tot)} XAF</div>
+      <div class="sign"><div>${t('Cachet / signature magasin', 'Store stamp / signature')}</div><div>${t('Signature partenaire', 'Partner signature')}</div></div>
       <script>window.onload=()=>window.print()<\/script></body></html>`);
     win.document.close();
   };
 
   const imprimerLivraison = (liv: LivraisonPartenaire, part: string, ag: string) => {
     const win = window.open('', '_blank', 'width=800,height=900'); if (!win) return;
-    win.document.write(`<html><head><title>Bon de livraison ${liv.numeroBL}</title><style>${STYLE_BON}</style></head><body>
-      <h2>Bon de livraison — ${part}</h2>
-      <div class="sub">${[ag, liv.numeroBL, new Date().toLocaleDateString('fr-FR')].filter(Boolean).join(' · ')}</div>
-      <table><thead><tr><th>Produit</th><th style="text-align:center">Qté livrée</th><th style="text-align:right">Prix U.</th><th style="text-align:right">Montant</th></tr></thead><tbody>${lignesHtml(liv.lignes)}</tbody></table>
-      <div class="tot">Total : ${fmtN(liv.total)} XAF</div>
-      <div style="margin-top:6px;font-size:13px">Payé : ${fmtN(liv.montantPaye)} XAF &nbsp;·&nbsp; Reste dû : ${fmtN(Math.max(0, liv.total - liv.montantPaye))} XAF</div>
-      <div class="sign"><div>Cachet / signature magasin</div><div>Reçu par (partenaire)</div></div>
+    win.document.write(`<html><head><title>${t('Bon de livraison', 'Delivery note')} ${liv.numeroBL}</title><style>${STYLE_BON}</style></head><body>
+      <h2>${t('Bon de livraison', 'Delivery note')} — ${part}</h2>
+      <div class="sub">${[ag, liv.numeroBL, new Date().toLocaleDateString(dateLocale())].filter(Boolean).join(' · ')}</div>
+      <table><thead><tr><th>${t('Produit', 'Product')}</th><th style="text-align:center">${t('Qté livrée', 'Qty delivered')}</th><th style="text-align:right">${t('Prix U.', 'Unit price')}</th><th style="text-align:right">${t('Montant', 'Amount')}</th></tr></thead><tbody>${lignesHtml(liv.lignes)}</tbody></table>
+      <div class="tot">${t('Total', 'Total')} : ${fmtN(liv.total)} XAF</div>
+      <div style="margin-top:6px;font-size:13px">${t('Payé', 'Paid')} : ${fmtN(liv.montantPaye)} XAF &nbsp;·&nbsp; ${t('Reste dû', 'Balance due')} : ${fmtN(Math.max(0, liv.total - liv.montantPaye))} XAF</div>
+      <div class="sign"><div>${t('Cachet / signature magasin', 'Store stamp / signature')}</div><div>${t('Reçu par (partenaire)', 'Received by (partner)')}</div></div>
       <script>window.onload=()=>window.print()<\/script></body></html>`);
     win.document.close();
   };
@@ -299,11 +303,11 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       const q = (saisi !== undefined && saisi !== '') ? (parseInt(saisi) || 0) : resteLigne(l);
       return { productId: l.productId, quantite: q, prixUnitaire: l.prixUnitaire };
     }).filter(l => l.quantite > 0);
-    if (lignes.length === 0) { addToast('Saisissez au moins une quantité à servir', 'error'); return; }
+    if (lignes.length === 0) { addToast(t('Saisissez au moins une quantité à servir', 'Enter at least one quantity to serve'), 'error'); return; }
     const rupture = lignes.find(l => l.quantite > (products.find(p => p._id === l.productId)?.stockMagazin ?? 0));
     if (rupture) {
-      const nom = cmd.lignes.find(x => String(x.productId) === String(rupture.productId))?.productName ?? 'produit';
-      addToast(`Stock entrepôt insuffisant pour « ${nom} » — réduisez la quantité à servir`, 'error');
+      const nom = cmd.lignes.find(x => String(x.productId) === String(rupture.productId))?.productName ?? t('produit', 'product');
+      addToast(t(`Stock entrepôt insuffisant pour « ${nom} » — réduisez la quantité à servir`, `Insufficient warehouse stock for "${nom}" — reduce the quantity to serve`), 'error');
       return;
     }
     if (envoiEnCoursRef.current) return; // double-clic : le 2ᵉ clic est ignoré
@@ -314,14 +318,14 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
     try {
       const res = await preparerCommande(cmd._id, { lignes, idempotencyKey: idemKey });
       delete idemKeysRef.current[cmd._id];
-      addToast('Livraison enregistrée ✓ — stock entrepôt mis à jour', 'success');
+      addToast(t('Livraison enregistrée ✓ — stock entrepôt mis à jour', 'Delivery saved ✓ — warehouse stock updated'), 'success');
       const partNom = typeof cmd.partenaire === 'object' ? cmd.partenaire.name : '—';
       imprimerLivraison(res.livraison, partNom, agenceLabel(cmd.agence));
       setPrepQty(prev => { const c = { ...prev }; cmd.lignes.forEach(l => delete c[`${cmd._id}|${l.productId}`]); return c; });
       loadCommandes();
       getAllProducts().then(setProducts).catch(() => {});
       getLivraisons().then(setLivraisons).catch(() => {});
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
     finally { envoiEnCoursRef.current = false; setPrepLoading(null); }
   };
 
@@ -336,26 +340,26 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
 
   const creerCommercial = async () => {
     if (!accForm.name.trim() || !accForm.email.trim() || accForm.password.length < 4) {
-      addToast('Nom, email et mot de passe (≥ 4 caractères) requis', 'error'); return;
+      addToast(t('Nom, email et mot de passe (≥ 4 caractères) requis', 'Name, email and password (≥ 4 characters) required'), 'error'); return;
     }
     try {
       await createUser({ name: accForm.name.trim(), email: accForm.email.trim().toLowerCase(), password: accForm.password, role: 'commercial' });
-      addToast('Compte commercial créé ✓', 'success');
+      addToast(t('Compte commercial créé ✓', 'Sales rep account created ✓'), 'success');
       setAccForm({ name: '', email: '', password: '' });
       loadCommerciaux();
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
   };
 
   const resetPassword = async (id: string) => {
-    const np = window.prompt('Nouveau mot de passe (≥ 4 caractères) :');
-    if (!np || np.length < 4) { if (np !== null) addToast('Mot de passe trop court', 'error'); return; }
-    try { await updateUser(id, { password: np }); addToast('Mot de passe réinitialisé ✓', 'success'); }
-    catch { addToast('Erreur', 'error'); }
+    const np = window.prompt(t('Nouveau mot de passe (≥ 4 caractères) :', 'New password (≥ 4 characters):'));
+    if (!np || np.length < 4) { if (np !== null) addToast(t('Mot de passe trop court', 'Password too short'), 'error'); return; }
+    try { await updateUser(id, { password: np }); addToast(t('Mot de passe réinitialisé ✓', 'Password reset ✓'), 'success'); }
+    catch { addToast(t('Erreur', 'Error'), 'error'); }
   };
 
   const supprimerCommercial = async (id: string) => {
-    try { await deleteUser(id); setCommerciaux(prev => prev.filter(u => u._id !== id)); addToast('Compte supprimé', 'success'); }
-    catch { addToast('Erreur suppression', 'error'); }
+    try { await deleteUser(id); setCommerciaux(prev => prev.filter(u => u._id !== id)); addToast(t('Compte supprimé', 'Account deleted'), 'success'); }
+    catch { addToast(t('Erreur suppression', 'Delete error'), 'error'); }
   };
 
   // Formulaire partenaire (fiche d'inscription)
@@ -386,34 +390,34 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
   const saveAgence = async () => {
     if (!aForm || !agencesPartId) return;
     const nom = aForm.nom.trim();
-    if (!nom) { addToast("Le nom de l'agence est requis", 'error'); return; }
+    if (!nom) { addToast(t("Le nom de l'agence est requis", 'Branch name is required'), 'error'); return; }
     try {
       if (aForm.id) {
         await updateAgence(aForm.id, { nom, ville: aForm.ville.trim(), quartier: aForm.quartier.trim(), telephone: aForm.telephone.trim(), responsable: aForm.responsable.trim(), independante: aForm.independante });
-        addToast('Agence modifiée ✓', 'success');
+        addToast(t('Agence modifiée ✓', 'Branch updated ✓'), 'success');
       } else {
         await createAgence({ partenaireId: agencesPartId, nom, ville: aForm.ville.trim(), quartier: aForm.quartier.trim(), telephone: aForm.telephone.trim(), responsable: aForm.responsable.trim(), independante: aForm.independante });
-        addToast('Agence ajoutée ✓', 'success');
+        addToast(t('Agence ajoutée ✓', 'Branch added ✓'), 'success');
       }
       setAForm(null); rafraichirDette(agencesPartId);
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
   };
 
   const toggleIndependante = async (a: Agence) => {
     try { await updateAgence(a._id, { independante: !a.independante }); if (agencesPartId) rafraichirDette(agencesPartId); }
-    catch { addToast('Erreur', 'error'); }
+    catch { addToast(t('Erreur', 'Error'), 'error'); }
   };
   const reactiverAgence = async (a: Agence) => {
     try { await updateAgence(a._id, { archivee: false }); if (agencesPartId) rafraichirDette(agencesPartId); }
-    catch { addToast('Erreur', 'error'); }
+    catch { addToast(t('Erreur', 'Error'), 'error'); }
   };
   const supprimerAgence = async (a: Agence) => {
-    if (!window.confirm(`Supprimer l'agence « ${a.nom} » ?\n\nSi elle a un historique, elle sera ARCHIVÉE (conservée dans les totaux), sinon supprimée.`)) return;
+    if (!window.confirm(t(`Supprimer l'agence « ${a.nom} » ?\n\nSi elle a un historique, elle sera ARCHIVÉE (conservée dans les totaux), sinon supprimée.`, `Delete branch "${a.nom}"?\n\nIf it has a history it will be ARCHIVED (kept in the totals), otherwise deleted.`))) return;
     try {
       const r = await deleteAgence(a._id);
-      addToast(r.archived ? 'Agence archivée (historique conservé)' : 'Agence supprimée', 'success');
+      addToast(r.archived ? t('Agence archivée (historique conservé)', 'Branch archived (history kept)') : t('Agence supprimée', 'Branch deleted'), 'success');
       if (agencesPartId) rafraichirDette(agencesPartId);
-    } catch { addToast('Erreur suppression', 'error'); }
+    } catch { addToast(t('Erreur suppression', 'Delete error'), 'error'); }
   };
   const setToutesAgences = async (independante: boolean) => {
     if (!compteId) return;
@@ -422,8 +426,8 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
     try {
       await Promise.all(cibles.map(a => updateAgence(a._id, { independante })));
       rafraichirDette(compteId);
-      addToast(independante ? 'Toutes les agences sont indépendantes' : 'Toutes les agences en dette commune', 'success');
-    } catch { addToast('Erreur', 'error'); }
+      addToast(independante ? t('Toutes les agences sont indépendantes', 'All branches are independent') : t('Toutes les agences en dette commune', 'All branches on shared debt'), 'success');
+    } catch { addToast(t('Erreur', 'Error'), 'error'); }
   };
 
   // Comptes (relevé)
@@ -448,40 +452,40 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
 
   const enregistrerPaiement = async () => {
     const montant = parseInt(paieMontant) || 0;
-    if (!compteId || montant <= 0) { addToast('Saisissez un montant', 'error'); return; }
+    if (!compteId || montant <= 0) { addToast(t('Saisissez un montant', 'Enter an amount'), 'error'); return; }
     try {
       await createPaiement(compteId, { montant, note: paieNote.trim() || undefined, agenceId: paieAgenceId || null });
-      addToast('Versement enregistré ✓', 'success');
+      addToast(t('Versement enregistré ✓', 'Payment saved ✓'), 'success');
       setPaieMontant(''); setPaieNote(''); setPaieAgenceId('');
       loadCompte(compteId);
       getStatsAgences().then(setStatsAg).catch(() => {});
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
   };
 
   // Versement libre sur la dette commune (agence = null)
   const enregistrerVersementCommun = async () => {
     const montant = parseInt(montantCommun) || 0;
-    if (!compteId || montant <= 0) { addToast('Saisissez un montant', 'error'); return; }
+    if (!compteId || montant <= 0) { addToast(t('Saisissez un montant', 'Enter an amount'), 'error'); return; }
     try {
       await createPaiement(compteId, { montant, agenceId: null });
-      addToast('Versement enregistré ✓', 'success');
+      addToast(t('Versement enregistré ✓', 'Payment saved ✓'), 'success');
       setMontantCommun('');
       loadCompte(compteId);
       getStatsAgences().then(setStatsAg).catch(() => {});
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
   };
 
   const imprimerReleve = () => {
     if (!compte) return;
     const c = compte;
     const lignesHtml = [
-      ...c.livraisons.map(l => `<tr><td>${fmtDateTime(l.createdAt)}</td><td>Livraison ${l.numeroBL}</td><td style="text-align:right">${fmtN(l.total)}</td><td style="text-align:right">${fmtN(l.montantPaye)}</td></tr>`),
-      ...c.paiements.map(p => `<tr><td>${fmtDateTime(p.createdAt)}</td><td>Paiement${p.note ? ' — ' + p.note : ''}</td><td></td><td style="text-align:right">${fmtN(p.montant)}</td></tr>`),
+      ...c.livraisons.map(l => `<tr><td>${fmtDateTime(l.createdAt)}</td><td>${t('Livraison', 'Delivery')} ${l.numeroBL}</td><td style="text-align:right">${fmtN(l.total)}</td><td style="text-align:right">${fmtN(l.montantPaye)}</td></tr>`),
+      ...c.paiements.map(p => `<tr><td>${fmtDateTime(p.createdAt)}</td><td>${t('Paiement', 'Payment')}${p.note ? ' — ' + p.note : ''}</td><td></td><td style="text-align:right">${fmtN(p.montant)}</td></tr>`),
     ].join('');
     const win = window.open('', '_blank', 'width=800,height=900');
     if (!win) return;
     win.document.write(`
-      <html><head><title>Relevé — ${c.partenaire.name}</title>
+      <html><head><title>${t('Relevé', 'Statement')} — ${c.partenaire.name}</title>
       <style>
         body{font-family:Arial,sans-serif;padding:24px;color:#111}
         h2{margin:0 0 2px} .sub{color:#666;font-size:13px;margin-bottom:16px}
@@ -489,14 +493,14 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
         th,td{border:1px solid #999;padding:6px 8px} th{background:#f0f0f0;text-align:left}
         .tot{margin-top:16px;font-size:15px} .solde{font-size:20px;font-weight:bold;color:${brand}}
       </style></head><body>
-        <h2>Relevé de compte — ${c.partenaire.name}</h2>
-        <div class="sub">${[c.partenaire.lieu, c.partenaire.phone].filter(Boolean).join(' · ')} &middot; Édité le ${new Date().toLocaleDateString('fr-FR')}</div>
+        <h2>${t('Relevé de compte', 'Account statement')} — ${c.partenaire.name}</h2>
+        <div class="sub">${[c.partenaire.lieu, c.partenaire.phone].filter(Boolean).join(' · ')} &middot; ${t('Édité le', 'Issued on')} ${new Date().toLocaleDateString(dateLocale())}</div>
         <table>
-          <thead><tr><th>Date</th><th>Opération</th><th style="text-align:right">Montant livré</th><th style="text-align:right">Payé</th></tr></thead>
-          <tbody>${lignesHtml || '<tr><td colspan="4" style="text-align:center;color:#888">Aucune opération</td></tr>'}</tbody>
+          <thead><tr><th>${t('Date', 'Date')}</th><th>${t('Opération', 'Operation')}</th><th style="text-align:right">${t('Montant livré', 'Amount delivered')}</th><th style="text-align:right">${t('Payé', 'Paid')}</th></tr></thead>
+          <tbody>${lignesHtml || `<tr><td colspan="4" style="text-align:center;color:#888">${t('Aucune opération', 'No operation')}</td></tr>`}</tbody>
         </table>
-        <div class="tot">Total livré : <b>${fmtN(c.totalLivre)} XAF</b> &nbsp;·&nbsp; Total payé : <b>${fmtN(c.payeLivraison + c.totalPaiements)} XAF</b></div>
-        <div class="tot solde">Solde dû : ${fmtN(c.solde)} XAF</div>
+        <div class="tot">${t('Total livré', 'Total delivered')} : <b>${fmtN(c.totalLivre)} XAF</b> &nbsp;·&nbsp; ${t('Total payé', 'Total paid')} : <b>${fmtN(c.payeLivraison + c.totalPaiements)} XAF</b></div>
+        <div class="tot solde">${t('Solde dû', 'Balance due')} : ${fmtN(c.solde)} XAF</div>
         <script>window.onload=()=>window.print()<\/script>
       </body></html>`);
     win.document.close();
@@ -553,7 +557,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
         setCmdDelai(c.cmdDelai ?? '');
         if (Array.isArray(c.cmdRows) && c.cmdRows.length) setCmdRows(c.cmdRows);
         if (c.editingCmd) setEditingCmd(c.editingCmd);
-        addToast('Saisie de commande interrompue récupérée ✓ — vous pouvez continuer', 'success');
+        addToast(t('Saisie de commande interrompue récupérée ✓ — vous pouvez continuer', 'Interrupted order entry recovered ✓ — you can continue'), 'success');
       }
       const l = JSON.parse(localStorage.getItem(BROUILLON_LIV) ?? 'null');
       if (l && Date.now() - (l.ts ?? 0) < 24 * 3600e3 && (l.rows ?? []).some((r: Row) => r.productId)) {
@@ -561,7 +565,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
         if (Array.isArray(l.rows) && l.rows.length) setRows(l.rows);
         setMontantPaye(l.montantPaye ?? '');
         setLivMode(l.livMode ?? 'credit');
-        addToast('Saisie de livraison interrompue récupérée ✓', 'success');
+        addToast(t('Saisie de livraison interrompue récupérée ✓', 'Interrupted delivery entry recovered ✓'), 'success');
       }
     } catch { /* brouillon illisible : ignoré */ }
     brouillonPret.current = true;
@@ -594,23 +598,23 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
   };
 
   const validerCommande = async () => {
-    if (!cmdPartId) { addToast('Choisissez un partenaire', 'error'); return; }
+    if (!cmdPartId) { addToast(t('Choisissez un partenaire', 'Choose a partner'), 'error'); return; }
     const lignes = cmdRows.filter(r => r.productId && (parseInt(r.quantite) || 0) > 0)
       .map(r => ({ productId: r.productId, quantite: parseInt(r.quantite) || 0, prixUnitaire: parseInt(r.prix) || 0 }));
-    if (lignes.length === 0) { addToast('Ajoutez au moins un produit', 'error'); return; }
+    if (lignes.length === 0) { addToast(t('Ajoutez au moins un produit', 'Add at least one product'), 'error'); return; }
     try {
       if (editingCmd) {
         await updateCommande(editingCmd, { agenceId: cmdAgenceId || null, modePaiement: cmdMode, delai: parseInt(cmdDelai) || 0, lignes });
-        addToast('Commande modifiée ✓', 'success');
+        addToast(t('Commande modifiée ✓', 'Order updated ✓'), 'success');
         setEditingCmd(null);
       } else {
         await createCommande({ partenaireId: cmdPartId, agenceId: cmdAgenceId || null, modePaiement: cmdMode, delai: parseInt(cmdDelai) || 0, lignes });
-        addToast('Commande enregistrée ✓', 'success');
+        addToast(t('Commande enregistrée ✓', 'Order saved ✓'), 'success');
       }
       setCmdRows([{ productId: '', quantite: '1', prix: '' }]); setCmdDelai(''); setCmdAgenceId('');
       localStorage.removeItem(BROUILLON_CMD);
       loadCommandes();
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
   };
 
   // Clôture d'une commande partielle : le reliquat non servi ne sera jamais livré
@@ -619,28 +623,28 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
   const cloturerCommande = async (c: CommandePartenaire) => {
     try {
       await updateCommande(c._id, { statut: 'livree' });
-      addToast(`Commande ${c.numero} clôturée ✓ — le reliquat non servi est abandonné`, 'success');
+      addToast(t(`Commande ${c.numero} clôturée ✓ — le reliquat non servi est abandonné`, `Order ${c.numero} closed ✓ — the unserved remainder is dropped`), 'success');
       setConfirmClotureId(null);
       loadCommandes();
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
   };
 
   const supprimerCommande = async (c: CommandePartenaire) => {
     const livree = c.statut === 'livree' || c.statut === 'partielle';
     const msg = livree
-      ? `Cette commande a déjà été (partiellement) livrée.\n\nLa supprimer va ANNULER la/les livraison(s) : le stock sera RESTITUÉ à l'entrepôt et la dette correspondante disparaîtra.\n\nConfirmer ?`
-      : 'Supprimer cette commande ?';
+      ? t(`Cette commande a déjà été (partiellement) livrée.\n\nLa supprimer va ANNULER la/les livraison(s) : le stock sera RESTITUÉ à l'entrepôt et la dette correspondante disparaîtra.\n\nConfirmer ?`, `This order has already been (partially) delivered.\n\nDeleting it will CANCEL the delivery/deliveries: stock will be RETURNED to the warehouse and the matching debt will disappear.\n\nConfirm?`)
+      : t('Supprimer cette commande ?', 'Delete this order?');
     if (!window.confirm(msg)) return;
     try {
       const r = await deleteCommande(c._id);
       setCommandes(prev => prev.filter(x => x._id !== c._id));
-      addToast(r.livraisonsAnnulees > 0 ? `Commande annulée ✓ — ${r.produitsRestitues} article(s) restitué(s) en entrepôt` : 'Commande supprimée', 'success');
+      addToast(r.livraisonsAnnulees > 0 ? t(`Commande annulée ✓ — ${r.produitsRestitues} article(s) restitué(s) en entrepôt`, `Order cancelled ✓ — ${r.produitsRestitues} item(s) returned to the warehouse`) : t('Commande supprimée', 'Order deleted'), 'success');
       getAllProducts().then(setProducts).catch(() => {});
       getLivraisons().then(setLivraisons).catch(() => {});
       loadCommandes();
       if (compteId) loadCompte(compteId);
       getStatsAgences().then(setStatsAg).catch(() => {});
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur suppression', 'error'); }
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur suppression', 'Delete error'), 'error'); }
   };
 
   // Retour d'invendus
@@ -650,13 +654,13 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
   const enregistrerRetour = async () => {
     const lignes = retourRows.filter(r => r.productId && (parseInt(r.quantite) || 0) > 0)
       .map(r => ({ productId: r.productId, quantite: parseInt(r.quantite) || 0, prixUnitaire: parseInt(r.prix) || 0 }));
-    if (!compteId || lignes.length === 0) { addToast('Ajoutez au moins un produit', 'error'); return; }
+    if (!compteId || lignes.length === 0) { addToast(t('Ajoutez au moins un produit', 'Add at least one product'), 'error'); return; }
     try {
       await createRetour(compteId, { lignes });
-      addToast('Retour enregistré ✓ — remis en entrepôt', 'success');
+      addToast(t('Retour enregistré ✓ — remis en entrepôt', 'Return saved ✓ — back in the warehouse'), 'success');
       setRetourRows([{ productId: '', quantite: '1', prix: '' }]); setShowRetour(false);
       loadCompte(compteId); getAllProducts().then(setProducts).catch(() => {});
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
   };
 
   // Rappel des derniers prix quand on change de partenaire
@@ -673,11 +677,11 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
   const creance = Math.max(0, total - (parseInt(montantPaye) || 0));
 
   const validerLivraison = async () => {
-    if (!partId) { addToast('Choisissez un partenaire', 'error'); return; }
+    if (!partId) { addToast(t('Choisissez un partenaire', 'Choose a partner'), 'error'); return; }
     const lignes = rows
       .filter(r => r.productId && (parseInt(r.quantite) || 0) > 0)
       .map(r => ({ productId: r.productId, quantite: parseInt(r.quantite) || 0, prixUnitaire: parseInt(r.prix) || 0 }));
-    if (lignes.length === 0) { addToast('Ajoutez au moins un produit', 'error'); return; }
+    if (lignes.length === 0) { addToast(t('Ajoutez au moins un produit', 'Add at least one product'), 'error'); return; }
     if (envoiEnCoursRef.current) return; // double-clic ignoré
     envoiEnCoursRef.current = true;
     setLoadingLiv(true);
@@ -685,14 +689,14 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
     try {
       await createLivraison(partId, { lignes, montantPaye: parseInt(montantPaye) || 0, modePaiement: livMode, idempotencyKey: idemKey });
       delete idemKeysRef.current['liv-directe'];
-      addToast('Bon de livraison validé ✓ — stock entrepôt mis à jour', 'success');
+      addToast(t('Bon de livraison validé ✓ — stock entrepôt mis à jour', 'Delivery note confirmed ✓ — warehouse stock updated'), 'success');
       setRows([{ productId: '', quantite: '1', prix: '' }]);
       setMontantPaye('');
       localStorage.removeItem(BROUILLON_LIV);
       getAllProducts().then(setProducts).catch(() => {});
       getLivraisons().then(setLivraisons).catch(() => {});
     } catch (e: unknown) {
-      addToast(e instanceof Error ? e.message : 'Erreur', 'error');
+      addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error');
     } finally { envoiEnCoursRef.current = false; setLoadingLiv(false); }
   };
 
@@ -711,10 +715,10 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
   const supprimerLivraison = async (id: string) => {
     try {
       const r = await deleteLivraison(id);
-      addToast(`Livraison supprimée ✓ — ${r.produitsRestitues} article(s) remis en stock entrepôt`, 'success');
+      addToast(t(`Livraison supprimée ✓ — ${r.produitsRestitues} article(s) remis en stock entrepôt`, `Delivery deleted ✓ — ${r.produitsRestitues} item(s) returned to warehouse stock`), 'success');
       setConfirmDelLivId(null);
       rechargerApresLivraison();
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur suppression', 'error'); }
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur suppression', 'Delete error'), 'error'); }
   };
 
   // Retrouve la livraison complète depuis son id (l'historique n'a que l'id)
@@ -725,17 +729,17 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       setLivraisons(ls);
       const found = ls.find(l => l._id === id);
       if (found) setEditLiv(found);
-      else addToast('Livraison introuvable', 'error');
-    }).catch(() => addToast('Erreur chargement', 'error'));
+      else addToast(t('Livraison introuvable', 'Delivery not found'), 'error');
+    }).catch(() => addToast(t('Erreur chargement', 'Loading error'), 'error'));
   };
 
   const savePartenaire = async () => {
-    if (!pForm.name.trim()) { addToast('Le nom du partenaire est requis', 'error'); return; }
+    if (!pForm.name.trim()) { addToast(t('Le nom du partenaire est requis', 'Partner name is required'), 'error'); return; }
     try {
       let nouvelId: string | null = null;
       const payload = { ...pForm, ancienneDette: Math.max(0, parseInt(pForm.ancienneDette) || 0) };
-      if (editing) { await updatePartenaire(editing, payload); addToast('Partenaire modifié ✓', 'success'); }
-      else { const cree = await createPartenaire(payload); nouvelId = cree._id; addToast('Partenaire ajouté ✓', 'success'); }
+      if (editing) { await updatePartenaire(editing, payload); addToast(t('Partenaire modifié ✓', 'Partner updated ✓'), 'success'); }
+      else { const cree = await createPartenaire(payload); nouvelId = cree._id; addToast(t('Partenaire ajouté ✓', 'Partner added ✓'), 'success'); }
       setPForm({ ...PFORM_VIDE });
       setEditing(null);
       setShowPartModal(false);
@@ -743,25 +747,25 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       getStatsAgences().then(setStatsAg).catch(() => {});
       if (editing) rafraichirDette(editing); // la dette affichée intègre l'ancienne dette modifiée
       if (nouvelId) { setCompteId(nouvelId); ouvrirAgences(nouvelId); setTab('comptes'); }
-    } catch (e: unknown) { addToast(e instanceof Error ? e.message : 'Erreur', 'error'); }
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
   };
 
   const removePartenaire = async (id: string) => {
-    try { await deletePartenaire(id); setPartenaires(prev => prev.filter(p => p._id !== id)); addToast('Partenaire supprimé', 'success'); }
-    catch { addToast('Erreur suppression', 'error'); }
+    try { await deletePartenaire(id); setPartenaires(prev => prev.filter(p => p._id !== id)); addToast(t('Partenaire supprimé', 'Partner deleted'), 'success'); }
+    catch { addToast(t('Erreur suppression', 'Delete error'), 'error'); }
   };
 
   const initials = (payload?.name ?? '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase();
 
   const TAB_TITLES: Record<string, string> = {
-    dashboard: 'Tableau de bord', commandes: 'Commandes grossistes', preparer: 'Commandes à préparer',
-    livraisons: 'Bon de livraison', comptes: 'Comptes & créances', rapport: 'Rapport & analyse',
-    historique: 'Historique', acces: 'Comptes de connexion Partenaires', partenaires: 'Partenaires',
+    dashboard: t('Tableau de bord', 'Dashboard'), commandes: t('Commandes grossistes', 'Wholesale orders'), preparer: t('Commandes à préparer', 'Orders to prepare'),
+    livraisons: t('Bon de livraison', 'Delivery note'), comptes: t('Comptes & créances', 'Accounts & receivables'), rapport: t('Rapport & analyse', 'Report & analysis'),
+    historique: t('Historique', 'History'), acces: t('Comptes de connexion Partenaires', 'Partners login accounts'), partenaires: t('Partenaires', 'Partners'),
   };
   const TAB_LABELS: Record<string, string> = {
-    dashboard: 'Tableau de bord', commandes: 'Commandes', preparer: 'À préparer',
-    livraisons: 'Livraisons', comptes: 'Comptes', rapport: 'Rapport', historique: 'Historique',
-    acces: 'Accès', partenaires: 'Partenaires',
+    dashboard: t('Tableau de bord', 'Dashboard'), commandes: t('Commandes', 'Orders'), preparer: t('À préparer', 'To prepare'),
+    livraisons: t('Livraisons', 'Deliveries'), comptes: t('Comptes', 'Accounts'), rapport: t('Rapport', 'Report'), historique: t('Historique', 'History'),
+    acces: t('Accès', 'Access'), partenaires: t('Partenaires', 'Partners'),
   };
 
   // Refermer le menu latéral (mobile) après navigation
@@ -780,7 +784,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
         <EditLivraisonModal
           livraison={editLiv}
           onClose={() => setEditLiv(null)}
-          onSaved={() => { setEditLiv(null); addToast('Livraison modifiée ✓ — stock entrepôt ajusté', 'success'); rechargerApresLivraison(); }}
+          onSaved={() => { setEditLiv(null); addToast(t('Livraison modifiée ✓ — stock entrepôt ajusté', 'Delivery updated ✓ — warehouse stock adjusted'), 'success'); rechargerApresLivraison(); }}
           onError={m => addToast(m, 'error')}
         />
       )}
@@ -790,32 +794,32 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       {showRetour && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: '24px 26px', maxWidth: 560, width: '100%', maxHeight: '88vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-            <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800, color: 'var(--fs-ink-900)' }}>↩ Retour d'invendus {compteAg ? `— ${compteAg.partenaire.name}` : ''}</p>
+            <p style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800, color: 'var(--fs-ink-900)' }}>↩ {t('Retour d\'invendus', 'Return of unsold goods')} {compteAg ? `— ${compteAg.partenaire.name}` : ''}</p>
             <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--fs-ink-500)' }}>
-              Le partenaire rend de la marchandise : elle est <strong>remise en stock entrepôt</strong> et sa <strong>dette diminue</strong> du montant retourné.
+              {t('Le partenaire rend de la marchandise : elle est ', 'The partner returns goods: they are ')}<strong>{t('remise en stock entrepôt', 'put back into warehouse stock')}</strong>{t(' et sa ', ' and their ')}<strong>{t('dette diminue', 'debt decreases')}</strong>{t(' du montant retourné.', ' by the returned amount.')}
             </p>
-            <label style={LABEL}>Produits retournés</label>
+            <label style={LABEL}>{t('Produits retournés', 'Returned products')}</label>
             {retourRows.map((row, i) => {
               const dp = row.productId ? dernierPrix[row.productId] : undefined;
               return (
                 <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 76px 100px 32px', gap: 6, marginBottom: 6, alignItems: 'start' }}>
                   <ProductSelect products={products} value={row.productId} onChange={id => setRetourRow(i, { productId: id, prix: row.prix || (dernierPrix[id] ? String(dernierPrix[id]) : '') })}/>
-                  <input type="number" min={1} value={row.quantite} onChange={e => setRetourRow(i, { quantite: e.target.value })} placeholder="Qté" style={{ ...INPUT, textAlign: 'center', padding: '7px 6px' }}/>
+                  <input type="number" min={1} value={row.quantite} onChange={e => setRetourRow(i, { quantite: e.target.value })} placeholder={t('Qté', 'Qty')} style={{ ...INPUT, textAlign: 'center', padding: '7px 6px' }}/>
                   <div>
-                    <input type="number" min={0} value={row.prix} onChange={e => setRetourRow(i, { prix: e.target.value })} placeholder="Prix" style={{ ...INPUT, textAlign: 'center', padding: '7px 6px' }}/>
-                    {dp !== undefined && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', textAlign: 'center', marginTop: 2 }}>dernier : {fmtN(dp)}</div>}
+                    <input type="number" min={0} value={row.prix} onChange={e => setRetourRow(i, { prix: e.target.value })} placeholder={t('Prix', 'Price')} style={{ ...INPUT, textAlign: 'center', padding: '7px 6px' }}/>
+                    {dp !== undefined && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', textAlign: 'center', marginTop: 2 }}>{t('dernier', 'last')} : {fmtN(dp)}</div>}
                   </div>
-                  <button onClick={() => removeRetourRow(i)} title="Retirer" style={{ padding: 6, border: '1px solid rgba(194,62,36,0.25)', borderRadius: 7, background: '#fef2f2', color: 'var(--fs-danger-700)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✕</button>
+                  <button onClick={() => removeRetourRow(i)} title={t('Retirer', 'Remove')} style={{ padding: 6, border: '1px solid rgba(194,62,36,0.25)', borderRadius: 7, background: '#fef2f2', color: 'var(--fs-danger-700)', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>✕</button>
                 </div>
               );
             })}
-            <button onClick={addRetourRow} style={{ background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '7px 16px', marginTop: 4 }}>+ Ajouter une ligne</button>
+            <button onClick={addRetourRow} style={{ background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '7px 16px', marginTop: 4 }}>{t('+ Ajouter une ligne', '+ Add a line')}</button>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--fs-line)' }}>
-              <span style={{ fontSize: 13, color: 'var(--fs-ink-500)' }}>Valeur du retour : <strong style={{ fontFamily: 'var(--fs-font-mono)', color: '#B45309' }}>{fmtN(retourRows.reduce((s, r) => s + (parseInt(r.quantite) || 0) * (parseInt(r.prix) || 0), 0))} XAF</strong></span>
+              <span style={{ fontSize: 13, color: 'var(--fs-ink-500)' }}>{t('Valeur du retour', 'Return value')} : <strong style={{ fontFamily: 'var(--fs-font-mono)', color: '#B45309' }}>{fmtN(retourRows.reduce((s, r) => s + (parseInt(r.quantite) || 0) * (parseInt(r.prix) || 0), 0))} XAF</strong></span>
               <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => setShowRetour(false)} style={{ padding: '9px 18px', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Annuler</button>
-                <button onClick={enregistrerRetour} style={BTN_PRIMARY}>Valider le retour</button>
+                <button onClick={() => setShowRetour(false)} style={{ padding: '9px 18px', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>{t('Annuler', 'Cancel')}</button>
+                <button onClick={enregistrerRetour} style={BTN_PRIMARY}>{t('Valider le retour', 'Confirm return')}</button>
               </div>
             </div>
           </div>
@@ -824,7 +828,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
 
       {/* Bouton hamburger (mobile, hors mode intégré) */}
       {mobileNav && (
-        <button onClick={() => setNavOpen(o => !o)} aria-label={navOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+        <button onClick={() => setNavOpen(o => !o)} aria-label={navOpen ? t('Fermer le menu', 'Close menu') : t('Ouvrir le menu', 'Open menu')}
           style={{ position: 'fixed', top: 12, left: navOpen ? 208 : 12, zIndex: 201, width: 40, height: 40, borderRadius: 10, border: 'none', background: 'var(--fs-wine-700)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)', transition: 'left 0.25s' }}>
           <I d={navOpen ? 'M18 6L6 18M6 6l12 12' : 'M3 12h18M3 6h18M3 18h18'} size={16}/>
         </button>
@@ -845,16 +849,16 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
             <StoreLogo width={150}/>
           </div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>Family Store</div>
-          <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Partenaires</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>{nomMagasin}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{t('Partenaires', 'Partners')}</div>
         </div>
 
         <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
           {([
-            { key: 'dashboard', label: 'Tableau de bord', icon: D.dashboard },
-            { key: 'rapport', label: 'Rapport & analyse', icon: D.chart },
-            { key: 'historique', label: 'Historique', icon: D.clock },
-            ...(isPatron ? [{ key: 'acces' as Tab, label: 'Comptes de connexion', icon: D.key }] : []),
+            { key: 'dashboard', label: t('Tableau de bord', 'Dashboard'), icon: D.dashboard },
+            { key: 'rapport', label: t('Rapport & analyse', 'Report & analysis'), icon: D.chart },
+            { key: 'historique', label: t('Historique', 'History'), icon: D.clock },
+            ...(isPatron ? [{ key: 'acces' as Tab, label: t('Comptes de connexion', 'Login accounts'), icon: D.key }] : []),
           ] as { key: Tab; label: string; icon: string }[]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)} style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '9px 10px', marginBottom: 2,
@@ -871,10 +875,10 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
 
           {/* Liste des partenaires (clic → détail) */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 10px 6px' }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>Partenaires</span>
-            <button onClick={ouvrirNouveauPartenaire} title="Nouveau partenaire" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(255,255,255,0.08)', color: 'var(--fs-gold-300)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '3px 7px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}><I d={D.plus} size={11}/> Nouveau</button>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>{t('Partenaires', 'Partners')}</span>
+            <button onClick={ouvrirNouveauPartenaire} title={t('Nouveau partenaire', 'New partner')} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(255,255,255,0.08)', color: 'var(--fs-gold-300)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 6, padding: '3px 7px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}><I d={D.plus} size={11}/> {t('Nouveau', 'New')}</button>
           </div>
-          {partenaires.length === 0 && <div style={{ fontSize: 11, color: 'rgba(245,235,217,0.4)', padding: '4px 10px' }}>Aucun partenaire — clique « Nouveau ».</div>}
+          {partenaires.length === 0 && <div style={{ fontSize: 11, color: 'rgba(245,235,217,0.4)', padding: '4px 10px' }}>{t('Aucun partenaire — clique « Nouveau ».', 'No partner — click "New".')}</div>}
           {partenaires.map(p => {
             const active = tab === 'comptes' && compteId === p._id;
             const solde = (statsAg?.debiteurs ?? []).filter(d => d.partenaireId === p._id).reduce((s, d) => s + d.solde, 0);
@@ -888,7 +892,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                   <span style={{ color: 'var(--fs-gold-400)', flexShrink: 0 }}><I d={p.type === 'particulier' ? D.user : D.bank} size={14}/></span>
                   <span style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
                 </div>
-                <div style={{ fontSize: 10.5, color: solde > 0 ? '#fca5a5' : '#86efac', fontWeight: 700, fontFamily: 'var(--fs-font-mono)', marginTop: 3 }}>Dette : {fmtN(solde)} XAF</div>
+                <div style={{ fontSize: 10.5, color: solde > 0 ? '#fca5a5' : '#86efac', fontWeight: 700, fontFamily: 'var(--fs-font-mono)', marginTop: 3 }}>{t('Dette', 'Debt')} : {fmtN(solde)} XAF</div>
               </button>
             );
           })}
@@ -896,9 +900,9 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
           <div style={{ margin: '10px 6px 4px', padding: '9px 10px', borderRadius: 8, border: '1px dashed rgba(255,255,255,0.15)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ color: 'var(--fs-gold-400)' }}><I d={D.shop} size={13}/></span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(245,235,217,0.85)' }}>Présentoir</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(245,235,217,0.85)' }}>{t('Présentoir', 'Display stand')}</span>
             </div>
-            <div style={{ fontSize: 9.5, color: 'rgba(245,235,217,0.5)', marginTop: 3 }}>Géré comme un partenaire : crée-le avec « Nouveau » (nom « Présentoir »).</div>
+            <div style={{ fontSize: 9.5, color: 'rgba(245,235,217,0.5)', marginTop: 3 }}>{t('Géré comme un partenaire : crée-le avec « Nouveau » (nom « Présentoir »).', 'Managed as a partner: create it with "New" (name "Display stand").')}</div>
           </div>
         </nav>
 
@@ -906,7 +910,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
           <div style={{ padding: '0 12px 8px' }}>
             <button onClick={() => navigate('/admin/dashboard')}
               style={{ width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: 'var(--fs-gold-300)', cursor: 'pointer', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600 }}>
-              <I d={D.back} size={13}/> Retour admin
+              <I d={D.back} size={13}/> {t('Retour admin', 'Back to admin')}
             </button>
           </div>
         )}
@@ -915,10 +919,10 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
           <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--fs-gold-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{initials}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
-            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>{isPatron ? 'Administrateur' : payload?.role === 'commercial' ? 'Compte Partenaires' : 'Magasinier'}</div>
+            <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>{isPatron ? t('Administrateur', 'Administrator') : payload?.role === 'commercial' ? t('Compte Partenaires', 'Partners account') : t('Magasinier', 'Warehouse keeper')}</div>
           </div>
           <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
-            style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', padding: 2 }} title="Déconnexion">
+            style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', padding: 2 }} title={t('Déconnexion', 'Sign out')}>
             <I d={D.logout} size={14}/>
           </button>
         </div>
@@ -939,8 +943,8 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
           </div>
         ) : (
           <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '12px 16px' : '12px 28px', flexShrink: 0, paddingLeft: mobileNav ? 60 : (isMobile ? 16 : 56) }}>
-            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Espace Partenaires</p>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{tab === 'comptes' ? (compteAg ? compteAg.partenaire.name : 'Détail partenaire') : (TAB_TITLES[tab] ?? 'Partenaires')}</h1>
+            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Espace Partenaires', 'Partners area')}</p>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{tab === 'comptes' ? (compteAg ? compteAg.partenaire.name : t('Détail partenaire', 'Partner details')) : (TAB_TITLES[tab] ?? t('Partenaires', 'Partners'))}</h1>
           </div>
         )}
 
@@ -952,10 +956,10 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
               {/* Métriques */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 20 }}>
                 {[
-                  { label: 'Créances totales', val: `${fmtN(stats?.totalCreances ?? 0)} XAF`, color: 'var(--fs-danger-700)', sub: 'Reste dû par les partenaires' },
-                  { label: 'Total livré', val: `${fmtN(stats?.totalLivre ?? 0)} XAF`, color: 'var(--fs-ink-900)', sub: 'Cumul des bons de livraison' },
-                  { label: 'Total encaissé', val: `${fmtN(stats?.totalEncaisse ?? 0)} XAF`, color: 'var(--fs-success-700)', sub: 'Paiements reçus' },
-                  { label: 'Partenaires', val: `${stats?.nbPartenaires ?? 0}`, color: 'var(--fs-wine-700)', sub: 'Revendeurs enregistrés' },
+                  { label: t('Créances totales', 'Total receivables'), val: `${fmtN(stats?.totalCreances ?? 0)} XAF`, color: 'var(--fs-danger-700)', sub: t('Reste dû par les partenaires', 'Balance due by partners') },
+                  { label: t('Total livré', 'Total delivered'), val: `${fmtN(stats?.totalLivre ?? 0)} XAF`, color: 'var(--fs-ink-900)', sub: t('Cumul des bons de livraison', 'Sum of delivery notes') },
+                  { label: t('Total encaissé', 'Total collected'), val: `${fmtN(stats?.totalEncaisse ?? 0)} XAF`, color: 'var(--fs-success-700)', sub: t('Paiements reçus', 'Payments received') },
+                  { label: t('Partenaires', 'Partners'), val: `${stats?.nbPartenaires ?? 0}`, color: 'var(--fs-wine-700)', sub: t('Revendeurs enregistrés', 'Registered resellers') },
                 ].map(m => (
                   <div key={m.label} style={{ flex: '1 1 200px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 18px', boxShadow: 'var(--fs-shadow-sm)' }}>
                     <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{m.label}</div>
@@ -968,7 +972,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18 }}>
                 {/* Évolution */}
                 <div style={{ flex: '2 1 460px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Évolution (6 mois) — livré vs encaissé</p>
+                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Évolution (6 mois) — livré vs encaissé', 'Trend (6 months) — delivered vs collected')}</p>
                   <div style={{ height: 260 }}>
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={stats?.evolution ?? []} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
@@ -977,8 +981,8 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                         <YAxis tick={{ fontSize: 10, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={48} tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)}/>
                         <Tooltip formatter={(v: number) => `${fmtN(v)} XAF`}/>
                         <Legend wrapperStyle={{ fontSize: 11 }}/>
-                        <Bar dataKey="livre" name="Livré" fill={brand} radius={[3, 3, 0, 0]}/>
-                        <Bar dataKey="encaisse" name="Encaissé" fill="#15803d" radius={[3, 3, 0, 0]}/>
+                        <Bar dataKey="livre" name={t('Livré', 'Delivered')} fill={brand} radius={[3, 3, 0, 0]}/>
+                        <Bar dataKey="encaisse" name={t('Encaissé', 'Collected')} fill="#15803d" radius={[3, 3, 0, 0]}/>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -986,9 +990,9 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
 
                 {/* Top débiteurs (ventilé par agence) */}
                 <div style={{ flex: '1 1 280px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Top débiteurs <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-400)' }}>(par agence / commune)</span></p>
+                  <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Top débiteurs', 'Top debtors')} <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-400)' }}>{t('(par agence / commune)', '(by branch / shared)')}</span></p>
                   {(statsAg?.debiteurs ?? []).length === 0 ? (
-                    <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune créance — tout est réglé ✓</div>
+                    <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>{t('Aucune créance — tout est réglé ✓', 'No receivable — everything is settled ✓')}</div>
                   ) : (statsAg?.debiteurs ?? []).slice(0, 10).map((d, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 0', borderBottom: '1px solid var(--fs-line)', cursor: 'pointer' }}
                       onClick={() => { setCompteId(d.partenaireId); setTab('comptes'); }}>
@@ -1011,40 +1015,40 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
           {tab === 'commandes' && (
             <div style={{ maxWidth: 880 }}>
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: editingCmd ? 'var(--fs-wine-700)' : 'var(--fs-ink-900)' }}>{editingCmd ? '✎ Modifier la commande' : 'Nouvelle commande du grossiste'}</p>
+                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: editingCmd ? 'var(--fs-wine-700)' : 'var(--fs-ink-900)' }}>{editingCmd ? t('✎ Modifier la commande', '✎ Edit order') : t('Nouvelle commande du grossiste', 'New wholesale order')}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 120px', gap: 10, marginBottom: 14 }}>
                   <div>
-                    <label style={LABEL}>Partenaire</label>
+                    <label style={LABEL}>{t('Partenaire', 'Partner')}</label>
                     <select value={cmdPartId} onChange={e => setCmdPartId(e.target.value)} disabled={!!editingCmd} style={{ ...INPUT, cursor: editingCmd ? 'not-allowed' : 'pointer', opacity: editingCmd ? 0.6 : 1 }}>
-                      <option value="">— Choisir —</option>
+                      <option value="">{t('— Choisir —', '— Choose —')}</option>
                       {partenaires.map(p => <option key={p._id} value={p._id}>{p.name}{p.lieu ? ` · ${p.lieu}` : ''}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label style={LABEL}>Mode de paiement</label>
+                    <label style={LABEL}>{t('Mode de paiement', 'Payment method')}</label>
                     <select value={cmdMode} onChange={e => setCmdMode(e.target.value as ModePaiement)} style={{ ...INPUT, cursor: 'pointer' }}>
-                      <option value="comptant">Comptant</option>
-                      <option value="credit">Crédit</option>
-                      <option value="depot_vente">Dépôt-vente</option>
+                      <option value="comptant">{t('Comptant', 'Cash')}</option>
+                      <option value="credit">{t('Crédit', 'Credit')}</option>
+                      <option value="depot_vente">{t('Dépôt-vente', 'Consignment')}</option>
                     </select>
                   </div>
                   <div>
-                    <label style={LABEL}>Délai (jours)</label>
+                    <label style={LABEL}>{t('Délai (jours)', 'Term (days)')}</label>
                     <input type="number" min={0} value={cmdDelai} onChange={e => setCmdDelai(e.target.value)} placeholder="7" style={{ ...INPUT, textAlign: 'center' }}/>
                   </div>
                 </div>
 
                 {cmdAgences.length > 0 && (
                   <div style={{ marginBottom: 14 }}>
-                    <label style={LABEL}>Agence concernée</label>
+                    <label style={LABEL}>{t('Agence concernée', 'Branch concerned')}</label>
                     <select value={cmdAgenceId} onChange={e => setCmdAgenceId(e.target.value)} style={{ ...INPUT, cursor: 'pointer' }}>
-                      <option value="">— Aucune (commande au nom du partenaire) —</option>
-                      {cmdAgences.map(a => <option key={a._id} value={a._id}>{a.nom}{a.ville ? ` · ${a.ville}` : ''}{a.independante ? ' — indépendante' : ''}</option>)}
+                      <option value="">{t('— Aucune (commande au nom du partenaire) —', '— None (order in the partner\'s name) —')}</option>
+                      {cmdAgences.map(a => <option key={a._id} value={a._id}>{a.nom}{a.ville ? ` · ${a.ville}` : ''}{a.independante ? t(' — indépendante', ' — independent') : ''}</option>)}
                     </select>
                   </div>
                 )}
 
-                <label style={LABEL}>Produits commandés (livrés ensuite depuis l'entrepôt)</label>
+                <label style={LABEL}>{t('Produits commandés (livrés ensuite depuis l\'entrepôt)', 'Ordered products (delivered later from the warehouse)')}</label>
                 {cmdRows.map((row, i) => {
                   const prod = products.find(p => p._id === row.productId);
                   const dp = row.productId ? cmdDernierPrix[row.productId] : undefined;
@@ -1052,63 +1056,63 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                     <div key={i} style={{ marginBottom: 6 }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 110px 36px', gap: 6, alignItems: 'start' }}>
                         <ProductSelect products={products} value={row.productId} onChange={id => setCmdRow(i, { productId: id, prix: row.prix || (cmdDernierPrix[id] ? String(cmdDernierPrix[id]) : '') })}/>
-                        <input type="number" min={1} value={row.quantite} onChange={e => setCmdRow(i, { quantite: e.target.value })} placeholder="Qté" style={{ ...INPUT, textAlign: 'center' }}/>
+                        <input type="number" min={1} value={row.quantite} onChange={e => setCmdRow(i, { quantite: e.target.value })} placeholder={t('Qté', 'Qty')} style={{ ...INPUT, textAlign: 'center' }}/>
                         <div>
-                          <input type="number" min={0} value={row.prix} onChange={e => setCmdRow(i, { prix: e.target.value })} placeholder="Prix" style={{ ...INPUT, textAlign: 'center' }}/>
-                          {dp !== undefined && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', textAlign: 'center', marginTop: 2 }}>dernier : {fmtN(dp)}</div>}
+                          <input type="number" min={0} value={row.prix} onChange={e => setCmdRow(i, { prix: e.target.value })} placeholder={t('Prix', 'Price')} style={{ ...INPUT, textAlign: 'center' }}/>
+                          {dp !== undefined && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', textAlign: 'center', marginTop: 2 }}>{t('dernier', 'last')} : {fmtN(dp)}</div>}
                         </div>
-                        <button onClick={() => removeCmdRow(i)} title="Retirer" style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><I d={D.trash} size={13}/></button>
+                        <button onClick={() => removeCmdRow(i)} title={t('Retirer', 'Remove')} style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><I d={D.trash} size={13}/></button>
                       </div>
-                      {prod && <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 2, paddingLeft: 2 }}>Boutique : <strong>{prod.stock}</strong> · Entrepôt : <strong>{prod.stockMagazin ?? 0}</strong></div>}
+                      {prod && <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 2, paddingLeft: 2 }}>{t('Boutique', 'Shop')} : <strong>{prod.stock}</strong> · {t('Entrepôt', 'Warehouse')} : <strong>{prod.stockMagazin ?? 0}</strong></div>}
                     </div>
                   );
                 })}
                 <button onClick={addCmdRow} style={{ background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <I d={D.plus} size={13}/> Ajouter une ligne
+                  <I d={D.plus} size={13}/> {t('Ajouter une ligne', 'Add a line')}
                 </button>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--fs-line)' }}>
-                  <div style={{ fontSize: 13, color: 'var(--fs-ink-500)' }}>Total estimé : <strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(cmdTotal)} XAF</strong></div>
+                  <div style={{ fontSize: 13, color: 'var(--fs-ink-500)' }}>{t('Total estimé', 'Estimated total')} : <strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(cmdTotal)} XAF</strong></div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    {editingCmd && <button onClick={annulerEditionCmd} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>Annuler</button>}
-                    <button onClick={validerCommande} style={BTN_PRIMARY}>{editingCmd ? 'Enregistrer les modifications' : 'Enregistrer la commande'}</button>
+                    {editingCmd && <button onClick={annulerEditionCmd} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>{t('Annuler', 'Cancel')}</button>}
+                    <button onClick={validerCommande} style={BTN_PRIMARY}>{editingCmd ? t('Enregistrer les modifications', 'Save changes') : t('Enregistrer la commande', 'Save order')}</button>
                   </div>
                 </div>
               </div>
 
               {/* Liste des commandes */}
-              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>Commandes</p>
+              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{t('Commandes', 'Orders')}</p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 11, color: 'var(--fs-ink-500)', marginBottom: 10 }}>
-                <span><span style={{ fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef9e7', color: '#a16207' }}>Reçue</span> = enregistrée, rien n'est encore livré</span>
-                <span><span style={{ fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#eff6ff', color: '#2563eb' }}>Partielle</span> = une partie livrée, les produits en rouge restent à servir</span>
-                <span><span style={{ fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#f0fdf4', color: '#16a34a' }}>Livrée</span> = tout est servi (ou clôturée)</span>
+                <span><span style={{ fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#fef9e7', color: '#a16207' }}>{t('Reçue', 'Received')}</span> {t('= enregistrée, rien n\'est encore livré', '= recorded, nothing delivered yet')}</span>
+                <span><span style={{ fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#eff6ff', color: '#2563eb' }}>{t('Partielle', 'Partial')}</span> {t('= une partie livrée, les produits en rouge restent à servir', '= partly delivered, products in red are still to serve')}</span>
+                <span><span style={{ fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: '#f0fdf4', color: '#16a34a' }}>{t('Livrée', 'Delivered')}</span> {t('= tout est servi (ou clôturée)', '= everything served (or closed)')}</span>
               </div>
               {commandes.length === 0 ? (
-                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune commande</div>
+                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>{t('Aucune commande', 'No order')}</div>
               ) : (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflowX: 'auto', boxShadow: 'var(--fs-shadow-sm)' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--fs-ivory)' }}>
-                        <th style={{ padding: '8px 12px' }}>Partenaire / Agence</th>
-                        <th style={{ padding: '8px 12px' }}>Produits</th>
-                        <th style={{ padding: '8px 12px' }}>Statut</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Total</th>
-                        <th style={{ padding: '8px 12px' }}>Date</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Actions</th>
+                        <th style={{ padding: '8px 12px' }}>{t('Partenaire / Agence', 'Partner / Branch')}</th>
+                        <th style={{ padding: '8px 12px' }}>{t('Produits', 'Products')}</th>
+                        <th style={{ padding: '8px 12px' }}>{t('Statut', 'Status')}</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>{t('Total', 'Total')}</th>
+                        <th style={{ padding: '8px 12px' }}>{t('Date', 'Date')}</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>{t('Actions', 'Actions')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {commandes.map(c => {
                         const tot = c.lignes.reduce((s, l) => s + l.quantite * l.prixUnitaire, 0);
                         const ag = agenceLabel(c.agence);
-                        const statutCfg = c.statut === 'livree' ? { bg: '#f0fdf4', col: '#16a34a', txt: 'Livrée' } : c.statut === 'partielle' ? { bg: '#eff6ff', col: '#2563eb', txt: 'Partielle' } : c.statut === 'preparee' ? { bg: '#eff6ff', col: '#2563eb', txt: 'Préparée' } : { bg: '#fef9e7', col: '#a16207', txt: 'Reçue' };
+                        const statutCfg = c.statut === 'livree' ? { bg: '#f0fdf4', col: '#16a34a', txt: t('Livrée', 'Delivered') } : c.statut === 'partielle' ? { bg: '#eff6ff', col: '#2563eb', txt: t('Partielle', 'Partial') } : c.statut === 'preparee' ? { bg: '#eff6ff', col: '#2563eb', txt: t('Préparée', 'Prepared') } : { bg: '#fef9e7', col: '#a16207', txt: t('Reçue', 'Received') };
                         return (
                           <tr key={c._id} style={{ borderTop: '1px solid var(--fs-line)', verticalAlign: 'top' }}>
                             <td style={{ padding: '9px 12px' }}>
                               <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)' }}>{typeof c.partenaire === 'object' ? c.partenaire.name : '—'}</div>
                               {ag && <div style={{ fontSize: 10, fontWeight: 700, color: '#2563eb' }}>{ag}</div>}
-                              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{c.numero}{c.delai ? ` · délai ${c.delai}j` : ''}</div>
+                              <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{c.numero}{c.delai ? t(` · délai ${c.delai}j`, ` · term ${c.delai}d`) : ''}</div>
                             </td>
                             <td style={{ padding: '9px 12px' }}>
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, maxWidth: 280 }}>
@@ -1116,13 +1120,13 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                                   const resteLg = Math.max(0, (lg.quantite ?? 0) - (lg.quantiteLivree ?? 0));
                                   const enAttente = c.statut === 'partielle' && resteLg > 0;
                                   return (
-                                    <span key={i} title={enAttente ? `${resteLg} sur ${lg.quantite} pas encore servi(s) — c'est pour ça que la commande est « Partielle »` : undefined}
+                                    <span key={i} title={enAttente ? t(`${resteLg} sur ${lg.quantite} pas encore servi(s) — c'est pour ça que la commande est « Partielle »`, `${resteLg} of ${lg.quantite} not yet served — that is why the order is "Partial"`) : undefined}
                                       style={{ fontSize: 11, borderRadius: 6, padding: '2px 8px',
                                         background: enAttente ? '#fef2f2' : 'var(--fs-ivory)',
                                         border: enAttente ? '1px solid rgba(194,62,36,0.35)' : '1px solid var(--fs-line)',
                                         color: enAttente ? 'var(--fs-danger-700)' : 'var(--fs-ink-700)',
                                         fontWeight: enAttente ? 700 : 400 }}>
-                                      {lg.productName} × <strong>{lg.quantite}</strong>{enAttente && <> · reste {resteLg}</>}
+                                      {lg.productName} × <strong>{lg.quantite}</strong>{enAttente && <> · {t('reste', 'left')} {resteLg}</>}
                                     </span>
                                   );
                                 })}
@@ -1132,7 +1136,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                               <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: statutCfg.bg, color: statutCfg.col }}>{statutCfg.txt}</span>
                               {c.statut === 'partielle' && (() => {
                                 const resteTot = c.lignes.reduce((s, l) => s + Math.max(0, (l.quantite ?? 0) - (l.quantiteLivree ?? 0)), 0);
-                                return <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-danger-700)', marginTop: 3 }}>{fmtN(resteTot)} article(s) à servir</div>;
+                                return <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-danger-700)', marginTop: 3 }}>{fmtN(resteTot)} {t('article(s) à servir', 'item(s) to serve')}</div>;
                               })()}
                               <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 3 }}>{MODE_LABELS[c.modePaiement]}</div>
                             </td>
@@ -1140,20 +1144,20 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                             <td style={{ padding: '9px 12px', fontSize: 11, color: 'var(--fs-ink-500)', whiteSpace: 'nowrap' }}>{fmtDateTime(c.createdAt)}</td>
                             <td style={{ padding: '9px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                               {c.statut !== 'livree'
-                                ? <button onClick={() => setTab('preparer')} title="Préparer / livrer" style={{ padding: '5px 10px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Préparer →</button>
+                                ? <button onClick={() => setTab('preparer')} title={t('Préparer / livrer', 'Prepare / deliver')} style={{ padding: '5px 10px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{t('Préparer →', 'Prepare →')}</button>
                                 : <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓</span>}
                               {c.statut === 'partielle' && (
                                 confirmClotureId === c._id ? (
-                                  <button onClick={() => cloturerCommande(c)} title="Confirmer : le reste ne sera pas livré"
-                                    style={{ marginLeft: 6, padding: '5px 10px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Confirmer ?</button>
+                                  <button onClick={() => cloturerCommande(c)} title={t('Confirmer : le reste ne sera pas livré', 'Confirm: the remainder will not be delivered')}
+                                    style={{ marginLeft: 6, padding: '5px 10px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{t('Confirmer ?', 'Confirm?')}</button>
                                 ) : (
-                                  <button onClick={() => setConfirmClotureId(c._id)} title="Clôturer : marquer comme livrée même si un reliquat n'a pas été servi (rupture, remplacement…)"
-                                    style={{ marginLeft: 6, padding: '5px 10px', background: '#fff', color: '#16a34a', border: '1.5px solid #16a34a', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✓ Clôturer</button>
+                                  <button onClick={() => setConfirmClotureId(c._id)} title={t('Clôturer : marquer comme livrée même si un reliquat n\'a pas été servi (rupture, remplacement…)', 'Close: mark as delivered even if a remainder was not served (out of stock, replacement…)')}
+                                    style={{ marginLeft: 6, padding: '5px 10px', background: '#fff', color: '#16a34a', border: '1.5px solid #16a34a', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{t('✓ Clôturer', '✓ Close')}</button>
                                 )
                               )}
-                              {c.statut === 'recue' && <button onClick={() => chargerCommandePourEdition(c)} title="Modifier la commande" style={{ marginLeft: 6, padding: '5px 8px', background: 'var(--fs-ivory)', color: 'var(--fs-ink-600)', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.edit} size={13}/></button>}
-                              <button onClick={() => imprimerCommande(c)} title="Imprimer le bon de commande" style={{ marginLeft: 6, padding: '5px 8px', background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.print} size={13}/></button>
-                              <button onClick={() => supprimerCommande(c)} title={c.statut === 'livree' || c.statut === 'partielle' ? 'Annuler (restitue le stock)' : 'Supprimer'} style={{ marginLeft: 6, padding: '5px 8px', background: '#fef2f2', color: 'var(--fs-danger-700)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.trash} size={13}/></button>
+                              {c.statut === 'recue' && <button onClick={() => chargerCommandePourEdition(c)} title={t('Modifier la commande', 'Edit order')} style={{ marginLeft: 6, padding: '5px 8px', background: 'var(--fs-ivory)', color: 'var(--fs-ink-600)', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.edit} size={13}/></button>}
+                              <button onClick={() => imprimerCommande(c)} title={t('Imprimer le bon de commande', 'Print the purchase order')} style={{ marginLeft: 6, padding: '5px 8px', background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.print} size={13}/></button>
+                              <button onClick={() => supprimerCommande(c)} title={c.statut === 'livree' || c.statut === 'partielle' ? t('Annuler (restitue le stock)', 'Cancel (returns stock)') : t('Supprimer', 'Delete')} style={{ marginLeft: 6, padding: '5px 8px', background: '#fef2f2', color: 'var(--fs-danger-700)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, cursor: 'pointer', display: 'inline-flex' }}><I d={D.trash} size={13}/></button>
                             </td>
                           </tr>
                         );
@@ -1169,16 +1173,16 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
           {tab === 'preparer' && (
             <div style={{ maxWidth: 880 }}>
               <div style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 12, color: 'var(--fs-ink-600)' }}>
-                Saisissez les <strong>quantités réellement servies</strong> depuis l'entrepôt. Si vous servez moins que commandé, le <strong>reliquat reste ouvert</strong> et la commande revient ici jusqu'à livraison complète.
+                {t('Saisissez les ', 'Enter the ')}<strong>{t('quantités réellement servies', 'quantities actually served')}</strong>{t(' depuis l\'entrepôt. Si vous servez moins que commandé, le ', ' from the warehouse. If you serve less than ordered, the ')}<strong>{t('reliquat reste ouvert', 'remainder stays open')}</strong>{t(' et la commande revient ici jusqu\'à livraison complète.', ' and the order comes back here until fully delivered.')}
               </div>
 
               {(() => {
                 const aPreparer = commandes.filter(c => c.statut === 'recue' || c.statut === 'preparee' || c.statut === 'partielle');
-                if (aPreparer.length === 0) return <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune commande à préparer ✓</div>;
+                if (aPreparer.length === 0) return <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>{t('Aucune commande à préparer ✓', 'No order to prepare ✓')}</div>;
                 return aPreparer.map(c => {
                   const part = typeof c.partenaire === 'object' ? c.partenaire.name : '—';
                   const ag = agenceLabel(c.agence);
-                  const statutCfg = c.statut === 'partielle' ? { bg: '#eff6ff', col: '#2563eb', txt: 'Partielle' } : { bg: '#fef9e7', col: '#a16207', txt: 'Reçue' };
+                  const statutCfg = c.statut === 'partielle' ? { bg: '#eff6ff', col: '#2563eb', txt: t('Partielle', 'Partial') } : { bg: '#fef9e7', col: '#a16207', txt: t('Reçue', 'Received') };
                   const serviDe = (l: typeof c.lignes[number]) => { const kk = `${c._id}|${l.productId}`; const v = prepQty[kk]; return (v !== undefined && v !== '') ? (parseInt(v) || 0) : resteLigne(l); };
                   const stockDe = (l: typeof c.lignes[number]) => products.find(p => p._id === l.productId)?.stockMagazin ?? 0;
                   const enRupture = c.lignes.some(l => serviDe(l) > stockDe(l));
@@ -1196,12 +1200,12 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                         <thead>
                           <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                            <th style={{ padding: '5px 6px' }}>Produit</th>
-                            <th style={{ padding: '5px 6px', textAlign: 'center' }}>Commandé</th>
-                            <th style={{ padding: '5px 6px', textAlign: 'center' }}>Déjà livré</th>
-                            <th style={{ padding: '5px 6px', textAlign: 'center' }}>Reste</th>
-                            <th style={{ padding: '5px 6px', textAlign: 'center' }}>Entrepôt</th>
-                            <th style={{ padding: '5px 6px', textAlign: 'center', width: 110 }}>À servir</th>
+                            <th style={{ padding: '5px 6px' }}>{t('Produit', 'Product')}</th>
+                            <th style={{ padding: '5px 6px', textAlign: 'center' }}>{t('Commandé', 'Ordered')}</th>
+                            <th style={{ padding: '5px 6px', textAlign: 'center' }}>{t('Déjà livré', 'Already delivered')}</th>
+                            <th style={{ padding: '5px 6px', textAlign: 'center' }}>{t('Reste', 'Left')}</th>
+                            <th style={{ padding: '5px 6px', textAlign: 'center' }}>{t('Entrepôt', 'Warehouse')}</th>
+                            <th style={{ padding: '5px 6px', textAlign: 'center', width: 110 }}>{t('À servir', 'To serve')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1232,19 +1236,19 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
 
                       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--fs-line)' }}>
                         {enRupture
-                          ? <span style={{ fontSize: 12, color: 'var(--fs-danger-700)', fontWeight: 700 }}>⚠ Stock entrepôt insuffisant — réduisez les quantités à servir</span>
-                          : <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>Vide = on sert tout le reste</span>}
+                          ? <span style={{ fontSize: 12, color: 'var(--fs-danger-700)', fontWeight: 700 }}>{t('⚠ Stock entrepôt insuffisant — réduisez les quantités à servir', '⚠ Insufficient warehouse stock — reduce the quantities to serve')}</span>
+                          : <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{t('Vide = on sert tout le reste', 'Blank = serve the whole remainder')}</span>}
                         {c.statut === 'partielle' && (
                           confirmClotureId === c._id ? (
-                            <button onClick={() => cloturerCommande(c)} title="Confirmer : le reste ne sera pas livré"
-                              style={{ padding: '9px 16px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 9, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>Confirmer la clôture ?</button>
+                            <button onClick={() => cloturerCommande(c)} title={t('Confirmer : le reste ne sera pas livré', 'Confirm: the remainder will not be delivered')}
+                              style={{ padding: '9px 16px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 9, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>{t('Confirmer la clôture ?', 'Confirm closing?')}</button>
                           ) : (
-                            <button onClick={() => setConfirmClotureId(c._id)} title="Le reliquat ne sera jamais servi (rupture, remplacement…) : marquer la commande comme livrée"
-                              style={{ padding: '9px 16px', background: '#fff', color: '#16a34a', border: '1.5px solid #16a34a', borderRadius: 9, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>✓ Clôturer sans livrer le reste</button>
+                            <button onClick={() => setConfirmClotureId(c._id)} title={t('Le reliquat ne sera jamais servi (rupture, remplacement…) : marquer la commande comme livrée', 'The remainder will never be served (out of stock, replacement…): mark the order as delivered')}
+                              style={{ padding: '9px 16px', background: '#fff', color: '#16a34a', border: '1.5px solid #16a34a', borderRadius: 9, fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>{t('✓ Clôturer sans livrer le reste', '✓ Close without delivering the rest')}</button>
                           )
                         )}
                         <button onClick={() => validerPreparation(c)} disabled={prepLoading === c._id || enRupture} style={{ ...BTN_PRIMARY, opacity: (prepLoading === c._id || enRupture) ? 0.5 : 1, cursor: enRupture ? 'not-allowed' : 'pointer' }}>
-                          {prepLoading === c._id ? 'Validation…' : 'Valider la livraison'}
+                          {prepLoading === c._id ? t('Validation…', 'Confirming…') : t('Valider la livraison', 'Confirm delivery')}
                         </button>
                       </div>
                     </div>
@@ -1258,29 +1262,29 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
           {tab === 'livraisons' && (
             <div style={{ maxWidth: 820 }}>
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                <label style={LABEL}>Partenaire</label>
+                <label style={LABEL}>{t('Partenaire', 'Partner')}</label>
                 <select value={partId} onChange={e => setPartId(e.target.value)} style={{ ...INPUT, cursor: 'pointer', marginBottom: 14 }}>
-                  <option value="">— Choisir un partenaire —</option>
+                  <option value="">{t('— Choisir un partenaire —', '— Choose a partner —')}</option>
                   {partenaires.map(p => <option key={p._id} value={p._id}>{p.name}{p.lieu ? ` · ${p.lieu}` : ''}</option>)}
                 </select>
                 {partenaires.length === 0 && (
                   <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', marginBottom: 12 }}>
-                    Aucun partenaire — créez-en un dans l'onglet « Partenaires ».
+                    {t('Aucun partenaire — créez-en un dans l\'onglet « Partenaires ».', 'No partner — create one in the "Partners" tab.')}
                   </div>
                 )}
 
-                <label style={LABEL}>Produits livrés (depuis l'entrepôt)</label>
+                <label style={LABEL}>{t('Produits livrés (depuis l\'entrepôt)', 'Delivered products (from the warehouse)')}</label>
                 {rows.map((row, i) => {
                   const dp = row.productId ? dernierPrix[row.productId] : undefined;
                   return (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 80px 110px 36px', gap: 6, marginBottom: 6, alignItems: 'start' }}>
                       <ProductSelect products={warehouse} value={row.productId} onChange={id => setRow(i, { productId: id, prix: row.prix || (dernierPrix[id] ? String(dernierPrix[id]) : '') })}/>
-                      <input type="number" min={1} value={row.quantite} onChange={e => setRow(i, { quantite: e.target.value })} placeholder="Qté" style={{ ...INPUT, textAlign: 'center' }}/>
+                      <input type="number" min={1} value={row.quantite} onChange={e => setRow(i, { quantite: e.target.value })} placeholder={t('Qté', 'Qty')} style={{ ...INPUT, textAlign: 'center' }}/>
                       <div>
-                        <input type="number" min={0} value={row.prix} onChange={e => setRow(i, { prix: e.target.value })} placeholder="Prix" style={{ ...INPUT, textAlign: 'center' }}/>
-                        {dp !== undefined && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', textAlign: 'center', marginTop: 2 }}>dernier : {fmtN(dp)}</div>}
+                        <input type="number" min={0} value={row.prix} onChange={e => setRow(i, { prix: e.target.value })} placeholder={t('Prix', 'Price')} style={{ ...INPUT, textAlign: 'center' }}/>
+                        {dp !== undefined && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', textAlign: 'center', marginTop: 2 }}>{t('dernier', 'last')} : {fmtN(dp)}</div>}
                       </div>
-                      <button onClick={() => removeRow(i)} title="Retirer"
+                      <button onClick={() => removeRow(i)} title={t('Retirer', 'Remove')}
                         style={{ padding: '8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', color: 'var(--fs-danger-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <I d={D.trash} size={13}/>
                       </button>
@@ -1288,36 +1292,36 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                   );
                 })}
                 <button onClick={addRow} style={{ background: '#fff', color: 'var(--fs-wine-700)', border: '1.5px solid var(--fs-wine-700)', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', padding: '7px 16px', display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <I d={D.plus} size={13}/> Ajouter une ligne
+                  <I d={D.plus} size={13}/> {t('Ajouter une ligne', 'Add a line')}
                 </button>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-end', marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--fs-line)' }}>
                   <div style={{ width: 150 }}>
-                    <label style={LABEL}>Mode de paiement</label>
+                    <label style={LABEL}>{t('Mode de paiement', 'Payment method')}</label>
                     <select value={livMode} onChange={e => setLivMode(e.target.value as ModePaiement)} style={{ ...INPUT, cursor: 'pointer' }}>
-                      <option value="comptant">Comptant</option>
-                      <option value="credit">Crédit</option>
-                      <option value="depot_vente">Dépôt-vente</option>
+                      <option value="comptant">{t('Comptant', 'Cash')}</option>
+                      <option value="credit">{t('Crédit', 'Credit')}</option>
+                      <option value="depot_vente">{t('Dépôt-vente', 'Consignment')}</option>
                     </select>
                   </div>
                   <div style={{ width: 150 }}>
-                    <label style={LABEL}>Montant payé (XAF)</label>
+                    <label style={LABEL}>{t('Montant payé (XAF)', 'Amount paid (XAF)')}</label>
                     <input type="number" min={0} value={montantPaye} onChange={e => setMontantPaye(e.target.value)} placeholder="0" style={{ ...INPUT, textAlign: 'center' }}/>
                   </div>
                   <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--fs-ink-500)' }}>Total</span><strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(total)} XAF</strong></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--fs-ink-500)' }}>Reste dû (créance)</span><strong style={{ fontFamily: 'var(--fs-font-mono)', color: creance > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(creance)} XAF</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--fs-ink-500)' }}>{t('Total', 'Total')}</span><strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(total)} XAF</strong></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--fs-ink-500)' }}>{t('Reste dû (créance)', 'Balance due (receivable)')}</span><strong style={{ fontFamily: 'var(--fs-font-mono)', color: creance > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(creance)} XAF</strong></div>
                   </div>
                   <button onClick={validerLivraison} disabled={loadingLiv} style={{ ...BTN_PRIMARY, opacity: loadingLiv ? 0.7 : 1 }}>
-                    {loadingLiv ? 'Validation…' : 'Valider la livraison'}
+                    {loadingLiv ? t('Validation…', 'Confirming…') : t('Valider la livraison', 'Confirm delivery')}
                   </button>
                 </div>
               </div>
 
               {/* Historique des livraisons */}
-              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>Dernières livraisons</p>
+              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>{t('Dernières livraisons', 'Latest deliveries')}</p>
               {livraisons.length === 0 ? (
-                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune livraison enregistrée</div>
+                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>{t('Aucune livraison enregistrée', 'No delivery recorded')}</div>
               ) : livraisons.slice(0, 30).map(l => (
                 <div key={l._id} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 8, boxShadow: 'var(--fs-shadow-sm)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
@@ -1326,13 +1330,13 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{l.numeroBL} · {fmtDateTime(l.createdAt)}</div>
-                      <button onClick={() => ouvrirEditLivraison(l._id)} title="Modifier cette livraison"
-                        style={{ padding: '4px 9px', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✎ Modifier</button>
+                      <button onClick={() => ouvrirEditLivraison(l._id)} title={t('Modifier cette livraison', 'Edit this delivery')}
+                        style={{ padding: '4px 9px', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{t('✎ Modifier', '✎ Edit')}</button>
                       {confirmDelLivId === l._id ? (
-                        <button onClick={() => supprimerLivraison(l._id)} title="Confirmer la suppression"
-                          style={{ padding: '4px 9px', border: 'none', borderRadius: 7, background: 'var(--fs-danger-700)', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Confirmer ?</button>
+                        <button onClick={() => supprimerLivraison(l._id)} title={t('Confirmer la suppression', 'Confirm deletion')}
+                          style={{ padding: '4px 9px', border: 'none', borderRadius: 7, background: 'var(--fs-danger-700)', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{t('Confirmer ?', 'Confirm?')}</button>
                       ) : (
-                        <button onClick={() => setConfirmDelLivId(l._id)} title="Supprimer (stock restitué à l'entrepôt)"
+                        <button onClick={() => setConfirmDelLivId(l._id)} title={t('Supprimer (stock restitué à l\'entrepôt)', 'Delete (stock returned to the warehouse)')}
                           style={{ padding: '4px 9px', border: '1px solid rgba(194,62,36,0.25)', borderRadius: 7, background: '#fef2f2', color: 'var(--fs-danger-700)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>🗑</button>
                       )}
                     </div>
@@ -1345,7 +1349,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                     ))}
                   </div>
                   <div style={{ marginTop: 6, fontSize: 11, color: 'var(--fs-ink-500)' }}>
-                    Payé : {fmtN(l.montantPaye)} XAF · Reste : <strong style={{ color: (l.total - l.montantPaye) > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(Math.max(0, l.total - l.montantPaye))} XAF</strong>
+                    {t('Payé', 'Paid')} : {fmtN(l.montantPaye)} XAF · {t('Reste', 'Left')} : <strong style={{ color: (l.total - l.montantPaye) > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(Math.max(0, l.total - l.montantPaye))} XAF</strong>
                   </div>
                 </div>
               ))}
@@ -1357,21 +1361,21 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
             <div style={{ maxWidth: 860 }}>
               {!compteId ? (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '32px 20px', textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, boxShadow: 'var(--fs-shadow-sm)' }}>
-                  ← Sélectionne un partenaire dans la liste à gauche pour voir son détail (agences, dette par agence, versements), ou crée-en un avec « <strong>Nouveau</strong> ».
+                  {t('← Sélectionne un partenaire dans la liste à gauche pour voir son détail (agences, dette par agence, versements), ou crée-en un avec « ', '← Select a partner in the list on the left to see their details (branches, debt per branch, payments), or create one with "')}<strong>{t('Nouveau', 'New')}</strong>{t(' ».', '".')}
                 </div>
               ) : !compteAg ? (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '32px 20px', textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, boxShadow: 'var(--fs-shadow-sm)' }}>
-                  Chargement du partenaire…
+                  {t('Chargement du partenaire…', 'Loading partner…')}
                 </div>
               ) : (
                 (() => {
                   const nbActives = compteAg.agences.filter(a => !a.archivee).length;
                   const nbIndep = compteAg.agences.filter(a => a.independante && !a.archivee).length;
                   const sub = [
-                    compteAg.partenaire.type === 'particulier' ? 'Particulier' : 'Structure',
+                    compteAg.partenaire.type === 'particulier' ? t('Particulier', 'Individual') : t('Structure', 'Organisation'),
                     [compteAg.partenaire.ville, compteAg.partenaire.quartier].filter(Boolean).join(' '),
                     compteAg.partenaire.phone, compteAg.partenaire.responsable,
-                    nbActives > 0 ? `${nbIndep} agence(s) indépendante(s) / ${nbActives}` : '',
+                    nbActives > 0 ? t(`${nbIndep} agence(s) indépendante(s) / ${nbActives}`, `${nbIndep} independent branch(es) / ${nbActives}`) : '',
                   ].filter(Boolean).join(' · ');
                   const GHOST = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: 'pointer', color: 'var(--fs-ink-700)' } as React.CSSProperties;
                   return (
@@ -1385,15 +1389,15 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                       <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', marginTop: 3 }}>{sub}</div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button onClick={() => ouvrirEditPartenaire(compteAg.partenaire)} style={GHOST}><I d={D.edit} size={14}/> Modifier</button>
-                      <button onClick={() => { if (window.confirm(`Supprimer le partenaire « ${compteAg.partenaire.name} » ?`)) { removePartenaire(compteId); setCompteId(''); setTab('dashboard'); } }} style={{ ...GHOST, color: 'var(--fs-danger-700)', borderColor: 'rgba(194,62,36,0.3)' }}><I d={D.trash} size={14}/> Supprimer</button>
-                      <button onClick={() => ouvrirNouvelleAgence(compteAg.partenaire)} style={GHOST}><I d={D.plus} size={14}/> Ajouter une agence</button>
-                      <button onClick={() => { setRetourRows([{ productId: '', quantite: '1', prix: '' }]); setShowRetour(true); }} style={{ ...GHOST, color: '#B45309', borderColor: 'rgba(180,83,9,0.35)' }}>↩ Retour d'invendus</button>
+                      <button onClick={() => ouvrirEditPartenaire(compteAg.partenaire)} style={GHOST}><I d={D.edit} size={14}/> {t('Modifier', 'Edit')}</button>
+                      <button onClick={() => { if (window.confirm(t(`Supprimer le partenaire « ${compteAg.partenaire.name} » ?`, `Delete partner "${compteAg.partenaire.name}"?`))) { removePartenaire(compteId); setCompteId(''); setTab('dashboard'); } }} style={{ ...GHOST, color: 'var(--fs-danger-700)', borderColor: 'rgba(194,62,36,0.3)' }}><I d={D.trash} size={14}/> {t('Supprimer', 'Delete')}</button>
+                      <button onClick={() => ouvrirNouvelleAgence(compteAg.partenaire)} style={GHOST}><I d={D.plus} size={14}/> {t('Ajouter une agence', 'Add a branch')}</button>
+                      <button onClick={() => { setRetourRows([{ productId: '', quantite: '1', prix: '' }]); setShowRetour(true); }} style={{ ...GHOST, color: '#B45309', borderColor: 'rgba(180,83,9,0.35)' }}>{t('↩ Retour d\'invendus', '↩ Return of unsold goods')}</button>
                       {nbActives > 0 && <>
-                        <button onClick={() => setToutesAgences(true)} style={GHOST}><I d={D.unlink} size={14}/> Toutes indépendantes</button>
-                        <button onClick={() => setToutesAgences(false)} style={GHOST}><I d={D.link} size={14}/> Toutes en commun</button>
+                        <button onClick={() => setToutesAgences(true)} style={GHOST}><I d={D.unlink} size={14}/> {t('Toutes indépendantes', 'All independent')}</button>
+                        <button onClick={() => setToutesAgences(false)} style={GHOST}><I d={D.link} size={14}/> {t('Toutes en commun', 'All shared')}</button>
                       </>}
-                      <button onClick={imprimerReleve} style={GHOST}><I d={D.print} size={14}/> Imprimer</button>
+                      <button onClick={imprimerReleve} style={GHOST}><I d={D.print} size={14}/> {t('Imprimer', 'Print')}</button>
                     </div>
                   </div>
                 </div>
@@ -1412,15 +1416,15 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                 const rowActions = (a: typeof compteAg.agences[number]) => (
                   <td style={{ padding: '8px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {a.archivee ? (
-                      <button onClick={() => { const f = agences.find(x => x._id === a._id); if (f) reactiverAgence(f); }} style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-600)', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, padding: '3px 9px', cursor: 'pointer' }}>Réactiver</button>
+                      <button onClick={() => { const f = agences.find(x => x._id === a._id); if (f) reactiverAgence(f); }} style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-600)', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, padding: '3px 9px', cursor: 'pointer' }}>{t('Réactiver', 'Reactivate')}</button>
                     ) : (
                       <>
-                        {a.independante && <button onClick={() => setPaieAgenceId(a._id)} title="Verser sur cette agence" style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-wine-700)', background: '#fff', border: '1.5px solid var(--fs-wine-700)', borderRadius: 7, padding: '3px 9px', cursor: 'pointer', marginRight: 5 }}>Verser</button>}
-                        <button onClick={() => { const f = agences.find(x => x._id === a._id); if (f) toggleIndependante(f); }} title={a.independante ? 'Mettre en dette commune' : 'Rendre indépendante'} style={{ fontSize: 11, fontWeight: 700, color: a.independante ? 'var(--fs-ink-500)' : '#2563eb', background: '#fff', border: `1.5px solid ${a.independante ? 'var(--fs-line-2)' : '#bfdbfe'}`, borderRadius: 7, padding: '3px 9px', cursor: 'pointer' }}>{a.independante ? 'Commune' : 'Indép.'}</button>
+                        {a.independante && <button onClick={() => setPaieAgenceId(a._id)} title={t('Verser sur cette agence', 'Pay on this branch')} style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-wine-700)', background: '#fff', border: '1.5px solid var(--fs-wine-700)', borderRadius: 7, padding: '3px 9px', cursor: 'pointer', marginRight: 5 }}>{t('Verser', 'Pay')}</button>}
+                        <button onClick={() => { const f = agences.find(x => x._id === a._id); if (f) toggleIndependante(f); }} title={a.independante ? t('Mettre en dette commune', 'Move to shared debt') : t('Rendre indépendante', 'Make independent')} style={{ fontSize: 11, fontWeight: 700, color: a.independante ? 'var(--fs-ink-500)' : '#2563eb', background: '#fff', border: `1.5px solid ${a.independante ? 'var(--fs-line-2)' : '#bfdbfe'}`, borderRadius: 7, padding: '3px 9px', cursor: 'pointer' }}>{a.independante ? t('Commune', 'Shared') : t('Indép.', 'Indep.')}</button>
                       </>
                     )}
-                    <button onClick={() => { const f = agences.find(x => x._id === a._id); if (f) ouvrirEditAgence(f); }} title="Modifier l'agence" style={{ marginLeft: 5, padding: '4px 6px', background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex' }}><I d={D.edit} size={12}/></button>
-                    <button onClick={() => { const f = agences.find(x => x._id === a._id); if (f) supprimerAgence(f); }} title="Archiver / supprimer" style={{ marginLeft: 5, padding: '4px 6px', background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex' }}><I d={D.trash} size={12}/></button>
+                    <button onClick={() => { const f = agences.find(x => x._id === a._id); if (f) ouvrirEditAgence(f); }} title={t('Modifier l\'agence', 'Edit branch')} style={{ marginLeft: 5, padding: '4px 6px', background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex' }}><I d={D.edit} size={12}/></button>
+                    <button onClick={() => { const f = agences.find(x => x._id === a._id); if (f) supprimerAgence(f); }} title={t('Archiver / supprimer', 'Archive / delete')} style={{ marginLeft: 5, padding: '4px 6px', background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex' }}><I d={D.trash} size={12}/></button>
                   </td>
                 );
                 return (
@@ -1428,16 +1432,16 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                   {/* Astuce */}
                   {compteAg.agences.length > 0 && (
                     <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#1e40af', marginBottom: 16 }}>
-                      <strong>Astuce :</strong> le bouton <strong>Indép. / Commune</strong> rend <strong>une seule</strong> agence indépendante (elle règle sa propre dette) ou la remet dans la dette commune. C'est ainsi qu'une agence peut être autonome pendant que les autres restent groupées.
+                      <strong>{t('Astuce :', 'Tip:')}</strong>{t(' le bouton ', ' the ')}<strong>{t('Indép. / Commune', 'Indep. / Shared')}</strong>{t(' rend ', ' button makes ')}<strong>{t('une seule', 'a single')}</strong>{t(' agence indépendante (elle règle sa propre dette) ou la remet dans la dette commune. C\'est ainsi qu\'une agence peut être autonome pendant que les autres restent groupées.', ' branch independent (it settles its own debt) or puts it back into the shared debt. That is how one branch can be autonomous while the others stay grouped.')}
                     </div>
                   )}
 
                   {/* Totaux */}
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
                     {[
-                      { label: 'Total livré', val: compteAg.totalLivre, color: 'var(--fs-ink-900)' },
-                      { label: 'Dette commune', val: compteAg.detteCommune, color: 'var(--fs-ink-700)' },
-                      { label: 'Dette totale', val: detteTotale, color: 'var(--fs-danger-700)' },
+                      { label: t('Total livré', 'Total delivered'), val: compteAg.totalLivre, color: 'var(--fs-ink-900)' },
+                      { label: t('Dette commune', 'Shared debt'), val: compteAg.detteCommune, color: 'var(--fs-ink-700)' },
+                      { label: t('Dette totale', 'Total debt'), val: detteTotale, color: 'var(--fs-danger-700)' },
                     ].map(m => (
                       <div key={m.label} style={{ ...CARD, flex: '1 1 180px', marginBottom: 0, padding: '14px 18px' }}>
                         <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}</div>
@@ -1449,24 +1453,24 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                   {/* Agences indépendantes */}
                   {indeps.length > 0 && (
                     <div style={CARD}>
-                      <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Agences indépendantes <span style={{ fontSize: 11, fontWeight: 600, color: '#2563eb' }}>— règlent leur propre dette</span></p>
+                      <p style={{ margin: '0 0 12px', fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Agences indépendantes', 'Independent branches')} <span style={{ fontSize: 11, fontWeight: 600, color: '#2563eb' }}>{t('— règlent leur propre dette', '— settle their own debt')}</span></p>
                       <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                           <thead>
                             <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                              <th style={{ padding: '6px 8px' }}>Agence</th>
-                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Qté cmd.</th>
-                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Livré</th>
-                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Versé</th>
-                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Solde dû</th>
-                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Actions</th>
+                              <th style={{ padding: '6px 8px' }}>{t('Agence', 'Branch')}</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Qté cmd.', 'Qty ord.')}</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Livré', 'Delivered')}</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Versé', 'Paid')}</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Solde dû', 'Balance due')}</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Actions', 'Actions')}</th>
                             </tr>
                           </thead>
                           <tbody>
                             {indeps.map(a => (
                               <tr key={a._id} style={{ borderTop: '1px solid var(--fs-line)', opacity: a.archivee ? 0.55 : 1 }}>
                                 <td style={{ padding: '8px' }}>
-                                  <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)' }}>{a.nom}{a.archivee ? ' (archivée)' : ''}</div>
+                                  <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)' }}>{a.nom}{a.archivee ? t(' (archivée)', ' (archived)') : ''}</div>
                                   <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{a.ville || '—'}</div>
                                 </td>
                                 <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)' }}>{fmtN(a.qteCommandee)}</td>
@@ -1482,17 +1486,17 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                       {/* Versement sur agence indépendante */}
                       <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--fs-line)', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
                         <div style={{ width: 230 }}>
-                          <label style={LABEL}>Agence à régler</label>
+                          <label style={LABEL}>{t('Agence à régler', 'Branch to settle')}</label>
                           <select value={paieAgenceId} onChange={e => setPaieAgenceId(e.target.value)} style={{ ...INPUT, cursor: 'pointer' }}>
-                            <option value="">— Choisir —</option>
-                            {indeps.filter(a => !a.archivee).map(a => <option key={a._id} value={a._id}>{a.nom}{a.ville ? ` · ${a.ville}` : ''} — doit {fmtN(a.solde)}</option>)}
+                            <option value="">{t('— Choisir —', '— Choose —')}</option>
+                            {indeps.filter(a => !a.archivee).map(a => <option key={a._id} value={a._id}>{a.nom}{a.ville ? ` · ${a.ville}` : ''} — {t('doit', 'owes')} {fmtN(a.solde)}</option>)}
                           </select>
                         </div>
                         <div style={{ width: 160 }}>
-                          <label style={LABEL}>Montant versé</label>
+                          <label style={LABEL}>{t('Montant versé', 'Amount paid')}</label>
                           <input type="number" min={0} value={paieMontant} onChange={e => setPaieMontant(e.target.value)} placeholder="0" style={{ ...INPUT, textAlign: 'center' }}/>
                         </div>
-                        <button onClick={enregistrerPaiement} style={{ ...BTN_PRIMARY, opacity: paieAgenceId ? 1 : 0.5 }}><I d={D.compte} size={14}/> Enregistrer le versement</button>
+                        <button onClick={enregistrerPaiement} style={{ ...BTN_PRIMARY, opacity: paieAgenceId ? 1 : 0.5 }}><I d={D.compte} size={14}/> {t('Enregistrer le versement', 'Save payment')}</button>
                       </div>
                     </div>
                   )}
@@ -1500,12 +1504,12 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                   {/* Dette commune */}
                   {(pools.length > 0 || compteAg.agences.length === 0) && (
                     <div style={CARD}>
-                      <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Dette commune <span style={{ fontSize: 11, fontWeight: 600, color: '#16a34a' }}>— avances libres</span></p>
-                      <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--fs-ink-400)' }}>Versements de montants au choix (200 000, 2 M…) qui réduisent la dette commune, sans rapport avec une facture.</p>
+                      <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Dette commune', 'Shared debt')} <span style={{ fontSize: 11, fontWeight: 600, color: '#16a34a' }}>{t('— avances libres', '— free advances')}</span></p>
+                      <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--fs-ink-400)' }}>{t('Versements de montants au choix (200 000, 2 M…) qui réduisent la dette commune, sans rapport avec une facture.', 'Payments of any amount (200,000, 2 M…) that reduce the shared debt, unrelated to an invoice.')}</p>
 
                       {(compteAg.ancienneDette ?? 0) > 0 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 12px', marginBottom: 14 }}>
-                          <span style={{ fontSize: 12, color: '#92400e' }}>Inclut une <strong>ancienne dette</strong> (créance d'avant l'enregistrement) de <strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(compteAg.ancienneDette)} XAF</strong> — modifiable via « Modifier ».</span>
+                          <span style={{ fontSize: 12, color: '#92400e' }}>{t('Inclut une ', 'Includes a ')}<strong>{t('ancienne dette', 'previous debt')}</strong>{t(' (créance d\'avant l\'enregistrement) de ', ' (receivable predating registration) of ')}<strong style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(compteAg.ancienneDette)} XAF</strong>{t(' — modifiable via « Modifier ».', ' — editable via "Edit".')}</span>
                         </div>
                       )}
 
@@ -1514,17 +1518,17 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                             <thead>
                               <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                <th style={{ padding: '6px 8px' }}>Agence (suivi)</th>
-                                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Qté cmd.</th>
-                                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Livré</th>
-                                <th style={{ padding: '6px 8px', textAlign: 'right' }}>Actions</th>
+                                <th style={{ padding: '6px 8px' }}>{t('Agence (suivi)', 'Branch (tracking)')}</th>
+                                <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Qté cmd.', 'Qty ord.')}</th>
+                                <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Livré', 'Delivered')}</th>
+                                <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Actions', 'Actions')}</th>
                               </tr>
                             </thead>
                             <tbody>
                               {pools.map(a => (
                                 <tr key={a._id} style={{ borderTop: '1px solid var(--fs-line)', opacity: a.archivee ? 0.55 : 1 }}>
                                   <td style={{ padding: '8px' }}>
-                                    <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)' }}>{a.nom}{a.archivee ? ' (archivée)' : ''}</div>
+                                    <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)' }}>{a.nom}{a.archivee ? t(' (archivée)', ' (archived)') : ''}</div>
                                     <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{a.ville || '—'}</div>
                                   </td>
                                   <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)' }}>{fmtN(a.qteCommandee)}</td>
@@ -1539,12 +1543,12 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
 
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end', marginBottom: 14 }}>
                         <div style={{ width: 180 }}>
-                          <label style={LABEL}>Montant de l'avance</label>
+                          <label style={LABEL}>{t('Montant de l\'avance', 'Advance amount')}</label>
                           <input type="number" min={0} value={montantCommun} onChange={e => setMontantCommun(e.target.value)} placeholder="0" style={{ ...INPUT, textAlign: 'center' }}/>
                         </div>
-                        <button onClick={enregistrerVersementCommun} style={BTN_PRIMARY}><I d={D.compte} size={14}/> Enregistrer le versement</button>
+                        <button onClick={enregistrerVersementCommun} style={BTN_PRIMARY}><I d={D.compte} size={14}/> {t('Enregistrer le versement', 'Save payment')}</button>
                         <div style={{ flex: 1, minWidth: 160, textAlign: 'right' }}>
-                          <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Dette commune restante</div>
+                          <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('Dette commune restante', 'Remaining shared debt')}</div>
                           <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: compteAg.detteCommune > 0 ? 'var(--fs-danger-700)' : 'var(--fs-success-700)' }}>{fmtN(compteAg.detteCommune)} XAF</div>
                         </div>
                       </div>
@@ -1553,15 +1557,15 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                         <thead>
                           <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                            <th style={{ padding: '6px 8px' }}>Date</th>
-                            <th style={{ padding: '6px 8px' }}>Opération</th>
-                            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Versé</th>
-                            <th style={{ padding: '6px 8px', textAlign: 'right' }}>Dette restante</th>
+                            <th style={{ padding: '6px 8px' }}>{t('Date', 'Date')}</th>
+                            <th style={{ padding: '6px 8px' }}>{t('Opération', 'Operation')}</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Versé', 'Paid')}</th>
+                            <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Dette restante', 'Remaining debt')}</th>
                           </tr>
                         </thead>
                         <tbody>
                           {versCommuns.length === 0 ? (
-                            <tr><td colSpan={4} style={{ padding: '10px 8px', color: 'var(--fs-ink-300)' }}>Aucun versement commun</td></tr>
+                            <tr><td colSpan={4} style={{ padding: '10px 8px', color: 'var(--fs-ink-300)' }}>{t('Aucun versement commun', 'No shared payment')}</td></tr>
                           ) : (() => {
                             let cumulApres = versCommuns.reduce((s, p) => s + (p.montant ?? 0), 0);
                             return versCommuns.map(p => {
@@ -1570,7 +1574,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                               return (
                                 <tr key={p._id} style={{ borderTop: '1px solid var(--fs-line)' }}>
                                   <td style={{ padding: '8px' }}>{fmtDateTime(p.createdAt)}</td>
-                                  <td style={{ padding: '8px', color: 'var(--fs-ink-500)' }}>Versement{p.note ? ` — ${p.note}` : ''}</td>
+                                  <td style={{ padding: '8px', color: 'var(--fs-ink-500)' }}>{t('Versement', 'Payment')}{p.note ? ` — ${p.note}` : ''}</td>
                                   <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-success-700)' }}>{fmtN(p.montant)}</td>
                                   <td style={{ padding: '8px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-ink-700)' }}>{fmtN(detteApres)}</td>
                                 </tr>
@@ -1615,9 +1619,9 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                   <>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 18 }}>
                       {[
-                        { label: 'Total livré', val: stats?.totalLivre ?? 0, color: 'var(--fs-ink-900)' },
-                        { label: 'Total encaissé', val: stats?.totalEncaisse ?? 0, color: 'var(--fs-success-700)' },
-                        { label: 'Créances totales', val: stats?.totalCreances ?? 0, color: 'var(--fs-danger-700)' },
+                        { label: t('Total livré', 'Total delivered'), val: stats?.totalLivre ?? 0, color: 'var(--fs-ink-900)' },
+                        { label: t('Total encaissé', 'Total collected'), val: stats?.totalEncaisse ?? 0, color: 'var(--fs-success-700)' },
+                        { label: t('Créances totales', 'Total receivables'), val: stats?.totalCreances ?? 0, color: 'var(--fs-danger-700)' },
                       ].map(m => (
                         <div key={m.label} style={{ flex: '1 1 200px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '14px 18px', boxShadow: 'var(--fs-shadow-sm)' }}>
                           <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{m.label}</div>
@@ -1627,16 +1631,16 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                     </div>
 
                     <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 18, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                      <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Contribution par partenaire</p>
-                      {contrib.length === 0 ? <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune livraison enregistrée</div> : (
+                      <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Contribution par partenaire', 'Contribution by partner')}</p>
+                      {contrib.length === 0 ? <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>{t('Aucune livraison enregistrée', 'No delivery recorded')}</div> : (
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                           <thead>
                             <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                              <th style={{ padding: '6px 8px' }}>Partenaire</th>
-                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Total livré</th>
-                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Encaissé</th>
-                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Reste dû</th>
-                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Part</th>
+                              <th style={{ padding: '6px 8px' }}>{t('Partenaire', 'Partner')}</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Total livré', 'Total delivered')}</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Encaissé', 'Collected')}</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Reste dû', 'Balance due')}</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Part', 'Share')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1660,14 +1664,14 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                     </div>
 
                     <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                      <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Produits les plus livrés</p>
-                      {topProduits.length === 0 ? <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucun produit livré</div> : (
+                      <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Produits les plus livrés', 'Most delivered products')}</p>
+                      {topProduits.length === 0 ? <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>{t('Aucun produit livré', 'No product delivered')}</div> : (
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                           <thead>
                             <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                              <th style={{ padding: '6px 8px' }}>Produit</th>
-                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Quantité</th>
-                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>Montant</th>
+                              <th style={{ padding: '6px 8px' }}>{t('Produit', 'Product')}</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Quantité', 'Quantity')}</th>
+                              <th style={{ padding: '6px 8px', textAlign: 'right' }}>{t('Montant', 'Amount')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1691,24 +1695,24 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
           {/* ── Onglet Historique ── */}
           {tab === 'historique' && (
             <div style={{ maxWidth: 920 }}>
-              <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: '0 0 14px' }}>Toutes les opérations (livraisons, versements, retours), du plus récent au plus ancien.</p>
+              <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: '0 0 14px' }}>{t('Toutes les opérations (livraisons, versements, retours), du plus récent au plus ancien.', 'All operations (deliveries, payments, returns), newest first.')}</p>
               {ops.length === 0 ? (
-                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucune opération</div>
+                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>{t('Aucune opération', 'No operation')}</div>
               ) : (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ textAlign: 'left', color: 'var(--fs-ink-500)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--fs-ivory)' }}>
-                        <th style={{ padding: '8px 12px' }}>Date</th>
-                        <th style={{ padding: '8px 12px' }}>Partenaire · Agence</th>
-                        <th style={{ padding: '8px 12px' }}>Opération</th>
-                        <th style={{ padding: '8px 12px' }}>Détail</th>
-                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>Montant</th>
+                        <th style={{ padding: '8px 12px' }}>{t('Date', 'Date')}</th>
+                        <th style={{ padding: '8px 12px' }}>{t('Partenaire · Agence', 'Partner · Branch')}</th>
+                        <th style={{ padding: '8px 12px' }}>{t('Opération', 'Operation')}</th>
+                        <th style={{ padding: '8px 12px' }}>{t('Détail', 'Details')}</th>
+                        <th style={{ padding: '8px 12px', textAlign: 'right' }}>{t('Montant', 'Amount')}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {ops.map((o, i) => {
-                        const cfg = o.type === 'livraison' ? { bg: '#eff6ff', col: '#2563eb', txt: 'Livraison', sign: '+' } : o.type === 'versement' ? { bg: '#f0fdf4', col: '#16a34a', txt: 'Versement', sign: '−' } : { bg: '#eff6ff', col: '#2563eb', txt: 'Retour', sign: '−' };
+                        const cfg = o.type === 'livraison' ? { bg: '#eff6ff', col: '#2563eb', txt: t('Livraison', 'Delivery'), sign: '+' } : o.type === 'versement' ? { bg: '#f0fdf4', col: '#16a34a', txt: t('Versement', 'Payment'), sign: '−' } : { bg: '#eff6ff', col: '#2563eb', txt: t('Retour', 'Return'), sign: '−' };
                         return (
                           <tr key={i} style={{ borderTop: '1px solid var(--fs-line)', verticalAlign: 'top' }}>
                             <td style={{ padding: '9px 12px', whiteSpace: 'nowrap', color: 'var(--fs-ink-500)' }}>{fmtDateTime(o.date)}</td>
@@ -1730,13 +1734,13 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                               {cfg.sign}{fmtN(o.montant)}
                               {o.type === 'livraison' && o.id && (
                                 <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', marginTop: 5 }}>
-                                  <button onClick={() => ouvrirEditLivraison(o.id!)} title="Modifier cette livraison"
+                                  <button onClick={() => ouvrirEditLivraison(o.id!)} title={t('Modifier cette livraison', 'Edit this delivery')}
                                     style={{ padding: '3px 8px', border: '1.5px solid var(--fs-line-2)', borderRadius: 6, background: '#fff', color: 'var(--fs-ink-600)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>✎</button>
                                   {confirmDelLivId === o.id ? (
-                                    <button onClick={() => supprimerLivraison(o.id!)} title="Confirmer la suppression"
-                                      style={{ padding: '3px 8px', border: 'none', borderRadius: 6, background: 'var(--fs-danger-700)', color: '#fff', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Confirmer ?</button>
+                                    <button onClick={() => supprimerLivraison(o.id!)} title={t('Confirmer la suppression', 'Confirm deletion')}
+                                      style={{ padding: '3px 8px', border: 'none', borderRadius: 6, background: 'var(--fs-danger-700)', color: '#fff', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{t('Confirmer ?', 'Confirm?')}</button>
                                   ) : (
-                                    <button onClick={() => setConfirmDelLivId(o.id!)} title="Supprimer (stock restitué à l'entrepôt)"
+                                    <button onClick={() => setConfirmDelLivId(o.id!)} title={t('Supprimer (stock restitué à l\'entrepôt)', 'Delete (stock returned to the warehouse)')}
                                       style={{ padding: '3px 8px', border: '1px solid rgba(194,62,36,0.25)', borderRadius: 6, background: '#fef2f2', color: 'var(--fs-danger-700)', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>🗑</button>
                                   )}
                                 </div>
@@ -1756,21 +1760,21 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
           {tab === 'acces' && isPatron && (
             <div style={{ maxWidth: 680 }}>
               <div style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 18, fontSize: 12, color: 'var(--fs-ink-600)' }}>
-                Un <strong>compte Partenaires</strong> est un identifiant de connexion <strong>propre à cet espace</strong> : la personne se connecte avec son email + mot de passe et arrive <strong>directement</strong> sur l'espace Partenaires (sans passer par l'admin, et sans voir la caisse ni l'entrepôt).
+                {t('Un ', 'A ')}<strong>{t('compte Partenaires', 'Partners account')}</strong>{t(' est un identifiant de connexion ', ' is a login ')}<strong>{t('propre à cet espace', 'specific to this area')}</strong>{t(' : la personne se connecte avec son email + mot de passe et arrive ', ': the person signs in with their email + password and lands ')}<strong>{t('directement', 'directly')}</strong>{t(' sur l\'espace Partenaires (sans passer par l\'admin, et sans voir la caisse ni l\'entrepôt).', ' in the Partners area (without going through the admin, and without seeing the checkout or the warehouse).')}
               </div>
 
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Nouveau compte de connexion Partenaires</p>
+                <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Nouveau compte de connexion Partenaires', 'New Partners login account')}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-                  <div><label style={LABEL}>Nom</label><input value={accForm.name} onChange={e => setAccForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder="ex : Gérant partenaires"/></div>
-                  <div><label style={LABEL}>Email (identifiant)</label><input value={accForm.email} onChange={e => setAccForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="partenaires@familystore.cm"/></div>
-                  <div><label style={LABEL}>Mot de passe</label><input value={accForm.password} onChange={e => setAccForm(f => ({ ...f, password: e.target.value }))} style={INPUT} placeholder="≥ 4 caractères"/></div>
+                  <div><label style={LABEL}>{t('Nom', 'Name')}</label><input value={accForm.name} onChange={e => setAccForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder={t('ex : Gérant partenaires', 'e.g. Partners manager')}/></div>
+                  <div><label style={LABEL}>{t('Email (identifiant)', 'Email (login)')}</label><input value={accForm.email} onChange={e => setAccForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="partenaires@familystore.cm"/></div>
+                  <div><label style={LABEL}>{t('Mot de passe', 'Password')}</label><input value={accForm.password} onChange={e => setAccForm(f => ({ ...f, password: e.target.value }))} style={INPUT} placeholder={t('≥ 4 caractères', '≥ 4 characters')}/></div>
                 </div>
-                <button onClick={creerCommercial} style={BTN_PRIMARY}>Créer le compte</button>
+                <button onClick={creerCommercial} style={BTN_PRIMARY}>{t('Créer le compte', 'Create account')}</button>
               </div>
 
               {commerciaux.length === 0 ? (
-                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucun compte de connexion Partenaires</div>
+                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>{t('Aucun compte de connexion Partenaires', 'No Partners login account')}</div>
               ) : (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                   {commerciaux.map((u, i) => (
@@ -1779,9 +1783,9 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{u.name}</div>
                         <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{u.email}</div>
                       </div>
-                      <button onClick={() => resetPassword(u._id)} title="Réinitialiser le mot de passe"
-                        style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--fs-ink-600)', fontSize: 12, fontWeight: 600 }}>Mot de passe</button>
-                      <button onClick={() => supprimerCommercial(u._id)} title="Supprimer"
+                      <button onClick={() => resetPassword(u._id)} title={t('Réinitialiser le mot de passe', 'Reset password')}
+                        style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--fs-ink-600)', fontSize: 12, fontWeight: 600 }}>{t('Mot de passe', 'Password')}</button>
+                      <button onClick={() => supprimerCommercial(u._id)} title={t('Supprimer', 'Delete')}
                         style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex' }}><I d={D.trash} size={13}/></button>
                     </div>
                   ))}
@@ -1794,44 +1798,44 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
           {tab === 'partenaires' && (
             <div style={{ maxWidth: 760 }}>
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 20, marginBottom: 18, boxShadow: 'var(--fs-shadow-sm)' }}>
-                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{editing ? 'Modifier le partenaire' : "Fiche d'inscription — nouveau partenaire"}</p>
-                <p style={{ margin: '0 0 14px', fontSize: 11.5, color: 'var(--fs-ink-400)' }}>Les <strong>agences</strong> s'ajoutent ensuite sur la fiche (bouton « Agences »). Un partenaire peut démarrer sans agence.</p>
+                <p style={{ margin: '0 0 4px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{editing ? t('Modifier le partenaire', 'Edit partner') : t("Fiche d'inscription — nouveau partenaire", 'Registration form — new partner')}</p>
+                <p style={{ margin: '0 0 14px', fontSize: 11.5, color: 'var(--fs-ink-400)' }}>{t('Les ', 'The ')}<strong>{t('agences', 'branches')}</strong>{t(' s\'ajoutent ensuite sur la fiche (bouton « Agences »). Un partenaire peut démarrer sans agence.', ' are added later on the record ("Branches" button). A partner can start without a branch.')}</p>
 
-                <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>Identité</p>
+                <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>{t('Identité', 'Identity')}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10, marginBottom: 12 }}>
-                  <div><label style={LABEL}>Nom / raison sociale *</label><input value={pForm.name} onChange={e => setPForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder="ex : Santa Lucia"/></div>
-                  <div><label style={LABEL}>Type</label>
+                  <div><label style={LABEL}>{t('Nom / raison sociale *', 'Name / company name *')}</label><input value={pForm.name} onChange={e => setPForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder={t('ex : Santa Lucia', 'e.g. Santa Lucia')}/></div>
+                  <div><label style={LABEL}>{t('Type', 'Type')}</label>
                     <select value={pForm.type} onChange={e => setPForm(f => ({ ...f, type: e.target.value as 'structure' | 'particulier' }))} style={{ ...INPUT, cursor: 'pointer' }}>
-                      <option value="structure">Structure (entreprise)</option>
-                      <option value="particulier">Particulier (revendeur)</option>
+                      <option value="structure">{t('Structure (entreprise)', 'Organisation (company)')}</option>
+                      <option value="particulier">{t('Particulier (revendeur)', 'Individual (reseller)')}</option>
                     </select>
                   </div>
                 </div>
 
-                <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>Coordonnées</p>
+                <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>{t('Coordonnées', 'Contact details')}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-                  <div><label style={LABEL}>Responsable / contact</label><input value={pForm.responsable} onChange={e => setPForm(f => ({ ...f, responsable: e.target.value }))} style={INPUT} placeholder="Nom du responsable"/></div>
-                  <div><label style={LABEL}>Téléphone</label><input value={pForm.phone} onChange={e => setPForm(f => ({ ...f, phone: e.target.value }))} style={INPUT} placeholder="6XX XX XX XX"/></div>
-                  <div><label style={LABEL}>Ville</label><input value={pForm.ville} onChange={e => setPForm(f => ({ ...f, ville: e.target.value }))} style={INPUT} placeholder="ex : Douala"/></div>
-                  <div><label style={LABEL}>Quartier / zone</label><input value={pForm.quartier} onChange={e => setPForm(f => ({ ...f, quartier: e.target.value }))} style={INPUT} placeholder="ex : Akwa, Bonabéri…"/></div>
-                  <div><label style={LABEL}>Email</label><input value={pForm.email} onChange={e => setPForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="contact@exemple.cm"/></div>
-                  <div><label style={LABEL}>Note</label><input value={pForm.note} onChange={e => setPForm(f => ({ ...f, note: e.target.value }))} style={INPUT} placeholder="(optionnel)"/></div>
+                  <div><label style={LABEL}>{t('Responsable / contact', 'Manager / contact')}</label><input value={pForm.responsable} onChange={e => setPForm(f => ({ ...f, responsable: e.target.value }))} style={INPUT} placeholder={t('Nom du responsable', 'Manager name')}/></div>
+                  <div><label style={LABEL}>{t('Téléphone', 'Phone')}</label><input value={pForm.phone} onChange={e => setPForm(f => ({ ...f, phone: e.target.value }))} style={INPUT} placeholder="6XX XX XX XX"/></div>
+                  <div><label style={LABEL}>{t('Ville', 'City')}</label><input value={pForm.ville} onChange={e => setPForm(f => ({ ...f, ville: e.target.value }))} style={INPUT} placeholder={t('ex : Douala', 'e.g. Douala')}/></div>
+                  <div><label style={LABEL}>{t('Quartier / zone', 'District / area')}</label><input value={pForm.quartier} onChange={e => setPForm(f => ({ ...f, quartier: e.target.value }))} style={INPUT} placeholder={t('ex : Akwa, Bonabéri…', 'e.g. Akwa, Bonabéri…')}/></div>
+                  <div><label style={LABEL}>{t('Email', 'Email')}</label><input value={pForm.email} onChange={e => setPForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="contact@exemple.cm"/></div>
+                  <div><label style={LABEL}>{t('Note', 'Note')}</label><input value={pForm.note} onChange={e => setPForm(f => ({ ...f, note: e.target.value }))} style={INPUT} placeholder={t('(optionnel)', '(optional)')}/></div>
                 </div>
 
-                <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>Ancienne dette (report)</p>
+                <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>{t('Ancienne dette (report)', 'Previous debt (carried over)')}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10, marginBottom: 12, alignItems: 'end' }}>
-                  <div><label style={LABEL}>Montant (XAF)</label><input type="number" min={0} value={pForm.ancienneDette} onChange={e => setPForm(f => ({ ...f, ancienneDette: e.target.value }))} style={INPUT} placeholder="0"/></div>
-                  <p style={{ margin: 0, fontSize: 11, color: 'var(--fs-ink-400)', lineHeight: 1.45 }}>Créance que le partenaire devait <strong>avant</strong> son enregistrement ici. Elle s'ajoute à sa dette commune et les versements la réduisent normalement.</p>
+                  <div><label style={LABEL}>{t('Montant (XAF)', 'Amount (XAF)')}</label><input type="number" min={0} value={pForm.ancienneDette} onChange={e => setPForm(f => ({ ...f, ancienneDette: e.target.value }))} style={INPUT} placeholder="0"/></div>
+                  <p style={{ margin: 0, fontSize: 11, color: 'var(--fs-ink-400)', lineHeight: 1.45 }}>{t('Créance que le partenaire devait ', 'Receivable the partner owed ')}<strong>{t('avant', 'before')}</strong>{t(' son enregistrement ici. Elle s\'ajoute à sa dette commune et les versements la réduisent normalement.', ' being registered here. It is added to their shared debt and payments reduce it as usual.')}</p>
                 </div>
 
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={savePartenaire} style={BTN_PRIMARY}>{editing ? 'Enregistrer' : 'Inscrire le partenaire'}</button>
-                  {editing && <button onClick={() => { setEditing(null); setPForm({ ...PFORM_VIDE }); }} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>Annuler</button>}
+                  <button onClick={savePartenaire} style={BTN_PRIMARY}>{editing ? t('Enregistrer', 'Save') : t('Inscrire le partenaire', 'Register partner')}</button>
+                  {editing && <button onClick={() => { setEditing(null); setPForm({ ...PFORM_VIDE }); }} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>{t('Annuler', 'Cancel')}</button>}
                 </div>
               </div>
 
               {partenaires.length === 0 ? (
-                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>Aucun partenaire pour l'instant</div>
+                <div style={{ color: 'var(--fs-ink-300)', fontSize: 13 }}>{t('Aucun partenaire pour l\'instant', 'No partner yet')}</div>
               ) : (
                 <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', boxShadow: 'var(--fs-shadow-sm)' }}>
                   {partenaires.map((p, i) => {
@@ -1843,21 +1847,21 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', display: 'flex', alignItems: 'center', gap: 7 }}>
                               {p.name}
-                              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 7px', borderRadius: 8, background: p.type === 'particulier' ? '#f0fdf4' : '#eff6ff', color: p.type === 'particulier' ? '#16a34a' : '#2563eb' }}>{p.type === 'particulier' ? 'Particulier' : 'Structure'}</span>
+                              <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 7px', borderRadius: 8, background: p.type === 'particulier' ? '#f0fdf4' : '#eff6ff', color: p.type === 'particulier' ? '#16a34a' : '#2563eb' }}>{p.type === 'particulier' ? t('Particulier', 'Individual') : t('Structure', 'Organisation')}</span>
                             </div>
                             <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{[localisation, p.responsable, p.phone].filter(Boolean).join(' · ') || '—'}</div>
                           </div>
-                          <button onClick={() => ouvert ? setAgencesPartId(null) : ouvrirAgences(p._id)} title="Gérer les agences"
+                          <button onClick={() => ouvert ? setAgencesPartId(null) : ouvrirAgences(p._id)} title={t('Gérer les agences', 'Manage branches')}
                             style={{ background: ouvert ? 'var(--fs-wine-700)' : 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: ouvert ? '#fff' : 'var(--fs-ink-600)', fontSize: 12, fontWeight: 700 }}>
-                            Agences
+                            {t('Agences', 'Branches')}
                           </button>
-                          <button onClick={() => { setCompteId(p._id); setTab('comptes'); }} title="Voir le compte / créance"
+                          <button onClick={() => { setCompteId(p._id); setTab('comptes'); }} title={t('Voir le compte / créance', 'View account / receivable')}
                             style={{ background: 'var(--fs-wine-50)', border: '1px solid var(--fs-wine-200)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'var(--fs-wine-700)', fontSize: 12, fontWeight: 700 }}>
-                            Compte
+                            {t('Compte', 'Account')}
                           </button>
-                          <button onClick={() => { setEditing(p._id); setPForm({ name: p.name, phone: p.phone, ville: p.ville ?? '', quartier: p.quartier ?? '', responsable: p.responsable ?? '', email: p.email ?? '', note: p.note, type: p.type ?? 'structure', ancienneDette: p.ancienneDette ? String(p.ancienneDette) : '' }); window.scrollTo(0, 0); }} title="Modifier"
+                          <button onClick={() => { setEditing(p._id); setPForm({ name: p.name, phone: p.phone, ville: p.ville ?? '', quartier: p.quartier ?? '', responsable: p.responsable ?? '', email: p.email ?? '', note: p.note, type: p.type ?? 'structure', ancienneDette: p.ancienneDette ? String(p.ancienneDette) : '' }); window.scrollTo(0, 0); }} title={t('Modifier', 'Edit')}
                             style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex' }}><I d={D.edit} size={13}/></button>
-                          <button onClick={() => removePartenaire(p._id)} title="Supprimer"
+                          <button onClick={() => removePartenaire(p._id)} title={t('Supprimer', 'Delete')}
                             style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 8, padding: '6px 9px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex' }}><I d={D.trash} size={13}/></button>
                         </div>
 
@@ -1866,12 +1870,12 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                           <div style={{ padding: '0 16px 16px' }}>
                             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: 14 }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-700)' }}>Agences de {p.name}</span>
-                                <button onClick={() => ouvrirNouvelleAgence(p)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}><I d={D.plus} size={12}/> Ajouter une agence</button>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-700)' }}>{t('Agences de', 'Branches of')} {p.name}</span>
+                                <button onClick={() => ouvrirNouvelleAgence(p)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}><I d={D.plus} size={12}/> {t('Ajouter une agence', 'Add a branch')}</button>
                               </div>
 
                               {agences.length === 0 ? (
-                                <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', padding: '6px 0' }}>Aucune agence — ce partenaire fonctionne en compte unique. Ajoutez-en une si besoin.</div>
+                                <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', padding: '6px 0' }}>{t('Aucune agence — ce partenaire fonctionne en compte unique. Ajoutez-en une si besoin.', 'No branch — this partner runs on a single account. Add one if needed.')}</div>
                               ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                   {agences.map(a => (
@@ -1879,18 +1883,18 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                                       <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontSize: 12.5, fontWeight: 700, color: a.archivee ? 'var(--fs-ink-400)' : 'var(--fs-ink-900)', display: 'flex', alignItems: 'center', gap: 6 }}>
                                           {a.nom}
-                                          {a.independante && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 6, background: '#eff6ff', color: '#2563eb' }}>Indépendante</span>}
-                                          {a.archivee && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 6, background: '#f3f4f6', color: '#6b7280' }}>Archivée</span>}
+                                          {a.independante && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 6, background: '#eff6ff', color: '#2563eb' }}>{t('Indépendante', 'Independent')}</span>}
+                                          {a.archivee && <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 6, background: '#f3f4f6', color: '#6b7280' }}>{t('Archivée', 'Archived')}</span>}
                                         </div>
                                         <div style={{ fontSize: 10.5, color: 'var(--fs-ink-400)' }}>{[a.ville, a.quartier, a.responsable, a.telephone].filter(Boolean).join(' · ') || '—'}</div>
                                       </div>
-                                      <button onClick={() => toggleIndependante(a)} title={a.independante ? 'Mettre en dette commune' : 'Rendre indépendante (règle sa propre dette)'}
+                                      <button onClick={() => toggleIndependante(a)} title={a.independante ? t('Mettre en dette commune', 'Move to shared debt') : t('Rendre indépendante (règle sa propre dette)', 'Make independent (settles its own debt)')}
                                         style={{ fontSize: 11, fontWeight: 700, color: a.independante ? 'var(--fs-ink-500)' : '#2563eb', background: '#fff', border: `1.5px solid ${a.independante ? 'var(--fs-line-2)' : '#bfdbfe'}`, borderRadius: 7, padding: '4px 10px', cursor: 'pointer' }}>
-                                        {a.independante ? 'Dette commune' : 'Rendre indép.'}
+                                        {a.independante ? t('Dette commune', 'Shared debt') : t('Rendre indép.', 'Make indep.')}
                                       </button>
-                                      {a.archivee && <button onClick={() => reactiverAgence(a)} title="Réactiver" style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-600)', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, padding: '4px 8px', cursor: 'pointer' }}>Réactiver</button>}
-                                      <button onClick={() => ouvrirEditAgence(a)} title="Modifier" style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, padding: '5px 7px', cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex' }}><I d={D.edit} size={12}/></button>
-                                      <button onClick={() => supprimerAgence(a)} title="Archiver / supprimer" style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, padding: '5px 7px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex' }}><I d={D.trash} size={12}/></button>
+                                      {a.archivee && <button onClick={() => reactiverAgence(a)} title={t('Réactiver', 'Reactivate')} style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-600)', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, padding: '4px 8px', cursor: 'pointer' }}>{t('Réactiver', 'Reactivate')}</button>}
+                                      <button onClick={() => ouvrirEditAgence(a)} title={t('Modifier', 'Edit')} style={{ background: 'var(--fs-ivory)', border: '1.5px solid var(--fs-line-2)', borderRadius: 7, padding: '5px 7px', cursor: 'pointer', color: 'var(--fs-ink-600)', display: 'inline-flex' }}><I d={D.edit} size={12}/></button>
+                                      <button onClick={() => supprimerAgence(a)} title={t('Archiver / supprimer', 'Archive / delete')} style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, padding: '5px 7px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex' }}><I d={D.trash} size={12}/></button>
                                     </div>
                                   ))}
                                 </div>
@@ -1912,39 +1916,39 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       {showPartModal && (
         <div onClick={() => setShowPartModal(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, boxShadow: 'var(--fs-shadow-md)', width: 560, maxWidth: '100%', maxHeight: '92vh', overflowY: 'auto', padding: 24 }}>
-            <p style={{ margin: '0 0 2px', fontSize: 17, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{editing ? 'Modifier le partenaire' : "Fiche d'inscription — nouveau partenaire"}</p>
-            <p style={{ margin: '0 0 18px', fontSize: 12, color: 'var(--fs-ink-400)' }}>Les <strong>agences</strong> s'ajoutent ensuite sur la fiche du partenaire. Un partenaire peut démarrer sans agence.</p>
+            <p style={{ margin: '0 0 2px', fontSize: 17, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{editing ? t('Modifier le partenaire', 'Edit partner') : t("Fiche d'inscription — nouveau partenaire", 'Registration form — new partner')}</p>
+            <p style={{ margin: '0 0 18px', fontSize: 12, color: 'var(--fs-ink-400)' }}>{t('Les ', 'The ')}<strong>{t('agences', 'branches')}</strong>{t(' s\'ajoutent ensuite sur la fiche du partenaire. Un partenaire peut démarrer sans agence.', ' are added later on the partner record. A partner can start without a branch.')}</p>
 
-            <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>Identité</p>
+            <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>{t('Identité', 'Identity')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 14 }}>
-              <div><label style={LABEL}>Nom / raison sociale *</label><input value={pForm.name} onChange={e => setPForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder="ex : Santa Lucia" autoFocus/></div>
-              <div><label style={LABEL}>Type</label>
+              <div><label style={LABEL}>{t('Nom / raison sociale *', 'Name / company name *')}</label><input value={pForm.name} onChange={e => setPForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder={t('ex : Santa Lucia', 'e.g. Santa Lucia')} autoFocus/></div>
+              <div><label style={LABEL}>{t('Type', 'Type')}</label>
                 <select value={pForm.type} onChange={e => setPForm(f => ({ ...f, type: e.target.value as 'structure' | 'particulier' }))} style={{ ...INPUT, cursor: 'pointer' }}>
-                  <option value="structure">Structure (entreprise)</option>
-                  <option value="particulier">Particulier (revendeur)</option>
+                  <option value="structure">{t('Structure (entreprise)', 'Organisation (company)')}</option>
+                  <option value="particulier">{t('Particulier (revendeur)', 'Individual (reseller)')}</option>
                 </select>
               </div>
             </div>
 
-            <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>Coordonnées</p>
+            <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>{t('Coordonnées', 'Contact details')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-              <div><label style={LABEL}>Responsable / contact</label><input value={pForm.responsable} onChange={e => setPForm(f => ({ ...f, responsable: e.target.value }))} style={INPUT} placeholder="Nom du responsable"/></div>
-              <div><label style={LABEL}>Téléphone</label><input value={pForm.phone} onChange={e => setPForm(f => ({ ...f, phone: e.target.value }))} style={INPUT} placeholder="6XX XX XX XX"/></div>
-              <div><label style={LABEL}>Ville</label><input value={pForm.ville} onChange={e => setPForm(f => ({ ...f, ville: e.target.value }))} style={INPUT} placeholder="ex : Douala"/></div>
-              <div><label style={LABEL}>Quartier / zone</label><input value={pForm.quartier} onChange={e => setPForm(f => ({ ...f, quartier: e.target.value }))} style={INPUT} placeholder="ex : Akwa, Bonabéri…"/></div>
-              <div><label style={LABEL}>Email</label><input value={pForm.email} onChange={e => setPForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="contact@exemple.cm"/></div>
-              <div><label style={LABEL}>Note</label><input value={pForm.note} onChange={e => setPForm(f => ({ ...f, note: e.target.value }))} style={INPUT} placeholder="(optionnel)"/></div>
+              <div><label style={LABEL}>{t('Responsable / contact', 'Manager / contact')}</label><input value={pForm.responsable} onChange={e => setPForm(f => ({ ...f, responsable: e.target.value }))} style={INPUT} placeholder={t('Nom du responsable', 'Manager name')}/></div>
+              <div><label style={LABEL}>{t('Téléphone', 'Phone')}</label><input value={pForm.phone} onChange={e => setPForm(f => ({ ...f, phone: e.target.value }))} style={INPUT} placeholder="6XX XX XX XX"/></div>
+              <div><label style={LABEL}>{t('Ville', 'City')}</label><input value={pForm.ville} onChange={e => setPForm(f => ({ ...f, ville: e.target.value }))} style={INPUT} placeholder={t('ex : Douala', 'e.g. Douala')}/></div>
+              <div><label style={LABEL}>{t('Quartier / zone', 'District / area')}</label><input value={pForm.quartier} onChange={e => setPForm(f => ({ ...f, quartier: e.target.value }))} style={INPUT} placeholder={t('ex : Akwa, Bonabéri…', 'e.g. Akwa, Bonabéri…')}/></div>
+              <div><label style={LABEL}>{t('Email', 'Email')}</label><input value={pForm.email} onChange={e => setPForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="contact@exemple.cm"/></div>
+              <div><label style={LABEL}>{t('Note', 'Note')}</label><input value={pForm.note} onChange={e => setPForm(f => ({ ...f, note: e.target.value }))} style={INPUT} placeholder={t('(optionnel)', '(optional)')}/></div>
             </div>
 
-            <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>Ancienne dette (report)</p>
+            <p style={{ ...LABEL, color: 'var(--fs-wine-700)', marginBottom: 8 }}>{t('Ancienne dette (report)', 'Previous debt (carried over)')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 12, marginBottom: 16, alignItems: 'end' }}>
-              <div><label style={LABEL}>Montant (XAF)</label><input type="number" min={0} value={pForm.ancienneDette} onChange={e => setPForm(f => ({ ...f, ancienneDette: e.target.value }))} style={INPUT} placeholder="0"/></div>
-              <p style={{ margin: 0, fontSize: 11, color: 'var(--fs-ink-400)', lineHeight: 1.45 }}>Créance que le partenaire devait <strong>avant</strong> son enregistrement ici. Elle s'ajoute à sa dette commune et les versements la réduisent normalement.</p>
+              <div><label style={LABEL}>{t('Montant (XAF)', 'Amount (XAF)')}</label><input type="number" min={0} value={pForm.ancienneDette} onChange={e => setPForm(f => ({ ...f, ancienneDette: e.target.value }))} style={INPUT} placeholder="0"/></div>
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--fs-ink-400)', lineHeight: 1.45 }}>{t('Créance que le partenaire devait ', 'Receivable the partner owed ')}<strong>{t('avant', 'before')}</strong>{t(' son enregistrement ici. Elle s\'ajoute à sa dette commune et les versements la réduisent normalement.', ' being registered here. It is added to their shared debt and payments reduce it as usual.')}</p>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button onClick={() => setShowPartModal(false)} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>Annuler</button>
-              <button onClick={savePartenaire} style={{ ...BTN_PRIMARY, opacity: pForm.name.trim() ? 1 : 0.5 }}>{editing ? 'Enregistrer' : 'Inscrire le partenaire'}</button>
+              <button onClick={() => setShowPartModal(false)} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>{t('Annuler', 'Cancel')}</button>
+              <button onClick={savePartenaire} style={{ ...BTN_PRIMARY, opacity: pForm.name.trim() ? 1 : 0.5 }}>{editing ? t('Enregistrer', 'Save') : t('Inscrire le partenaire', 'Register partner')}</button>
             </div>
           </div>
         </div>
@@ -1954,24 +1958,24 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       {aForm && (
         <div onClick={() => setAForm(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, boxShadow: 'var(--fs-shadow-md)', width: 520, maxWidth: '100%', maxHeight: '92vh', overflowY: 'auto', padding: 24 }}>
-            <p style={{ margin: '0 0 16px', fontSize: 17, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{aForm.id ? "Modifier l'agence" : 'Nouvelle agence'}</p>
+            <p style={{ margin: '0 0 16px', fontSize: 17, fontWeight: 800, color: 'var(--fs-ink-900)' }}>{aForm.id ? t("Modifier l'agence", 'Edit branch') : t('Nouvelle agence', 'New branch')}</p>
             <div style={{ marginBottom: 14 }}>
-              <label style={LABEL}>Nom de l'agence *</label>
-              <input value={aForm.nom} onChange={e => setAForm(f => f && ({ ...f, nom: e.target.value }))} placeholder="ex : Agence Akwa" style={INPUT} autoFocus/>
+              <label style={LABEL}>{t('Nom de l\'agence *', 'Branch name *')}</label>
+              <input value={aForm.nom} onChange={e => setAForm(f => f && ({ ...f, nom: e.target.value }))} placeholder={t('ex : Agence Akwa', 'e.g. Akwa branch')} style={INPUT} autoFocus/>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-              <div><label style={LABEL}>Ville</label><input value={aForm.ville} onChange={e => setAForm(f => f && ({ ...f, ville: e.target.value }))} placeholder="ex : Douala" style={INPUT}/></div>
-              <div><label style={LABEL}>Zone / quartier</label><input value={aForm.quartier} onChange={e => setAForm(f => f && ({ ...f, quartier: e.target.value }))} placeholder="ex : Akwa, Bonabéri…" style={INPUT}/></div>
-              <div><label style={LABEL}>Téléphone</label><input value={aForm.telephone} onChange={e => setAForm(f => f && ({ ...f, telephone: e.target.value }))} placeholder="6XX XX XX XX" style={INPUT}/></div>
-              <div><label style={LABEL}>Responsable</label><input value={aForm.responsable} onChange={e => setAForm(f => f && ({ ...f, responsable: e.target.value }))} placeholder="Nom du responsable" style={INPUT}/></div>
+              <div><label style={LABEL}>{t('Ville', 'City')}</label><input value={aForm.ville} onChange={e => setAForm(f => f && ({ ...f, ville: e.target.value }))} placeholder={t('ex : Douala', 'e.g. Douala')} style={INPUT}/></div>
+              <div><label style={LABEL}>{t('Zone / quartier', 'Area / district')}</label><input value={aForm.quartier} onChange={e => setAForm(f => f && ({ ...f, quartier: e.target.value }))} placeholder={t('ex : Akwa, Bonabéri…', 'e.g. Akwa, Bonabéri…')} style={INPUT}/></div>
+              <div><label style={LABEL}>{t('Téléphone', 'Phone')}</label><input value={aForm.telephone} onChange={e => setAForm(f => f && ({ ...f, telephone: e.target.value }))} placeholder="6XX XX XX XX" style={INPUT}/></div>
+              <div><label style={LABEL}>{t('Responsable', 'Manager')}</label><input value={aForm.responsable} onChange={e => setAForm(f => f && ({ ...f, responsable: e.target.value }))} placeholder={t('Nom du responsable', 'Manager name')} style={INPUT}/></div>
             </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer', padding: '10px 12px', borderRadius: 9, border: '1.5px solid var(--fs-line-2)', marginBottom: 18 }}>
               <input type="checkbox" checked={aForm.independante} onChange={e => setAForm(f => f && ({ ...f, independante: e.target.checked }))} style={{ width: 16, height: 16, cursor: 'pointer' }}/>
-              <span style={{ fontSize: 13, color: 'var(--fs-ink-700)' }}><strong>Règle sa propre dette</strong> (indépendante) — sinon elle entre dans la dette commune du partenaire.</span>
+              <span style={{ fontSize: 13, color: 'var(--fs-ink-700)' }}><strong>{t('Règle sa propre dette', 'Settles its own debt')}</strong>{t(' (indépendante) — sinon elle entre dans la dette commune du partenaire.', ' (independent) — otherwise it goes into the partner\'s shared debt.')}</span>
             </label>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button onClick={() => setAForm(null)} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>Annuler</button>
-              <button onClick={saveAgence} style={{ ...BTN_PRIMARY, opacity: aForm.nom.trim() ? 1 : 0.5 }}>{aForm.id ? 'Enregistrer' : "Ajouter l'agence"}</button>
+              <button onClick={() => setAForm(null)} style={{ padding: '9px 18px', background: '#fff', border: '1.5px solid var(--fs-line-2)', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>{t('Annuler', 'Cancel')}</button>
+              <button onClick={saveAgence} style={{ ...BTN_PRIMARY, opacity: aForm.nom.trim() ? 1 : 0.5 }}>{aForm.id ? t('Enregistrer', 'Save') : t("Ajouter l'agence", 'Add branch')}</button>
             </div>
           </div>
         </div>

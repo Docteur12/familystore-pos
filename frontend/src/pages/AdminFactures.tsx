@@ -4,13 +4,14 @@ import ToastContainer, { useToast } from '../components/Toast';
 import { getFactures, deleteFacture, FactureRecord } from '../api/factures';
 import { PM_LABELS } from '../api/sales';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t, dateLocale } from '../i18n';
 
 const PAGE_SIZE = 50;
-const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
+const fmtN = (n: number) => Math.round(n).toLocaleString(dateLocale());
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
-  return `${d.toLocaleDateString('fr-FR')}  ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+  return `${d.toLocaleDateString(dateLocale())}  ${d.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' })}`;
 }
 
 function downloadPDF(f: FactureRecord) {
@@ -21,7 +22,7 @@ function downloadPDF(f: FactureRecord) {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = `facture-${f.numero}.pdf`;
+  a.download = t(`facture-${f.numero}.pdf`, `invoice-${f.numero}.pdf`);
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -45,12 +46,12 @@ const TH: React.CSSProperties = {
 type FSortKey = 'numero' | 'date' | 'caissier' | 'pm' | 'articles' | 'montant';
 
 const FACTURE_COLS: { key: FSortKey | null; label: string; align: 'left' | 'right' }[] = [
-  { key: 'numero',   label: 'Ticket #', align: 'left' },
+  { key: 'numero',   label: t('Ticket #', 'Receipt #'), align: 'left' },
   { key: 'date',     label: 'Date',     align: 'left' },
-  { key: 'caissier', label: 'Caissier', align: 'left' },
-  { key: 'pm',       label: 'Mode de paiement', align: 'left' },
-  { key: 'articles', label: 'Articles', align: 'left' },
-  { key: 'montant',  label: 'Montant',  align: 'right' },
+  { key: 'caissier', label: t('Caissier', 'Cashier'), align: 'left' },
+  { key: 'pm',       label: t('Mode de paiement', 'Payment method'), align: 'left' },
+  { key: 'articles', label: t('Articles', 'Items'), align: 'left' },
+  { key: 'montant',  label: t('Montant', 'Amount'),  align: 'right' },
   { key: null,       label: 'PDF',      align: 'right' },
 ];
 
@@ -105,9 +106,9 @@ export default function AdminFactures() {
       setFactures(prev => prev.filter(f => f._id !== deleteTarget._id));
       setTotal(t => Math.max(0, t - 1));
       setDeleteTarget(null);
-      addToast('Facture supprimée ✓', 'success');
+      addToast(t('Facture supprimée ✓', 'Invoice deleted ✓'), 'success');
     } catch (err: unknown) {
-      addToast(err instanceof Error ? err.message : 'Erreur', 'error');
+      addToast(err instanceof Error ? err.message : t('Erreur', 'Error'), 'error');
     } finally {
       setDeleting(false);
     }
@@ -143,7 +144,7 @@ export default function AdminFactures() {
       if (res.modesPaiement?.length) setModesPaiement(res.modesPaiement);
       setPage(p);
     } catch {
-      addToast('Erreur chargement des factures', 'error');
+      addToast(t('Erreur chargement des factures', 'Error loading invoices'), 'error');
     } finally {
       setLoading(false);
     }
@@ -158,7 +159,7 @@ export default function AdminFactures() {
     const va = factureSortVal(a, sort.key);
     const vb = factureSortVal(b, sort.key);
     if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sortDir;
-    return String(va).localeCompare(String(vb), 'fr') * sortDir;
+    return String(va).localeCompare(String(vb), dateLocale()) * sortDir;
   });
 
   return (
@@ -171,19 +172,19 @@ export default function AdminFactures() {
         <div onClick={e => { if (e.target === e.currentTarget) setDeleteTarget(null); }}
           style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: '26px 30px', maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', marginBottom: 6 }}>Supprimer cette facture ?</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', marginBottom: 6 }}>{t('Supprimer cette facture ?', 'Delete this invoice?')}</div>
             <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 18 }}>
-              Facture <strong>#{deleteTarget.numero}</strong> · {fmtN(deleteTarget.montant)} XAF.<br/>
-              L'archive PDF sera retirée de l'historique. Cela n'affecte pas le journal des ventes ni le stock.
+              {t('Facture', 'Invoice')} <strong>#{deleteTarget.numero}</strong> · {fmtN(deleteTarget.montant)} XAF.<br/>
+              {t("L'archive PDF sera retirée de l'historique. Cela n'affecte pas le journal des ventes ni le stock.", 'The PDF archive will be removed from the history. This does not affect the sales journal or the stock.')}
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setDeleteTarget(null)}
                 style={{ flex: 1, padding: '11px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
-                Annuler
+                {t('Annuler', 'Cancel')}
               </button>
               <button onClick={handleDeleteFacture} disabled={deleting}
                 style={{ flex: 1, padding: '11px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#dc2626', color: '#fff', opacity: deleting ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
-                {deleting ? 'Suppression…' : 'Oui, supprimer'}
+                {deleting ? t('Suppression…', 'Deleting…') : t('Oui, supprimer', 'Yes, delete')}
               </button>
             </div>
           </div>
@@ -196,18 +197,18 @@ export default function AdminFactures() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 12, flexWrap: 'wrap' }}>
             <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Pilotage</p>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>Historique des factures</h1>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Pilotage', 'Management')}</p>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>{t('Historique des factures', 'Invoice history')}</h1>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {/* Filtres rapides (REC#8) — mêmes périodes que le Journal des ventes */}
               {([
-                { key: 'today',  label: "Aujourd'hui" },
-                { key: 'week',   label: 'Cette semaine' },
-                { key: 'month',  label: 'Ce mois' },
-                { key: 'custom', label: 'Plage dates' },
-                { key: 'all',    label: 'Tout' },
+                { key: 'today',  label: t("Aujourd'hui", 'Today') },
+                { key: 'week',   label: t('Cette semaine', 'This week') },
+                { key: 'month',  label: t('Ce mois', 'This month') },
+                { key: 'custom', label: t('Plage dates', 'Date range') },
+                { key: 'all',    label: t('Tout', 'All') },
               ] as const).map(p => (
                 <button key={p.key} onClick={() => setPeriod(p.key)} style={{
                   padding: '6px 12px', borderRadius: 16, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
@@ -226,18 +227,18 @@ export default function AdminFactures() {
               )}
               <select value={caissier} onChange={e => setCaissier(e.target.value)}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-700)' }}>
-                <option value="">Toutes les caissières</option>
+                <option value="">{t('Toutes les caissières', 'All cashiers')}</option>
                 {caissiers.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               {/* Filtre par mode de paiement — le « CA affiché » suit ce filtre */}
               <select value={modePaiement} onChange={e => setModePaiement(e.target.value)}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, background: '#fff', cursor: 'pointer', color: 'var(--fs-ink-700)' }}>
-                <option value="">Tous les modes de paiement</option>
+                <option value="">{t('Tous les modes de paiement', 'All payment methods')}</option>
                 {modesPaiement.map(m => <option key={m} value={m}>{PM_LABELS[m] ?? m}</option>)}
               </select>
               <button onClick={() => { setPeriod('all'); setCaissier(''); setModePaiement(''); setDateFrom(''); setDateTo(''); }}
                 style={{ padding: '7px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, cursor: 'pointer', color: 'var(--fs-ink-500)' }}>
-                Réinitialiser
+                {t('Réinitialiser', 'Reset')}
               </button>
             </div>
           </div>
@@ -246,22 +247,22 @@ export default function AdminFactures() {
         {/* Barre stats */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 20, padding: '10px 28px', background: 'var(--fs-wine-50)', borderBottom: '1px solid var(--fs-line)', flexShrink: 0 }}>
           <div>
-            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Total </span>
+            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('Total ', 'Total ')}</span>
             <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{total}</span>
           </div>
           <div>
-            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>CA affiché </span>
+            <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{t('CA affiché ', 'Revenue shown ')}</span>
             <span style={{ fontSize: 15, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>{fmtN(caTotal)} XAF</span>
           </div>
           <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--fs-ink-400)' }}>
-            Page {page + 1} / {pages}
+            {t('Page', 'Page')} {page + 1} / {pages}
           </div>
         </div>
 
         {/* Table */}
         <div style={{ flex: isNarrow ? '0 0 auto' : 1, overflowY: isNarrow ? 'visible' : 'auto', padding: isNarrow ? '0 16px 28px' : '0 28px 28px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
+            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Chargement…', 'Loading…')}</div>
           ) : (
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden', marginTop: 16, overflowX: 'auto' }}>
               <table className="fs-grid" style={{ width: '100%', borderCollapse: 'collapse', minWidth: isNarrow ? 760 : undefined }}>
@@ -285,7 +286,7 @@ export default function AdminFactures() {
                   {factures.length === 0 ? (
                     <tr>
                       <td colSpan={7} style={{ padding: 48, textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13 }}>
-                        Aucune facture enregistrée sur cette période.
+                        {t('Aucune facture enregistrée sur cette période.', 'No invoices recorded for this period.')}
                       </td>
                     </tr>
                   ) : sortedFactures.map((f, i) => {
@@ -310,7 +311,7 @@ export default function AdminFactures() {
                         {PM_LABELS[f.paymentMethod] ?? f.paymentMethod}
                       </td>
                       <td style={{ padding: '10px 12px', fontSize: 11, color: 'var(--fs-ink-500)' }}>
-                        {f.items.reduce((s, it) => s + it.quantity, 0)} art.
+                        {f.items.reduce((s, it) => s + it.quantity, 0)} {t('art.', 'items')}
                       </td>
                       <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)', whiteSpace: 'nowrap' }}>
                         {fmtN(f.montant)} XAF
@@ -322,7 +323,7 @@ export default function AdminFactures() {
                             <I d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" size={11} />
                             PDF
                           </button>
-                          <button onClick={() => setDeleteTarget(f)} title="Supprimer cette facture"
+                          <button onClick={() => setDeleteTarget(f)} title={t('Supprimer cette facture', 'Delete this invoice')}
                             style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', background: '#fef2f2', color: 'var(--fs-danger-700)', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 6, cursor: 'pointer' }}>
                             <I d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2" size={12} />
                           </button>
@@ -337,7 +338,7 @@ export default function AdminFactures() {
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                               <thead>
                                 <tr style={{ background: 'var(--fs-wine-50)' }}>
-                                  {['Article', 'Qté', 'Prix unit.', 'Sous-total'].map((h, hi) => (
+                                  {[t('Article', 'Item'), t('Qté', 'Qty'), t('Prix unit.', 'Unit price'), t('Sous-total', 'Subtotal')].map((h, hi) => (
                                     <th key={h} style={{ padding: '6px 12px', textAlign: hi >= 1 ? 'right' : 'left', fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{h}</th>
                                   ))}
                                 </tr>
@@ -355,7 +356,7 @@ export default function AdminFactures() {
                             </table>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px', background: 'var(--fs-wine-50)', borderTop: '1px solid var(--fs-line)' }}>
                               <span style={{ fontSize: 12, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>
-                                Total : {fmtN(f.montant)} XAF
+                                {t('Total :', 'Total:')} {fmtN(f.montant)} XAF
                               </span>
                             </div>
                           </div>
@@ -375,14 +376,14 @@ export default function AdminFactures() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 20 }}>
               <button onClick={() => load(page - 1)} disabled={page === 0}
                 style={{ padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.4 : 1, color: 'var(--fs-ink-600)' }}>
-                ← Précédent
+                ← {t('Précédent', 'Previous')}
               </button>
               <span style={{ fontSize: 12, color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-mono)' }}>
                 {page + 1} / {pages}
               </span>
               <button onClick={() => load(page + 1)} disabled={page >= pages - 1}
                 style={{ padding: '7px 14px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, cursor: page >= pages - 1 ? 'not-allowed' : 'pointer', opacity: page >= pages - 1 ? 0.4 : 1, color: 'var(--fs-ink-600)' }}>
-                Suivant →
+                {t('Suivant', 'Next')} →
               </button>
             </div>
           )}

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import { getUserActivity, UserActivity } from '../api/auth';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t } from '../i18n';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -13,11 +14,11 @@ function relTime(iso: string | Date | null): string {
   if (!iso) return '—';
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return "à l'instant";
-  if (m < 60) return `il y a ${m}m`;
+  if (m < 1) return t("à l'instant", 'just now');
+  if (m < 60) return t(`il y a ${m}m`, `${m}m ago`);
   const h = Math.floor(m / 60);
-  if (h < 24) return `il y a ${h}h`;
-  return `il y a ${Math.floor(h / 24)}j`;
+  if (h < 24) return t(`il y a ${h}h`, `${h}h ago`);
+  return t(`il y a ${Math.floor(h / 24)}j`, `${Math.floor(h / 24)}d ago`);
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -33,10 +34,10 @@ interface PermSection { section: string; actions: PermAction[]; }
 // ── Role metadata ─────────────────────────────────────────────────────────────
 
 const ROLE_META: Record<RoleKey, { label: string; desc: string; bg: string; color: string; border: string }> = {
-  patron:       { label: 'Patron',       desc: 'Accès total',               bg: 'var(--fs-wine-50)', color: 'var(--fs-wine-700)', border: 'rgba(122,29,46,0.2)'  },
-  gestionnaire: { label: 'Gestionnaire', desc: 'Stock & approvisionnement', bg: '#E8F0E5',           color: '#3F6B3A',            border: 'rgba(90,139,83,0.2)'  },
-  caissier:     { label: 'Caissier',     desc: 'Caisse uniquement',         bg: '#EEF3FA',           color: '#3A5E8F',            border: 'rgba(58,94,143,0.2)'  },
-  magazinier:   { label: 'Magasinier',   desc: 'Entrepôt & réceptions',     bg: '#FEF3C7',           color: '#B45309',            border: 'rgba(180,83,9,0.2)'   },
+  patron:       { label: t('Patron', 'Owner'),         desc: t('Accès total', 'Full access'),                      bg: 'var(--fs-wine-50)', color: 'var(--fs-wine-700)', border: 'rgba(122,29,46,0.2)'  },
+  gestionnaire: { label: t('Gestionnaire', 'Manager'), desc: t('Stock & approvisionnement', 'Stock & supply'),     bg: '#E8F0E5',           color: '#3F6B3A',            border: 'rgba(90,139,83,0.2)'  },
+  caissier:     { label: t('Caissier', 'Cashier'),     desc: t('Caisse uniquement', 'Checkout only'),              bg: '#EEF3FA',           color: '#3A5E8F',            border: 'rgba(58,94,143,0.2)'  },
+  magazinier:   { label: t('Magasinier', 'Warehouse keeper'), desc: t('Entrepôt & réceptions', 'Warehouse & goods receipts'), bg: '#FEF3C7',           color: '#B45309',            border: 'rgba(180,83,9,0.2)'   },
 };
 
 const ROLE_ORDER: RoleKey[] = ['patron', 'gestionnaire', 'caissier', 'magazinier'];
@@ -45,55 +46,55 @@ const ROLE_ORDER: RoleKey[] = ['patron', 'gestionnaire', 'caissier', 'magazinier
 
 const PERMS: PermSection[] = [
   {
-    section: 'Caisse',
+    section: t('Caisse', 'Checkout'),
     actions: [
-      { label: 'Ouvrir une vente',        desc: 'Créer un nouveau ticket de caisse',          patron: true,  gestionnaire: false, caissier: true,  magazinier: false },
-      { label: 'Appliquer une remise',     desc: "Modifier le prix d'un article ou du total",  patron: true,  gestionnaire: false, caissier: true,  magazinier: false },
-      { label: 'Annuler un ticket',        desc: 'Annuler une vente en cours',                 patron: true,  gestionnaire: false, caissier: true,  magazinier: false },
-      { label: 'Rembourser une vente',     desc: 'Émettre un remboursement',                   patron: true,  gestionnaire: false, caissier: false, magazinier: false },
-      { label: 'Accepter paiement mobile', desc: 'Valider un paiement Mobile Money',           patron: true,  gestionnaire: false, caissier: true,  magazinier: false },
+      { label: t('Ouvrir une vente', 'Open a sale'),        desc: t('Créer un nouveau ticket de caisse', 'Create a new receipt'),          patron: true,  gestionnaire: false, caissier: true,  magazinier: false },
+      { label: t('Appliquer une remise', 'Apply a discount'),     desc: t("Modifier le prix d'un article ou du total", 'Change the price of an item or the total'),  patron: true,  gestionnaire: false, caissier: true,  magazinier: false },
+      { label: t('Annuler un ticket', 'Void a receipt'),        desc: t('Annuler une vente en cours', 'Cancel a sale in progress'),                 patron: true,  gestionnaire: false, caissier: true,  magazinier: false },
+      { label: t('Rembourser une vente', 'Refund a sale'),     desc: t('Émettre un remboursement', 'Issue a refund'),                   patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t('Accepter paiement mobile', 'Accept mobile payment'), desc: t('Valider un paiement Mobile Money', 'Validate a Mobile Money payment'),           patron: true,  gestionnaire: false, caissier: true,  magazinier: false },
     ],
   },
   {
-    section: 'Stock & Entrepôt',
+    section: t('Stock & Entrepôt', 'Stock & Warehouse'),
     actions: [
-      { label: 'Consulter le stock',       desc: 'Voir les niveaux de stock en temps réel',    patron: true,  gestionnaire: true,  caissier: false, magazinier: true  },
-      { label: 'Ajouter une réception',    desc: 'Enregistrer une livraison fournisseur',      patron: true,  gestionnaire: true,  caissier: false, magazinier: true  },
-      { label: 'Créer une demande',        desc: 'Demander un réapprovisionnement',            patron: true,  gestionnaire: true,  caissier: false, magazinier: true  },
-      { label: 'Modifier un produit',      desc: 'Changer le prix, le nom, la catégorie',      patron: true,  gestionnaire: true,  caissier: false, magazinier: false },
-      { label: 'Créer un produit',         desc: 'Ajouter un nouveau produit au catalogue',    patron: true,  gestionnaire: true,  caissier: false, magazinier: false },
-      { label: 'Supprimer un produit',     desc: 'Retirer un produit du catalogue',            patron: true,  gestionnaire: false, caissier: false, magazinier: false },
-      { label: 'Gérer les fournisseurs',   desc: 'Ajouter / modifier les fournisseurs',        patron: true,  gestionnaire: true,  caissier: false, magazinier: false },
-      { label: 'Faire un inventaire',      desc: 'Lancer et valider un inventaire complet',    patron: true,  gestionnaire: true,  caissier: false, magazinier: true  },
-      { label: 'Imprimer des étiquettes',  desc: 'Générer et imprimer des étiquettes produits',patron: true,  gestionnaire: true,  caissier: false, magazinier: false },
-      { label: 'Voir les dépôts',          desc: 'Consulter et gérer les dépôts de stockage', patron: true,  gestionnaire: true,  caissier: false, magazinier: true  },
+      { label: t('Consulter le stock', 'View stock'),       desc: t('Voir les niveaux de stock en temps réel', 'See stock levels in real time'),    patron: true,  gestionnaire: true,  caissier: false, magazinier: true  },
+      { label: t('Ajouter une réception', 'Add a goods receipt'),    desc: t('Enregistrer une livraison fournisseur', 'Record a supplier delivery'),      patron: true,  gestionnaire: true,  caissier: false, magazinier: true  },
+      { label: t('Créer une demande', 'Create a request'),        desc: t('Demander un réapprovisionnement', 'Request a restock'),            patron: true,  gestionnaire: true,  caissier: false, magazinier: true  },
+      { label: t('Modifier un produit', 'Edit a product'),      desc: t('Changer le prix, le nom, la catégorie', 'Change the price, name or category'),      patron: true,  gestionnaire: true,  caissier: false, magazinier: false },
+      { label: t('Créer un produit', 'Create a product'),         desc: t('Ajouter un nouveau produit au catalogue', 'Add a new product to the catalogue'),    patron: true,  gestionnaire: true,  caissier: false, magazinier: false },
+      { label: t('Supprimer un produit', 'Delete a product'),     desc: t('Retirer un produit du catalogue', 'Remove a product from the catalogue'),            patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t('Gérer les fournisseurs', 'Manage suppliers'),   desc: t('Ajouter / modifier les fournisseurs', 'Add / edit suppliers'),        patron: true,  gestionnaire: true,  caissier: false, magazinier: false },
+      { label: t('Faire un inventaire', 'Run a stock count'),      desc: t('Lancer et valider un inventaire complet', 'Start and validate a full stock count'),    patron: true,  gestionnaire: true,  caissier: false, magazinier: true  },
+      { label: t('Imprimer des étiquettes', 'Print labels'),  desc: t('Générer et imprimer des étiquettes produits', 'Generate and print product labels'),patron: true,  gestionnaire: true,  caissier: false, magazinier: false },
+      { label: t('Voir les dépôts', 'View depots'),          desc: t('Consulter et gérer les dépôts de stockage', 'View and manage storage depots'), patron: true,  gestionnaire: true,  caissier: false, magazinier: true  },
     ],
   },
   {
-    section: 'Personnel',
+    section: t('Personnel', 'Staff'),
     actions: [
-      { label: "Voir l'équipe",            desc: 'Consulter la liste des collaborateurs',      patron: true,  gestionnaire: false, caissier: false, magazinier: false },
-      { label: 'Créer un caissier',        desc: 'Ajouter un nouveau compte caissier',         patron: true,  gestionnaire: false, caissier: false, magazinier: false },
-      { label: 'Créer un gestionnaire',    desc: 'Ajouter un nouveau compte gestionnaire',     patron: true,  gestionnaire: false, caissier: false, magazinier: false },
-      { label: 'Réinitialiser un PIN',     desc: "Modifier le PIN d'accès caisse",             patron: true,  gestionnaire: false, caissier: false, magazinier: false },
-      { label: 'Désactiver un compte',     desc: "Bloquer l'accès d'un collaborateur",         patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t("Voir l'équipe", 'View the team'),            desc: t('Consulter la liste des collaborateurs', 'View the list of staff members'),      patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t('Créer un caissier', 'Create a cashier'),        desc: t('Ajouter un nouveau compte caissier', 'Add a new cashier account'),         patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t('Créer un gestionnaire', 'Create a manager'),    desc: t('Ajouter un nouveau compte gestionnaire', 'Add a new manager account'),     patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t('Réinitialiser un PIN', 'Reset a PIN'),     desc: t("Modifier le PIN d'accès caisse", 'Change the checkout access PIN'),             patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t('Désactiver un compte', 'Deactivate an account'),     desc: t("Bloquer l'accès d'un collaborateur", "Block a staff member's access"),         patron: true,  gestionnaire: false, caissier: false, magazinier: false },
     ],
   },
   {
-    section: 'Rapports & Comptabilité',
+    section: t('Rapports & Comptabilité', 'Reports & Accounting'),
     actions: [
-      { label: 'Voir le tableau de bord',  desc: "KPIs, chiffre d'affaires, statistiques",    patron: true,  gestionnaire: false, caissier: false, magazinier: false },
-      { label: 'Consulter les rapports',   desc: 'Rapports mensuels et comparaisons',          patron: true,  gestionnaire: false, caissier: false, magazinier: false },
-      { label: 'Voir la comptabilité',     desc: 'Compte de résultat, charges, bénéfice',      patron: true,  gestionnaire: false, caissier: false, magazinier: false },
-      { label: 'Exporter les données',     desc: 'Export Excel / PDF des rapports',            patron: true,  gestionnaire: false, caissier: false, magazinier: false },
-      { label: "Consulter l'audit",        desc: 'Journal des actions sensibles',              patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t('Voir le tableau de bord', 'View the dashboard'),  desc: t("KPIs, chiffre d'affaires, statistiques", 'KPIs, revenue, statistics'),    patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t('Consulter les rapports', 'View reports'),   desc: t('Rapports mensuels et comparaisons', 'Monthly reports and comparisons'),          patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t('Voir la comptabilité', 'View accounting'),     desc: t('Compte de résultat, charges, bénéfice', 'Income statement, expenses, profit'),      patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t('Exporter les données', 'Export data'),     desc: t('Export Excel / PDF des rapports', 'Excel / PDF export of reports'),            patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t("Consulter l'audit", 'View the audit log'),        desc: t('Journal des actions sensibles', 'Log of sensitive actions'),              patron: true,  gestionnaire: false, caissier: false, magazinier: false },
     ],
   },
   {
-    section: 'Système',
+    section: t('Système', 'System'),
     actions: [
-      { label: 'Modifier les paramètres',  desc: 'Infos magasin, devise, imprimantes',        patron: true,  gestionnaire: false, caissier: false, magazinier: false },
-      { label: 'Gérer les rôles',          desc: 'Modifier les permissions de chaque rôle',   patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t('Modifier les paramètres', 'Edit settings'),  desc: t('Infos magasin, devise, imprimantes', 'Store info, currency, printers'),        patron: true,  gestionnaire: false, caissier: false, magazinier: false },
+      { label: t('Gérer les rôles', 'Manage roles'),          desc: t('Modifier les permissions de chaque rôle', 'Edit the permissions of each role'),   patron: true,  gestionnaire: false, caissier: false, magazinier: false },
     ],
   },
 ];
@@ -140,7 +141,7 @@ function UserCard({ u }: { u: UserActivity }) {
       {/* Activity */}
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: isActive ? '#16a34a' : 'var(--fs-ink-300)' }}>
-          {isActive ? `${u.actionsToday} action${u.actionsToday > 1 ? 's' : ''}` : 'Inactif auj.'}
+          {isActive ? `${u.actionsToday} action${u.actionsToday > 1 ? 's' : ''}` : t('Inactif auj.', 'Inactive today')}
         </div>
         <div style={{ fontSize: 10, color: 'var(--fs-ink-300)', marginTop: 1 }}>{relTime(u.lastActionAt)}</div>
       </div>
@@ -202,18 +203,18 @@ export default function AdminRoles() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
             <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Système</p>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>Rôles & Accès</h1>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Système', 'System')}</p>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>{t('Rôles & Accès', 'Roles & Access')}</h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e' }}/>
-                <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Actualisé {relTime(lastRefresh)}</span>
+                <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{t('Actualisé', 'Updated')} {relTime(lastRefresh)}</span>
               </div>
               <button onClick={() => load()}
                 style={{ padding: '6px 14px', border: '1.5px solid var(--fs-line)', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-600)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-                Actualiser
+                {t('Actualiser', 'Refresh')}
               </button>
             </div>
           </div>
@@ -225,11 +226,11 @@ export default function AdminRoles() {
           {/* KPI strip */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
             {([
-              { label: 'Caissiers',     count: byRole('caissier').length,    bg: ROLE_META.caissier.bg,     color: ROLE_META.caissier.color,     border: ROLE_META.caissier.border     },
-              { label: 'Gestionnaires', count: byRole('gestionnaire').length, bg: ROLE_META.gestionnaire.bg, color: ROLE_META.gestionnaire.color, border: ROLE_META.gestionnaire.border },
-              { label: 'Magasiniers',   count: byRole('magazinier').length,   bg: ROLE_META.magazinier.bg,   color: ROLE_META.magazinier.color,   border: ROLE_META.magazinier.border   },
-              { label: 'Total membres', count: nonPatron,   bg: '#fff',    color: 'var(--fs-ink-700)', border: 'var(--fs-line)'             },
-              { label: 'Actifs auj.',   count: activeToday, bg: '#F0FDF4', color: '#166534',           border: 'rgba(34,197,94,0.3)'         },
+              { label: t('Caissiers', 'Cashiers'),     count: byRole('caissier').length,    bg: ROLE_META.caissier.bg,     color: ROLE_META.caissier.color,     border: ROLE_META.caissier.border     },
+              { label: t('Gestionnaires', 'Managers'), count: byRole('gestionnaire').length, bg: ROLE_META.gestionnaire.bg, color: ROLE_META.gestionnaire.color, border: ROLE_META.gestionnaire.border },
+              { label: t('Magasiniers', 'Warehouse keepers'),   count: byRole('magazinier').length,   bg: ROLE_META.magazinier.bg,   color: ROLE_META.magazinier.color,   border: ROLE_META.magazinier.border   },
+              { label: t('Total membres', 'Total members'), count: nonPatron,   bg: '#fff',    color: 'var(--fs-ink-700)', border: 'var(--fs-line)'             },
+              { label: t('Actifs auj.', 'Active today'),   count: activeToday, bg: '#F0FDF4', color: '#166534',           border: 'rgba(34,197,94,0.3)'         },
             ] as { label: string; count: number; bg: string; color: string; border: string }[]).map(k => (
               <div key={k.label} style={{ flex: 1, minWidth: isMobile ? 130 : isNarrow ? 110 : undefined, background: k.bg, border: `1px solid ${k.border}`, borderRadius: 10, padding: '12px 16px' }}>
                 <div style={{ fontSize: 26, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: k.color, lineHeight: 1 }}>
@@ -243,7 +244,7 @@ export default function AdminRoles() {
           {/* Members & Activity */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14 }}>
-              Membres & Activité
+              {t('Membres & Activité', 'Members & Activity')}
             </div>
             {loading ? <Skeleton/> : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -257,9 +258,9 @@ export default function AdminRoles() {
                         <span style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, fontSize: 10, fontWeight: 700, padding: '2px 10px', borderRadius: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{meta.label}</span>
                         <span style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{meta.desc}</span>
                         <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', marginLeft: 'auto' }}>
-                          {members.length} membre{members.length > 1 ? 's' : ''}
+                          {members.length} {t('membre', 'member')}{members.length > 1 ? 's' : ''}
                           {members.filter(m => m.actionsToday > 0).length > 0 && (
-                            <span style={{ marginLeft: 8, color: '#16a34a' }}>· {members.filter(m => m.actionsToday > 0).length} actif{members.filter(m => m.actionsToday > 0).length > 1 ? 's' : ''} auj.</span>
+                            <span style={{ marginLeft: 8, color: '#16a34a' }}>· {members.filter(m => m.actionsToday > 0).length} {t(`actif${members.filter(m => m.actionsToday > 0).length > 1 ? 's' : ''} auj.`, 'active today')}</span>
                           )}
                         </span>
                       </div>
@@ -271,7 +272,7 @@ export default function AdminRoles() {
                 })}
                 {users.length === 0 && (
                   <div style={{ textAlign: 'center', color: 'var(--fs-ink-300)', fontSize: 13, padding: '20px 0' }}>
-                    Aucun utilisateur trouvé.
+                    {t('Aucun utilisateur trouvé.', 'No users found.')}
                   </div>
                 )}
               </div>
@@ -282,12 +283,12 @@ export default function AdminRoles() {
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflowX: isNarrow ? 'auto' : 'hidden', overflowY: 'hidden' }}>
             {/* Matrix toolbar */}
             <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--fs-line)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Matrice des permissions</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{t('Matrice des permissions', 'Permissions matrix')}</span>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Filtrer :</span>
+                <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{t('Filtrer :', 'Filter:')}</span>
                 {([null, ...ROLE_ORDER] as (RoleKey | null)[]).map(r => {
                   const active = r === permFilter;
-                  const label  = r === null ? 'Tous' : ROLE_META[r].label;
+                  const label  = r === null ? t('Tous', 'All') : ROLE_META[r].label;
                   const meta   = r ? ROLE_META[r] : null;
                   return (
                     <button key={label} onClick={() => setPermFilter(r)}
@@ -348,7 +349,7 @@ export default function AdminRoles() {
           </div>
 
           <div style={{ marginTop: 14, padding: '10px 16px', background: 'var(--fs-wine-50)', border: '1px solid rgba(122,29,46,0.15)', borderRadius: 10, fontSize: 11, color: 'var(--fs-wine-700)', fontWeight: 600 }}>
-            Ces permissions sont définies par le système et s'appliquent automatiquement à tous les utilisateurs selon leur rôle.
+            {t("Ces permissions sont définies par le système et s'appliquent automatiquement à tous les utilisateurs selon leur rôle.", 'These permissions are defined by the system and apply automatically to all users based on their role.')}
           </div>
 
           <div style={{ height: 24 }}/>

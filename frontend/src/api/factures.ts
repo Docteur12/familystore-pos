@@ -1,4 +1,5 @@
 import { authHeaders } from './http';
+import { t } from '../i18n';
 
 export interface FacturePayload {
   numero:        string;
@@ -42,18 +43,18 @@ export async function getFactures(params: {
   if (params.limit)    qs.set('limit', String(params.limit));
 
   const res = await fetch(`/api/factures?${qs}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Erreur chargement factures');
+  if (!res.ok) throw new Error(t('Erreur chargement factures', 'Failed to load invoices'));
   return res.json();
 }
 
 export async function getFacture(id: string): Promise<FactureRecord> {
   const res = await fetch(`/api/factures/${id}`, { headers: authHeaders() });
-  if (!res.ok) throw new Error('Facture introuvable');
+  if (!res.ok) throw new Error(t('Facture introuvable', 'Invoice not found'));
   return res.json();
 }
 
 export async function deleteFacture(id: string): Promise<void> {
   const res = await fetch(`/api/factures/${id}`, { method: 'DELETE', headers: authHeaders() });
-  if (res.status === 403) throw new Error('Suppression réservée à l\'administrateur');
-  if (!res.ok) throw new Error('Erreur suppression de la facture');
+  if (res.status === 403) throw new Error(t('Suppression réservée à l\'administrateur', 'Only the administrator can delete'));
+  if (!res.ok) throw new Error(t('Erreur suppression de la facture', 'Failed to delete invoice'));
 }

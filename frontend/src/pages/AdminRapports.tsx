@@ -16,12 +16,13 @@ import { getUsers, UserRecord } from '../api/auth';
 import ProductTooltip from '../components/ProductTooltip';
 import { getAllProducts, Product } from '../api/products';
 import { localISODate } from '../utils/dates';
+import { t, dateLocale } from '../i18n';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
+const fmtN = (n: number) => Math.round(n).toLocaleString(dateLocale());
 const fmtM = (n: number) => n >= 1_000_000
-  ? (n / 1_000_000).toFixed(2).replace('.', ',') + 'M'
+  ? (n / 1_000_000).toFixed(2).replace('.', t(',', '.')) + 'M'
   : Math.round(n / 1_000) + 'K';
 const fmtK = (n: number) => Math.round(n / 1_000) + 'K';
 
@@ -32,8 +33,8 @@ function buildMonths(count = 6) {
     return {
       year:  d.getFullYear(),
       month: d.getMonth() + 1,
-      short: d.toLocaleDateString('fr-FR', { month: 'short' }),
-      label: d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+      short: d.toLocaleDateString(dateLocale(), { month: 'short' }),
+      label: d.toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' }),
     };
   });
 }
@@ -70,9 +71,16 @@ function pctVs(a: number, b: number) {
   return ((a - b) / b * 100).toFixed(1);
 }
 
+// Libellés affichés des onglets de période (les valeurs techniques restent inchangées)
+const TAB_LABELS: Record<string, string> = {
+  Sem: t('Sem', 'Wk'), Mois: t('Mois', 'Mo'), T1: t('T1', 'Q1'), T2: t('T2', 'Q2'),
+  T3: t('T3', 'Q3'), T4: t('T4', 'Q4'), An: t('An', 'Yr'),
+};
+const tabLabel = (tb: string) => TAB_LABELS[tb] ?? tb;
+
 // ── Heatmap ───────────────────────────────────────────────────────────────────
 
-const DAYS_FR = ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+const DAYS_FR = [t('Lun','Mon'),t('Mar','Tue'),t('Mer','Wed'),t('Jeu','Thu'),t('Ven','Fri'),t('Sam','Sat'),t('Dim','Sun')];
 // Créneaux 7h→21h par intervalles de 2h : [7,9,11,13,15,17,19] (7 slots)
 const SLOT_STARTS = [7, 9, 11, 13, 15, 17, 19];
 
@@ -102,20 +110,20 @@ function Heatmap({ data }: { data: number[][] }) {
               background: v === 0
                 ? 'var(--fs-line)'
                 : `rgba(122,29,46,${Math.max(v, 0.1).toFixed(2)})`,
-            }} title={`${day} ${SLOT_STARTS[si]}h-${SLOT_STARTS[si]+2}h : ${Math.round(v * 100)}%`}/>
+            }} title={t(`${day} ${SLOT_STARTS[si]}h-${SLOT_STARTS[si]+2}h : ${Math.round(v * 100)}%`, `${day} ${SLOT_STARTS[si]}h-${SLOT_STARTS[si]+2}h: ${Math.round(v * 100)}%`)}/>
           ))}
         </div>
       ))}
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8, paddingLeft: 30 }}>
-        <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Faible</span>
+        <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{t('Faible', 'Low')}</span>
         {[0.15,0.35,0.55,0.75,0.95].map(v => (
           <div key={v} style={{ width: 13, height: 13, borderRadius: 2, background: `rgba(122,29,46,${v})` }}/>
         ))}
-        <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>Élevé</span>
+        <span style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{t('Élevé', 'High')}</span>
       </div>
       {!hasData && (
         <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 10 }}>
-          Aucune donnée disponible
+          {t('Aucune donnée disponible', 'No data available')}
         </div>
       )}
     </div>
@@ -128,10 +136,10 @@ function BarTip({ active, payload, label }: { active?: boolean; payload?: any[];
   if (!active || !payload?.length) return null;
   return (
     <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 8, padding: '6px 10px', fontSize: 11, boxShadow: 'var(--fs-shadow-md)' }}>
-      <div style={{ fontWeight: 700, color: 'var(--fs-ink-500)', marginBottom: 2 }}>Jour {label}</div>
+      <div style={{ fontWeight: 700, color: 'var(--fs-ink-500)', marginBottom: 2 }}>{t('Jour', 'Day')} {label}</div>
       <div style={{ fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)' }}>{fmtN(payload[0].value)} XAF</div>
       {payload[0].payload?.nbVentes > 0 && (
-        <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 2 }}>{payload[0].payload.nbVentes} vente{payload[0].payload.nbVentes > 1 ? 's' : ''}</div>
+        <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 2 }}>{t(`${payload[0].payload.nbVentes} vente${payload[0].payload.nbVentes > 1 ? 's' : ''}`, `${payload[0].payload.nbVentes} sale${payload[0].payload.nbVentes > 1 ? 's' : ''}`)}</div>
       )}
     </div>
   );
@@ -161,8 +169,8 @@ function EmptyState({ label }: { label: string }) {
   return (
     <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--fs-ink-400)' }}>
       <div style={{ fontSize: 36, marginBottom: 10 }}>📊</div>
-      <div style={{ fontSize: 14, fontWeight: 600 }}>Aucune vente enregistrée</div>
-      <div style={{ fontSize: 12, marginTop: 4 }}>Les données de {label} apparaîtront ici dès la première vente.</div>
+      <div style={{ fontSize: 14, fontWeight: 600 }}>{t('Aucune vente enregistrée', 'No sales recorded')}</div>
+      <div style={{ fontSize: 12, marginTop: 4 }}>{t(`Les données de ${label} apparaîtront ici dès la première vente.`, `Data for ${label} will appear here after the first sale.`)}</div>
     </div>
   );
 }
@@ -247,14 +255,14 @@ export default function AdminRapports() {
   const load = useCallback(async () => {
     setLoading(true); setData(null);
     try { setData(await getAnalyseMonth(year, month)); }
-    catch { addToast('Erreur chargement du rapport', 'error'); }
+    catch { addToast(t('Erreur chargement du rapport', 'Error loading report'), 'error'); }
     finally { setLoading(false); }
   }, [year, month, addToast]);
 
   const loadWeek = useCallback(async () => {
     setLoading(true); setWeekData(null);
     try { setWeekData(await getAnalyseWeek(weekYear, weekNum)); }
-    catch { addToast('Erreur chargement du rapport hebdomadaire', 'error'); }
+    catch { addToast(t('Erreur chargement du rapport hebdomadaire', 'Error loading weekly report'), 'error'); }
     finally { setLoading(false); }
   }, [weekYear, weekNum, addToast]);
 
@@ -286,7 +294,7 @@ export default function AdminRapports() {
   const loadByProduct = async () => {
     setProdLoading(true);
     try { setByProduct(await getByProduct({ dateFrom: prodDateFrom || undefined, dateTo: prodDateTo || undefined })); }
-    catch { addToast('Erreur chargement journal produits', 'error'); }
+    catch { addToast(t('Erreur chargement journal produits', 'Error loading product journal'), 'error'); }
     finally { setProdLoading(false); }
   };
 
@@ -295,7 +303,7 @@ export default function AdminRapports() {
     try {
       await downloadReport(type, year, month);
     } catch {
-      addToast(`Erreur export ${type.toUpperCase()}`, 'error');
+      addToast(t(`Erreur export ${type.toUpperCase()}`, `${type.toUpperCase()} export error`), 'error');
     } finally {
       setExporting(null);
     }
@@ -303,7 +311,7 @@ export default function AdminRapports() {
 
   // Export PDF (côté client) du journal des ventes par produit.
   async function exportByProductPdf() {
-    if (byProduct.length === 0) { addToast('Aucune donnée à exporter', 'error'); return; }
+    if (byProduct.length === 0) { addToast(t('Aucune donnée à exporter', 'No data to export'), 'error'); return; }
     setProdExporting(true);
     try {
       const { jsPDF } = await import('jspdf');
@@ -320,23 +328,23 @@ export default function AdminRapports() {
         : [139, 26, 43];
       doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.rect(0, 0, 210, 22, 'F');
       doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-      doc.text('Journal des ventes par produit', margin, 14);
+      doc.text(t('Journal des ventes par produit', 'Sales journal by product'), margin, 14);
       let y = 30;
 
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(110);
       const periode = (prodDateFrom || prodDateTo)
-        ? `Période : ${prodDateFrom || '…'} → ${prodDateTo || '…'}`
-        : 'Toutes périodes';
-      doc.text(`${periode}  ·  ${byProduct.length} produit(s)  ·  édité le ${new Date().toLocaleDateString('fr-FR')}`, margin, y);
+        ? t(`Période : ${prodDateFrom || '…'} → ${prodDateTo || '…'}`, `Period: ${prodDateFrom || '…'} → ${prodDateTo || '…'}`)
+        : t('Toutes périodes', 'All periods');
+      doc.text(t(`${periode}  ·  ${byProduct.length} produit(s)  ·  édité le ${new Date().toLocaleDateString(dateLocale())}`, `${periode}  ·  ${byProduct.length} product(s)  ·  generated on ${new Date().toLocaleDateString(dateLocale())}`), margin, y);
       y += 8;
 
       const header = () => {
         doc.setTextColor(0); doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-        doc.text('Produit', cX.nom, y);
-        doc.text('Qté vendue', cX.qte, y, { align: 'right' });
-        doc.text('CA généré', cX.ca, y, { align: 'right' });
-        doc.text('Nb tr.', cX.nb, y, { align: 'right' });
-        doc.text('Prix moy.', cX.moy, y, { align: 'right' });
+        doc.text(t('Produit', 'Product'), cX.nom, y);
+        doc.text(t('Qté vendue', 'Qty sold'), cX.qte, y, { align: 'right' });
+        doc.text(t('CA généré', 'Revenue'), cX.ca, y, { align: 'right' });
+        doc.text(t('Nb tr.', 'Trans.'), cX.nb, y, { align: 'right' });
+        doc.text(t('Prix moy.', 'Avg price'), cX.moy, y, { align: 'right' });
         y += 2; doc.setDrawColor(180); doc.line(margin, y, 196, y); y += 5;
       };
       header();
@@ -361,9 +369,9 @@ export default function AdminRapports() {
       doc.text(num(totalQte), cX.qte, y, { align: 'right' });
       doc.text(`${num(totalCA)} XAF`, cX.ca, y, { align: 'right' });
 
-      doc.save(`ventes-par-produit-${new Date().toISOString().slice(0, 10)}.pdf`);
+      doc.save(t(`ventes-par-produit-${new Date().toISOString().slice(0, 10)}.pdf`, `sales-by-product-${new Date().toISOString().slice(0, 10)}.pdf`));
     } catch {
-      addToast('Erreur export PDF', 'error');
+      addToast(t('Erreur export PDF', 'PDF export error'), 'error');
     } finally {
       setProdExporting(false);
     }
@@ -398,9 +406,9 @@ export default function AdminRapports() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: isNarrow ? 'stretch' : 'center', flexDirection: isNarrow ? 'column' : 'row', justifyContent: 'space-between', gap: isNarrow ? 10 : 10, flexWrap: 'wrap' }}>
             <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Rapports & Analyses — Mensuel</p>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Rapports & Analyses — Mensuel', 'Reports & Analytics — Monthly')}</p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>
-                Rapport mensuel — {capLabel}
+                {t('Rapport mensuel', 'Monthly report')} — {capLabel}
               </h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -444,7 +452,7 @@ export default function AdminRapports() {
                 {/* CA — grande carte bordeaux */}
                 <div style={{ flex: 2, background: 'var(--fs-wine-800)', borderRadius: 12, padding: '20px 24px', color: '#fff', minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(245,235,217,0.5)', marginBottom: 10 }}>
-                    Chiffre d'affaires — {capLabel}
+                    {t("Chiffre d'affaires", 'Revenue')} — {capLabel}
                   </div>
                   <div style={{ fontSize: 38, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', letterSpacing: '-0.02em', lineHeight: 1, marginBottom: 12 }}>
                     {fmtM(d.ca)} <span style={{ fontSize: 18 }}>XAF</span>
@@ -452,30 +460,30 @@ export default function AdminRapports() {
                   <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
                     {evoPct !== null && (
                       <div style={{ fontSize: 12, fontWeight: 700, color: parseFloat(evoPct) >= 0 ? 'var(--fs-gold-300)' : '#F5A0A0' }}>
-                        {parseFloat(evoPct) >= 0 ? '+' : ''}{evoPct}% vs mois préc.
+                        {parseFloat(evoPct) >= 0 ? '+' : ''}{evoPct}{t('% vs mois préc.', '% vs prev. month')}
                       </div>
                     )}
                     {d.prevCA === 0 && (
-                      <div style={{ fontSize: 12, color: 'rgba(245,235,217,0.4)' }}>Premier mois enregistré</div>
+                      <div style={{ fontSize: 12, color: 'rgba(245,235,217,0.4)' }}>{t('Premier mois enregistré', 'First recorded month')}</div>
                     )}
                   </div>
                   <div style={{ marginTop: 10, fontSize: 12, color: 'rgba(245,235,217,0.4)' }}>
-                    {d.nbVentes} ticket{d.nbVentes > 1 ? 's' : ''} · panier moy. {fmtN(d.panierMoyen)} XAF
+                    {t(`${d.nbVentes} ticket${d.nbVentes > 1 ? 's' : ''} · panier moy. ${fmtN(d.panierMoyen)} XAF`, `${d.nbVentes} ticket${d.nbVentes > 1 ? 's' : ''} · avg basket ${fmtN(d.panierMoyen)} XAF`)}
                   </div>
                   {/* Ventilation : réconcilie le CA affiché avec la somme des articles vendus.
                       Le CA en tête est le NET encaissé (après remises). */}
                   {(d.remises ?? 0) > 0 && (
                     <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(245,235,217,0.15)', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: 'rgba(245,235,217,0.7)' }}>
-                        <span>CA brut (articles vendus)</span>
+                        <span>{t('CA brut (articles vendus)', 'Gross revenue (items sold)')}</span>
                         <span style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(d.caBrut ?? 0)} XAF</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: '#F5C0A0' }}>
-                        <span>− Remises accordées</span>
+                        <span>{t('− Remises accordées', '− Discounts granted')}</span>
                         <span style={{ fontFamily: 'var(--fs-font-mono)' }}>−{fmtN(d.remises ?? 0)} XAF</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--fs-gold-300)', fontWeight: 700 }}>
-                        <span>= CA net encaissé</span>
+                        <span>{t('= CA net encaissé', '= Net revenue collected')}</span>
                         <span style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtN(d.ca)} XAF</span>
                       </div>
                     </div>
@@ -484,31 +492,31 @@ export default function AdminRapports() {
 
                 {/* Bénéfice net */}
                 <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 10 }}>Bénéfice net</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 10 }}>{t('Bénéfice net', 'Net profit')}</div>
                   <div style={{ fontSize: 28, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: d.beneficeNet >= 0 ? 'var(--fs-ink-900)' : 'var(--fs-danger-700)', lineHeight: 1, marginBottom: 6 }}>
                     {fmtM(d.beneficeNet)} <span style={{ fontSize: 13 }}>XAF</span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--fs-ink-500)' }}>
-                    Marge nette : <b style={{ color: d.beneficeNet >= 0 ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' }}>{margeNette} %</b>
+                    {t('Marge nette :', 'Net margin:')} <b style={{ color: d.beneficeNet >= 0 ? 'var(--fs-success-700)' : 'var(--fs-danger-700)' }}>{t(`${margeNette} %`, `${margeNette}%`)}</b>
                   </div>
                   {d.depenses > 0 && (
                     <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 4 }}>
-                      Dépenses : {fmtM(d.depenses)} XAF
+                      {t(`Dépenses : ${fmtM(d.depenses)} XAF`, `Expenses: ${fmtM(d.depenses)} XAF`)}
                     </div>
                   )}
                 </div>
 
                 {/* Tickets & panier */}
                 <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 10 }}>Tickets · Panier moyen</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', marginBottom: 10 }}>{t('Tickets · Panier moyen', 'Tickets · Average basket')}</div>
                   <div style={{ fontSize: 28, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)', lineHeight: 1, marginBottom: 6 }}>
                     {fmtN(d.nbVentes)} <span style={{ fontSize: 13, fontWeight: 600 }}>tickets</span>
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--fs-ink-500)' }}>
-                    Panier : <b style={{ color: 'var(--fs-ink-800)', fontFamily: 'var(--fs-font-mono)' }}>{fmtN(d.panierMoyen)} XAF</b>
+                    {t('Panier :', 'Basket:')} <b style={{ color: 'var(--fs-ink-800)', fontFamily: 'var(--fs-font-mono)' }}>{fmtN(d.panierMoyen)} XAF</b>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 4 }}>
-                    Moy. quotidienne : {fmtK(avgDaily)} XAF
+                    {t(`Moy. quotidienne : ${fmtK(avgDaily)} XAF`, `Daily avg: ${fmtK(avgDaily)} XAF`)}
                   </div>
                 </div>
               </div>
@@ -517,15 +525,15 @@ export default function AdminRapports() {
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)', marginBottom: 18 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Ventes journalières · {d.parJour.length} jours</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t(`Ventes journalières · ${d.parJour.length} jours`, `Daily sales · ${d.parJour.length} days`)}</div>
                     {picJour && picJour.ca > 0 && (
                       <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>
-                        Pic le {picJour.jour} — {fmtK(picJour.ca)} XAF ({picJour.nbVentes} ventes)
+                        {t(`Pic le ${picJour.jour} — ${fmtK(picJour.ca)} XAF (${picJour.nbVentes} ventes)`, `Peak on day ${picJour.jour} — ${fmtK(picJour.ca)} XAF (${picJour.nbVentes} sales)`)}
                       </div>
                     )}
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>Moyenne journée active</div>
+                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{t('Moyenne journée active', 'Active-day average')}</div>
                     <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-800)' }}>{fmtK(avgDaily)} XAF</div>
                   </div>
                 </div>
@@ -546,10 +554,10 @@ export default function AdminRapports() {
                 </div>
                 <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--fs-ink-500)' }}>
-                    <div style={{ width: 12, height: 12, borderRadius: 2, background: brand }}/> Jours semaine
+                    <div style={{ width: 12, height: 12, borderRadius: 2, background: brand }}/> {t('Jours semaine', 'Weekdays')}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--fs-ink-500)' }}>
-                    <div style={{ width: 12, height: 12, borderRadius: 2, background: '#D1A660' }}/> Week-ends
+                    <div style={{ width: 12, height: 12, borderRadius: 2, background: '#D1A660' }}/> {t('Week-ends', 'Weekends')}
                   </div>
                 </div>
               </div>
@@ -559,10 +567,10 @@ export default function AdminRapports() {
 
                 {/* Catégories produits */}
                 <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 18px', boxShadow: 'var(--fs-shadow-sm)' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Par catégorie</div>
-                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Répartition du CA par catégorie{(d.remises ?? 0) > 0 ? ' (avant remises)' : ''}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>{t('Par catégorie', 'By category')}</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>{t('Répartition du CA par catégorie', 'Revenue breakdown by category')}{(d.remises ?? 0) > 0 ? t(' (avant remises)', ' (before discounts)') : ''}</div>
                   {d.parCategorie.length === 0 ? (
-                    <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', textAlign: 'center', padding: '24px 0' }}>Catégories non renseignées</div>
+                    <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', textAlign: 'center', padding: '24px 0' }}>{t('Catégories non renseignées', 'No categories set')}</div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                       {d.parCategorie.slice(0, 7).map((cat, idx) => (
@@ -588,14 +596,14 @@ export default function AdminRapports() {
 
                 {/* Classement caissiers */}
                 <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 18px', boxShadow: 'var(--fs-shadow-sm)' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Classement caissiers</div>
-                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Performances individuelles · CA généré</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>{t('Classement caissiers', 'Cashier ranking')}</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>{t('Performances individuelles · CA généré', 'Individual performance · revenue generated')}</div>
                   {(caissierNames.size > 0
                       ? d.parCaissier.filter((c: CaissierData) => caissierNames.has(c.nom))
                       : d.parCaissier
                     ).length === 0 ? (
                     <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', textAlign: 'center', padding: '24px 0' }}>
-                      Aucune donnée caissier disponible
+                      {t('Aucune donnée caissier disponible', 'No cashier data available')}
                     </div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -611,7 +619,7 @@ export default function AdminRapports() {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{c.nom}</div>
                             <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>
-                              {c.nbVentes} vente{c.nbVentes > 1 ? 's' : ''} · panier {fmtN(c.panierMoyen)}
+                              {t(`${c.nbVentes} vente${c.nbVentes > 1 ? 's' : ''} · panier ${fmtN(c.panierMoyen)}`, `${c.nbVentes} sale${c.nbVentes > 1 ? 's' : ''} · basket ${fmtN(c.panierMoyen)}`)}
                             </div>
                           </div>
                           <div style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)', flexShrink: 0 }}>
@@ -625,8 +633,8 @@ export default function AdminRapports() {
 
                 {/* Heatmap affluence horaire */}
                 <div style={{ flex: 1, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 18px', boxShadow: 'var(--fs-shadow-sm)', minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Affluence horaire</div>
-                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Intensité des ventes par jour et heure</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>{t('Affluence horaire', 'Hourly traffic')}</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>{t('Intensité des ventes par jour et heure', 'Sales intensity by day and hour')}</div>
                   <div style={{ overflowX: 'auto' }}>
                     <Heatmap data={d.heatmap}/>
                   </div>
@@ -636,8 +644,8 @@ export default function AdminRapports() {
               {/* Top produits */}
               {d.topProduits.length > 0 && (
                 <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Top produits</div>
-                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Les 10 meilleurs produits par CA généré</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>{t('Top produits', 'Top products')}</div>
+                  <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>{t('Les 10 meilleurs produits par CA généré', 'Top 10 products by revenue')}</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
                     {d.topProduits.map((p, i) => (
                       <div key={p.nom} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--fs-ivory)', borderRadius: 8 }}>
@@ -646,7 +654,7 @@ export default function AdminRapports() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-800)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName(p.nom)}</div>
-                          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{p.quantite} unité{p.quantite > 1 ? 's' : ''}</div>
+                          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{t(`${p.quantite} unité${p.quantite > 1 ? 's' : ''}`, `${p.quantite} unit${p.quantite > 1 ? 's' : ''}`)}</div>
                         </div>
                         <div style={{ fontSize: 12, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)', flexShrink: 0 }}>
                           {fmtN(p.ca)} XAF
@@ -672,14 +680,14 @@ export default function AdminRapports() {
                   const ca = rows.reduce((s, r) => s + r.totalCA, 0);
                   const mins = rows.filter(r => r.minTicket > 0).map(r => r.minTicket);
                   return {
-                    label: `T${q} ${curYear}`, nb, ca,
+                    label: t(`T${q} ${curYear}`, `Q${q} ${curYear}`), nb, ca,
                     min: mins.length > 0 ? Math.min(...mins) : 0,
                     max: rows.length > 0 ? Math.max(...rows.map(r => r.maxTicket)) : 0,
                     avg: nb > 0 ? Math.round(ca / nb) : 0,
                   };
                 });
                 const annual = {
-                  label: `Annuel ${curYear}`,
+                  label: t(`Annuel ${curYear}`, `Annual ${curYear}`),
                   nb: qtrs.reduce((s, q) => s + q.nb, 0),
                   ca: qtrs.reduce((s, q) => s + q.ca, 0),
                   min: Math.min(...qtrs.filter(q => q.min > 0).map(q => q.min).concat([0])),
@@ -692,14 +700,14 @@ export default function AdminRapports() {
                 const TDR: React.CSSProperties = { padding: '8px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', borderBottom: '1px solid var(--fs-line)' };
                 return (
                   <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Statistiques tickets — {curYear}</div>
-                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>T1 · T2 · T3 · T4 · Annuel — MIN / MAX / MOYENNE par ticket</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>{t('Statistiques tickets', 'Ticket statistics')} — {curYear}</div>
+                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>{t('T1 · T2 · T3 · T4 · Annuel — MIN / MAX / MOYENNE par ticket', 'Q1 · Q2 · Q3 · Q4 · Annual — MIN / MAX / AVERAGE per ticket')}</div>
                     <div style={{ overflowX: 'auto' }}>
                     <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 560 : undefined, borderCollapse: 'collapse', fontSize: 12 }}>
                       <thead>
                         <tr style={{ background: 'var(--fs-ivory)' }}>
-                          {['Période', 'Nb tickets', 'CA total', 'MIN', 'MAX', 'Moyenne'].map(h => (
-                            <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Période' ? 'left' : 'right', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' }}>{h}</th>
+                          {[t('Période', 'Period'), t('Nb tickets', 'Ticket count'), t('CA total', 'Total revenue'), 'MIN', 'MAX', t('Moyenne', 'Average')].map(h => (
+                            <th key={h} style={{ padding: '8px 12px', textAlign: h === t('Période', 'Period') ? 'left' : 'right', fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -725,7 +733,7 @@ export default function AdminRapports() {
 
           {/* ── Comparaison 5 dernières années ── */}
           {multiYear.length > 0 && (() => {
-            const MONTHS_FR = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+            const MONTHS_FR = ['Jan',t('Fév','Feb'),'Mar',t('Avr','Apr'),t('Mai','May'),'Jun','Jul',t('Aoû','Aug'),'Sep','Oct','Nov',t('Déc','Dec')];
             const YEAR_COLORS = [brand,'#D1A660','#7A9EC2','#7AB87A','#9A7AC2'];
             const chartData = MONTHS_FR.map((m, mi) => {
               const entry: Record<string, string | number> = { month: m };
@@ -734,8 +742,8 @@ export default function AdminRapports() {
             });
             return (
               <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Comparaison des 5 dernières années</div>
-                <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>Évolution du CA mensuel par année · XAF</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>{t('Comparaison des 5 dernières années', 'Last 5 years comparison')}</div>
+                <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 14 }}>{t('Évolution du CA mensuel par année · XAF', 'Monthly revenue trend by year · XAF')}</div>
                 <div style={{ height: 240 }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
@@ -754,7 +762,7 @@ export default function AdminRapports() {
                   {multiYear.map((y, i) => (
                     <div key={y.year} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <div style={{ width: 12, height: 3, borderRadius: 2, background: YEAR_COLORS[i % YEAR_COLORS.length] }}/>
-                      <span style={{ fontSize: 11, color: 'var(--fs-ink-600)', fontWeight: 600 }}>{y.year} : <span style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtM(y.totalCA)} XAF</span></span>
+                      <span style={{ fontSize: 11, color: 'var(--fs-ink-600)', fontWeight: 600 }}>{y.year}{t(' : ', ': ')}<span style={{ fontFamily: 'var(--fs-font-mono)' }}>{fmtM(y.totalCA)} XAF</span></span>
                     </div>
                   ))}
                 </div>
@@ -765,20 +773,20 @@ export default function AdminRapports() {
           {/* ── Comparaisons (hors filtre mois) ── */}
           {comparisons && (
             <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Comparaisons de périodes</div>
-              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 16 }}>Semaine · Mois · Année — CA, Tickets (nb, montant MIN/MAX/MOY) vs période précédente</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>{t('Comparaisons de périodes', 'Period comparisons')}</div>
+              <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginBottom: 16 }}>{t('Semaine · Mois · Année — CA, Tickets (nb, montant MIN/MAX/MOY) vs période précédente', 'Week · Month · Year — revenue, tickets (count, MIN/MAX/AVG amount) vs previous period')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {([
-                  { label: 'Semaine en cours', curr: comparisons.week,  prev: comparisons.prevWeek,  icon: '📅' },
-                  { label: 'Mois en cours',    curr: comparisons.month, prev: comparisons.prevMonth, icon: '🗓️' },
-                  { label: 'Année en cours',   curr: comparisons.year,  prev: comparisons.prevYear,  icon: '📆' },
+                  { label: t('Semaine en cours', 'Current week'), curr: comparisons.week,  prev: comparisons.prevWeek,  icon: '📅' },
+                  { label: t('Mois en cours', 'Current month'),   curr: comparisons.month, prev: comparisons.prevMonth, icon: '🗓️' },
+                  { label: t('Année en cours', 'Current year'),   curr: comparisons.year,  prev: comparisons.prevYear,  icon: '📆' },
                 ] as const).map(({ label, curr, prev, icon }) => {
                   const metrics = [
-                    { name: 'CA Total',    curr: curr.ca,  prev: prev.ca,  fmt: (v: number) => `${fmtN(v)} XAF` },
-                    { name: 'Nb Tickets',  curr: curr.nb,  prev: prev.nb,  fmt: (v: number) => String(v) },
-                    { name: 'MIN Ticket',  curr: curr.min, prev: prev.min, fmt: (v: number) => `${fmtN(v)} XAF` },
-                    { name: 'MAX Ticket',  curr: curr.max, prev: prev.max, fmt: (v: number) => `${fmtN(v)} XAF` },
-                    { name: 'MOY Ticket',  curr: curr.avg, prev: prev.avg, fmt: (v: number) => `${fmtN(v)} XAF` },
+                    { name: t('CA Total', 'Total revenue'),    curr: curr.ca,  prev: prev.ca,  fmt: (v: number) => `${fmtN(v)} XAF` },
+                    { name: t('Nb Tickets', 'Ticket count'),  curr: curr.nb,  prev: prev.nb,  fmt: (v: number) => String(v) },
+                    { name: t('MIN Ticket', 'MIN ticket'),  curr: curr.min, prev: prev.min, fmt: (v: number) => `${fmtN(v)} XAF` },
+                    { name: t('MAX Ticket', 'MAX ticket'),  curr: curr.max, prev: prev.max, fmt: (v: number) => `${fmtN(v)} XAF` },
+                    { name: t('MOY Ticket', 'AVG ticket'),  curr: curr.avg, prev: prev.avg, fmt: (v: number) => `${fmtN(v)} XAF` },
                   ];
                   return (
                     <div key={label} style={{ border: '1px solid var(--fs-line)', borderRadius: 10, overflow: 'hidden' }}>
@@ -797,11 +805,11 @@ export default function AdminRapports() {
                                     {up ? '↑' : '↓'} {Math.abs(pct).toFixed(1)}%
                                   </div>
                                   <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', marginTop: 1 }}>
-                                    vs {m.fmt(m.prev)} (période préc.)
+                                    {t(`vs ${m.fmt(m.prev)} (période préc.)`, `vs ${m.fmt(m.prev)} (prev. period)`)}
                                   </div>
                                 </>
                               ) : (
-                                <div style={{ fontSize: 10, color: 'var(--fs-ink-300)', marginTop: 2 }}>Pas de référence (période préc. vide)</div>
+                                <div style={{ fontSize: 10, color: 'var(--fs-ink-300)', marginTop: 2 }}>{t('Pas de référence (période préc. vide)', 'No baseline (prev. period empty)')}</div>
                               )}
                             </div>
                           );
@@ -824,8 +832,8 @@ export default function AdminRapports() {
                 {/* Header + onglets */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Statistiques tickets</div>
-                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>Nb tickets · MIN · MAX · MOY par période</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Statistiques tickets', 'Ticket statistics')}</div>
+                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{t('Nb tickets · MIN · MAX · MOY par période', 'Ticket count · MIN · MAX · AVG per period')}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 3 }}>
                     {tabs.map(t => (
@@ -833,20 +841,20 @@ export default function AdminRapports() {
                         padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
                         background: ticketTab === t ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
                         color: ticketTab === t ? '#fff' : 'var(--fs-ink-400)',
-                      }}>{t}</button>
+                      }}>{tabLabel(t)}</button>
                     ))}
                   </div>
                 </div>
 
                 {!hasData ? (
-                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-300)', fontSize: 12 }}>Aucune donnée pour cette période</div>
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-300)', fontSize: 12 }}>{t('Aucune donnée pour cette période', 'No data for this period')}</div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: 16 }}>
 
                     {/* Nb tickets */}
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-                        Nb tickets — total : {ticketData.reduce((s, r) => s + r.nbVentes, 0)}
+                        {t('Nb tickets — total :', 'Tickets — total:')} {ticketData.reduce((s, r) => s + r.nbVentes, 0)}
                       </div>
                       <div style={{ height: 160 }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -864,7 +872,7 @@ export default function AdminRapports() {
                     {/* MIN / MAX / MOY */}
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-                        MIN · MAX · MOY ticket (XAF)
+                        {t('MIN · MAX · MOY ticket (XAF)', 'MIN · MAX · AVG ticket (XAF)')}
                       </div>
                       <div style={{ height: 160 }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -875,7 +883,7 @@ export default function AdminRapports() {
                             <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`]} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
                             <Legend wrapperStyle={{ fontSize: 10 }}/>
                             <Line type="monotone" dataKey="minTicket" stroke="#7AB87A" strokeWidth={1.5} dot={false} name="MIN"/>
-                            <Line type="monotone" dataKey="avgTicket" stroke={brand} strokeWidth={2} dot={false} name="MOY"/>
+                            <Line type="monotone" dataKey="avgTicket" stroke={brand} strokeWidth={2} dot={false} name={t('MOY', 'AVG')}/>
                             <Line type="monotone" dataKey="maxTicket" stroke="#D1A660" strokeWidth={1.5} dot={false} name="MAX"/>
                           </LineChart>
                         </ResponsiveContainer>
@@ -893,10 +901,10 @@ export default function AdminRapports() {
                       return (
                         <div style={{ gridColumn: '1/-1', display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 10, marginTop: 4 }}>
                           {[
-                            { label: 'Total tickets',  val: fmtN(totalNb),        color: 'var(--fs-wine-700)' },
-                            { label: 'Ticket MIN',     val: `${fmtN(globalMin)} XAF`, color: '#7AB87A' },
-                            { label: 'Ticket MAX',     val: `${fmtN(globalMax)} XAF`, color: '#D1A660' },
-                            { label: 'Ticket MOY',     val: `${fmtN(Math.round(globalAvg))} XAF`, color: 'var(--fs-ink-800)' },
+                            { label: t('Total tickets', 'Total tickets'),  val: fmtN(totalNb),        color: 'var(--fs-wine-700)' },
+                            { label: t('Ticket MIN', 'MIN ticket'),     val: `${fmtN(globalMin)} XAF`, color: '#7AB87A' },
+                            { label: t('Ticket MAX', 'MAX ticket'),     val: `${fmtN(globalMax)} XAF`, color: '#D1A660' },
+                            { label: t('Ticket MOY', 'AVG ticket'),     val: `${fmtN(Math.round(globalAvg))} XAF`, color: 'var(--fs-ink-800)' },
                           ].map(s => (
                             <div key={s.label} style={{ background: 'var(--fs-ivory)', borderRadius: 8, padding: '10px 14px', textAlign: 'center', border: '1px solid var(--fs-line)' }}>
                               <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--fs-ink-400)', marginBottom: 5 }}>{s.label}</div>
@@ -927,8 +935,8 @@ export default function AdminRapports() {
               <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>Statistiques CA</div>
-                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>Chiffre d'affaires · MIN · MAX · MOY par période</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Statistiques CA', 'Revenue statistics')}</div>
+                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{t("Chiffre d'affaires · MIN · MAX · MOY par période", 'Revenue · MIN · MAX · AVG per period')}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 3 }}>
                     {tabs.map(t => (
@@ -936,20 +944,20 @@ export default function AdminRapports() {
                         padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none',
                         background: ticketTab === t ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
                         color: ticketTab === t ? '#fff' : 'var(--fs-ink-400)',
-                      }}>{t}</button>
+                      }}>{tabLabel(t)}</button>
                     ))}
                   </div>
                 </div>
 
                 {!hasData ? (
-                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-300)', fontSize: 12 }}>Aucune donnée pour cette période</div>
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-300)', fontSize: 12 }}>{t('Aucune donnée pour cette période', 'No data for this period')}</div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : '1fr 1fr', gap: 16 }}>
 
                     {/* CA par période (barres) */}
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-                        CA par période (XAF)
+                        {t('CA par période (XAF)', 'Revenue per period (XAF)')}
                       </div>
                       <div style={{ height: 160 }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -957,7 +965,7 @@ export default function AdminRapports() {
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--fs-line)" vertical={false}/>
                             <XAxis dataKey={fmtXKey} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} interval={Math.max(0, Math.floor(ticketData.length / 8) - 1)}/>
                             <YAxis tickFormatter={fmtK} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={36}/>
-                            <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`, 'CA']} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
+                            <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`, t('CA', 'Revenue')]} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
                             <Bar dataKey="totalCA" fill={brand} radius={[2,2,0,0]}/>
                           </BarChart>
                         </ResponsiveContainer>
@@ -967,7 +975,7 @@ export default function AdminRapports() {
                     {/* CA cumulé (ligne) — progression du CA additionné au fil de la période */}
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-                        CA cumulé (XAF) — progression vers le total
+                        {t('CA cumulé (XAF) — progression vers le total', 'Cumulative revenue (XAF) — progress towards the total')}
                       </div>
                       <div style={{ height: 160 }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -975,8 +983,8 @@ export default function AdminRapports() {
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--fs-line)" vertical={false}/>
                             <XAxis dataKey={fmtXKey} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} interval={Math.max(0, Math.floor(ticketData.length / 8) - 1)}/>
                             <YAxis tickFormatter={fmtK} tick={{ fontSize: 8, fill: 'var(--fs-ink-400)' }} axisLine={false} tickLine={false} width={36}/>
-                            <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`, 'CA cumulé']} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
-                            <Line type="monotone" dataKey="caCumule" stroke={brand} strokeWidth={2} dot={false} name="CA cumulé"/>
+                            <Tooltip formatter={(v: number) => [`${fmtN(v)} XAF`, t('CA cumulé', 'Cumulative revenue')]} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
+                            <Line type="monotone" dataKey="caCumule" stroke={brand} strokeWidth={2} dot={false} name={t('CA cumulé', 'Cumulative revenue')}/>
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -985,10 +993,10 @@ export default function AdminRapports() {
                     {/* KPIs CA */}
                     <div style={{ gridColumn: '1/-1', display: 'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, 1fr)', gap: 10, marginTop: 4 }}>
                       {[
-                        { label: 'CA total', val: `${fmtN(caTotal)} XAF`,            color: 'var(--fs-wine-700)' },
-                        { label: 'CA MIN',   val: `${fmtN(caMin)} XAF`,              color: '#7AB87A' },
-                        { label: 'CA MAX',   val: `${fmtN(caMax)} XAF`,              color: '#D1A660' },
-                        { label: 'CA MOY',   val: `${fmtN(Math.round(caMoy))} XAF`,  color: 'var(--fs-ink-800)' },
+                        { label: t('CA total', 'Total revenue'), val: `${fmtN(caTotal)} XAF`,            color: 'var(--fs-wine-700)' },
+                        { label: t('CA MIN', 'MIN revenue'),   val: `${fmtN(caMin)} XAF`,              color: '#7AB87A' },
+                        { label: t('CA MAX', 'MAX revenue'),   val: `${fmtN(caMax)} XAF`,              color: '#D1A660' },
+                        { label: t('CA MOY', 'AVG revenue'),   val: `${fmtN(Math.round(caMoy))} XAF`,  color: 'var(--fs-ink-800)' },
                       ].map(s => (
                         <div key={s.label} style={{ background: 'var(--fs-ivory)', borderRadius: 8, padding: '10px 14px', textAlign: 'center', border: '1px solid var(--fs-line)' }}>
                           <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--fs-ink-400)', marginBottom: 5 }}>{s.label}</div>
@@ -1006,11 +1014,11 @@ export default function AdminRapports() {
           <div style={{ marginTop: 16, background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '16px 20px', boxShadow: 'var(--fs-shadow-sm)' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>Journal des ventes par produit</div>
-                <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{byProduct.length} produit{byProduct.length !== 1 ? 's' : ''} · toutes périodes si aucun filtre</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', marginBottom: 3 }}>{t('Journal des ventes par produit', 'Sales journal by product')}</div>
+                <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{t(`${byProduct.length} produit${byProduct.length !== 1 ? 's' : ''} · toutes périodes si aucun filtre`, `${byProduct.length} product${byProduct.length !== 1 ? 's' : ''} · all periods if no filter`)}</div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <input type="text" value={prodSearch} onChange={e => setProdSearch(e.target.value)} placeholder="🔎 Filtrer un produit…"
+                <input type="text" value={prodSearch} onChange={e => setProdSearch(e.target.value)} placeholder={t('🔎 Filtrer un produit…', '🔎 Filter a product…')}
                   style={{ padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12, width: 170 }} />
                 <input type="date" value={prodDateFrom} onChange={e => setProdDateFrom(e.target.value)}
                   style={{ padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12 }} />
@@ -1019,7 +1027,7 @@ export default function AdminRapports() {
                   style={{ padding: '6px 10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 12 }} />
                 <button onClick={loadByProduct} disabled={prodLoading}
                   style={{ padding: '6px 14px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: prodLoading ? 0.6 : 1 }}>
-                  {prodLoading ? '…' : 'Filtrer'}
+                  {prodLoading ? '…' : t('Filtrer', 'Filter')}
                 </button>
                 <button onClick={exportByProductPdf} disabled={prodExporting || byProduct.length === 0}
                   style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: (prodExporting || byProduct.length === 0) ? 0.5 : 1 }}>
@@ -1028,21 +1036,21 @@ export default function AdminRapports() {
               </div>
             </div>
             {byProduct.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-400)', fontSize: 12 }}>Aucune donnée disponible</div>
+              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--fs-ink-400)', fontSize: 12 }}>{t('Aucune donnée disponible', 'No data available')}</div>
             ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 720 : undefined, borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ background: 'var(--fs-ivory)' }}>
                       {([
-                        { h: 'Produit',         k: 'name' as const },
-                        { h: 'Qté vendue',      k: 'qtySold' as const },
-                        { h: 'CA généré',       k: 'caGenere' as const },
-                        { h: 'Nb transactions', k: 'nbTransactions' as const },
-                        { h: 'Prix moy. vente', k: 'prixMoyenVente' as const },
-                      ]).map(({ h, k }) => (
-                        <th key={h} onClick={() => toggleProdSort(k)} title="Cliquer pour trier"
-                          style={{ padding: '8px 12px', textAlign: h === 'Produit' ? 'left' : 'right', fontSize: 10, fontWeight: 700, color: prodSort.key === k ? 'var(--fs-wine-700)' : 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}>
+                        { h: t('Produit', 'Product'),              k: 'name' as const,           hi: 0 },
+                        { h: t('Qté vendue', 'Qty sold'),          k: 'qtySold' as const,        hi: 1 },
+                        { h: t('CA généré', 'Revenue'),            k: 'caGenere' as const,       hi: 2 },
+                        { h: t('Nb transactions', 'Transactions'), k: 'nbTransactions' as const, hi: 3 },
+                        { h: t('Prix moy. vente', 'Avg sale price'), k: 'prixMoyenVente' as const, hi: 4 },
+                      ]).map(({ h, k, hi }) => (
+                        <th key={h} onClick={() => toggleProdSort(k)} title={t('Cliquer pour trier', 'Click to sort')}
+                          style={{ padding: '8px 12px', textAlign: hi === 0 ? 'left' : 'right', fontSize: 10, fontWeight: 700, color: prodSort.key === k ? 'var(--fs-wine-700)' : 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '1px solid var(--fs-line)', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}>
                           {h}{prodSort.key === k ? (prodSort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
                         </th>
                       ))}
@@ -1053,7 +1061,7 @@ export default function AdminRapports() {
                       .filter(p => !prodSearch.trim() || p.name.toLowerCase().includes(prodSearch.trim().toLowerCase()))
                       .sort((a, b) => {
                         const va = a[prodSort.key], vb = b[prodSort.key];
-                        const cmp = typeof va === 'string' ? String(va).localeCompare(String(vb), 'fr') : Number(va) - Number(vb);
+                        const cmp = typeof va === 'string' ? String(va).localeCompare(String(vb), dateLocale()) : Number(va) - Number(vb);
                         return prodSort.dir === 'asc' ? cmp : -cmp;
                       })
                       .map((p, i) => (

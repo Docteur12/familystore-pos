@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { forgotPassword } from '../api/auth';
 import { useIsMobile } from '../hooks/useIsMobile';
 import StoreLogo from '../components/StoreLogo';
+import { useSettings } from '../contexts/SettingsContext';
+import { t } from '../i18n';
 
 function LockIcon() {
   return (
@@ -25,6 +27,8 @@ function MailIcon() {
 }
 
 export default function Login() {
+  const { settings, reloadSettings } = useSettings();
+  const nomMagasin = settings.nomMagasin || 'Family Store';
   const navigate  = useNavigate();
   const isMobile  = useIsMobile();
   const [email,    setEmail]    = useState('');
@@ -54,7 +58,7 @@ export default function Login() {
       const res = await forgotPassword(forgotEmail);
       setForgotMsg(res.message);
     } catch (err: any) {
-      setError(err.message ?? 'Erreur inconnue');
+      setError(err.message ?? t('Erreur inconnue', 'Unknown error'));
     } finally {
       setForgotLoading(false);
     }
@@ -70,10 +74,11 @@ export default function Login() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
-      if (res.status === 401) throw new Error('Email ou mot de passe incorrect');
-      if (!res.ok)           throw new Error('Erreur serveur, réessayez');
+      if (res.status === 401) throw new Error(t('Email ou mot de passe incorrect', 'Incorrect email or password'));
+      if (!res.ok)           throw new Error(t('Erreur serveur, réessayez', 'Server error, please try again'));
       const data = await res.json();
       localStorage.setItem('access_token', data.access_token);
+      reloadSettings(); // paramètres complets du magasin (le login n'avait que l'identité publique)
       const pl = JSON.parse(atob(data.access_token.split('.')[1]));
       if (pl.role === 'patron')            navigate('/admin/dashboard');
       else if (pl.role === 'gestionnaire') navigate('/stocks/dashboard');
@@ -81,7 +86,7 @@ export default function Login() {
       else if (pl.role === 'commercial')   navigate('/partenaires');
       else                                 navigate('/caisse-pin');
     } catch (err: any) {
-      setError(err.message ?? 'Erreur inconnue');
+      setError(err.message ?? t('Erreur inconnue', 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -114,7 +119,7 @@ export default function Login() {
             letterSpacing: '0.02em',
             margin: 0,
           }}>
-            Family Store
+            {nomMagasin}
           </h1>
           <p style={{
             fontFamily: 'var(--fs-font-display)',
@@ -124,7 +129,7 @@ export default function Login() {
             letterSpacing: '0.08em',
             marginTop: 4,
           }}>
-            by RDCT — Point de Vente
+            {settings.signatureTicket ? `${settings.signatureTicket.toLowerCase()} — ` : ''}{t('Point de Vente', 'Point of Sale')}
           </p>
         </div>
 
@@ -148,11 +153,11 @@ export default function Login() {
           {forgotMode ? (
             <form onSubmit={handleForgot} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               <div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 6px' }}>Mot de passe oublié</p>
-                <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: 0 }}>Entrez votre email pour recevoir un mot de passe temporaire.</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 6px' }}>{t('Mot de passe oublié', 'Forgot password')}</p>
+                <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: 0 }}>{t('Entrez votre email pour recevoir un mot de passe temporaire.', 'Enter your email to receive a temporary password.')}</p>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--fs-ink-500)', marginBottom: 6 }}>Adresse email</label>
+                <label style={{ display: 'block', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--fs-ink-500)', marginBottom: 6 }}>{t('Adresse email', 'Email address')}</label>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-400)', display: 'flex', alignItems: 'center' }}>
                     <MailIcon/>
@@ -168,10 +173,10 @@ export default function Login() {
                 <div style={{ background: '#e8f0e5', border: '1px solid rgba(90,139,83,0.3)', color: 'var(--fs-success-700)', borderRadius: 'var(--fs-r-md)', padding: '10px 14px', fontSize: 13 }}>{forgotMsg}</div>
               )}
               <button type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '13px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 'var(--fs-r-md)', fontSize: 14, fontWeight: 600, cursor: forgotLoading ? 'not-allowed' : 'pointer', opacity: forgotLoading ? 0.8 : 1 }}>
-                {forgotLoading ? 'Envoi en cours…' : 'Envoyer le mot de passe temporaire'}
+                {forgotLoading ? t('Envoi en cours…', 'Sending…') : t('Envoyer le mot de passe temporaire', 'Send temporary password')}
               </button>
               <button type="button" onClick={() => { setForgotMode(false); setError(null); setForgotMsg(null); }} style={{ background: 'none', border: 'none', color: 'var(--fs-ink-400)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
-                Retour à la connexion
+                {t('Retour à la connexion', 'Back to sign in')}
               </button>
             </form>
           ) : (
@@ -187,7 +192,7 @@ export default function Login() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
                 </svg>
-                Session expirée — veuillez vous reconnecter.
+                {t('Session expirée — veuillez vous reconnecter.', 'Session expired — please sign in again.')}
               </div>
             )}
 
@@ -202,7 +207,7 @@ export default function Login() {
                 color: 'var(--fs-ink-500)',
                 marginBottom: 6,
               }}>
-                Adresse email
+                {t('Adresse email', 'Email address')}
               </label>
               <div style={{ position: 'relative' }}>
                 <span style={{
@@ -257,7 +262,7 @@ export default function Login() {
                 color: 'var(--fs-ink-500)',
                 marginBottom: 6,
               }}>
-                Mot de passe
+                {t('Mot de passe', 'Password')}
               </label>
               <div style={{ position: 'relative' }}>
                 <span style={{
@@ -307,7 +312,7 @@ export default function Login() {
                     background: 'none', border: 'none', cursor: 'pointer',
                     color: 'var(--fs-ink-400)', display: 'flex', alignItems: 'center', padding: 2,
                   }}
-                  title={showPwd ? 'Masquer' : 'Afficher'}
+                  title={showPwd ? t('Masquer', 'Hide') : t('Afficher', 'Show')}
                 >
                   {showPwd ? (
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -330,7 +335,7 @@ export default function Login() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/>
                   </svg>
-                  Verr. Maj (Caps Lock) est activé
+                  {t('Verr. Maj (Caps Lock) est activé', 'Caps Lock is on')}
                 </div>
               )}
             </div>
@@ -393,13 +398,13 @@ export default function Login() {
                     display: 'inline-block',
                     animation: 'spin 0.7s linear infinite',
                   }}/>
-                  Connexion…
+                  {t('Connexion…', 'Signing in…')}
                 </>
-              ) : 'Se connecter'}
+              ) : t('Se connecter', 'Sign in')}
             </button>
 
             <button type="button" onClick={() => { setForgotMode(true); setError(null); }} style={{ background: 'none', border: 'none', color: 'var(--fs-ink-400)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline', textAlign: 'center' }}>
-              Mot de passe oublié ?
+              {t('Mot de passe oublié ?', 'Forgot password?')}
             </button>
 
           </form>
@@ -413,7 +418,7 @@ export default function Login() {
           color: 'var(--fs-ink-400)',
           marginTop: 20,
         }}>
-          Family Store POS &copy; {new Date().getFullYear()} — by RDCT
+          {nomMagasin} POS &copy; {new Date().getFullYear()}{settings.signatureTicket ? ` — ${settings.signatureTicket.toLowerCase()}` : ''}
         </p>
       </div>
 

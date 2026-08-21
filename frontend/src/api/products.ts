@@ -31,21 +31,22 @@ export function effectivePrice(p: Product): number {
 }
 
 import { authHeaders } from './http';
+import { t } from '../i18n';
 
 export async function getProductByBarcode(barcode: string): Promise<Product> {
   const res = await fetch(`/api/products/barcode/${encodeURIComponent(barcode)}`, {
     headers: authHeaders(),
   });
-  if (res.status === 404) throw new Error('Produit introuvable pour ce code-barres');
-  if (res.status === 401) throw new Error('Non authentifié — veuillez vous connecter');
-  if (!res.ok) throw new Error('Erreur serveur');
+  if (res.status === 404) throw new Error(t('Produit introuvable pour ce code-barres', 'Product not found for this barcode'));
+  if (res.status === 401) throw new Error(t('Non authentifié — veuillez vous connecter', 'Not authenticated — please sign in'));
+  if (!res.ok) throw new Error(t('Erreur serveur', 'Server error'));
   return res.json();
 }
 
 export async function getAllProducts(): Promise<Product[]> {
   const res = await fetch('/api/products', { headers: authHeaders() });
-  if (res.status === 401) throw new Error('Non authentifié');
-  if (!res.ok) throw new Error('Erreur chargement produits');
+  if (res.status === 401) throw new Error(t('Non authentifié', 'Not authenticated'));
+  if (!res.ok) throw new Error(t('Erreur chargement produits', 'Failed to load products'));
   const data = await res.json();
   return Array.isArray(data) ? data : [];
 }
@@ -104,22 +105,22 @@ export async function createSale(payload: SalePayload): Promise<SaleResponse> {
   } catch (err) {
     clearTimeout(timerId);
     if (err instanceof DOMException && err.name === 'AbortError') {
-      throw new SaleError('Connexion lente — délai dépassé', 'timeout');
+      throw new SaleError(t('Connexion lente — délai dépassé', 'Slow connection — request timed out'), 'timeout');
     }
-    throw new SaleError('Erreur réseau — vérifiez votre connexion', 'network');
+    throw new SaleError(t('Erreur réseau — vérifiez votre connexion', 'Network error — check your connection'), 'network');
   }
   clearTimeout(timerId);
 
-  if (res.status === 401) throw new SaleError('Non authentifié — veuillez vous connecter', 'auth');
+  if (res.status === 401) throw new SaleError(t('Non authentifié — veuillez vous connecter', 'Not authenticated — please sign in'), 'auth');
   if (res.status === 400 || res.status === 422) {
     const body = await res.json().catch(() => ({}));
-    const msg  = (body?.message as string) ?? 'Stock insuffisant pour ce produit';
-    throw new SaleError(msg.includes('stock') || msg.includes('Stock') ? msg : 'Stock insuffisant pour ce produit', 'stock');
+    const msg  = (body?.message as string) ?? t('Stock insuffisant pour ce produit', 'Insufficient stock for this product');
+    throw new SaleError(msg.includes('stock') || msg.includes('Stock') ? msg : t('Stock insuffisant pour ce produit', 'Insufficient stock for this product'), 'stock');
   }
   if (res.status === 502 || res.status === 503 || res.status === 504) {
-    throw new SaleError('Serveur en démarrage — patienter 30s puis réessayer', 'server_sleep');
+    throw new SaleError(t('Serveur en démarrage — patienter 30s puis réessayer', 'Server starting up — wait 30s and try again'), 'server_sleep');
   }
-  if (!res.ok) throw new SaleError('Erreur serveur lors de l\'enregistrement', 'unknown');
+  if (!res.ok) throw new SaleError(t('Erreur serveur lors de l\'enregistrement', 'Server error while saving'), 'unknown');
   return res.json();
 }
 
@@ -147,12 +148,12 @@ export async function createProduct(data: ProductPayload): Promise<Product> {
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
-  if (res.status === 401) throw new Error('Non authentifié');
-  if (res.status === 403) throw new Error('Accès non autorisé pour ce rôle');
+  if (res.status === 401) throw new Error(t('Non authentifié', 'Not authenticated'));
+  if (res.status === 403) throw new Error(t('Accès non autorisé pour ce rôle', 'Access not allowed for this role'));
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const msg = Array.isArray(body?.message) ? body.message.join(' · ') : body?.message;
-    throw new Error(msg || 'Erreur création produit');
+    throw new Error(msg || t('Erreur création produit', 'Failed to create product'));
   }
   return res.json();
 }
@@ -163,9 +164,9 @@ export async function updateProduct(id: string, data: Partial<ProductPayload>): 
     headers: authHeaders(),
     body: JSON.stringify(data),
   });
-  if (res.status === 401) throw new Error('Non authentifié');
-  if (res.status === 403) throw new Error('Accès réservé au patron');
-  if (!res.ok) throw new Error('Erreur modification produit');
+  if (res.status === 401) throw new Error(t('Non authentifié', 'Not authenticated'));
+  if (res.status === 403) throw new Error(t('Accès réservé au patron', 'Owner access only'));
+  if (!res.ok) throw new Error(t('Erreur modification produit', 'Failed to update product'));
   return res.json();
 }
 
@@ -176,8 +177,8 @@ export async function setProductPrix(id: string, price: number, costPrice: numbe
     headers: authHeaders(),
     body: JSON.stringify({ price, costPrice }),
   });
-  if (res.status === 403) throw new Error('Accès non autorisé pour ce rôle');
-  if (!res.ok) throw new Error('Erreur mise à jour du prix');
+  if (res.status === 403) throw new Error(t('Accès non autorisé pour ce rôle', 'Access not allowed for this role'));
+  if (!res.ok) throw new Error(t('Erreur mise à jour du prix', 'Failed to update price'));
   return res.json();
 }
 
@@ -186,9 +187,9 @@ export async function deleteProduct(id: string): Promise<void> {
     method: 'DELETE',
     headers: authHeaders(),
   });
-  if (res.status === 401) throw new Error('Non authentifié');
-  if (res.status === 403) throw new Error('Accès non autorisé pour ce rôle');
-  if (!res.ok) throw new Error('Erreur suppression produit');
+  if (res.status === 401) throw new Error(t('Non authentifié', 'Not authenticated'));
+  if (res.status === 403) throw new Error(t('Accès non autorisé pour ce rôle', 'Access not allowed for this role'));
+  if (!res.ok) throw new Error(t('Erreur suppression produit', 'Failed to delete product'));
 }
 
 export async function addStock(id: string, quantity: number): Promise<Product> {
@@ -197,7 +198,7 @@ export async function addStock(id: string, quantity: number): Promise<Product> {
     headers: authHeaders(),
     body: JSON.stringify({ quantity }),
   });
-  if (res.status === 401) throw new Error('Non authentifié — veuillez vous connecter');
-  if (!res.ok) throw new Error('Erreur lors de l\'ajout de stock');
+  if (res.status === 401) throw new Error(t('Non authentifié — veuillez vous connecter', 'Not authenticated — please sign in'));
+  if (!res.ok) throw new Error(t('Erreur lors de l\'ajout de stock', 'Failed to add stock'));
   return res.json();
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/browser';
+import { t } from '../i18n';
 
 interface Props {
   onDetected: (code: string) => void;
@@ -29,9 +30,9 @@ export default function QRScanner({ onDetected, onClose }: Props) {
       })
       .catch(e => {
         const msg = e?.message ?? '';
-        if (msg.includes('Permission'))        setError('Accès caméra refusé — autorisez l\'accès dans le navigateur.');
-        else if (msg.includes('device found')) setError('Aucune caméra détectée sur cet appareil.');
-        else                                   setError('Impossible d\'ouvrir la caméra : ' + msg);
+        if (msg.includes('Permission'))        setError(t('Accès caméra refusé — autorisez l\'accès dans le navigateur.', 'Camera access denied — allow access in your browser.'));
+        else if (msg.includes('device found')) setError(t('Aucune caméra détectée sur cet appareil.', 'No camera detected on this device.'));
+        else                                   setError(t('Impossible d\'ouvrir la caméra : ', 'Unable to open the camera: ') + msg);
       });
 
     return () => {
@@ -51,8 +52,8 @@ export default function QRScanner({ onDetected, onClose }: Props) {
         {/* Header */}
         <div className="bg-bordeaux px-5 py-3 flex items-center justify-between">
           <div>
-            <p className="text-cream font-bold text-sm">Scanner un code QR / code-barres</p>
-            <p className="text-gold text-xs mt-0.5">Pointez la caméra vers le code</p>
+            <p className="text-cream font-bold text-sm">{t('Scanner un code QR / code-barres', 'Scan a QR code / barcode')}</p>
+            <p className="text-gold text-xs mt-0.5">{t('Pointez la caméra vers le code', 'Point the camera at the code')}</p>
           </div>
           <button
             onClick={onClose}
@@ -106,7 +107,7 @@ export default function QRScanner({ onDetected, onClose }: Props) {
                 <p className="text-4xl mb-3">📷</p>
                 <p className="text-white text-sm font-medium">{error}</p>
                 <p className="text-gray-400 text-xs mt-3 leading-relaxed">
-                  Si vous utilisez une <strong className="text-gold">douchette USB</strong>, fermez cette fenêtre — le scan fonctionne directement dans le champ de recherche.
+                  {t('Si vous utilisez une ', 'If you are using a ')}<strong className="text-gold">{t('douchette USB', 'USB barcode scanner')}</strong>{t(', fermez cette fenêtre — le scan fonctionne directement dans le champ de recherche.', ', close this window — scanning works directly in the search field.')}
                 </p>
               </div>
             </div>
@@ -114,7 +115,7 @@ export default function QRScanner({ onDetected, onClose }: Props) {
         </div>
 
         <p className="text-center text-xs text-gray-400 py-3 px-4">
-          Le code sera automatiquement détecté et ajouté au ticket
+          {t('Le code sera automatiquement détecté et ajouté au ticket', 'The code will be detected automatically and added to the receipt')}
         </p>
       </div>
     </div>

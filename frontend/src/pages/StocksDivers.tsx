@@ -5,11 +5,12 @@ import NouveauProduitModal from '../components/NouveauProduitModal';
 import { getDiversSales, DiversSaleRow } from '../api/sales';
 import { getAllProducts, Product } from '../api/products';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { t, dateLocale } from '../i18n';
 
-const fmtN = (n: number) => Math.round(n).toLocaleString('fr-FR');
+const fmtN = (n: number) => Math.round(n).toLocaleString(dateLocale());
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return new Date(iso).toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 const TH: React.CSSProperties = {
@@ -41,7 +42,7 @@ export default function StocksDivers() {
   const load = useCallback(async () => {
     setLoading(true);
     try { setRows(await getDiversSales()); }
-    catch { addToast('Erreur chargement des articles divers', 'error'); }
+    catch { addToast(t('Erreur chargement des articles divers', 'Error loading miscellaneous items'), 'error'); }
     finally { setLoading(false); }
   }, [addToast]);
 
@@ -93,7 +94,7 @@ export default function StocksDivers() {
           onClose={() => setPrefill(null)}
           onCreated={() => {
             setPrefill(null);
-            addToast('Produit créé ✓ — pensez à ajuster son stock', 'success');
+            addToast(t('Produit créé ✓ — pensez à ajuster son stock', 'Product created ✓ — remember to adjust its stock'), 'success');
             getAllProducts().then(setProducts).catch(() => {});
           }}
         />
@@ -103,19 +104,19 @@ export default function StocksDivers() {
 
         {/* Header */}
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0, paddingLeft: isMobile ? 60 : (isNarrow ? 16 : 28) }}>
-          <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Gestion de stock</p>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>Articles divers</h1>
+          <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Gestion de stock', 'Stock management')}</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{t('Articles divers', 'Miscellaneous items')}</h1>
         </div>
 
         {/* Info + stats */}
         <div style={{ padding: isNarrow ? '14px 16px 0' : '14px 28px 0', flexShrink: 0 }}>
           <div style={{ background: '#fff', border: '1px solid rgba(122,29,46,0.15)', borderRadius: 10, padding: '10px 16px', fontSize: 12, color: 'var(--fs-wine-800)', marginBottom: 14 }}>
-            Articles vendus en caisse <strong>sans être enregistrés</strong> dans le système. Crée le produit correspondant, puis ajuste son stock pour régulariser.
+            {t('Articles vendus en caisse ', 'Items sold at checkout ')}<strong>{t('sans être enregistrés', 'without being recorded')}</strong>{t(' dans le système. Crée le produit correspondant, puis ajuste son stock pour régulariser.', ' in the system. Create the matching product, then adjust its stock to regularize.')}
           </div>
           <div style={{ display: isNarrow ? 'grid' : 'flex', gridTemplateColumns: isNarrow ? '1fr 1fr' : undefined, gap: isNarrow ? 10 : 14, flexWrap: 'wrap' }}>
             {[
-              { label: 'Désignations à régulariser', val: fmtN(groupes.length), color: 'var(--fs-wine-700)' },
-              { label: 'Total vendu (divers)',       val: `${fmtN(totalMontant)} XAF`, color: 'var(--fs-ink-800)' },
+              { label: t('Désignations à régulariser', 'Items to regularize'), val: fmtN(groupes.length), color: 'var(--fs-wine-700)' },
+              { label: t('Total vendu (divers)', 'Total sold (miscellaneous)'),       val: `${fmtN(totalMontant)} XAF`, color: 'var(--fs-ink-800)' },
             ].map(s => (
               <div key={s.label} style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '10px 18px', minWidth: 140 }}>
                 <div style={{ fontSize: 20, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: s.color }}>{s.val}</div>
@@ -128,18 +129,18 @@ export default function StocksDivers() {
         {/* Table */}
         <div style={{ flex: '0 0 auto', overflowY: 'visible', overflowX: 'auto', padding: isNarrow ? '14px 12px 16px' : '14px 28px 28px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>Chargement…</div>
+            <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Chargement…', 'Loading…')}</div>
           ) : groupes.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '80px', color: 'var(--fs-ink-300)' }}>
               <div style={{ fontSize: 36, marginBottom: 10 }}>✓</div>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>Aucun article divers à régulariser</div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{t('Aucun article divers à régulariser', 'No miscellaneous items to regularize')}</div>
             </div>
           ) : (
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflowX: 'auto' }}>
               <table className="fs-grid" style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)' }}>
-                    {['Désignation', 'Dernier prix', 'Qté vendue', 'Total', 'Ventes', 'Dernière vente', 'Caissière(s)', ''].map(h => (
+                    {[t('Désignation', 'Item'), t('Dernier prix', 'Last price'), t('Qté vendue', 'Qty sold'), t('Total', 'Total'), t('Ventes', 'Sales'), t('Dernière vente', 'Last sale'), t('Caissière(s)', 'Cashier(s)'), ''].map(h => (
                       <th key={h} style={TH}>{h}</th>
                     ))}
                   </tr>
@@ -157,7 +158,7 @@ export default function StocksDivers() {
                       <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
                         <button onClick={() => setPrefill({ name: g.name, price: String(Math.round(g.dernierPrix)) })}
                           style={{ padding: '6px 12px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'var(--fs-font-sans)' }}>
-                          Créer le produit
+                          {t('Créer le produit', 'Create product')}
                         </button>
                       </td>
                     </tr>

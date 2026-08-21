@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { createUser, getUsers, updateUser, UserRecord } from '../api/auth';
 import { getTokenPayload } from '../api/dashboard';
+import { t } from '../i18n';
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 
@@ -19,13 +20,13 @@ function UserModal({ mode, role, user, onSave, onClose }: ModalProps) {
   const [error,    setError]    = useState<string | null>(null);
   const [loading,  setLoading]  = useState(false);
 
-  const roleLabel = role === 'gestionnaire' ? 'Chef de stock' : 'Caissier(e)';
+  const roleLabel = role === 'gestionnaire' ? t('Chef de stock', 'Stock manager') : t('Caissier(e)', 'Cashier');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (mode === 'create' && !password.trim()) {
-      setError('Le mot de passe est obligatoire');
+      setError(t('Le mot de passe est obligatoire', 'Password is required'));
       return;
     }
     setLoading(true);
@@ -36,7 +37,7 @@ function UserModal({ mode, role, user, onSave, onClose }: ModalProps) {
         password: password.trim(),
       });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erreur');
+      setError(err instanceof Error ? err.message : t('Erreur', 'Error'));
     } finally {
       setLoading(false);
     }
@@ -51,10 +52,10 @@ function UserModal({ mode, role, user, onSave, onClose }: ModalProps) {
 
         <div className="bg-bordeaux px-6 py-4">
           <p className="text-gold font-black text-base tracking-wide">
-            {mode === 'create' ? `Nouveau compte ${roleLabel}` : 'Modifier le compte'}
+            {mode === 'create' ? t(`Nouveau compte ${roleLabel}`, `New ${roleLabel} account`) : t('Modifier le compte', 'Edit account')}
           </p>
           {mode === 'create' && role && (
-            <p className="text-cream/70 text-xs mt-0.5">Rôle : {roleLabel}</p>
+            <p className="text-cream/70 text-xs mt-0.5">{t('Rôle :', 'Role:')} {roleLabel}</p>
           )}
         </div>
 
@@ -63,7 +64,7 @@ function UserModal({ mode, role, user, onSave, onClose }: ModalProps) {
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase
               tracking-wider mb-1.5">
-              Nom affiché
+              {t('Nom affiché', 'Display name')}
             </label>
             <input
               type="text"
@@ -71,7 +72,7 @@ function UserModal({ mode, role, user, onSave, onClose }: ModalProps) {
               onChange={e => setName(e.target.value)}
               required
               autoFocus
-              placeholder={role === 'gestionnaire' ? 'Gestionnaire 1' : 'Caisse 1'}
+              placeholder={role === 'gestionnaire' ? t('Gestionnaire 1', 'Manager 1') : t('Caisse 1', 'Register 1')}
               className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200
                 focus:border-bordeaux outline-none text-sm bg-cream/40"
             />
@@ -98,7 +99,7 @@ function UserModal({ mode, role, user, onSave, onClose }: ModalProps) {
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase
               tracking-wider mb-1.5">
-              {mode === 'edit' ? 'Nouveau mot de passe (laisser vide = inchangé)' : 'Mot de passe'}
+              {mode === 'edit' ? t('Nouveau mot de passe (laisser vide = inchangé)', 'New password (leave blank = unchanged)') : t('Mot de passe', 'Password')}
             </label>
             <input
               type="password"
@@ -129,9 +130,9 @@ function UserModal({ mode, role, user, onSave, onClose }: ModalProps) {
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-cream/30 border-t-cream
                     rounded-full animate-spin" />
-                  Enregistrement…
+                  {t('Enregistrement…', 'Saving…')}
                 </span>
-              ) : mode === 'create' ? 'Créer le compte' : 'Enregistrer'}
+              ) : mode === 'create' ? t('Créer le compte', 'Create account') : t('Enregistrer', 'Save')}
             </button>
             <button
               type="button"
@@ -139,7 +140,7 @@ function UserModal({ mode, role, user, onSave, onClose }: ModalProps) {
               className="flex-1 py-3 border-2 border-gray-200 rounded-xl text-sm
                 font-bold text-gray-600 hover:bg-cream transition-colors"
             >
-              Annuler
+              {t('Annuler', 'Cancel')}
             </button>
           </div>
         </form>
@@ -157,9 +158,9 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 const ROLE_LABELS: Record<string, string> = {
-  patron:       'Patron',
-  caissier:     'Caissier(e)',
-  gestionnaire: 'Gestionnaire',
+  patron:       t('Patron', 'Owner'),
+  caissier:     t('Caissier(e)', 'Cashier'),
+  gestionnaire: t('Gestionnaire', 'Manager'),
 };
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -188,7 +189,7 @@ export default function Utilisateurs() {
     setLoading(true);
     setError(null);
     try { setUsers(await getUsers()); }
-    catch (err: unknown) { setError(err instanceof Error ? err.message : 'Erreur'); }
+    catch (err: unknown) { setError(err instanceof Error ? err.message : t('Erreur', 'Error')); }
     finally { setLoading(false); }
   }, []);
 
@@ -200,7 +201,7 @@ export default function Utilisateurs() {
 
   // next auto-name
   const nextName = (role: 'caissier' | 'gestionnaire', list: UserRecord[]) => {
-    const prefix = role === 'caissier' ? 'Caisse' : 'Gestionnaire';
+    const prefix = role === 'caissier' ? t('Caisse', 'Register') : t('Gestionnaire', 'Manager');
     return `${prefix} ${list.length + 1}`;
   };
 
@@ -214,7 +215,7 @@ export default function Utilisateurs() {
       });
       setUsers(prev => [...prev, created]);
       setModal({ open: false });
-      flash(`Compte "${created.name}" créé avec succès`);
+      flash(t(`Compte "${created.name}" créé avec succès`, `Account "${created.name}" created successfully`));
     }
   };
 
@@ -226,7 +227,7 @@ export default function Utilisateurs() {
       });
       setUsers(prev => prev.map(u => u._id === updated._id ? updated : u));
       setModal({ open: false });
-      flash(`Compte "${updated.name}" modifié`);
+      flash(t(`Compte "${updated.name}" modifié`, `Account "${updated.name}" updated`));
     }
   };
 
@@ -236,9 +237,9 @@ export default function Utilisateurs() {
       {/* Header */}
       <header className="bg-white border-b border-gray-100 flex items-center justify-between
         px-6 py-3 shrink-0 shadow-sm">
-        <h2 className="font-bold text-bordeaux text-lg">Utilisateurs</h2>
+        <h2 className="font-bold text-bordeaux text-lg">{t('Utilisateurs', 'Users')}</h2>
         <p className="text-gray-400 text-xs hidden md:block">
-          Gérez les comptes de votre équipe
+          {t('Gérez les comptes de votre équipe', 'Manage your team accounts')}
         </p>
       </header>
 
@@ -270,7 +271,7 @@ export default function Utilisateurs() {
             {/* Mon compte */}
             <section>
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
-                Mon compte
+                {t('Mon compte', 'My account')}
               </h3>
               <div className="bg-white rounded-2xl shadow border border-cream-dark overflow-hidden">
                 {patrons.map(u => (
@@ -293,7 +294,7 @@ export default function Utilisateurs() {
                       onClick={() => setModal({ open: true, mode: 'edit', user: u })}
                       className="text-xs text-bordeaux hover:underline font-semibold"
                     >
-                      Modifier
+                      {t('Modifier', 'Edit')}
                     </button>
                   </div>
                 ))}
@@ -302,22 +303,22 @@ export default function Utilisateurs() {
 
             {/* Caissiers */}
             <UserSection
-              title="Caissiers"
+              title={t('Caissiers', 'Cashiers')}
               users={caissiers}
               myId={myId}
               onEdit={u => setModal({ open: true, mode: 'edit', user: u })}
               onAdd={() => setModal({ open: true, mode: 'create', role: 'caissier' })}
-              addLabel={`+ Ajouter ${nextName('caissier', caissiers)}`}
+              addLabel={`+ ${t('Ajouter', 'Add')} ${nextName('caissier', caissiers)}`}
             />
 
             {/* Gestionnaires */}
             <UserSection
-              title="Gestionnaires de stock"
+              title={t('Gestionnaires de stock', 'Stock managers')}
               users={gestionnaires}
               myId={myId}
               onEdit={u => setModal({ open: true, mode: 'edit', user: u })}
               onAdd={() => setModal({ open: true, mode: 'create', role: 'gestionnaire' })}
-              addLabel={`+ Ajouter ${nextName('gestionnaire', gestionnaires)}`}
+              addLabel={`+ ${t('Ajouter', 'Add')} ${nextName('gestionnaire', gestionnaires)}`}
             />
           </>
         )}
@@ -375,7 +376,7 @@ function UserSection({ title, users, myId, onEdit, onAdd, addLabel }: UserSectio
         {users.length === 0 ? (
           <div className="px-5 py-8 text-center text-gray-300">
             <p className="text-3xl mb-2">👤</p>
-            <p className="text-sm">Aucun compte pour le moment</p>
+            <p className="text-sm">{t('Aucun compte pour le moment', 'No accounts yet')}</p>
           </div>
         ) : (
           users.map((u, i) => (
@@ -398,7 +399,7 @@ function UserSection({ title, users, myId, onEdit, onAdd, addLabel }: UserSectio
                 onClick={() => onEdit(u)}
                 className="text-xs text-bordeaux hover:underline font-semibold shrink-0"
               >
-                Modifier
+                {t('Modifier', 'Edit')}
               </button>
             </div>
           ))

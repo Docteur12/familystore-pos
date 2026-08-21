@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useSettings } from '../contexts/SettingsContext';
+import { t, dateLocale } from '../i18n';
 
 const PIN_LENGTH  = 4;
 const APP_VERSION = '2.4.1';
@@ -68,6 +70,9 @@ function PadBtn({ label, onClick, size = 58 }: { label: React.ReactNode; onClick
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function CaissePin() {
+  const { settings } = useSettings();
+  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const sousTitre  = [settings.signatureTicket, settings.slogan].map(x => (x ?? '').trim()).filter(Boolean).join(' — ');
   const navigate  = useNavigate();
   const payload   = getTokenPayload();
   const caisse    = payload?.caisse;
@@ -128,10 +133,10 @@ export default function CaissePin() {
     return () => window.removeEventListener('keydown', onKey);
   }, [handleDigit, handleBack]);
 
-  const dateLabel = time.toLocaleDateString('fr-FR', {
+  const dateLabel = time.toLocaleDateString(dateLocale(), {
     weekday: 'short', day: 'numeric', month: 'long', year: 'numeric',
   });
-  const timeLabel = time.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const timeLabel = time.toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
   const dateStr   = dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1);
 
   // Shared PIN entry panel
@@ -160,14 +165,14 @@ export default function CaissePin() {
           {payload?.name ?? '—'}
         </div>
         <div style={{ fontSize: 12, color: 'var(--fs-ink-400)', letterSpacing: '0.02em' }}>
-          Caissière · {caisse?.nom ?? '—'}
+          {t('Caissière', 'Cashier')} · {caisse?.nom ?? '—'}
         </div>
       </div>
 
       {/* PIN dots */}
       <div style={{ textAlign: 'center' }}>
         <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--fs-ink-400)', margin: '0 0 16px' }}>
-          Entrez votre code PIN
+          {t('Entrez votre code PIN', 'Enter your PIN code')}
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           {Array.from({ length: PIN_LENGTH }).map((_, i) => (
@@ -205,7 +210,7 @@ export default function CaissePin() {
       <button
         onClick={() => { localStorage.removeItem('access_token'); navigate('/login'); }}
         style={{ background: 'none', border: 'none', color: 'var(--fs-wine-700)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--fs-font-sans)', marginTop: 4 }}
-      >Changer d'utilisateur</button>
+      >{t("Changer d'utilisateur", 'Switch user')}</button>
     </div>
   );
 
@@ -222,9 +227,9 @@ export default function CaissePin() {
         }}>
           <CrownMark size={36}/>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 20, fontWeight: 600, color: '#fff', lineHeight: 1 }}>Family Store</div>
+            <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 20, fontWeight: 600, color: '#fff', lineHeight: 1 }}>{nomMagasin}</div>
             <div style={{ fontSize: 11, color: 'var(--fs-gold-300)', fontStyle: 'italic', marginTop: 2 }}>
-              {caisse?.ville ?? 'Douala'} · {caisse?.nom ?? 'CAISSE'}
+              {caisse?.ville ?? 'Douala'} · {caisse?.nom ?? t('CAISSE', 'REGISTER')}
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -239,20 +244,20 @@ export default function CaissePin() {
             <div style={{ marginBottom: 20 }}>
               <CrownMark size={52}/>
             </div>
-            <h1 style={{ fontFamily: 'var(--fs-font-display)', fontSize: 38, fontWeight: 600, color: '#fff', letterSpacing: '0.02em', margin: '0 0 6px', lineHeight: 1.1 }}>Family Store</h1>
+            <h1 style={{ fontFamily: 'var(--fs-font-display)', fontSize: 38, fontWeight: 600, color: '#fff', letterSpacing: '0.02em', margin: '0 0 6px', lineHeight: 1.1 }}>{nomMagasin}</h1>
             <p style={{ fontFamily: 'var(--fs-font-display)', fontSize: 13, fontStyle: 'italic', color: 'var(--fs-gold-300)', letterSpacing: '0.06em', margin: 0 }}>
-              by RDCT — Beauté · Saveurs · Bien-être
+              {sousTitre}
             </p>
             <div style={{ height: 1, background: 'linear-gradient(90deg, var(--fs-gold-500), transparent)', margin: '28px 0', opacity: 0.4 }}/>
             <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, margin: '0 0 5px' }}>
-              Espace de caisse · {caisse?.ville ?? 'Douala'}
+              {t('Espace de caisse', 'Cash register area')} · {caisse?.ville ?? 'Douala'}
             </p>
             <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, margin: 0 }}>
               {dateStr} — {timeLabel}
             </p>
           </div>
           <p style={{ color: 'var(--fs-gold-500)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', margin: 0 }}>
-            Version {APP_VERSION} · {caisse?.nom ?? 'CAISSE'}
+            Version {APP_VERSION} · {caisse?.nom ?? t('CAISSE', 'REGISTER')}
           </p>
         </div>
       )}

@@ -5,6 +5,7 @@ import ImportExportProduits from '../components/ImportExportProduits';
 import { getAllProducts, Product } from '../api/products';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { localISODate } from '../utils/dates';
+import { t, dateLocale } from '../i18n';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,90 +30,90 @@ const prevMon  = thisMon === 1 ? 12 : thisMon - 1;
 const prevYear = thisMon === 1 ? thisYear - 1 : thisYear;
 const PAD = (n: number) => String(n).padStart(2, '0');
 const MON_LABEL = (y: number, m: number) =>
-  new Date(y, m - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  new Date(y, m - 1, 1).toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' });
 
 const EXPORTS: ExportItem[] = [
   {
-    id: 'e1', title: 'Ventes du jour', section: 'Caisse',
-    desc: 'Tous les tickets de la journée en cours',
-    format: 'xlsx', size: '~48 Ko', updated: "Aujourd'hui",
+    id: 'e1', title: t('Ventes du jour', 'Daily sales'), section: 'Caisse',
+    desc: t('Tous les tickets de la journée en cours', 'All receipts for the current day'),
+    format: 'xlsx', size: t('~48 Ko', '~48 KB'), updated: t("Aujourd'hui", 'Today'),
     url: `/api/reports/daily/excel?date=${today}`,
     filename: `ventes-jour-${today}.xlsx`,
   },
   {
-    id: 'e2', title: `Journal des ventes — ${MON_LABEL(thisYear, thisMon)}`, section: 'Caisse',
-    desc: 'Historique complet des ventes du mois (détail + résumé par jour + résumé par caissier)',
-    format: 'xlsx', size: '~320 Ko', updated: "Aujourd'hui 00:00",
+    id: 'e2', title: t(`Journal des ventes — ${MON_LABEL(thisYear, thisMon)}`, `Sales journal — ${MON_LABEL(thisYear, thisMon)}`), section: 'Caisse',
+    desc: t('Historique complet des ventes du mois (détail + résumé par jour + résumé par caissier)', 'Complete sales history for the month (details + daily summary + summary per cashier)'),
+    format: 'xlsx', size: t('~320 Ko', '~320 KB'), updated: t("Aujourd'hui 00:00", 'Today 00:00'),
     url: `/api/reports/monthly/excel?month=${thisMon}&year=${thisYear}`,
     filename: `journal-ventes-${thisYear}-${PAD(thisMon)}.xlsx`,
   },
   {
-    id: 'e3', title: `Rapport mensuel — ${MON_LABEL(thisYear, thisMon)}`, section: 'Rapports',
-    desc: 'CA, bénéfice, ventes par jour, top produits',
-    format: 'pdf', size: '~1.2 Mo', updated: "Aujourd'hui 00:00",
+    id: 'e3', title: t(`Rapport mensuel — ${MON_LABEL(thisYear, thisMon)}`, `Monthly report — ${MON_LABEL(thisYear, thisMon)}`), section: 'Rapports',
+    desc: t('CA, bénéfice, ventes par jour, top produits', 'Revenue, profit, daily sales, top products'),
+    format: 'pdf', size: t('~1.2 Mo', '~1.2 MB'), updated: t("Aujourd'hui 00:00", 'Today 00:00'),
     url: `/api/reports/monthly/pdf?month=${thisMon}&year=${thisYear}`,
     filename: `rapport-mensuel-${thisYear}-${PAD(thisMon)}.pdf`,
   },
   {
-    id: 'e4', title: `Rapport mensuel — ${MON_LABEL(prevYear, prevMon)}`, section: 'Rapports',
-    desc: `CA, bénéfice, synthèse ${MON_LABEL(prevYear, prevMon)}`,
-    format: 'pdf', size: '~1.1 Mo', updated: `${new Date(prevYear, prevMon, 0).getDate()}/${PAD(prevMon)}/${prevYear}`,
+    id: 'e4', title: t(`Rapport mensuel — ${MON_LABEL(prevYear, prevMon)}`, `Monthly report — ${MON_LABEL(prevYear, prevMon)}`), section: 'Rapports',
+    desc: t(`CA, bénéfice, synthèse ${MON_LABEL(prevYear, prevMon)}`, `Revenue, profit, ${MON_LABEL(prevYear, prevMon)} summary`),
+    format: 'pdf', size: t('~1.1 Mo', '~1.1 MB'), updated: `${new Date(prevYear, prevMon, 0).getDate()}/${PAD(prevMon)}/${prevYear}`,
     url: `/api/reports/monthly/pdf?month=${prevMon}&year=${prevYear}`,
     filename: `rapport-mensuel-${prevYear}-${PAD(prevMon)}.pdf`,
   },
   {
-    id: 'e5', title: 'Catalogue produits', section: 'Stock',
-    desc: 'Tous les produits avec prix, codes-barres, catégories, stocks et fournisseurs',
-    format: 'xlsx', size: 'Excel', updated: 'Temps réel',
+    id: 'e5', title: t('Catalogue produits', 'Product catalogue'), section: 'Stock',
+    desc: t('Tous les produits avec prix, codes-barres, catégories, stocks et fournisseurs', 'All products with prices, barcodes, categories, stock levels and suppliers'),
+    format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
     url: '/api/products/export-excel',
     filename: `produits_${today}.xlsx`,
   },
   {
-    id: 'e6', title: 'État du stock', section: 'Stock',
-    desc: 'Quantités en stock par produit (boutique + entrepôt) — même fichier que le catalogue',
-    format: 'xlsx', size: 'Excel', updated: 'Temps réel',
+    id: 'e6', title: t('État du stock', 'Stock status'), section: 'Stock',
+    desc: t('Quantités en stock par produit (boutique + entrepôt) — même fichier que le catalogue', 'Stock quantities per product (shop + warehouse) — same file as the catalogue'),
+    format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
     url: '/api/products/export-excel',
     filename: `etat-stock_${today}.xlsx`,
   },
   {
-    id: 'e7', title: 'Mouvements de stock', section: 'Stock',
-    desc: 'Entrées et sorties des 30 derniers jours (produit, quantité, motif)',
-    format: 'xlsx', size: 'Excel', updated: 'Temps réel',
+    id: 'e7', title: t('Mouvements de stock', 'Stock movements'), section: 'Stock',
+    desc: t('Entrées et sorties des 30 derniers jours (produit, quantité, motif)', 'Inbound and outbound over the last 30 days (product, quantity, reason)'),
+    format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
     url: '/api/reports/mouvements-stock/excel',
     filename: `mouvements-stock_${today}.xlsx`,
   },
   {
-    id: 'e8', title: `Fiche comptable — ${MON_LABEL(thisYear, thisMon)}`, section: 'Comptabilité',
-    desc: 'Compte de résultat, dépenses par catégorie, ventes par mode de paiement',
-    format: 'pdf', size: 'PDF', updated: 'Temps réel',
+    id: 'e8', title: t(`Fiche comptable — ${MON_LABEL(thisYear, thisMon)}`, `Accounting sheet — ${MON_LABEL(thisYear, thisMon)}`), section: 'Comptabilité',
+    desc: t('Compte de résultat, dépenses par catégorie, ventes par mode de paiement', 'Income statement, expenses by category, sales by payment method'),
+    format: 'pdf', size: 'PDF', updated: t('Temps réel', 'Real-time'),
     url: `/api/reports/compta/pdf?month=${thisMon}&year=${thisYear}`,
     filename: `fiche-comptable_${thisYear}-${PAD(thisMon)}.pdf`,
   },
   {
-    id: 'e9', title: `Fiche comptable — ${MON_LABEL(prevYear, prevMon)}`, section: 'Comptabilité',
-    desc: `Compte de résultat, charges et bénéfice de ${MON_LABEL(prevYear, prevMon)}`,
-    format: 'pdf', size: 'PDF', updated: 'Temps réel',
+    id: 'e9', title: t(`Fiche comptable — ${MON_LABEL(prevYear, prevMon)}`, `Accounting sheet — ${MON_LABEL(prevYear, prevMon)}`), section: 'Comptabilité',
+    desc: t(`Compte de résultat, charges et bénéfice de ${MON_LABEL(prevYear, prevMon)}`, `Income statement, expenses and profit for ${MON_LABEL(prevYear, prevMon)}`),
+    format: 'pdf', size: 'PDF', updated: t('Temps réel', 'Real-time'),
     url: `/api/reports/compta/pdf?month=${prevMon}&year=${prevYear}`,
     filename: `fiche-comptable_${prevYear}-${PAD(prevMon)}.pdf`,
   },
   {
-    id: 'e10', title: 'Liste des collaborateurs', section: 'Personnel',
-    desc: 'Noms, rôles, identifiants, téléphones et affectations',
-    format: 'xlsx', size: 'Excel', updated: 'Temps réel',
+    id: 'e10', title: t('Liste des collaborateurs', 'Staff list'), section: 'Personnel',
+    desc: t('Noms, rôles, identifiants, téléphones et affectations', 'Names, roles, logins, phone numbers and assignments'),
+    format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
     url: '/api/reports/equipe/excel',
     filename: `equipe_${today}.xlsx`,
   },
   {
-    id: 'e11', title: 'Performance caissiers', section: 'Personnel',
-    desc: 'Ventes, articles, CA et panier moyen par caissier sur 30 jours',
-    format: 'xlsx', size: 'Excel', updated: 'Temps réel',
+    id: 'e11', title: t('Performance caissiers', 'Cashier performance'), section: 'Personnel',
+    desc: t('Ventes, articles, CA et panier moyen par caissier sur 30 jours', 'Sales, items, revenue and average basket per cashier over 30 days'),
+    format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
     url: '/api/reports/caissiers/excel',
     filename: `caissiers-30j_${today}.xlsx`,
   },
   {
-    id: 'e12', title: "Journal d'audit", section: 'Système',
-    desc: 'Toutes les actions sensibles tracées (qui, quoi, quand)',
-    format: 'xlsx', size: 'Excel', updated: 'Temps réel',
+    id: 'e12', title: t("Journal d'audit", 'Audit log'), section: 'Système',
+    desc: t('Toutes les actions sensibles tracées (qui, quoi, quand)', 'All sensitive actions tracked (who, what, when)'),
+    format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
     url: '/api/reports/audit/excel',
     filename: `journal-audit_${today}.xlsx`,
   },
@@ -127,6 +128,17 @@ const FORMAT_CONFIG = {
 };
 
 const SECTIONS = ['Tous', 'Caisse', 'Rapports', 'Stock', 'Comptabilité', 'Personnel', 'Système'];
+
+// Libellé affiché d'une section (la valeur technique reste utilisée pour le filtrage).
+const sectionLabel = (s: string) => ({
+  'Tous':         t('Tous', 'All'),
+  'Caisse':       t('Caisse', 'Checkout'),
+  'Rapports':     t('Rapports', 'Reports'),
+  'Stock':        t('Stock', 'Stock'),
+  'Comptabilité': t('Comptabilité', 'Accounting'),
+  'Personnel':    t('Personnel', 'Staff'),
+  'Système':      t('Système', 'System'),
+}[s] ?? s);
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -161,7 +173,7 @@ export default function AdminExports() {
 
   const handleDownload = useCallback(async (item: ExportItem) => {
     if (!item.url) {
-      addToast('Ce rapport n\'est pas encore disponible.', 'warning');
+      addToast(t('Ce rapport n\'est pas encore disponible.', 'This report is not available yet.'), 'warning');
       return;
     }
     setDownloading(item.id);
@@ -172,7 +184,7 @@ export default function AdminExports() {
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        throw new Error(body.message || `Erreur ${response.status}`);
+        throw new Error(body.message || t(`Erreur ${response.status}`, `Error ${response.status}`));
       }
       const blob = await response.blob();
       const link = document.createElement('a');
@@ -180,9 +192,9 @@ export default function AdminExports() {
       link.download = item.filename ?? item.title;
       link.click();
       URL.revokeObjectURL(link.href);
-      addToast(`Fichier téléchargé : ${item.filename ?? item.title}`, 'success');
+      addToast(t(`Fichier téléchargé : ${item.filename ?? item.title}`, `File downloaded: ${item.filename ?? item.title}`), 'success');
     } catch (err: any) {
-      addToast(err.message ?? 'Erreur lors du téléchargement', 'error');
+      addToast(err.message ?? t('Erreur lors du téléchargement', 'Error while downloading'), 'error');
     } finally {
       setDownloading(null);
     }
@@ -205,7 +217,7 @@ export default function AdminExports() {
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0 }}>
           <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: isNarrow ? 'stretch' : 'center', justifyContent: 'space-between', gap: isNarrow ? 10 : 16 }}>
             <div style={{ paddingLeft: isMobile ? 52 : 0 }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>Système</p>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Système', 'System')}</p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>Exports</h1>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -214,7 +226,7 @@ export default function AdminExports() {
                   style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
                     background: section === s ? 'var(--fs-wine-700)' : 'var(--fs-ivory)',
                     color: section === s ? '#fff' : 'var(--fs-ink-500)' }}>
-                  {s}
+                  {sectionLabel(s)}
                 </button>
               ))}
             </div>
@@ -224,11 +236,11 @@ export default function AdminExports() {
         {/* Summary bar */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, padding: isNarrow ? '14px 16px' : '14px 28px', flexShrink: 0 }}>
           {[
-            { label: 'Fichiers disponibles', value: EXPORTS.length,                             color: 'var(--fs-ink-700)', bg: '#fff' },
+            { label: t('Fichiers disponibles', 'Available files'), value: EXPORTS.length,                             color: 'var(--fs-ink-700)', bg: '#fff' },
             { label: 'Excel',  value: EXPORTS.filter(e => e.format === 'xlsx').length,           color: '#3F6B3A', bg: '#E8F0E5' },
             { label: 'PDF',    value: EXPORTS.filter(e => e.format === 'pdf').length,             color: 'var(--fs-wine-700)', bg: 'var(--fs-wine-100)' },
             { label: 'CSV',    value: EXPORTS.filter(e => e.format === 'csv').length,             color: '#3A5E8F', bg: '#EEF3FA' },
-            { label: 'Connectés à l\'API', value: EXPORTS.filter(e => !!e.url).length,           color: '#5A8B53', bg: '#E8F0E5' },
+            { label: t('Connectés à l\'API', 'Connected to API'), value: EXPORTS.filter(e => !!e.url).length,           color: '#5A8B53', bg: '#E8F0E5' },
           ].map(s => (
             <div key={s.label} style={{ background: s.bg, border: '1px solid var(--fs-line)', borderRadius: 10, padding: '10px 16px', minWidth: 80 }}>
               <div style={{ fontSize: 20, fontWeight: 900, fontFamily: 'var(--fs-font-mono)', color: s.color }}>{s.value}</div>
@@ -244,10 +256,10 @@ export default function AdminExports() {
           {(section === 'Tous' || section === 'Stock') && (
             <div style={{ background: '#fff', border: '1.5px solid var(--fs-wine-700)', borderRadius: 12, padding: '14px 16px', marginBottom: 24, boxShadow: 'var(--fs-shadow-sm)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 }}>
               <div style={{ flex: 1, minWidth: 240 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--fs-ink-900)' }}>📦 Liste des produits — exporter / importer (Excel)</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--fs-ink-900)' }}>📦 {t('Liste des produits — exporter / importer (Excel)', 'Product list — export / import (Excel)')}</div>
                 <p style={{ fontSize: 11, color: 'var(--fs-ink-500)', margin: '4px 0 0', lineHeight: 1.5 }}>
-                  <strong>Export</strong> : fichier Excel (.xlsx) avec tous les produits, dans Téléchargements.
-                  <strong> Import</strong> : rouvrez ce fichier modifié — les produits existants sont mis à jour, les nouvelles lignes créent des produits, une cellule vide ne change rien. Confirmation avant application.
+                  <strong>{t('Export', 'Export')}</strong>{t(' : fichier Excel (.xlsx) avec tous les produits, dans Téléchargements.', ': Excel file (.xlsx) with all products, saved to Downloads.')}
+                  <strong> {t('Import', 'Import')}</strong>{t(' : rouvrez ce fichier modifié — les produits existants sont mis à jour, les nouvelles lignes créent des produits, une cellule vide ne change rien. Confirmation avant application.', ': reopen the edited file — existing products are updated, new rows create products, an empty cell changes nothing. Confirmation before applying.')}
                 </p>
               </div>
               <ImportExportProduits products={products} onImported={() => getAllProducts().then(setProducts).catch(() => {})} addToast={addToast}/>
@@ -256,7 +268,7 @@ export default function AdminExports() {
 
           {Object.entries(toRender).map(([sec, items]) => (
             <div key={sec} style={{ marginBottom: 24 }}>
-              <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.12em', margin: '0 0 10px' }}>{sec}</p>
+              <p style={{ fontSize: 10, fontWeight: 800, color: 'var(--fs-ink-500)', textTransform: 'uppercase', letterSpacing: '0.12em', margin: '0 0 10px' }}>{sectionLabel(sec)}</p>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isNarrow ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 12 }}>
                 {items.map(item => {
                   const fmt       = FORMAT_CONFIG[item.format];
@@ -297,8 +309,8 @@ export default function AdminExports() {
                             minWidth: 120, justifyContent: 'center',
                           }}>
                           {isLoading
-                            ? <><Spinner/> Génération…</>
-                            : hasApi ? <><DownloadIcon/> Télécharger</> : <>Bientôt disponible</>}
+                            ? <><Spinner/> {t('Génération…', 'Generating…')}</>
+                            : hasApi ? <><DownloadIcon/> {t('Télécharger', 'Download')}</> : <>{t('Bientôt disponible', 'Coming soon')}</>}
                         </button>
                       </div>
                     </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { downloadFile } from '../api/dashboard';
 import { localISODate, localISOMonth } from '../utils/dates';
+import { t } from '../i18n';
 
 const monthISO = localISOMonth();
 const todayISO = localISODate();
@@ -23,11 +24,11 @@ export default function Rapports() {
     try {
       await downloadFile(
         `/api/reports/daily/pdf?date=${todayISO}`,
-        `rapport-journalier-${todayISO}.pdf`,
+        t(`rapport-journalier-${todayISO}.pdf`, `daily-report-${todayISO}.pdf`),
       );
-      flash(`PDF du ${todayISO} téléchargé`);
+      flash(t(`PDF du ${todayISO} téléchargé`, `PDF for ${todayISO} downloaded`));
     } catch (e: any) {
-      setError(e.message ?? 'Erreur PDF');
+      setError(e.message ?? t('Erreur PDF', 'PDF error'));
     } finally {
       setPdfLoading(false);
     }
@@ -39,11 +40,11 @@ export default function Rapports() {
     try {
       await downloadFile(
         `/api/reports/monthly/excel?month=${selectedMonth}`,
-        `rapport-mensuel-${selectedMonth}.xlsx`,
+        t(`rapport-mensuel-${selectedMonth}.xlsx`, `monthly-report-${selectedMonth}.xlsx`),
       );
-      flash(`Excel ${selectedMonth} téléchargé`);
+      flash(t(`Excel ${selectedMonth} téléchargé`, `Excel ${selectedMonth} downloaded`));
     } catch (e: any) {
-      setError(e.message ?? 'Erreur Excel');
+      setError(e.message ?? t('Erreur Excel', 'Excel error'));
     } finally {
       setXlsLoading(false);
     }
@@ -55,9 +56,9 @@ export default function Rapports() {
       {/* Header */}
       <header className="bg-white border-b border-gray-100 flex items-center justify-between
         px-6 py-3 shrink-0 shadow-sm">
-        <h2 className="font-bold text-bordeaux text-lg">Rapports</h2>
+        <h2 className="font-bold text-bordeaux text-lg">{t('Rapports', 'Reports')}</h2>
         <p className="text-gray-400 text-xs hidden md:block">
-          Téléchargez vos rapports PDF ou Excel
+          {t('Téléchargez vos rapports PDF ou Excel', 'Download your PDF or Excel reports')}
         </p>
       </header>
 
@@ -81,16 +82,16 @@ export default function Rapports() {
         <div className="bg-white rounded-2xl shadow border border-cream-dark p-6">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h3 className="font-bold text-bordeaux text-base">Rapport du jour</h3>
+              <h3 className="font-bold text-bordeaux text-base">{t('Rapport du jour', "Today's report")}</h3>
               <p className="text-gray-400 text-sm mt-0.5">
-                PDF journalier — ventes, CA, bénéfice, dépenses, résultat net
+                {t('PDF journalier — ventes, CA, bénéfice, dépenses, résultat net', 'Daily PDF — sales, revenue, profit, expenses, net result')}
               </p>
             </div>
             <span className="text-3xl">📄</span>
           </div>
 
           <div className="bg-cream/60 rounded-xl px-4 py-3 mb-4 border border-cream-dark">
-            <p className="text-xs text-gray-500">Date du rapport</p>
+            <p className="text-xs text-gray-500">{t('Date du rapport', 'Report date')}</p>
             <p className="font-bold text-bordeaux">{todayISO}</p>
           </div>
 
@@ -105,7 +106,7 @@ export default function Rapports() {
               <span className="w-4 h-4 border-2 border-cream/30 border-t-cream
                 rounded-full animate-spin" />
             ) : <span>↓</span>}
-            Télécharger PDF
+            {t('Télécharger PDF', 'Download PDF')}
           </button>
         </div>
 
@@ -113,9 +114,9 @@ export default function Rapports() {
         <div className="bg-white rounded-2xl shadow border border-cream-dark p-6">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h3 className="font-bold text-bordeaux text-base">Rapport mensuel</h3>
+              <h3 className="font-bold text-bordeaux text-base">{t('Rapport mensuel', 'Monthly report')}</h3>
               <p className="text-gray-400 text-sm mt-0.5">
-                Excel — ventes détaillées, dépenses par catégorie, résumé mensuel
+                {t('Excel — ventes détaillées, dépenses par catégorie, résumé mensuel', 'Excel — detailed sales, expenses by category, monthly summary')}
               </p>
             </div>
             <span className="text-3xl">📊</span>
@@ -124,7 +125,7 @@ export default function Rapports() {
           <div className="mb-4">
             <label className="block text-xs font-semibold text-gray-500 uppercase
               tracking-wider mb-1.5">
-              Mois
+              {t('Mois', 'Month')}
             </label>
             <input
               type="month"
@@ -148,7 +149,7 @@ export default function Rapports() {
               <span className="w-4 h-4 border-2 border-bordeaux/30 border-t-bordeaux
                 rounded-full animate-spin" />
             ) : <span>↓</span>}
-            Télécharger Excel
+            {t('Télécharger Excel', 'Download Excel')}
           </button>
         </div>
 
