@@ -3,9 +3,23 @@
   command = "npm ci && npm run build"
   publish = "dist"
 
-# Les redirections (proxy /api → backend Render, fallback SPA) sont générées
-# dans dist/_redirects au moment du build, à partir de VITE_API_URL — voir
-# vite.config.ts (plugin netlify-redirects). Chaque site Netlify (Family Store,
-# Radiance…) surcharge VITE_API_URL et les VITE_APP_* dans ses variables
-# d'environnement ; les valeurs par défaut (Family Store) sont dans
-# .env.production.
+# Proxy /api → backend Render. REVENU dans ce fichier le 21/08/2026 : la même
+# règle générée dans dist/_redirects est bien traitée par Netlify mais le
+# proxy transmet alors l'hôte d'origine (…netlify.app) que Render rejette
+# (X-Render-Routing: no-server) — panne totale de l'API en production.
+# La règle déclarée ici fonctionne. Conséquence : cette URL est propre au site
+# Family Store ; le site Netlify d'un autre magasin (Radiance…) doit porter la
+# sienne — soit via son propre netlify.toml de site, soit en attendant une
+# meilleure solution (voir DEPLOY.md).
+# ⚠️ dist/_redirects (généré au build, voir vite.config.ts) ne doit contenir
+# QUE le fallback SPA : un fichier _redirects prime sur netlify.toml.
+[[redirects]]
+  from = "/api/*"
+  to = "https://familystore-pos.onrender.com/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -2,8 +2,8 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
-import { writeFileSync, mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
+
+
 
 // ── Marque au moment du build ─────────────────────────────────────────────────
 // Un seul dépôt sert plusieurs magasins (Family Store, Radiance…). Tout ce qui
@@ -46,24 +46,11 @@ function htmlBrand(b: Brand): Plugin {
   };
 }
 
-// Netlify : le proxy /api → backend est propre à chaque site. On génère
-// dist/_redirects à la fin du build à partir de VITE_API_URL (netlify.toml ne
-// sait pas interpoler une variable d'environnement dans une redirection).
-function netlifyRedirects(b: Brand): Plugin {
-  return {
-    name: 'netlify-redirects',
-    apply: 'build',
-    closeBundle() {
-      const out = resolve(process.cwd(), 'dist');
-      mkdirSync(out, { recursive: true });
-      writeFileSync(resolve(out, '_redirects'), [
-        `/api/*  ${b.apiUrl}/api/:splat  200!`,
-        '/*      /index.html               200',
-        '',
-      ].join('\n'));
-    },
-  };
-}
+// ⚠️ Ne PAS générer de dist/_redirects : un fichier _redirects prime sur
+// netlify.toml, et le proxy /api qui y était généré transmettait à Render
+// l'hôte d'origine (…netlify.app) → « X-Render-Routing: no-server », API
+// morte en production (incident du 21/08/2026). Le proxy /api et le fallback
+// SPA vivent dans frontend/netlify.toml.
 
 export default defineConfig(({ mode }) => {
   const brand = brandFromEnv(mode);
@@ -71,7 +58,7 @@ export default defineConfig(({ mode }) => {
   plugins: [
     react(),
     htmlBrand(brand),
-    netlifyRedirects(brand),
+
     VitePWA({
       // Mise à jour appliquée au PROCHAIN démarrage, jamais en pleine vente.
       // ⚠️ NE PAS mettre 'autoUpdate' : ce mode force self.skipWaiting() dans le
