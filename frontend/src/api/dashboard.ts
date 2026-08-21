@@ -118,8 +118,10 @@ export interface CaissePayload {
   _id:   string;
   nom:   string;
   code:  string;
-  pin:   string;
   ville: string;
+  // Dérivation PBKDF2 du PIN + sel — jamais le PIN en clair (voir utils/pin.ts)
+  pinKdf:  string;
+  pinSalt: string;
 }
 
 export function getTokenPayload(): { sub: string; email: string; name: string; role: string; caisse?: CaissePayload | null } | null {

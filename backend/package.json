@@ -11,6 +11,7 @@
     "migrate:tenant": "ts-node -r tsconfig-paths/register scripts/migrate-add-tenant.ts",
     "migrate:tenant:rollback": "ts-node -r tsconfig-paths/register scripts/migrate-rollback.ts",
     "migrate:settings": "ts-node -r tsconfig-paths/register scripts/migrate-settings-identite.ts",
+    "migrate:pin": "ts-node -r tsconfig-paths/register scripts/migrate-pin-caisses.ts",
     "test": "jest",
     "test:watch": "jest --watch"
   },

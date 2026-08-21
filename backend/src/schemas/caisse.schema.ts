@@ -13,8 +13,14 @@ export class Caisse {
   @Prop({ required: true, uppercase: true, trim: true })
   code: string; // "C01" — identifiant court, unique au sein du magasin
 
+  // PIN de caisse : plus jamais en clair. Dérivation PBKDF2 + sel (voir
+  // config/pin.ts) ; le couple {pinKdf, pinSalt} part dans le JWT pour que la
+  // caisse puisse vérifier le PIN hors-ligne (WebCrypto côté client).
   @Prop({ required: true })
-  pin: string; // 4 chiffres en clair — stocké dans le JWT pour vérification offline
+  pinKdf: string;
+
+  @Prop({ required: true })
+  pinSalt: string;
 
   @Prop({ default: 'Douala' })
   ville: string;

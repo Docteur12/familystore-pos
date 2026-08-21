@@ -41,6 +41,15 @@ export class AuthController {
     return result;
   }
 
+  // Renouvellement glissant du jeton : appelé par le frontend quand le jeton
+  // (encore valide — l'AuthGuard l'exige) approche de sa fin de vie.
+  @Post('refresh')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  refresh(@Req() req: Request) {
+    return this.authService.refresh((req as any)['user'].sub);
+  }
+
   // Création d'utilisateur réservée au patron
   @Post('register')
   @UseGuards(AuthGuard, RolesGuard)

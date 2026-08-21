@@ -21,12 +21,19 @@ export class AuthGuard implements CanActivate {
     // Résolu HORS du try : une configuration manquante doit remonter telle
     // quelle, pas être masquée en « token invalide » par le catch ci-dessous.
     const secret = getJwtSecret();
+    let payload: any;
     try {
-      const payload = await this.jwtService.verifyAsync(token, { secret });
-      request['user'] = payload;
+      payload = await this.jwtService.verifyAsync(token, { secret });
     } catch {
       throw new UnauthorizedException('Token invalide ou expiré');
     }
+    // Version minimale du jeton : les jetons v1 (durée 30 j, PIN de caisse en
+    // clair dans le payload) sont révoqués — l'utilisateur se reconnecte une
+    // fois et repart avec un jeton v2 propre.
+    if ((payload.v ?? 1) < 2) {
+      throw new UnauthorizedException('Token invalide ou expiré');
+    }
+    request['user'] = payload;
     return true;
   }
 

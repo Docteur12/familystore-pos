@@ -39,6 +39,36 @@ function rebase(input: RequestInfo | URL, init?: RequestInit): [RequestInfo | UR
 
 const origFetch = window.fetch.bind(window);
 
+// ── Renouvellement glissant du jeton (24 h) ──────────────────────────────────
+// Passé la moitié de sa durée de vie, le jeton est réémis par POST
+// /api/auth/refresh (encore valide, donc accepté par l'AuthGuard). Utilisée
+// tous les jours, la session ne se reconnecte jamais ; inutilisée 24 h, elle
+// expire. Tenté au plus une fois toutes les 10 minutes, jamais en parallèle.
+let refreshEnCours = false;
+let dernierEssaiRefresh = 0;
+
+function maybeRefreshToken() {
+  if (refreshEnCours || Date.now() - dernierEssaiRefresh < 10 * 60_000) return;
+  const token = localStorage.getItem('access_token');
+  if (!token) return;
+  try {
+    const p = JSON.parse(atob(token.split('.')[1]));
+    if (!p.exp || !p.iat) return;
+    const miVie = (p.iat + (p.exp - p.iat) / 2) * 1000;
+    if (Date.now() < miVie) return;
+  } catch { return; }
+  refreshEnCours = true;
+  dernierEssaiRefresh = Date.now();
+  origFetch(`${API_BASE}/api/auth/refresh`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } })
+    .then(async res => {
+      if (!res.ok) return; // jeton bientôt expiré → l'utilisateur se reconnectera
+      const data = await res.json();
+      if (data?.access_token) localStorage.setItem('access_token', data.access_token);
+    })
+    .catch(() => { /* hors-ligne : on retentera */ })
+    .finally(() => { refreshEnCours = false; });
+}
+
 // Réponse d'erreur JSON dont le champ « message » (string ou string[]) est traduit.
 async function translateErrorBody(res: Response): Promise<Response> {
   const ct = res.headers.get('content-type') ?? '';
@@ -78,6 +108,9 @@ window.fetch = async (rawInput: RequestInfo | URL, rawInit?: RequestInit): Promi
     }
 
     if (isApi && !res.ok && getLang() === 'en') res = await translateErrorBody(res);
+
+    // Session active (appel API réussi) : occasion de renouveler le jeton.
+    if (isApi && res.ok && !url.includes('/api/auth/')) maybeRefreshToken();
   } catch { /* ne jamais casser la requête à cause de l'intercepteur */ }
   return res;
 };
