@@ -21,6 +21,7 @@ import { buildReceiptHTML, buildReceiptPDF, doPrint, getPrintSettings, openCashD
 import { saveFacture } from '../api/factures';
 import { useSettings } from '../contexts/SettingsContext';
 import { storeIdentity } from '../api/settings';
+import { verifierPin } from '../utils/pin';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { formatVolume } from '../utils/text';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
@@ -211,7 +212,9 @@ export default function Caisse() {
   const [lockPin,        setLockPin]        = useState('');
   const [lockError,      setLockError]      = useState(false);
 
-  const caissePIN = payload?.caisse?.pin ?? null;
+  // Dérivation PBKDF2 du PIN (jamais en clair) — vérification hors-ligne, voir utils/pin.ts
+  const caissePinKdf  = payload?.caisse?.pinKdf  ?? null;
+  const caissePinSalt = payload?.caisse?.pinSalt ?? null;
   useInactivityTimer(10 * 60 * 1000, () => setLocked(true));
 
   // Dynamic row height — computed after filteredProducts (see below)
@@ -741,8 +744,11 @@ export default function Caisse() {
                 const next = lockPin + String(k);
                 setLockPin(next);
                 if (next.length === 4) {
-                  if (caissePIN && next === caissePIN) { setLocked(false); setLockPin(''); setLockError(false); }
-                  else { setLockError(true); setLockPin(''); }
+                  (async () => {
+                    if (caissePinKdf && caissePinSalt && await verifierPin(next, caissePinSalt, caissePinKdf)) {
+                      setLocked(false); setLockPin(''); setLockError(false);
+                    } else { setLockError(true); setLockPin(''); }
+                  })();
                 }
               }}
                 style={{ width: 64, height: 64, borderRadius: '50%', border: '1.5px solid rgba(255,255,255,0.2)', background: k === '' ? 'transparent' : 'rgba(255,255,255,0.08)', color: '#fff', fontSize: 20, fontWeight: 600, cursor: k === '' ? 'default' : 'pointer' }}>

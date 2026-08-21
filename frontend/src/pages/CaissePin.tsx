@@ -4,6 +4,7 @@ import { getTokenPayload } from '../api/dashboard';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useSettings } from '../contexts/SettingsContext';
 import { t, dateLocale } from '../i18n';
+import { verifierPin } from '../utils/pin';
 
 const PIN_LENGTH  = 4;
 const APP_VERSION = '2.4.1';
@@ -94,12 +95,13 @@ export default function CaissePin() {
     .join('')
     .toUpperCase();
 
-  const verify = useCallback((entered: string) => {
-    if (!caisse?.pin) {
+  const verify = useCallback(async (entered: string) => {
+    // Pas de dérivation dans le jeton (caisse sans PIN configuré) : accès direct.
+    if (!caisse?.pinKdf || !caisse?.pinSalt) {
       navigate('/caisse');
       return;
     }
-    if (entered === caisse.pin) {
+    if (await verifierPin(entered, caisse.pinSalt, caisse.pinKdf)) {
       navigate('/caisse');
     } else {
       setError(true);

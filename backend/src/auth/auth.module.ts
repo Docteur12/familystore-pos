@@ -20,7 +20,8 @@ import { Settings, SettingsSchema } from '../settings/settings.schema';
     JwtModule.register({
       global: true,
       secret: getJwtSecret(),
-      signOptions: { expiresIn: process.env.JWT_EXPIRES_IN ?? '30d' },
+      // 24 h par défaut (renouvellement glissant via POST /api/auth/refresh).
+      signOptions: { expiresIn: process.env.JWT_EXPIRES_IN ?? '24h' },
     }),
   ],
   controllers: [AuthController],

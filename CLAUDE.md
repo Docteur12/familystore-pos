@@ -97,6 +97,28 @@ Restes connus : `pages/PartenairesAgencesMaquette.tsx` (maquette) non traduite ;
 seed des catégories (`categories.service.ts`, `data/categories.ts`) en FR
 uniquement ; `desktop-caisse/` porte encore `POS_URL`/`productName` en dur.
 
+### Phase 3 — sécurisation (en cours)
+
+Fait (à déployer avec `npm run migrate:pin -- --execute` AVANT le merge, sur
+`familystore` ET la base Radiance — voir l'ordre dans le script) :
+
+- **PIN de caisse** : plus jamais en clair. Base : `{pinKdf, pinSalt}`
+  (PBKDF2-SHA256 · 100 000 itérations · 32 octets — contrat figé par
+  `backend/test/pin.spec.ts`, partagé avec `frontend/src/utils/pin.ts` qui
+  vérifie hors-ligne via WebCrypto). Le jeton transporte la dérivation, pas le
+  PIN. L'UI ne peut plus afficher un PIN, seulement en définir un nouveau.
+- **Jetons v2** : durée 24 h (`JWT_EXPIRES_IN`), renouvellement glissant
+  (`POST /api/auth/refresh`, déclenché par `fetchInterceptor` à mi-vie).
+  L'AuthGuard rejette les jetons sans `v: 2` (anciens 30 j, PIN lisible) —
+  tous les utilisateurs se reconnectent une fois au déploiement.
+- **CORS restreint** : liste blanche (`CORS_ORIGINS`, défaut = les deux sites
+  Netlify) + localhost. Radiance appelle son backend en direct : ne jamais
+  retirer son origine.
+
+Reste : cloisonnement du stockage hors-ligne par tenant (sans objet tant que
+chaque magasin a son origine ; requis en mode `multi` mutualisé), revue des
+`aggregate`/`populate`, vrais refresh tokens révocables.
+
 ### ⚠️ Décision produit non tranchée
 
 L'unicité de l'email est passée de **globale** à **par tenant**

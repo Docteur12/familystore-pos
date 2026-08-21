@@ -5,7 +5,7 @@ export interface CaisseRecord {
   _id:   string;
   nom:   string;
   code:  string;
-  pin:   string;
+  // le PIN n'est jamais renvoyé par l'API (dérivation seule, côté serveur)
   ville: string;
 }
 

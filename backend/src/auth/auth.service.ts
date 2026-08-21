@@ -38,22 +38,39 @@ export class AuthService {
     if (!isMatch) {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
+    return this.emettreJeton(user);
+  }
+
+  /**
+   * Renouvellement glissant : un jeton encore valide (vérifié par l'AuthGuard)
+   * est réémis pour une nouvelle période. Utilisé quotidiennement, on ne se
+   * reconnecte jamais ; inutilisé 24 h, la session expire. Le contenu est
+   * relu en base : un utilisateur supprimé ou une caisse modifiée (PIN…)
+   * ne se renouvelle pas à l'identique.
+   */
+  async refresh(userId: string) {
+    const user = await this.userModel.findById(userId).populate('caisseId');
+    if (!user) throw new UnauthorizedException('Utilisateur introuvable');
+    return this.emettreJeton(user);
+  }
+
+  // Émission du jeton (login et renouvellement) pour un utilisateur authentifié.
+  private async emettreJeton(user: any) {
     const caisse = user.caisseId
       ? {
-          _id:   (user.caisseId as any)._id,
-          nom:   (user.caisseId as any).nom,
-          code:  (user.caisseId as any).code,
-          pin:   (user.caisseId as any).pin,
-          ville: (user.caisseId as any).ville,
+          _id:   user.caisseId._id,
+          nom:   user.caisseId.nom,
+          code:  user.caisseId.code,
+          ville: user.caisseId.ville,
+          // Dérivation PBKDF2 du PIN + sel : jamais le PIN en clair. Permet à
+          // la caisse de vérifier le PIN hors-ligne (WebCrypto, utils/pin.ts).
+          pinKdf:  user.caisseId.pinKdf,
+          pinSalt: user.caisseId.pinSalt,
         }
       : null;
-    const payload = {
-      sub:    user._id,
-      email:  user.email,
-      name:   user.name,
-      role:   user.role,
-      caisse,
-    };
+    // v2 : jetons sans PIN en clair, durée 24 h. L'AuthGuard rejette les
+    // jetons antérieurs (30 jours, PIN lisible) — reconnexion unique.
+    const payload = { v: 2, sub: user._id, email: user.email, name: user.name, role: user.role, caisse };
     return {
       access_token: await this.jwtService.signAsync(payload),
       user: { id: user._id, name: user.name, email: user.email, role: user.role, caisse },

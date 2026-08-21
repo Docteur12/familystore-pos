@@ -223,7 +223,7 @@ function EditPanel({ user, caisses, onSaved, onCancel, isNarrow }: {
           <select value={caisseId} onChange={e => setCaisseId(e.target.value)}
             style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
             <option value="">{t('— Aucune caisse —', '— No cash register —')}</option>
-            {caisses.map(c => <option key={c._id} value={c._id}>{c.nom} ({c.code}) · PIN: {c.pin}</option>)}
+            {caisses.map(c => <option key={c._id} value={c._id}>{c.nom} ({c.code})</option>)}
           </select>
         </div>
 
@@ -307,7 +307,7 @@ function CreatePanel({ caisses, onCreated, onCancel, isNarrow }: { caisses: Cais
           <select value={form.caisseId} onChange={e => set('caisseId', e.target.value)}
             style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--fs-line-2)', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
             <option value="">{t('— Aucune caisse —', '— No register —')}</option>
-            {caisses.map(c => <option key={c._id} value={c._id}>{c.nom} ({c.code}) · PIN: {c.pin}</option>)}
+            {caisses.map(c => <option key={c._id} value={c._id}>{c.nom} ({c.code})</option>)}
           </select>
         </div>
         <Field label={t("Date d'embauche", 'Hire date')} value={form.dateEmb} onChange={v => set('dateEmb', v)} type="date"/>

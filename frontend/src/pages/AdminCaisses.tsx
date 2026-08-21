@@ -73,7 +73,7 @@ function CaisseCard({ caisse, assignedCount, selected, onEdit }: {
   selected: boolean;
   onEdit: () => void;
 }) {
-  const [showPin, setShowPin] = useState(false);
+
   const color = codeColor(caisse.code);
 
   return (
@@ -115,32 +115,18 @@ function CaisseCard({ caisse, assignedCount, selected, onEdit }: {
       {/* Corps */}
       <div style={{ padding: '14px 18px' }}>
 
-        {/* PIN */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>
-              {t('Code PIN', 'PIN code')}
-            </div>
-            <div style={{
-              fontFamily: 'var(--fs-font-mono)', fontSize: 18, fontWeight: 800,
-              color: 'var(--fs-ink-900)', letterSpacing: showPin ? '0.2em' : '0.4em',
-            }}>
-              {showPin ? caisse.pin : '••••'}
-            </div>
+        {/* PIN — jamais affiché : le serveur n'en garde qu'une dérivation (phase 3).
+            Oublié ? En définir un nouveau via « Modifier ». */}
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>
+            {t('Code PIN', 'PIN code')}
           </div>
-          <button
-            onClick={e => { e.stopPropagation(); setShowPin(v => !v); }}
-            style={{
-              width: 32, height: 32, borderRadius: 8,
-              border: '1.5px solid var(--fs-line-2)',
-              background: showPin ? 'var(--fs-wine-50)' : '#fff',
-              color: showPin ? 'var(--fs-wine-700)' : 'var(--fs-ink-400)',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-            title={showPin ? t('Masquer le PIN', 'Hide PIN') : t('Afficher le PIN', 'Show PIN')}
-          >
-            <I d={showPin ? D.eyeOff : D.eye} size={13}/>
-          </button>
+          <div style={{ fontFamily: 'var(--fs-font-mono)', fontSize: 18, fontWeight: 800, color: 'var(--fs-ink-900)', letterSpacing: '0.4em' }}>
+            ••••
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginTop: 2 }}>
+            {t('Défini — modifiable, jamais affiché', 'Set — can be changed, never shown')}
+          </div>
         </div>
 
         {/* Infos bas */}
@@ -203,7 +189,7 @@ function CaissePanel({ caisse, onSaved, onCancel, isNarrow }: {
 
   const [nom,     setNom]     = useState(caisse?.nom   ?? '');
   const [code,    setCode]    = useState(caisse?.code  ?? '');
-  const [pin,     setPin]     = useState(caisse?.pin   ?? '');
+  const [pin,     setPin]     = useState('');   // jamais préchargé : écriture seule
   const [ville,   setVille]   = useState(caisse?.ville ?? 'Douala');
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -226,7 +212,7 @@ function CaissePanel({ caisse, onSaved, onCancel, isNarrow }: {
         const patch: Partial<{ nom: string; pin: string; ville: string }> = {};
         if (nom.trim()   !== caisse!.nom)   patch.nom   = nom.trim();
         if (ville.trim() !== caisse!.ville) patch.ville = ville.trim();
-        if (pin && pin !== caisse!.pin)      patch.pin   = pin;
+        if (pin)                             patch.pin   = pin;
         if (Object.keys(patch).length > 0) await updateCaisse(caisse!._id, patch);
       } else {
         await createCaisse({ nom: nom.trim(), code: code.trim().toUpperCase(), pin, ville: ville.trim() });

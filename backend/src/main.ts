@@ -26,7 +26,21 @@ async function bootstrap() {
 
   app.use(json({ limit: '10mb' }));
   app.use(urlencoded({ extended: true, limit: '10mb' }));
-  app.enableCors();
+  // CORS restreint aux origines connues (phase 3 — sécurisation). Nécessaire :
+  // le site Radiance appelle ce type de backend en direct (VITE_API_BASE),
+  // sans proxy. Surcharge par CORS_ORIGINS (liste séparée par des virgules) ;
+  // en développement, les ports Vite locaux sont acceptés d'office.
+  const corsOrigins = (process.env.CORS_ORIGINS ??
+    'https://familystore-pos.netlify.app,https://radiance-pos.netlify.app')
+    .split(',').map(o => o.trim()).filter(Boolean);
+  app.enableCors({
+    origin: (origin, cb) => {
+      // Sans en-tête Origin (curl, healthchecks, app Electron en file://) : autorisé.
+      if (!origin) return cb(null, true);
+      if (corsOrigins.includes(origin) || /^https?:\/\/localhost(:\d+)?$/.test(origin)) return cb(null, true);
+      return cb(null, false);
+    },
+  });
   app.setGlobalPrefix('api');
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
