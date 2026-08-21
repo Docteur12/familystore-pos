@@ -33,9 +33,8 @@ git push -u origin main
    - **Publish directory** : `frontend/dist`
 4. Cliquer **Deploy site**
 
-> Le proxy `/api/*` → backend Render et le fallback SPA sont générés au build
-> dans `dist/_redirects` (plugin `netlify-redirects` de `frontend/vite.config.ts`),
-> à partir de la variable `VITE_API_URL`.
+> Le proxy `/api/*` → backend Render (URL Family Store) et le fallback SPA
+> sont déclarés dans `frontend/netlify.toml`.
 
 5. **Un site Netlify par magasin, un seul dépôt.** Les valeurs par défaut du
    build (Family Store) sont dans `frontend/.env.production`. Pour un autre
@@ -44,7 +43,6 @@ git push -u origin main
 
    | Variable | Family Store (défaut) | Exemple Radiance |
    |---|---|---|
-   | `VITE_API_URL` | `https://familystore-pos.onrender.com` | `https://radiance-api-7qqv.onrender.com` |
    | `VITE_APP_NAME` | `Family Store POS` | `Radiance POS` |
    | `VITE_APP_SHORT_NAME` | `Family Store` | `Radiance` |
    | `VITE_APP_LANG` | `fr` | `en` |
