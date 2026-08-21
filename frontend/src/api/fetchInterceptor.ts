@@ -12,6 +12,31 @@
 import { getLang } from '../i18n';
 import { translateBackendMessage } from '../i18n/backend-messages';
 
+// Base d'URL de l'API, figée au build (VITE_API_BASE).
+//  - vide (défaut, Family Store) : les appels restent relatifs (« /api/… ») et
+//    passent par le proxy Netlify déclaré dans netlify.toml ;
+//  - renseignée (ex. site Radiance : https://radiance-api-….onrender.com) :
+//    les appels partent directement sur ce backend (CORS ouvert côté NestJS).
+//    Indispensable quand le site Netlify ne peut pas porter de règle de proxy
+//    propre — netlify.toml est partagé par tous les sites de ce dépôt.
+const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/+$/, '');
+
+// Réécrit une requête relative « /api/… » vers la base configurée.
+function rebase(input: RequestInfo | URL, init?: RequestInit): [RequestInfo | URL, RequestInit | undefined] {
+  if (!API_BASE) return [input, init];
+  if (typeof input === 'string' && input.startsWith('/api/')) return [API_BASE + input, init];
+  if (input instanceof URL && input.origin === window.location.origin && input.pathname.startsWith('/api/')) {
+    return [API_BASE + input.pathname + input.search, init];
+  }
+  if (input instanceof Request) {
+    const u = new URL(input.url);
+    if (u.origin === window.location.origin && u.pathname.startsWith('/api/')) {
+      return [new Request(API_BASE + u.pathname + u.search, input), init];
+    }
+  }
+  return [input, init];
+}
+
 const origFetch = window.fetch.bind(window);
 
 // Réponse d'erreur JSON dont le champ « message » (string ou string[]) est traduit.
@@ -30,7 +55,8 @@ async function translateErrorBody(res: Response): Promise<Response> {
   } catch { return res; }
 }
 
-window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+window.fetch = async (rawInput: RequestInfo | URL, rawInit?: RequestInit): Promise<Response> => {
+  const [input, init] = rebase(rawInput, rawInit);
   let res = await origFetch(input, init);
   try {
     const url =

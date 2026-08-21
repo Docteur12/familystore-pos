@@ -3,7 +3,7 @@ import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import { updateUser } from '../api/auth';
 import { getTokenPayload } from '../api/dashboard';
-import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings, applyPrimaryColor, applySecondaryColor, OffreFacture, OFFRE_DEFAULTS, MODULES_DISPONIBLES, ModuleId, METIER_DEFAULTS } from '../api/settings';
+import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings, applyPrimaryColor, applySecondaryColor, OffreFacture, OFFRE_DEFAULTS, MODULES_DISPONIBLES, ModuleId, MODULE_AUCUN, METIER_DEFAULTS } from '../api/settings';
 import { useSettings } from '../contexts/SettingsContext';
 import { getPendingSales, getLastSyncTime, syncPendingSales } from '../services/offlineSync';
 import { getPrintSettings, savePrintSettings, PrintSettings } from '../components/ReceiptPrint';
@@ -127,7 +127,7 @@ function toSForm(s: StoreSettings): SForm {
     mentionsLegales:   s.mentionsLegales ?? '',
     telephonesTicket:  (s.telephonesTicket ?? []).join('\n'),
     // Liste vide côté serveur = tous les modules actifs (rétro-compatibilité)
-    modules:           (s.modules && s.modules.length) ? [...s.modules] : MODULES_DISPONIBLES.map(m => m.id),
+    modules:           (s.modules && s.modules.length) ? s.modules.filter((x): x is ModuleId => (MODULES_DISPONIBLES as readonly { id: string }[]).some(m => m.id === x)) : MODULES_DISPONIBLES.map(m => m.id),
     inactiviteMinutes: String(s.metier?.inactiviteMinutes ?? METIER_DEFAULTS.inactiviteMinutes),
     seedFournisseursDemo: s.metier?.seedFournisseursDemo ?? METIER_DEFAULTS.seedFournisseursDemo,
   };
@@ -151,7 +151,8 @@ function fromSForm(f: SForm): Partial<StoreSettings> {
     signatureTicket:   f.signatureTicket.trim(),
     mentionsLegales:   f.mentionsLegales.trim(),
     telephonesTicket:  f.telephonesTicket.split(/\r?\n/).map(x => x.trim()).filter(Boolean),
-    modules:           f.modules,
+    // [] signifierait « tout actif » (rétro-compat) : « rien » = [MODULE_AUCUN]
+    modules:           f.modules.length ? f.modules : [MODULE_AUCUN],
     metier: {
       inactiviteMinutes:    Math.max(1, Math.min(240, Number(f.inactiviteMinutes) || METIER_DEFAULTS.inactiviteMinutes)),
       seedFournisseursDemo: f.seedFournisseursDemo,

@@ -19,21 +19,44 @@
 import 'dotenv/config';
 import { MongoClient } from 'mongodb';
 
-// Valeurs historiques Family Store (anciennement dans ReceiptPrint.tsx / Receipt.tsx).
-const IDENTITE_FAMILY_STORE = {
-  slogan:           'Beauté • Saveur • Bien-être',
-  signatureTicket:  'BY RDCT',
-  mentionsLegales:  'NIU : MO22118477039J • RC : RC/DLN/2021/B/392',
-  telephonesTicket: ['+237 694060524', '+237 682634355'],
-  adresse:          'Bonamoussadi',
-  ville:            'Douala',
-  couleurSecondaire:'#B8893E',
-  modules:          ['partenaires'],
-  metier:           { inactiviteMinutes: 10, seedFournisseursDemo: true },
+// Valeurs historiques codées en dur dans chaque fork (ReceiptPrint.tsx…),
+// par magasin. Sélection : --identite=familystore (défaut) | radiance.
+const IDENTITES: Record<string, Record<string, unknown>> = {
+  // Anciennement dans familystore-pos.
+  familystore: {
+    slogan:           'Beauté • Saveur • Bien-être',
+    signatureTicket:  'BY RDCT',
+    mentionsLegales:  'NIU : MO22118477039J • RC : RC/DLN/2021/B/392',
+    telephonesTicket: ['+237 694060524', '+237 682634355'],
+    adresse:          'Bonamoussadi',
+    ville:            'Douala',
+    couleurSecondaire:'#B8893E',
+    modules:          ['partenaires'],
+    metier:           { inactiviteMinutes: 10, seedFournisseursDemo: true },
+  },
+  // Anciennement dans le fork radiance-pos (interface EN, pas de signature,
+  // pas de module Partenaires — « aucun » : la liste vide voudrait dire « tout »).
+  radiance: {
+    nomMagasin:       'Radiance',
+    langue:           'en',
+    slogan:           'Beauty • Flavour • Well-being',
+    signatureTicket:  '',
+    mentionsLegales:  'NIU: MO22118477039J • RC: RC/DLN/2021/B/392',
+    telephonesTicket: ['+237 677286468', '+237 686577135'],
+    adresse:          'Bonamoussadi',
+    ville:            'Douala',
+    couleurPrincipale:'#221C1A',
+    couleurSecondaire:'#C9A24A',
+    modules:          ['aucun'],
+    metier:           { inactiviteMinutes: 30, seedFournisseursDemo: false },
+  },
 };
 
 async function main() {
   const execute = process.argv.includes('--execute');
+  const idArg = (process.argv.find(a => a.startsWith('--identite=')) ?? '--identite=familystore').split('=')[1];
+  const IDENTITE = IDENTITES[idArg];
+  if (!IDENTITE) throw new Error(`Identité inconnue « ${idArg} » — attendu : ${Object.keys(IDENTITES).join(' | ')}`);
   const uri = process.env.MONGO_URI;
   if (!uri) throw new Error('MONGO_URI manquante.');
 
@@ -43,7 +66,7 @@ async function main() {
   const col = db.collection('settings');
 
   console.log('══════════════════════════════════════════════════════════════');
-  console.log(execute ? '  MIGRATION IDENTITÉ TICKET — EXÉCUTION RÉELLE' : '  MIGRATION IDENTITÉ TICKET — DRY-RUN (aucune écriture)');
+  console.log(execute ? `  MIGRATION IDENTITÉ TICKET (${idArg}) — EXÉCUTION RÉELLE` : `  MIGRATION IDENTITÉ TICKET (${idArg}) — DRY-RUN (aucune écriture)`);
   console.log(`  Base : ${db.databaseName}`);
   console.log('══════════════════════════════════════════════════════════════');
 
@@ -58,7 +81,7 @@ async function main() {
   for (const doc of docs) {
     const set: Record<string, unknown> = {};
     const vide = (v: unknown) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
-    for (const [k, v] of Object.entries(IDENTITE_FAMILY_STORE)) {
+    for (const [k, v] of Object.entries(IDENTITE)) {
       if (vide((doc as any)[k])) set[k] = v;
     }
     // Le ticket imprime désormais « adresse – ville ». La prod portait

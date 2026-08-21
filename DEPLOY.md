@@ -50,6 +50,14 @@ git push -u origin main
    | `VITE_APP_LANG` | `fr` | `en` |
    | `VITE_THEME_COLOR` | `#8B1A2B` | `#221C1A` |
    | `VITE_BG_COLOR` | `#F5F0E8` | `#FCF8EA` |
+   | `VITE_API_BASE` | *(vide — proxy Netlify)* | `https://<service-radiance>.onrender.com` |
+
+   `VITE_API_BASE` vide (Family Store) : les appels `/api` passent par le proxy
+   du `netlify.toml` (qui porte l'URL Family Store en dur — un `_redirects`
+   généré par site ne marche pas : Netlify transmet alors l'hôte d'origine à
+   Render, qui le rejette ; incident du 21/08/2026). `VITE_API_BASE` renseignée
+   (tout autre magasin) : le frontend appelle **directement** ce backend Render,
+   sans proxy (CORS ouvert côté NestJS).
 
    Tout le reste (nom du magasin, logo, couleurs de l'interface, langue de
    l'interface, slogan, mentions légales du ticket, téléphones, modules
@@ -104,3 +112,33 @@ Tester l'API : `https://familystore-api.onrender.com/api` doit répondre.
 
 > **Note Render plan gratuit** : le backend se met en veille après 15 min d'inactivité.
 > Le premier appel après la veille prend ~30 secondes (cold start).
+
+---
+
+## Bascule Radiance sur ce dépôt (fin du fork)
+
+Préparé le 21/08/2026 — la base `radiance` (même cluster Atlas) est **déjà
+migrée** : `migrate:tenant` (exécuté + vérifié, zéro écart) et
+`migrate:settings --identite=radiance` (identité EN, couleurs noir/or, pas de
+module Partenaires, inactivité 30 min, pas de fournisseurs de démo).
+Sauvegarde : base `radiance_backup_20260821`.
+
+Reste à faire dans les dashboards (comptes Radiance) :
+
+1. **Render** — créer un service web depuis `Docteur12/familystore-pos`
+   (Root Directory `backend`, build `npm install --include=dev && npm run build`,
+   start `node dist/main.js`) avec les variables de l'ancien service
+   `radiance-api` (MONGO_URI vers la base `radiance`, JWT_SECRET, EMAIL_*),
+   plus `APP_NAME=Radiance POS` et `TENANT_MODE=single`.
+   (Render ne permet pas de changer le dépôt d'un service existant.)
+2. **Netlify** — sur le site Radiance : Build settings → repo
+   `Docteur12/familystore-pos` (base `frontend`), et renseigner les variables
+   du tableau ci-dessus, dont `VITE_API_BASE` = l'URL du service Render créé
+   en 1. Redéployer.
+3. Vérifier : login (identité Radiance sur la page), un ticket test (en-tête
+   « Radiance », slogan EN, NIU/RC, téléphones), pas d'entrée Partenaires.
+4. **Archiver le dépôt `radiance-pos`** (GitHub → Settings → Archive) et
+   supprimer l'ancien service Render `radiance-api`.
+
+Fenêtre horaire : Radiance est une boutique en activité — mêmes règles
+(avant 9 h ou après fermeture).

@@ -38,7 +38,8 @@ export interface StoreSettings {
   mentionsLegales?: string;        // ex. « NIU : … • RC : … »
   telephonesTicket?: string[];     // numéros imprimés sur le ticket
   // Modules activés (vide = tous). Voir MODULES_DISPONIBLES.
-  modules?: ModuleId[];
+  // Contient les ids actifs, ou [MODULE_AUCUN] pour « aucun module optionnel ».
+  modules?: string[];
   // Règles métier paramétrables
   metier?: { inactiviteMinutes?: number; seedFournisseursDemo?: boolean };
   offreFacture?: OffreFacture;
@@ -49,6 +50,11 @@ export const MODULES_DISPONIBLES = [
   { id: 'partenaires', label: 'Partenaires (dépôt-vente, agences)' },
 ] as const;
 export type ModuleId = (typeof MODULES_DISPONIBLES)[number]['id'];
+
+// Sentinelle « aucun module optionnel actif ». Une liste vide signifie « tout
+// actif » (rétro-compatibilité des documents Settings antérieurs) : on ne peut
+// donc pas exprimer « rien » par [] — on sauvegarde [MODULE_AUCUN] à la place.
+export const MODULE_AUCUN = 'aucun';
 
 // Un module est actif s'il figure dans la liste — ou si la liste est vide
 // (documents Settings antérieurs à l'introduction des modules : tout actif).
