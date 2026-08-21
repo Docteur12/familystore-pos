@@ -32,7 +32,43 @@ filtrait sur un champ `tenant` absent, plus personne n'a pu se connecter
 jusqu'à 15 h 30. La `.env` locale vise `familystore_test` ; les scripts qui
 doivent toucher la prod doivent explicitement viser `familystore`.
 
-### 3. Deux clients, une base de code
+### 3. Rien ne touche la production sans « go » explicite ET cycle complet
+
+**Aucune écriture sur une base de production, aucun déploiement, aucun
+`--execute`** sans mon accord explicite dans la conversation — accord donné
+pour *cette* opération-là, jamais pour la suivante.
+
+Cet accord ne se demande qu'une fois le cycle complet effectué :
+
+1. **Répétition sur copie** — l'opération entière rejouée sur une copie fraîche
+   de la base concernée, pas sur `familystore_test` « parce que la `.env` y
+   pointe ».
+2. **Vérification chiffrée** — des comptes, pas une impression d'écran :
+   « N/N documents, écart 0 », comme le fait `migrate-add-tenant`.
+3. **Rollback TESTÉ** — exécuté sur la copie et vérifié. Un script de rollback
+   qui existe sans avoir jamais tourné ne compte pas.
+4. **Sauvegarde fraîche prise juste avant** l'opération réelle. Une sauvegarde
+   de l'avant-veille ne protège pas : la restaurer coûterait les ventes du jour.
+   `node scripts/copy-db.js <source> <destination>` — l'outil signale
+   désormais tout index non recréé et **sort en erreur** : une copie qui a
+   perdu ses garanties d'unicité n'est pas une sauvegarde (il perdait
+   silencieusement les 4 index partiels, dont ceux des clés d'idempotence).
+
+Rollbacks disponibles, tous **qualifiés sur copie le 21/08/2026** :
+`migrate:tenant:rollback` (aller-retour 4 916 → 0 → 4 916, écart 0),
+`migrate:settings:rollback -- --depuis=<sauvegarde>` et
+`migrate:pin:rollback -- --depuis=<sauvegarde>`. Les deux derniers restaurent
+**depuis une sauvegarde** : un simple `$unset` détruirait des valeurs
+préexistantes ou remplacées (c'est le test sur copie qui l'a montré).
+
+**Toute opération irréversible est annoncée comme telle AVANT**, avec ce qu'on
+perd et ce que devient le retour arrière. Exemple vécu (21/08/2026) : la purge
+des PIN en clair a rendu le revert de code impossible sans redéfinir les PIN à
+la main — ça aurait dû être dit avant, pas constaté après.
+
+Ne jamais annoncer « le retour arrière est prêt » sans l'avoir vérifié.
+
+### 4. Deux clients, une base de code
 
 Ce dépôt sert **deux clients** :
 
@@ -55,9 +91,33 @@ schémas métier héritent du filtrage par tenant sans modification module par
 module. Le plugin est *fail-closed* — hors contexte tenant, il lève.
 
 - `backend/src/tenancy/` — contexte CLS (`nestjs-cls`), interceptor HTTP, plugin
-- `backend/test/tenancy/` — 4 suites dédiées
+- `backend/test/tenancy/` — 6 suites dédiées, dont
+  `isolation-routes.e2e.spec.ts` (lot 7) : démarre l'application réelle en
+  mode `multi`, plante deux magasins et balaie **toutes** les routes GET (62
+  relevées, 60 répondent 200) en exigeant qu'aucune donnée de B n'apparaisse,
+  y compris par accès direct aux `_id` de B. La suite porte un garde-fou
+  (au moins 50 routes doivent répondre 200) et un témoin de détection, sans
+  quoi elle passerait « au vert » en ne prouvant rien.
 - `backend/scripts/migrate-add-tenant.ts` et son rollback
-- Modes `single` (production actuelle) et `multi`
+- `npm run verifier:tenancy` — état chiffré d'une base (documents cloisonnés,
+  index composites). C'est l'outil de la « vérification chiffrée » exigée par
+  la règle n° 3.
+
+### ⛔ Le mode `multi` NE FONCTIONNE PAS aujourd'hui
+
+`TENANT_MODE=multi` est câblé mais inutilisable : **`auth.service` ne met
+jamais `tenantId` dans le JWT**, alors que `tenant.interceptor` le lit
+(`req.user.tenantId`). Sans lui, aucun tenant n'est posé et le plugin lève —
+le login lui-même échoue, faute de tenant pour chercher l'utilisateur.
+
+C'est le point « `tenantId` dans le JWT + guards » de la phase 1, jamais
+réalisé. Il est **bloqué par une décision produit** : en `multi`, retrouver le
+magasin au moment du login suppose un code boutique (l'e-mail n'est plus
+unique globalement — voir plus bas). Conséquence annexe :
+`GET /api/settings/public`, sans authentification, répond 500 en `multi`.
+
+La suite d'isolation forge donc ses jetons avec `tenantId` : elle éprouve
+l'isolation des routes, pas la résolution du tenant à la connexion.
 
 Le code hors requête HTTP (crons) doit s'exécuter dans `runWithTenant(...)` :
 voir `fournisseurs.service.ts` pour le motif.

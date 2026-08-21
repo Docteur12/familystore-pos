@@ -42,4 +42,9 @@ async function main() {
   console.log(execute ? '\n✅ Rollback appliqué.' : '\nDRY-RUN terminé. Relancez avec --execute pour appliquer.');
 }
 
-main().catch(err => { console.error(err); process.exit(1); });
+// Ne s'exécute QUE lancé directement : ce fichier est aussi importé (pour ses
+// constantes) par les scripts de rollback — sans cette garde, un import
+// déclencherait la migration, y compris avec --execute.
+if (require.main === module) {
+  main().catch(err => { console.error(err); process.exit(1); });
+}

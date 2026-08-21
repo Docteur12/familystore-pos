@@ -32,18 +32,36 @@ const DEST = process.argv[3] || 'familystore_test';
     console.log(`  • ${name.padEnd(28)} ${docs.length} doc(s)`);
   }
 
-  // Recrée les index (unicité barcode, email, etc.)
+  // Recrée les index (unicité barcode, clés d'idempotence, email…).
+  //
+  // ⚠️ Toutes les options sont reprises, `partialFilterExpression` COMPRIS :
+  // les index composites { tenant, idempotencyKey } et { tenant, barcode }
+  // sont partiels. Sans ce filtre, leur création échoue (les documents sans
+  // code-barres se ressemblent tous) — et une copie sans ces index perd
+  // silencieusement la protection contre les doublons de stock à la synchro
+  // hors-ligne. Un échec est signalé, jamais avalé : une sauvegarde qui a
+  // perdu ses garanties d'unicité n'est pas une sauvegarde.
   console.log('\nRecréation des index…');
+  let indexOk = 0;
+  const indexEchecs = [];
   for (const c of cols) {
     const idx = await src.collection(c.name).indexes().catch(() => []);
     for (const i of idx) {
       if (i.name === '_id_') continue;
-      const { key, name } = i;
-      const opts = { name };
-      if (i.unique) opts.unique = true;
-      if (i.sparse) opts.sparse = true;
-      await dest.collection(c.name).createIndex(key, opts).catch(() => {});
+      const { key, v, ns, background, ...opts } = i;   // v/ns : métadonnées serveur, non transmissibles
+      try {
+        await dest.collection(c.name).createIndex(key, opts);
+        indexOk++;
+      } catch (e) {
+        indexEchecs.push(`${c.name}.${i.name} — ${e.message}`);
+      }
     }
+  }
+  console.log(`  ${indexOk} index recréé(s).`);
+  if (indexEchecs.length) {
+    console.error(`\n❌ ${indexEchecs.length} index NON recréé(s) — la copie n'est pas fidèle :`);
+    for (const e of indexEchecs) console.error(`   • ${e}`);
+    process.exitCode = 1;
   }
 
   console.log(`\n✓ Copie terminée — ${totalDocs} document(s) au total dans « ${DEST} ».`);

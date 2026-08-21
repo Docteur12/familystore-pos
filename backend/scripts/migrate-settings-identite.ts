@@ -21,7 +21,7 @@ import { MongoClient } from 'mongodb';
 
 // Valeurs historiques codées en dur dans chaque fork (ReceiptPrint.tsx…),
 // par magasin. Sélection : --identite=familystore (défaut) | radiance.
-const IDENTITES: Record<string, Record<string, unknown>> = {
+export const IDENTITES: Record<string, Record<string, unknown>> = {
   // Anciennement dans familystore-pos.
   familystore: {
     slogan:           'Beauté • Saveur • Bien-être',
@@ -103,4 +103,9 @@ async function main() {
   await client.close();
 }
 
-main().catch(err => { console.error(err); process.exit(1); });
+// Ne s'exécute QUE lancé directement : ce fichier est aussi importé (pour ses
+// constantes) par les scripts de rollback — sans cette garde, un import
+// déclencherait la migration, y compris avec --execute.
+if (require.main === module) {
+  main().catch(err => { console.error(err); process.exit(1); });
+}
