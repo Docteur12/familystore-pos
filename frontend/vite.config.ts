@@ -2,6 +2,8 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { copyFileSync, readdirSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 
 
@@ -20,6 +22,7 @@ function brandFromEnv(mode: string) {
     themeColor: env.VITE_THEME_COLOR    || '#8B1A2B',
     bgColor:    env.VITE_BG_COLOR       || '#F5F0E8',
     apiUrl:     (env.VITE_API_URL       || 'https://familystore-pos.onrender.com').replace(/\/+$/, ''),
+    icons:      env.VITE_BRAND_ICONS    || '',   // jeu d'icônes de public/brand/<nom>
   };
 }
 type Brand = ReturnType<typeof brandFromEnv>;
@@ -46,6 +49,24 @@ function htmlBrand(b: Brand): Plugin {
   };
 }
 
+// Icônes par magasin : les favicons de public/ sont ceux de Family Store
+// (défaut). Si VITE_BRAND_ICONS=<nom> est définie (site Netlify du magasin),
+// les fichiers de public/brand/<nom>/ écrasent ceux de la racine de dist à la
+// fin du build — favicon de l'onglet, icône PWA, apple-touch-icon.
+function brandIcons(b: Brand): Plugin {
+  return {
+    name: 'brand-icons',
+    apply: 'build',
+    closeBundle() {
+      if (!b.icons) return;
+      const src = resolve(process.cwd(), 'public', 'brand', b.icons);
+      const out = resolve(process.cwd(), 'dist');
+      if (!existsSync(src)) throw new Error(`VITE_BRAND_ICONS=${b.icons} : dossier absent — ${src}`);
+      for (const f of readdirSync(src)) copyFileSync(resolve(src, f), resolve(out, f));
+    },
+  };
+}
+
 // ⚠️ Ne PAS générer de dist/_redirects : un fichier _redirects prime sur
 // netlify.toml, et le proxy /api qui y était généré transmettait à Render
 // l'hôte d'origine (…netlify.app) → « X-Render-Routing: no-server », API
@@ -58,6 +79,7 @@ export default defineConfig(({ mode }) => {
   plugins: [
     react(),
     htmlBrand(brand),
+    brandIcons(brand),
 
     VitePWA({
       // Mise à jour appliquée au PROCHAIN démarrage, jamais en pleine vente.

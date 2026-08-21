@@ -49,6 +49,7 @@ git push -u origin main
    | `VITE_THEME_COLOR` | `#8B1A2B` | `#221C1A` |
    | `VITE_BG_COLOR` | `#F5F0E8` | `#FCF8EA` |
    | `VITE_API_BASE` | *(vide — proxy Netlify)* | `https://<service-radiance>.onrender.com` |
+   | `VITE_BRAND_ICONS` | *(vide — icônes Family Store)* | `radiance` (jeu `frontend/public/brand/radiance/`) |
 
    `VITE_API_BASE` vide (Family Store) : les appels `/api` passent par le proxy
    du `netlify.toml` (qui porte l'URL Family Store en dur — un `_redirects`
