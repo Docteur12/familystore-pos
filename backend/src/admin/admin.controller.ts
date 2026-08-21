@@ -15,17 +15,14 @@ import { AuditLog, AuditLogDocument }        from '../schemas/audit-log.schema';
 import { StockMovement, StockMovementDocument } from '../schemas/stock-movement.schema';
 import { Reception, ReceptionDocument }      from '../schemas/reception.schema';
 import { DemandeStock, DemandeStockDocument } from '../schemas/demande-stock.schema';
-
-// User schema access via mongoose directly
-import { InjectConnection } from '@nestjs/mongoose';
-import { Connection }       from 'mongoose';
+import { User, UserDocument }                from '../schemas/user.schema';
 
 @Controller('admin')
 @UseGuards(AuthGuard, RolesGuard)
 @Roles('patron')
 export class AdminController {
   constructor(
-    @InjectConnection()                                          private conn: Connection,
+    @InjectModel(User.name)          private userModel:         Model<UserDocument>,
     @InjectModel(Sale.name)          private saleModel:         Model<SaleDocument>,
     @InjectModel(Product.name)       private productModel:      Model<ProductDocument>,
     @InjectModel(Expense.name)       private expenseModel:      Model<ExpenseDocument>,
@@ -40,8 +37,14 @@ export class AdminController {
   // POST /api/admin/reset  — réinitialise toutes les données de test
   @Post('reset')
   async reset() {
-    // Supprimer uniquement les rôles opérationnels — JAMAIS les patrons
-    await this.conn.collection('users').deleteMany({
+    // Supprimer uniquement les rôles opérationnels — JAMAIS les patrons.
+    //
+    // ⚠️ Passe OBLIGATOIREMENT par le modèle Mongoose : l'accès brut
+    // (`connection.collection('users')`) qui figurait ici court-circuitait le
+    // plugin de cloisonnement — en mode multi, la remise à zéro d'un magasin
+    // aurait supprimé les caissiers, gestionnaires et magasiniers de TOUS les
+    // magasins. Le modèle, lui, filtre sur le tenant courant.
+    await this.userModel.deleteMany({
       role: { $in: ['caissier', 'gestionnaire', 'magazinier'] },
     });
 

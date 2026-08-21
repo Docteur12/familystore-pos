@@ -115,9 +115,23 @@ Fait (à déployer avec `npm run migrate:pin -- --execute` AVANT le merge, sur
   Netlify) + localhost. Radiance appelle son backend en direct : ne jamais
   retirer son origine.
 
+- **Revue du cloisonnement des lectures croisées** (audit §5.3) — conclusions
+  verrouillées par `test/tenancy/populate.spec.ts` et `admin-reset.spec.ts` :
+  - `populate` : **sûr**, la requête passe par le hook du plugin ; une
+    référence pointant vers un autre magasin se résout en `null` ;
+  - les trois `$lookup` (`fournisseurs`, `sales`) joignent par `_id`, un
+    identifiant globalement unique issu d'un document déjà filtré : pas de
+    fuite. **Un `$lookup` sur un autre champ (code, nom, e-mail) serait une
+    fuite** — le `$match` du plugin ne protège que la collection source ;
+  - `admin.controller.ts` : l'accès brut `connection.collection('users')`
+    (hors plugin) est supprimé — en mode multi, une remise à zéro aurait
+    supprimé les employés de TOUS les magasins. Règle : **jamais de
+    `connection.collection(...)` ni de `db.collection(...)` dans le code
+    métier**, toujours un modèle Mongoose.
+
 Reste : cloisonnement du stockage hors-ligne par tenant (sans objet tant que
-chaque magasin a son origine ; requis en mode `multi` mutualisé), revue des
-`aggregate`/`populate`, vrais refresh tokens révocables.
+chaque magasin a son origine ; requis en mode `multi` mutualisé), vrais
+refresh tokens révocables.
 
 ### ⚠️ Décision produit non tranchée
 
