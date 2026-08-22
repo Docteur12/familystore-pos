@@ -1,3 +1,5 @@
+import { lire } from '../services/storage';
+import { deconnexion } from '../services/session';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { Link, useLocation } from 'react-router-dom';
@@ -66,7 +68,7 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
 
   useEffect(() => {
     getAllReceptions().then(recs => {
-      const lastSeen = parseInt(localStorage.getItem(LS_RECEPTION_SEEN) ?? '0');
+      const lastSeen = parseInt(lire(LS_RECEPTION_SEEN) ?? '0');
       const newCount = recs.filter(r => r.creePar?.role === 'magazinier' && new Date(r.createdAt).getTime() > lastSeen).length;
       setReceptionBadge(newCount);
     }).catch(() => {});
@@ -206,7 +208,7 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
                 : t('Chef de stock', 'Stock manager')}
             </div>
           </div>
-          <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
+          <button onClick={() => { void deconnexion().then(ok => { if (ok) window.location.href = '/login'; }); }}
             style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', display: 'flex', padding: 2 }}>
             <I d={D.logout} size={13}/>
           </button>

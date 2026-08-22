@@ -1,3 +1,5 @@
+import { lire, ecrire, supprimer } from '../services/storage';
+import { deconnexion } from '../services/session';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import StoreLogo from '../components/StoreLogo';
@@ -549,7 +551,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
 
   useEffect(() => {
     try {
-      const c = JSON.parse(localStorage.getItem(BROUILLON_CMD) ?? 'null');
+      const c = JSON.parse(lire(BROUILLON_CMD) ?? 'null');
       if (c && Date.now() - (c.ts ?? 0) < 24 * 3600e3 && (c.cmdRows ?? []).some((r: Row) => r.productId)) {
         agenceARestaurer.current = c.cmdAgenceId ?? '';
         setCmdPartId(c.cmdPartId ?? '');
@@ -559,7 +561,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
         if (c.editingCmd) setEditingCmd(c.editingCmd);
         addToast(t('Saisie de commande interrompue récupérée ✓ — vous pouvez continuer', 'Interrupted order entry recovered ✓ — you can continue'), 'success');
       }
-      const l = JSON.parse(localStorage.getItem(BROUILLON_LIV) ?? 'null');
+      const l = JSON.parse(lire(BROUILLON_LIV) ?? 'null');
       if (l && Date.now() - (l.ts ?? 0) < 24 * 3600e3 && (l.rows ?? []).some((r: Row) => r.productId)) {
         setPartId(l.partId ?? '');
         if (Array.isArray(l.rows) && l.rows.length) setRows(l.rows);
@@ -573,14 +575,14 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
 
   useEffect(() => {
     if (!brouillonPret.current) return;
-    if (!cmdRows.some(r => r.productId)) localStorage.removeItem(BROUILLON_CMD);
-    else localStorage.setItem(BROUILLON_CMD, JSON.stringify({ cmdPartId, cmdAgenceId, cmdMode, cmdDelai, cmdRows, editingCmd, ts: Date.now() }));
+    if (!cmdRows.some(r => r.productId)) supprimer(BROUILLON_CMD);
+    else ecrire(BROUILLON_CMD, JSON.stringify({ cmdPartId, cmdAgenceId, cmdMode, cmdDelai, cmdRows, editingCmd, ts: Date.now() }));
   }, [cmdPartId, cmdAgenceId, cmdMode, cmdDelai, cmdRows, editingCmd]);
 
   useEffect(() => {
     if (!brouillonPret.current) return;
-    if (!rows.some(r => r.productId)) localStorage.removeItem(BROUILLON_LIV);
-    else localStorage.setItem(BROUILLON_LIV, JSON.stringify({ partId, rows, montantPaye, livMode, ts: Date.now() }));
+    if (!rows.some(r => r.productId)) supprimer(BROUILLON_LIV);
+    else ecrire(BROUILLON_LIV, JSON.stringify({ partId, rows, montantPaye, livMode, ts: Date.now() }));
   }, [partId, rows, montantPaye, livMode]);
 
   const chargerCommandePourEdition = (c: CommandePartenaire) => {
@@ -612,7 +614,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
         addToast(t('Commande enregistrée ✓', 'Order saved ✓'), 'success');
       }
       setCmdRows([{ productId: '', quantite: '1', prix: '' }]); setCmdDelai(''); setCmdAgenceId('');
-      localStorage.removeItem(BROUILLON_CMD);
+      supprimer(BROUILLON_CMD);
       loadCommandes();
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
   };
@@ -692,7 +694,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
       addToast(t('Bon de livraison validé ✓ — stock entrepôt mis à jour', 'Delivery note confirmed ✓ — warehouse stock updated'), 'success');
       setRows([{ productId: '', quantite: '1', prix: '' }]);
       setMontantPaye('');
-      localStorage.removeItem(BROUILLON_LIV);
+      supprimer(BROUILLON_LIV);
       getAllProducts().then(setProducts).catch(() => {});
       getLivraisons().then(setLivraisons).catch(() => {});
     } catch (e: unknown) {
@@ -921,7 +923,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
             <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>{isPatron ? t('Administrateur', 'Administrator') : payload?.role === 'commercial' ? t('Compte Partenaires', 'Partners account') : t('Magasinier', 'Warehouse keeper')}</div>
           </div>
-          <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
+          <button onClick={() => { void deconnexion().then(ok => { if (ok) window.location.href = '/login'; }); }}
             style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', padding: 2 }} title={t('Déconnexion', 'Sign out')}>
             <I d={D.logout} size={14}/>
           </button>

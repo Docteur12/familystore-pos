@@ -1,10 +1,12 @@
+import { jeton } from '../services/storage';
+import { deconnexion } from '../services/session';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../contexts/SettingsContext';
 import { t } from '../i18n';
 
 function getTokenPayload(): { name: string; role: string } | null {
-  const token = localStorage.getItem('access_token');
+  const token = jeton();
   if (!token) return null;
   try { return JSON.parse(atob(token.split('.')[1])); } catch { return null; }
 }
@@ -17,8 +19,7 @@ export default function Home() {
   const payload   = getTokenPayload();
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    navigate('/login');
+    void deconnexion().then(ok => { if (ok) navigate('/login'); });
   };
 
   return (

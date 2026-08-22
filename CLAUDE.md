@@ -118,6 +118,14 @@ Restent à traiter avant un vrai lancement mutualisé :
   connexion (nom, logo, couleurs). Il faudra déduire le magasin de l'origine
   (sous-domaine ou domaine dédié) — sans quoi, sur une origine partagée, on ne
   sait pas quelle marque afficher avant de savoir qui se connecte.
+- **Cache `documents-pdf` du service worker non cloisonné** (dette relevée au
+  lot A de Caméléon, à traiter au lot C). `vite.config.ts` met les PDF en
+  `NetworkFirst` dans un cache indexé par URL seule. Aujourd'hui sans
+  conséquence — chaque magasin a son origine, les factures ont des URL
+  uniques, et `/api/` est en `NetworkOnly` (aucune donnée métier cachée).
+  Sur une **origine partagée**, un PDF pourrait en revanche être servi d'une
+  boutique à l'autre. À régler **avant** toute mise en production mutualisée,
+  au même titre que la résolution du magasin par sous-domaine ci-dessus.
 - Attention en écrivant du code hors requête : une **Query Mongoose est
   paresseuse**. `runWithTenant(t, () => model.find(...))` sort du contexte
   avant l'exécution et lève ; il faut `async () => model.find(...).exec()`.

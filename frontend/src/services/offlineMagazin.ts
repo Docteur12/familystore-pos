@@ -9,7 +9,9 @@
 //  - à la synchro : produits d'abord (temp → vrai _id, correspondance
 //    conservée), puis réceptions (identifiants remplacés, clé d'idempotence
 //    → jamais de doublon même si le rejeu est interrompu).
-import { get, set } from 'idb-keyval';
+// Stockage cloisonné par boutique : `idbLire`/`idbEcrire` préfixent la clé
+// par la boutique active et LÈVENT s'il n'y en a pas (voir services/storage.ts).
+import { idbLire as get, idbEcrire as set } from './storage';
 import { createProduct, getProductByBarcode, updateProduct, Product, ProductPayload } from '../api/products';
 import { createReception } from '../api/magazinier';
 import { addStockWithMovement } from '../api/stock';

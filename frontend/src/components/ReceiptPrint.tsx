@@ -1,4 +1,5 @@
 // Utilitaires impression reçu thermique 80mm + gestion paramètres d'impression
+import { lireGlobal, ecrireGlobal } from '../services/storage';
 import { jsPDF } from 'jspdf';
 import { formatVolume, displayName } from '../utils/text';
 import { OffreFacture, OFFRE_DEFAULTS, StoreIdentity } from '../api/settings';
@@ -55,7 +56,7 @@ const LS_KEY = 'fs_print_settings';
 
 export function getPrintSettings(): PrintSettings {
   try {
-    const raw = localStorage.getItem(LS_KEY);
+    const raw = lireGlobal(LS_KEY);
     if (!raw) return { ...PRINT_DEFAULTS };
     return { ...PRINT_DEFAULTS, ...JSON.parse(raw) };
   } catch {
@@ -64,7 +65,7 @@ export function getPrintSettings(): PrintSettings {
 }
 
 export function savePrintSettings(s: PrintSettings) {
-  localStorage.setItem(LS_KEY, JSON.stringify(s));
+  ecrireGlobal(LS_KEY, JSON.stringify(s));
 }
 
 // Tronque un nom de produit trop long (> 40 caractères) avec une ellipse.

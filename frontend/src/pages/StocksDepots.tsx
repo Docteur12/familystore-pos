@@ -1,3 +1,4 @@
+import { lire, ecrire } from '../services/storage';
 import React, { useEffect, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
@@ -39,14 +40,14 @@ const DEFAULT_DEPOTS: Depot[] = [
 ];
 
 function loadDepots(): Depot[] {
-  try { return JSON.parse(localStorage.getItem(LS_DEPOTS) ?? '') as Depot[]; } catch { return DEFAULT_DEPOTS; }
+  try { return JSON.parse(lire(LS_DEPOTS) ?? '') as Depot[]; } catch { return DEFAULT_DEPOTS; }
 }
-function saveDepots(d: Depot[]) { localStorage.setItem(LS_DEPOTS, JSON.stringify(d)); }
+function saveDepots(d: Depot[]) { ecrire(LS_DEPOTS, JSON.stringify(d)); }
 
 function loadTransferts(): Transfert[] {
-  try { return JSON.parse(localStorage.getItem(LS_TRANSFERTS) ?? '[]'); } catch { return []; }
+  try { return JSON.parse(lire(LS_TRANSFERTS) ?? '[]'); } catch { return []; }
 }
-function saveTransferts(t: Transfert[]) { localStorage.setItem(LS_TRANSFERTS, JSON.stringify(t)); }
+function saveTransferts(t: Transfert[]) { ecrire(LS_TRANSFERTS, JSON.stringify(t)); }
 
 function I({ d, size = 14 }: { d: string; size?: number }) {
   return (

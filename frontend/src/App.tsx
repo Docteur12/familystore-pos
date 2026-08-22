@@ -1,3 +1,4 @@
+import { lireSession, ecrireSession, supprimerTousLesJetons, jeton } from './services/storage';
 import React, { useEffect, useRef } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
@@ -53,12 +54,14 @@ import { getTokenPayload } from './api/dashboard';
 // conservé lors d'un simple rafraîchissement ou d'une navigation interne — on
 // ne déconnecte donc jamais quelqu'un en plein travail.
 (() => {
-  const MARQUEUR = 'fs_session_ouverte';
   try {
-    if (!sessionStorage.getItem(MARQUEUR)) {
-      localStorage.removeItem('access_token'); // démarrage à froid → reconnexion
+    if (!lireSession('fs_session_ouverte')) {
+      // Démarrage à froid → reconnexion. On retire les jetons de TOUTES les
+      // boutiques (aucun dormant) mais on ne touche PAS aux files hors-ligne :
+      // elles attendent la reconnexion sur leur boutique.
+      supprimerTousLesJetons();
     }
-    sessionStorage.setItem(MARQUEUR, '1');
+    ecrireSession('fs_session_ouverte', '1');
   } catch { /* stockage indisponible : ne pas bloquer l'app */ }
 })();
 
@@ -83,7 +86,7 @@ function InactivityWatcher() {
       // La Caisse gère son propre verrouillage — on ne touche pas à sa page
       if (!payload) return;
       if (window.location.pathname === '/caisse') return;
-      localStorage.removeItem('access_token');
+      supprimerTousLesJetons();
       window.location.href = '/login';
     }, msRef.current);
   };
@@ -106,13 +109,13 @@ function InactivityWatcher() {
 }
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const token = localStorage.getItem('access_token');
+  const token = jeton();
   if (!token) return <Navigate to="/login" replace />;
   return <Layout>{children}</Layout>;
 }
 
 function RequireAuthBare({ children }: { children: React.ReactNode }) {
-  const token = localStorage.getItem('access_token');
+  const token = jeton();
   if (!token) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
@@ -126,7 +129,7 @@ function RequireModule({ id, children }: { id: ModuleId; children: React.ReactNo
 }
 
 function RequireRole({ role, children }: { role: string | string[]; children: React.ReactNode }) {
-  const token   = localStorage.getItem('access_token');
+  const token   = jeton();
   if (!token) return <Navigate to="/login" replace />;
   const payload = getTokenPayload();
   const roles   = Array.isArray(role) ? role : [role];

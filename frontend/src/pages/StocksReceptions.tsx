@@ -1,3 +1,4 @@
+import { ecrire } from '../services/storage';
 import React, { useEffect, useRef, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import AutocompleteInput from '../components/AutocompleteInput';
@@ -247,7 +248,7 @@ export default function StocksReceptions() {
   useEffect(() => {
     getAllReceptions().then(recs => {
       setMagRecs(recs);
-      localStorage.setItem(LS_RECEPTION_SEEN, Date.now().toString());
+      ecrire(LS_RECEPTION_SEEN, Date.now().toString());
     }).catch(() => {});
   }, []);
 

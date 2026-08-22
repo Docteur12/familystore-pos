@@ -1,3 +1,4 @@
+import { deconnexion } from '../services/session';
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
@@ -138,7 +139,7 @@ function MonCompteModal({ onClose }: { onClose: () => void }) {
       await updateUser(payload!.sub, patch);
       setSuccess(t('Profil mis à jour. Reconnectez-vous pour voir les changements.', 'Profile updated. Log in again to see the changes.'));
       setTimeout(() => {
-        if (newPwd) { localStorage.removeItem('access_token'); window.location.href = '/login'; }
+        if (newPwd) { void deconnexion().then(ok => { if (ok) window.location.href = '/login'; }); }
         else onClose();
       }, 1500);
     } catch (e: unknown) {
@@ -328,7 +329,7 @@ export default function AdminSidebar() {
             style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.4)', cursor: 'pointer', display: 'flex', padding: 2, flexShrink: 0 }}>
             <I d={D.parametres} size={13}/>
           </button>
-          <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }} title={t('Déconnexion', 'Log out')}
+          <button onClick={() => { void deconnexion().then(ok => { if (ok) window.location.href = '/login'; }); }} title={t('Déconnexion', 'Log out')}
             style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.4)', cursor: 'pointer', display: 'flex', padding: 2, flexShrink: 0 }}>
             <I d={D.logout} size={13}/>
           </button>

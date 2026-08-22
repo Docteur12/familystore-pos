@@ -1,3 +1,4 @@
+import { deconnexion } from '../services/session';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
@@ -210,7 +211,7 @@ export default function CaissePin() {
 
       {/* Change user */}
       <button
-        onClick={() => { localStorage.removeItem('access_token'); navigate('/login'); }}
+        onClick={() => { void deconnexion().then(ok => { if (ok) navigate('/login'); }); }}
         style={{ background: 'none', border: 'none', color: 'var(--fs-wine-700)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'var(--fs-font-sans)', marginTop: 4 }}
       >{t("Changer d'utilisateur", 'Switch user')}</button>
     </div>

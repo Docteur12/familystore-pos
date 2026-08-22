@@ -1,3 +1,4 @@
+import { jeton } from '../services/storage';
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
@@ -178,7 +179,7 @@ export default function AdminExports() {
     }
     setDownloading(item.id);
     try {
-      const token = localStorage.getItem('access_token') ?? '';
+      const token = jeton() ?? '';
       const response = await fetch(item.url, {
         headers: { Authorization: `Bearer ${token}` },
       });
