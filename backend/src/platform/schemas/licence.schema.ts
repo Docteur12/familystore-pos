@@ -35,8 +35,37 @@ export class Licence {
   @Prop({ required: true })
   dateEcheance: Date;
 
+  /**
+   * Seuils de relance déjà envoyés (14, 7, 3, 1). Empêche de renvoyer deux
+   * fois le même rappel : la tâche tourne plusieurs fois par jour pour
+   * survivre aux redémarrages, elle doit être idempotente.
+   */
+  @Prop({ type: [Number], default: [] })
+  relancesEnvoyees: number[];
+
   @Prop({ default: 'active', enum: ['active', 'annulee'] })
   statut: string;
 }
 
 export const LicenceSchema = SchemaFactory.createForClass(Licence);
+
+/**
+ * Jours CALENDAIRES avant l'échéance : échéance aujourd'hui → 0, demain → 1,
+ * dans deux semaines → 14.
+ *
+ * Compté de début de journée à début de journée, et surtout PAS en divisant
+ * un écart d'instants : mesurer jusqu'à la fin de la journée d'échéance
+ * gonflait le résultat d'une unité (une échéance à quatorze jours annonçait
+ * quinze), et le premier seuil de relance était systématiquement manqué.
+ *
+ * À ne pas confondre avec la fin de couverture, qui court elle jusqu'à
+ * 23 h 59 le jour de l'échéance — c'est elle qui décide du blocage.
+ */
+export function joursAvantEcheance(dateEcheance: Date, maintenant = new Date()): number {
+  const debutJour = (d: Date) => {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x.getTime();
+  };
+  return Math.round((debutJour(dateEcheance) - debutJour(maintenant)) / 86_400_000);
+}

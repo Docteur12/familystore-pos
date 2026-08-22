@@ -4,7 +4,7 @@ import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import { Proprietaire, ProprietaireDocument } from './schemas/proprietaire.schema';
 import { Boutique, BoutiqueDocument } from './schemas/boutique.schema';
-import { Licence, LicenceDocument, MONTANT_LICENCE_ANNUELLE } from './schemas/licence.schema';
+import { Licence, LicenceDocument, MONTANT_LICENCE_ANNUELLE, joursAvantEcheance } from './schemas/licence.schema';
 import { User, UserDocument } from '../schemas/user.schema';
 import { Settings, SettingsDocument } from '../settings/settings.schema';
 import { runWithTenant } from '../tenancy/tenant-context';
@@ -98,9 +98,7 @@ export class ProvisionnementService {
               devise: licence.devise,
               dateEcheance: licence.dateEcheance,
               expiree: !!finDeCouverture && maintenant > finDeCouverture,
-              joursRestants: finDeCouverture
-                ? Math.ceil((finDeCouverture.getTime() - maintenant.getTime()) / 86_400_000)
-                : null,
+              joursRestants: joursAvantEcheance(licence.dateEcheance, maintenant),
             }
           : null,
       });
@@ -139,7 +137,7 @@ export class ProvisionnementService {
         dateEcheance: licence.dateEcheance,
         finCouverture,
         expiree: maintenant > finCouverture,
-        joursRestants: Math.ceil((finCouverture.getTime() - maintenant.getTime()) / 86_400_000),
+        joursRestants: joursAvantEcheance(licence.dateEcheance, maintenant),
       };
     }
     ProvisionnementService.cacheLicences.set(tenantId, { etat, jusqua: Date.now() + 60_000 });

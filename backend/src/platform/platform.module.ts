@@ -5,6 +5,8 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { PlatformController } from './platform.controller';
 import { LicenceController } from './licence.controller';
 import { LicenceInterceptor } from './licence.interceptor';
+import { RelanceLicenceService } from './relance-licence.service';
+import { MailModule } from '../mail/mail.module';
 import { AuthModule } from '../auth/auth.module';
 import { Proprietaire, ProprietaireSchema } from './schemas/proprietaire.schema';
 import { Boutique, BoutiqueSchema } from './schemas/boutique.schema';
@@ -30,14 +32,16 @@ import { Settings, SettingsSchema } from '../settings/settings.schema';
       { name: Settings.name,     schema: SettingsSchema },
     ]),
     AuthModule,
+    MailModule,
   ],
   controllers: [PlatformController, LicenceController],
   providers: [
     ProvisionnementService,
+    RelanceLicenceService,
     // Licence expirée → lecture seule. Intercepteur et non garde : une garde
     // globale s'exécuterait avant l'AuthGuard, sans req.user donc sans boutique.
     { provide: APP_INTERCEPTOR, useClass: LicenceInterceptor },
   ],
-  exports: [ProvisionnementService, MongooseModule],
+  exports: [ProvisionnementService, RelanceLicenceService, MongooseModule],
 })
 export class PlatformModule {}

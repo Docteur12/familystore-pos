@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getEtatLicence, EtatLicence } from '../api/licence';
+import { niveauAlerte, doitAlerter } from '../utils/licence';
 import { t, dateLocale } from '../i18n';
 
 /**
@@ -23,11 +24,13 @@ export default function BandeauLicence() {
   const montant = `${(etat.montant ?? 0).toLocaleString(dateLocale()).replace(/[  ]/g, ' ')} ${etat.devise ?? 'XAF'}`;
   const echeance = etat.dateEcheance ? new Date(etat.dateEcheance).toLocaleDateString(dateLocale()) : '';
 
-  if (!etat.expiree && jours > 14) return null;   // rien à dire encore
+  // Les seuils vivent dans utils/licence.ts, testés : ce composant ne fait
+  // plus qu'habiller une décision prise ailleurs.
+  if (!doitAlerter(etat.joursRestants, etat.expiree)) return null;
 
-  // L'insistance monte à mesure que l'échéance approche.
-  const niveau = etat.expiree ? 'expire' : jours <= 3 ? 'urgent' : jours <= 7 ? 'proche' : 'info';
+  const niveau = niveauAlerte(etat.joursRestants, etat.expiree);
   const styles = {
+    aucun:  { fond: 'transparent', bord: 'transparent', texte: 'inherit' }, // jamais rendu
     info:   { fond: '#EFF6FF', bord: '#3B82F6', texte: '#1E3A8A' },
     proche: { fond: '#FEF3C7', bord: '#F59E0B', texte: '#7C2D12' },
     urgent: { fond: '#FFEDD5', bord: '#EA580C', texte: '#7C2D12' },

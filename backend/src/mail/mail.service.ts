@@ -28,6 +28,61 @@ export class MailService {
     } catch { return 'Family Store POS'; }
   }
 
+  /**
+   * Relance d'échéance de licence.
+   *
+   * Le bandeau dans l'application suppose que le commerçant l'ouvre : un
+   * patron qui ne se connecte qu'une fois par semaine découvrirait
+   * l'expiration le jour même. Cet e-mail est le dernier maillon du préavis.
+   *
+   * Renvoie `false` si l'envoi n'a pas eu lieu (messagerie non configurée,
+   * panne) : l'appelant ne doit alors PAS marquer la relance comme envoyée,
+   * sinon le rappel serait perdu pour de bon.
+   */
+  async envoyerRelanceLicence(params: {
+    destinataire: string;
+    nomBoutique: string;
+    joursRestants: number;
+    dateEcheance: Date;
+    montant: number;
+    devise: string;
+  }): Promise<boolean> {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      this.logger.warn(`[Licence] messagerie non configurée — relance non envoyée pour ${params.nomBoutique}`);
+      return false;
+    }
+
+    const app = await this.appName();
+    const echeance = params.dateEcheance.toLocaleDateString('fr-FR');
+    const montant = `${params.montant.toLocaleString('fr-FR').replace(/[  ]/g, ' ')} ${params.devise}`;
+    const quand = params.joursRestants <= 1
+      ? "demain"
+      : `dans ${params.joursRestants} jours`;
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${app}" <${process.env.EMAIL_USER}>`,
+        to: params.destinataire,
+        subject: `Licence ${params.nomBoutique} — échéance ${quand} (${echeance})`,
+        text: [
+          `La licence de la boutique « ${params.nomBoutique} » arrive à échéance ${quand}, le ${echeance}.`,
+          '',
+          `Renouvellement : ${montant} par an.`,
+          '',
+          "Passé l'échéance, la boutique reste consultable et vos états restent exportables :",
+          "seules les nouvelles saisies (ventes, produits, stock) sont suspendues jusqu'au règlement.",
+          '',
+          `— ${app}`,
+        ].join('\n'),
+      });
+      this.logger.log(`[Licence] relance J-${params.joursRestants} envoyée à ${params.destinataire} (${params.nomBoutique})`);
+      return true;
+    } catch (err) {
+      this.logger.error(`[Licence] échec d'envoi pour ${params.nomBoutique} : ${(err as Error).message}`);
+      return false;
+    }
+  }
+
   async sendStockAlert(
     productName: string,
     currentStock: number,
