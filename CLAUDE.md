@@ -126,6 +126,20 @@ Restent à traiter avant un vrai lancement mutualisé :
   Sur une **origine partagée**, un PDF pourrait en revanche être servi d'une
   boutique à l'autre. À régler **avant** toute mise en production mutualisée,
   au même titre que la résolution du magasin par sous-domaine ci-dessus.
+- **Le compte propriétaire est une CLÉ MAÎTRESSE, pas un compte d'employé.**
+  Depuis le lot C, la liste des boutiques d'un jeton vient du registre
+  `Proprietaire` : une boutique lui appartenant devient accessible **même si
+  le mot de passe de son compte y diffère** (union registre ∪ boutiques
+  prouvées — décision du 22/08/2026, assumée : une seule identité humaine).
+  Conséquence : un mot de passe propriétaire compromis ouvre TOUTES ses
+  boutiques. Avant qu'un vrai client multi-boutiques passe en production :
+  - **mot de passe fort exigé à la création d'un propriétaire** (le contrôle
+    actuel se limite à 6 caractères pour le patron d'une boutique) ;
+  - **traçabilité renforcée** — fait : chaque bascule est journalisée des deux
+    côtés (départ et arrivée), avec horodatage, boutique source et cible ;
+  - **notification par e-mail au changement de mot de passe propriétaire** ;
+  - **2FA à envisager** — pas maintenant, mais la décision devra être prise
+    avant d'héberger des clients qui ne se connaissent pas.
 - Attention en écrivant du code hors requête : une **Query Mongoose est
   paresseuse**. `runWithTenant(t, () => model.find(...))` sort du contexte
   avant l'exécution et lève ; il faut `async () => model.find(...).exec()`.

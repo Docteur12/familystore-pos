@@ -50,6 +50,50 @@ export class ProvisionnementService {
       .sort({ nom: 1 });
   }
 
+  /**
+   * Toutes les boutiques avec l'état de leur licence — vue du back-office.
+   *
+   * Ne lit que des collections plateforme : aucune donnée métier n'est
+   * touchée, donc aucun contexte tenant n'est nécessaire ici.
+   */
+  async listerBoutiques() {
+    const boutiques = await this.boutiqueModel.find().sort({ nom: 1 }).populate('proprietaire').lean();
+    const maintenant = new Date();
+
+    const lignes = [];
+    for (const b of boutiques as any[]) {
+      const licence = await this.licenceModel
+        .findOne({ boutique: b._id, statut: 'active' })
+        .sort({ dateEcheance: -1 })
+        .lean();
+
+      const echeance = licence?.dateEcheance ? new Date(licence.dateEcheance) : null;
+      const finDeCouverture = echeance ? new Date(echeance) : null;
+      finDeCouverture?.setHours(23, 59, 59, 999);
+
+      lignes.push({
+        id: String(b._id),
+        nom: b.nom,
+        ville: b.ville,
+        tenantId: String(b.tenantId),
+        statut: b.statut,
+        proprietaire: b.proprietaire ? { nom: b.proprietaire.nom, email: b.proprietaire.email } : null,
+        licence: licence
+          ? {
+              montant: licence.montant,
+              devise: licence.devise,
+              dateEcheance: licence.dateEcheance,
+              expiree: !!finDeCouverture && maintenant > finDeCouverture,
+              joursRestants: finDeCouverture
+                ? Math.ceil((finDeCouverture.getTime() - maintenant.getTime()) / 86_400_000)
+                : null,
+            }
+          : null,
+      });
+    }
+    return lignes;
+  }
+
   /** Licence en cours d'une boutique (la plus récente non annulée). */
   async licenceCourante(tenantId: string) {
     const boutique = await this.boutiqueModel.findOne({ tenantId: new Types.ObjectId(tenantId) }).lean();

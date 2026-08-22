@@ -19,6 +19,7 @@ import { RolesGuard }   from './roles.guard';
 import { Roles }        from './roles.decorator';
 import { AuditService } from '../audit/audit.service';
 import { ThrottleLogin, ThrottleMotDePasseOublie } from '../config/throttle';
+import { runWithTenant } from '../tenancy/tenant-context';
 
 @Controller('auth')
 export class AuthController {
@@ -82,13 +83,24 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async basculer(@Body() body: { tenantId: string }, @Req() req: Request) {
     const acteur = (req as any)['user'];
-    const result = await this.authService.basculerBoutique(acteur, body.tenantId);
-    this.auditService.log({
-      type: 'connexion', module: 'auth',
+    const depuis = String(acteur?.tenantId ?? '');
+    const vers   = String(body.tenantId);
+    const result = await this.authService.basculerBoutique(acteur, vers);
+
+    // Un compte propriétaire est une clé maîtresse : chaque passage d'une
+    // boutique à l'autre est tracé DES DEUX CÔTÉS — départ dans la boutique
+    // quittée, arrivée dans celle rejointe. Sans la trace d'arrivée, le
+    // support ne saurait pas d'où vient l'auteur d'une saisie.
+    const trace = {
+      type: 'connexion' as const, module: 'auth',
       actorName: result.user.name, actorRole: result.user.role,
-      detail: `Bascule de boutique par ${result.user.name}`,
-      meta: { versBoutique: String(body.tenantId) },
-    });
+      meta: { depuisBoutique: depuis, versBoutique: vers, email: result.user.email },
+    };
+    this.auditService.log({ ...trace, detail: `${result.user.name} quitte cette boutique pour ${vers}` });
+    await runWithTenant(vers, async () =>
+      this.auditService.log({ ...trace, detail: `${result.user.name} arrive depuis la boutique ${depuis || '—'}` }),
+    );
+
     return result;
   }
 

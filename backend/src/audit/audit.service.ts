@@ -19,8 +19,16 @@ export class AuditService {
   ) {}
 
   // Fire-and-forget — ne bloque jamais le flux principal
-  log(entry: AuditEntry): void {
-    this.model.create(entry).catch(() => {});
+  /**
+   * Journalise sans jamais faire échouer l'action métier.
+   *
+   * Renvoie la promesse : la plupart des appelants l'ignorent (tir et oubli),
+   * mais celui qui écrit dans le contexte d'une AUTRE boutique doit pouvoir
+   * l'attendre — sinon l'écriture quitterait le contexte tenant avant de
+   * s'exécuter et serait rejetée par le plugin.
+   */
+  log(entry: AuditEntry): Promise<void> {
+    return this.model.create(entry).then(() => undefined).catch(() => undefined);
   }
 
   async findAll(params: {
