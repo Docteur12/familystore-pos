@@ -66,4 +66,9 @@ async function main() {
   await client.close();
 }
 
-main().catch(err => { console.error(err); process.exit(1); });
+// Ne s'exécute QUE lancé directement : ce fichier est aussi importé (pour ses
+// constantes) par les scripts de rollback — sans cette garde, un import
+// déclencherait la migration, y compris avec --execute.
+if (require.main === module) {
+  main().catch(err => { console.error(err); process.exit(1); });
+}

@@ -90,9 +90,23 @@ describe('gouvernance skipTenant', () => {
     expect(sansJustification).toHaveLength(0);
   });
 
-  it('skipTenant est interdit dans les contrôleurs et services métier', () => {
+  /**
+   * Dérogations nommées, décidées explicitement. Toute AUTRE activation dans
+   * un contrôleur ou un service reste interdite.
+   *
+   * `auth/auth.service.ts` : au login en mode multi, la boutique n'est pas
+   * encore connue — l'e-mail (unique seulement par tenant) doit être cherché
+   * dans tous les magasins avant que le mot de passe ne désigne le ou les
+   * comptes valides. Décision produit du 21/08/2026 : pas de code boutique
+   * saisi par l'utilisateur.
+   */
+  const DEROGATIONS = ['auth/auth.service.ts'].map(f => f.replace(/\//g, path.sep));
+
+  it('skipTenant est interdit dans les contrôleurs et services métier, hors dérogations nommées', () => {
     const interdits = usages.filter(
-      u => u.fichier.endsWith('.controller.ts') || u.fichier.endsWith('.service.ts'),
+      u =>
+        (u.fichier.endsWith('.controller.ts') || u.fichier.endsWith('.service.ts')) &&
+        !DEROGATIONS.includes(u.fichier),
     );
     if (interdits.length) {
       const details = interdits.map(u => `  ${u.fichier}:${u.ligne}`).join('\n');

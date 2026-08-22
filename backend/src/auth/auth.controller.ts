@@ -32,11 +32,32 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() body: { email: string; password: string }) {
     const result = await this.authService.login(body.email, body.password);
+    // Multi-magasin : le mot de passe est validé mais la boutique reste à
+    // choisir — la connexion n'est pas encore établie, rien à journaliser.
+    if ('choixBoutique' in result) return result;
+
     this.auditService.log({
       type: 'connexion', module: 'auth',
       actorName: result.user.name,
       actorRole: result.user.role,
       detail: `Connexion de ${result.user.name}`,
+    });
+    return result;
+  }
+
+  // Second temps de la connexion multi-magasin : l'utilisateur a déjà prouvé
+  // son mot de passe, il désigne sa boutique parmi celles où ce couple est
+  // valide (le jeton de sélection borne la liste — voir AuthService).
+  @Post('login/boutique')
+  @ThrottleLogin()
+  @HttpCode(HttpStatus.OK)
+  async loginBoutique(@Body() body: { selectionToken: string; tenantId: string }) {
+    const result = await this.authService.loginBoutique(body.selectionToken, body.tenantId);
+    this.auditService.log({
+      type: 'connexion', module: 'auth',
+      actorName: result.user.name,
+      actorRole: result.user.role,
+      detail: `Connexion de ${result.user.name} (boutique choisie)`,
     });
     return result;
   }

@@ -52,7 +52,7 @@ const memeCle = (a: Record<string, unknown>, b: Record<string, unknown>) =>
   JSON.stringify(a) === JSON.stringify(b);
 
 /** Collections réellement présentes, hors exclues et hors collections système. */
-async function collectionsAEstampiller(db: Db): Promise<string[]> {
+export async function collectionsAEstampiller(db: Db): Promise<string[]> {
   const infos = await db.listCollections().toArray();
   return infos
     .map(i => i.name)

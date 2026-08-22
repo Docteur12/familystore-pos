@@ -32,7 +32,43 @@ filtrait sur un champ `tenant` absent, plus personne n'a pu se connecter
 jusqu'à 15 h 30. La `.env` locale vise `familystore_test` ; les scripts qui
 doivent toucher la prod doivent explicitement viser `familystore`.
 
-### 3. Deux clients, une base de code
+### 3. Rien ne touche la production sans « go » explicite ET cycle complet
+
+**Aucune écriture sur une base de production, aucun déploiement, aucun
+`--execute`** sans mon accord explicite dans la conversation — accord donné
+pour *cette* opération-là, jamais pour la suivante.
+
+Cet accord ne se demande qu'une fois le cycle complet effectué :
+
+1. **Répétition sur copie** — l'opération entière rejouée sur une copie fraîche
+   de la base concernée, pas sur `familystore_test` « parce que la `.env` y
+   pointe ».
+2. **Vérification chiffrée** — des comptes, pas une impression d'écran :
+   « N/N documents, écart 0 », comme le fait `migrate-add-tenant`.
+3. **Rollback TESTÉ** — exécuté sur la copie et vérifié. Un script de rollback
+   qui existe sans avoir jamais tourné ne compte pas.
+4. **Sauvegarde fraîche prise juste avant** l'opération réelle. Une sauvegarde
+   de l'avant-veille ne protège pas : la restaurer coûterait les ventes du jour.
+   `node scripts/copy-db.js <source> <destination>` — l'outil signale
+   désormais tout index non recréé et **sort en erreur** : une copie qui a
+   perdu ses garanties d'unicité n'est pas une sauvegarde (il perdait
+   silencieusement les 4 index partiels, dont ceux des clés d'idempotence).
+
+Rollbacks disponibles, tous **qualifiés sur copie le 21/08/2026** :
+`migrate:tenant:rollback` (aller-retour 4 916 → 0 → 4 916, écart 0),
+`migrate:settings:rollback -- --depuis=<sauvegarde>` et
+`migrate:pin:rollback -- --depuis=<sauvegarde>`. Les deux derniers restaurent
+**depuis une sauvegarde** : un simple `$unset` détruirait des valeurs
+préexistantes ou remplacées (c'est le test sur copie qui l'a montré).
+
+**Toute opération irréversible est annoncée comme telle AVANT**, avec ce qu'on
+perd et ce que devient le retour arrière. Exemple vécu (21/08/2026) : la purge
+des PIN en clair a rendu le revert de code impossible sans redéfinir les PIN à
+la main — ça aurait dû être dit avant, pas constaté après.
+
+Ne jamais annoncer « le retour arrière est prêt » sans l'avoir vérifié.
+
+### 4. Deux clients, une base de code
 
 Ce dépôt sert **deux clients** :
 
@@ -55,9 +91,36 @@ schémas métier héritent du filtrage par tenant sans modification module par
 module. Le plugin est *fail-closed* — hors contexte tenant, il lève.
 
 - `backend/src/tenancy/` — contexte CLS (`nestjs-cls`), interceptor HTTP, plugin
-- `backend/test/tenancy/` — 4 suites dédiées
+- `backend/test/tenancy/` — 6 suites dédiées, dont
+  `isolation-routes.e2e.spec.ts` (lot 7) : démarre l'application réelle en
+  mode `multi`, plante deux magasins et balaie **toutes** les routes GET (62
+  relevées, 60 répondent 200) en exigeant qu'aucune donnée de B n'apparaisse,
+  y compris par accès direct aux `_id` de B. La suite porte un garde-fou
+  (au moins 50 routes doivent répondre 200) et un témoin de détection, sans
+  quoi elle passerait « au vert » en ne prouvant rien.
 - `backend/scripts/migrate-add-tenant.ts` et son rollback
-- Modes `single` (production actuelle) et `multi`
+- `npm run verifier:tenancy` — état chiffré d'une base (documents cloisonnés,
+  index composites). C'est l'outil de la « vérification chiffrée » exigée par
+  la règle n° 3.
+
+### Mode `multi` — état réel
+
+Le jeton porte désormais `tenantId` (posé par `emettreJeton`, lu par
+`TenantInterceptor`) : c'est le point « `tenantId` dans le JWT + guards » de la
+phase 1, réalisé le 21/08/2026 avec la décision sur la connexion (plus bas).
+Les parcours **authentifiés** fonctionnent donc en `multi`, et la suite
+d'isolation le prouve route par route.
+
+Restent à traiter avant un vrai lancement mutualisé :
+
+- **`GET /api/settings/public` répond 500 en `multi`** : sans JWT, aucun tenant
+  n'est résolu et le plugin lève. C'est la route qui habille la page de
+  connexion (nom, logo, couleurs). Il faudra déduire le magasin de l'origine
+  (sous-domaine ou domaine dédié) — sans quoi, sur une origine partagée, on ne
+  sait pas quelle marque afficher avant de savoir qui se connecte.
+- Attention en écrivant du code hors requête : une **Query Mongoose est
+  paresseuse**. `runWithTenant(t, () => model.find(...))` sort du contexte
+  avant l'exécution et lève ; il faut `async () => model.find(...).exec()`.
 
 Le code hors requête HTTP (crons) doit s'exécuter dans `runWithTenant(...)` :
 voir `fournisseurs.service.ts` pour le motif.
@@ -133,15 +196,30 @@ Reste : cloisonnement du stockage hors-ligne par tenant (sans objet tant que
 chaque magasin a son origine ; requis en mode `multi` mutualisé), vrais
 refresh tokens révocables.
 
-### ⚠️ Décision produit non tranchée
+### ✅ Connexion multi-magasin — tranché le 21/08/2026 : pas de code boutique
 
-L'unicité de l'email est passée de **globale** à **par tenant**
-(`{tenant, email}`). Deux magasins peuvent donc partager une adresse, ce qui
-interdit une connexion à deux champs sans code boutique. Sans effet en mode
-single ; **à trancher avant tout lancement mutualisé**.
+L'unicité de l'e-mail est **par tenant** (`{tenant, email}`) : deux magasins
+peuvent partager une adresse. La connexion reste néanmoins **à deux champs**.
 
-Contexte : `AUDIT-SAAS.md` §2.4 et le commentaire dans
-`backend/src/schemas/user.schema.ts`.
+`AuthService.login` cherche l'e-mail dans tous les magasins (unique usage
+autorisé de `skipTenant` dans un service — voir la dérogation nommée dans
+`test/tenancy/skip-tenant-governance.spec.ts`), valide le mot de passe sur
+chaque candidat, puis :
+
+| Couples valides | Réponse |
+|---|---|
+| 0 | `401` identique à un mot de passe faux — **plus un calcul bcrypt à vide** pour que la durée ne trahisse pas l'existence du compte |
+| 1 | jeton immédiat |
+| n | `{ choixBoutique, selectionToken, boutiques[] }` — l'écran « quelle boutique ? » ne liste **que** les magasins où le couple est valide |
+
+Le `selectionToken` (5 min) porte les comptes validés : `POST
+/api/auth/login/boutique` refuse tout `tenantId` hors de cette liste. Aucune
+information n'est jamais donnée avant validation du mot de passe — l'oracle
+d'énumération corrigé le 03/08 ne doit pas se rouvrir.
+
+Éprouvé par `test/tenancy/login-multi-tenant.e2e.spec.ts`.
+
+Contexte : `AUDIT-SAAS.md` §2.4 et `backend/src/schemas/user.schema.ts`.
 
 ---
 
