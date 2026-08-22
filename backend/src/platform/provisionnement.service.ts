@@ -9,6 +9,17 @@ import { User, UserDocument } from '../schemas/user.schema';
 import { Settings, SettingsDocument } from '../settings/settings.schema';
 import { runWithTenant } from '../tenancy/tenant-context';
 
+/** État de licence consommé par la garde et par le bandeau de préavis. */
+export interface EtatLicence {
+  montant: number;
+  devise: string;
+  dateEcheance: Date;
+  /** Dernier instant couvert : fin de la journée d'échéance. */
+  finCouverture: Date;
+  expiree: boolean;
+  joursRestants: number;
+}
+
 export interface DemandeBoutique {
   nom: string;
   ville?: string;
@@ -40,6 +51,9 @@ export class ProvisionnementService {
     @InjectModel(User.name)         private userModel:         Model<UserDocument>,
     @InjectModel(Settings.name)     private settingsModel:     Model<SettingsDocument>,
   ) {}
+
+  /** Cache court des états de licence, partagé par toutes les requêtes. */
+  private static cacheLicences = new Map<string, { etat: EtatLicence | null; jusqua: number }>();
 
   /** Boutiques d'un propriétaire, par e-mail. Vide si l'e-mail est inconnu. */
   async boutiquesDuProprietaire(email: string): Promise<BoutiqueDocument[]> {
@@ -92,6 +106,50 @@ export class ProvisionnementService {
       });
     }
     return lignes;
+  }
+
+  /**
+   * État de licence d'une boutique, tel que consommé par la garde et par le
+   * bandeau de préavis.
+   *
+   * `null` quand la boutique n'est pas au registre : c'est le cas des
+   * instances d'avant le module plateforme, qui ne doivent surtout pas se
+   * retrouver bloquées. Pas de licence connue = pas de blocage.
+   *
+   * Résultat mis en cache une minute — une garde qui interroge la base à
+   * chaque écriture coûterait cher en caisse. Le cache est vidé
+   * explicitement à la prolongation : le déblocage doit être immédiat, sans
+   * reconnexion ni redéploiement.
+   */
+  async etatLicence(tenantId: string): Promise<EtatLicence | null> {
+    const enCache = ProvisionnementService.cacheLicences.get(tenantId);
+    if (enCache && enCache.jusqua > Date.now()) return enCache.etat;
+
+    const licence = await this.licenceCourante(tenantId);
+    let etat: EtatLicence | null = null;
+    if (licence) {
+      // Dernier instant COUVERT : la fin de la journée d'échéance. L'échéance
+      // ne doit jamais tomber au milieu d'une vente.
+      const finCouverture = new Date(licence.dateEcheance);
+      finCouverture.setHours(23, 59, 59, 999);
+      const maintenant = new Date();
+      etat = {
+        montant: licence.montant,
+        devise: licence.devise,
+        dateEcheance: licence.dateEcheance,
+        finCouverture,
+        expiree: maintenant > finCouverture,
+        joursRestants: Math.ceil((finCouverture.getTime() - maintenant.getTime()) / 86_400_000),
+      };
+    }
+    ProvisionnementService.cacheLicences.set(tenantId, { etat, jusqua: Date.now() + 60_000 });
+    return etat;
+  }
+
+  /** Vide le cache d'une boutique — ou de toutes si aucune n'est précisée. */
+  static oublierLicence(tenantId?: string) {
+    if (tenantId) ProvisionnementService.cacheLicences.delete(tenantId);
+    else ProvisionnementService.cacheLicences.clear();
   }
 
   /** Licence en cours d'une boutique (la plus récente non annulée). */
@@ -153,6 +211,9 @@ export class ProvisionnementService {
     // les jours qu'il a déjà payés en renouvelant en avance.
     const depart = courante && courante.dateEcheance > new Date() ? courante.dateEcheance : new Date();
     const licence = await this.creerLicence(boutique._id as Types.ObjectId, depart);
+    // Déblocage IMMÉDIAT : la garde ne doit pas continuer de refuser les
+    // écritures pendant la minute de cache qui suit un paiement.
+    ProvisionnementService.oublierLicence(String(boutique.tenantId));
     return this.vueLicence(licence);
   }
 
