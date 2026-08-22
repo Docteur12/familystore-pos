@@ -37,6 +37,7 @@ import AdminFactures     from './pages/AdminFactures';
 import AdminSessions     from './pages/AdminSessions';
 import AdminMagaziniers  from './pages/AdminMagaziniers';
 import AdminPartenaires  from './pages/AdminPartenaires';
+import RapportConsolide  from './pages/RapportConsolide';
 import AdminFournisseurs from './pages/AdminFournisseurs';
 import AdminCaisses      from './pages/AdminCaisses';
 import Magazinier        from './pages/Magazinier';
@@ -188,6 +189,7 @@ export default function App() {
         <Route path="/admin/factures"      element={<RequireAuthBare><AdminFactures /></RequireAuthBare>} />
         <Route path="/admin/sessions"      element={<RequireAuthBare><AdminSessions /></RequireAuthBare>} />
         <Route path="/admin/magaziniers"   element={<RequireAuthBare><AdminMagaziniers /></RequireAuthBare>} />
+        <Route path="/admin/consolide"     element={<RequireRole role={['patron']}><RapportConsolide /></RequireRole>} />
         <Route path="/admin/partenaires"   element={<RequireModule id="partenaires"><RequireAuthBare><AdminPartenaires /></RequireAuthBare></RequireModule>} />
         <Route path="/admin/fournisseurs"  element={<RequireAuthBare><AdminFournisseurs /></RequireAuthBare>} />
         <Route path="/admin/caisses"       element={<RequireAuthBare><AdminCaisses /></RequireAuthBare>} />

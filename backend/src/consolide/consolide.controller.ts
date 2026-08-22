@@ -18,6 +18,12 @@ import { AuthGuard } from '../auth/auth.guard';
 export class ConsolideController {
   constructor(private consolideService: ConsolideService) {}
 
+  /** Boutiques du propriétaire (identifiant + nom), pour le sélecteur. */
+  @Get('boutiques')
+  boutiques(@Req() req: Request) {
+    return this.consolideService.boutiques((req as any)['user']?.boutiques ?? []);
+  }
+
   @Get('rapport')
   rapport(@Req() req: Request, @Query('debut') debut?: string, @Query('fin') fin?: string) {
     const boutiques: string[] = (req as any)['user']?.boutiques ?? [];

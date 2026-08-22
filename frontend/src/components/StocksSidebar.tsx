@@ -1,3 +1,4 @@
+import SelecteurBoutique from './SelecteurBoutique';
 import { lire } from '../services/storage';
 import { deconnexion } from '../services/session';
 import React, { useEffect, useState, useCallback } from 'react';
@@ -134,6 +135,7 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
             <div style={{ fontFamily: 'var(--fs-font-display)', fontSize: 13, fontWeight: 700, color: '#f5ebd9', letterSpacing: '0.04em' }}>{nomMagasin.toUpperCase()}</div>
             <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.08em' }}>{t('Gestion de stock', 'Inventory management')}</div>
           </div>
+          <div style={{ marginTop: 12 }}><SelecteurBoutique compact/></div>
         </div>
 
         {/* Nav */}

@@ -1,3 +1,4 @@
+import SelecteurBoutique from './SelecteurBoutique';
 import { deconnexion } from '../services/session';
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -47,7 +48,12 @@ const D = {
   magSpace:     'M1 3h15v13H1zM16 8h4l3 3v5h-7V8z',
 };
 
-type NavItem = { id: string; label: string; icon: string; path: string; external?: boolean; module?: ModuleId };
+type NavItem = {
+  id: string; label: string; icon: string; path: string;
+  external?: boolean; module?: ModuleId;
+  /** Réservé aux propriétaires de plusieurs boutiques — invisible sinon. */
+  multiBoutique?: boolean;
+};
 type NavSection = { title: string; items: NavItem[] };
 
 const SECTIONS: NavSection[] = [
@@ -56,6 +62,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { id: 'dashboard',    label: t('Tableau de bord', 'Dashboard'),    icon: D.dashboard,    path: '/admin/dashboard'     },
       { id: 'rapports',     label: t('Rapports & analyses', 'Reports & analytics'), icon: D.rapports,     path: '/admin/rapports'      },
+      { id: 'consolide',    label: t('Rapport consolidé', 'Consolidated report'), icon: D.rapports, path: '/admin/consolide', multiBoutique: true },
       { id: 'journal',      label: t('Journal des ventes', 'Sales journal'),  icon: D.journal,      path: '/admin/journal'        },
       { id: 'compta',       label: t('Comptabilité', 'Accounting'),        icon: D.compta,       path: '/admin/comptabilite'  },
       { id: 'factures',     label: t('Historique factures', 'Invoice history'), icon: D.factures,     path: '/admin/factures'       },
@@ -214,7 +221,13 @@ export default function AdminSidebar() {
   const [showSettings, setShowSettings] = useState(false);
   const { settings, hasModule } = useSettings();
   // Sections filtrées selon les modules activés pour ce magasin
-  const sections = SECTIONS.map(s => ({ ...s, items: s.items.filter(it => !it.module || hasModule(it.module)) }));
+  // Un commerçant à boutique unique ne voit aucune trace de la mécanique
+  // multi-boutiques : ni sélecteur, ni entrée « Rapport consolidé ».
+  const plusieursBoutiques = (getTokenPayload()?.boutiques?.length ?? 0) > 1;
+  const sections = SECTIONS.map(s => ({
+    ...s,
+    items: s.items.filter(it => (!it.module || hasModule(it.module)) && (!it.multiBoutique || plusieursBoutiques)),
+  }));
 
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
@@ -265,6 +278,9 @@ export default function AdminSidebar() {
           <div style={{ background: '#fdf9f0', borderRadius: 10, border: '1px solid var(--fs-gold-400)', padding: '6px 8px', overflow: 'hidden' }}>
             <img src={settings.logoUrl || logoFs} alt={settings.nomMagasin} style={{ width: '100%', display: 'block', borderRadius: 6 }}/>
           </div>
+          {/* Boutique active, en permanence — et bascule si le propriétaire
+              en a plusieurs. Rien ne s'affiche pour une boutique unique. */}
+          <div style={{ marginTop: 10 }}><SelecteurBoutique compact/></div>
           <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.14em', textTransform: 'uppercase', textAlign: 'center', marginTop: 6 }}>{t('Administration', 'Administration')}</div>
         </div>
 

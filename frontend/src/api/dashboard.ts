@@ -125,7 +125,14 @@ export interface CaissePayload {
   pinSalt: string;
 }
 
-export function getTokenPayload(): { sub: string; email: string; name: string; role: string; caisse?: CaissePayload | null } | null {
+export function getTokenPayload(): {
+  sub: string; email: string; name: string; role: string;
+  /** Boutique consultée en ce moment. */
+  tenantId?: string;
+  /** Boutiques accessibles sans ressaisir le mot de passe (liste signée). */
+  boutiques?: string[];
+  caisse?: CaissePayload | null;
+} | null {
   const token = jeton();
   if (!token) return null;
   try {

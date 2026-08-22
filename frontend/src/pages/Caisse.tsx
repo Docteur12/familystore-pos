@@ -3,6 +3,7 @@
  * Gauche : catégories  |  Centre : grille produits  |  Droite : ticket
  */
 
+import SelecteurBoutique from '../components/SelecteurBoutique';
 import { lire, ecrire, supprimer } from '../services/storage';
 import { deconnexion } from '../services/session';
 import React, {
@@ -920,8 +921,9 @@ export default function Caisse() {
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
             <StoreLogo width={140}/>
           </div>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 2 }}>{settings.nomMagasin || 'Family Store'}</div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff' }}>{t('Caisse', 'Checkout')}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--fs-gold-400)', marginBottom: 2 }}>{settings.nomMagasin || 'Family Store'}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>{t('Caisse', 'Checkout')}</div>
+          <div style={{ marginTop: 10 }}><SelecteurBoutique compact/></div>
         </div>
 
         {/* Identity panel */}

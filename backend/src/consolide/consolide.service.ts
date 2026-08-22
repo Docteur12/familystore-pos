@@ -64,6 +64,22 @@ export class ConsolideService {
     };
   }
 
+  /**
+   * Nom de chaque boutique du périmètre — pour le sélecteur et l'en-tête des
+   * rapports. Même borne que le reste : la liste signée du jeton.
+   */
+  async boutiques(boutiquesAutorisees: string[]) {
+    const sortie = [];
+    for (const boutiqueId of boutiquesAutorisees ?? []) {
+      const nom = await runWithTenant(boutiqueId, async () => {
+        const s: any = await this.settingsModel.findOne().lean();
+        return (s?.nomMagasin as string)?.trim() || boutiqueId;
+      });
+      sortie.push({ boutiqueId, nom });
+    }
+    return sortie;
+  }
+
   /** Une boutique, lue DANS son contexte : le plugin filtre comme d'habitude. */
   private async chiffresDUneBoutique(boutiqueId: string, bornes: { debut: Date; fin: Date }) {
     return runWithTenant(boutiqueId, async () => {

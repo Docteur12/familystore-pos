@@ -1,3 +1,4 @@
+import SelecteurBoutique from './SelecteurBoutique';
 import { deconnexion } from '../services/session';
 import React, { useEffect, useRef, useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
@@ -219,6 +220,8 @@ export default function Sidebar() {
               <div style={{ fontSize: 10, color: 'var(--fs-gold-300)', fontStyle: 'italic', letterSpacing: '0.08em', marginTop: 2 }}>{roleLabel}</div>
             </div>
           </div>
+          {/* Ne s'affiche qu'à partir de deux boutiques */}
+          <div style={{ marginTop: 12 }}><SelecteurBoutique compact/></div>
         </div>
 
         {/* ── Nav ── */}
