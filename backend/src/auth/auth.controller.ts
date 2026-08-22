@@ -68,7 +68,28 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   refresh(@Req() req: Request) {
-    return this.authService.refresh((req as any)['user'].sub);
+    const u = (req as any)['user'];
+    return this.authService.refresh(u.sub, u.boutiques);
+  }
+
+  /**
+   * Bascule de boutique — le propriétaire passe d'un magasin à l'autre sans
+   * ressaisir son mot de passe. La liste des boutiques autorisées est signée
+   * dans le jeton courant : le serveur n'accepte que celles-là.
+   */
+  @Post('basculer')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async basculer(@Body() body: { tenantId: string }, @Req() req: Request) {
+    const acteur = (req as any)['user'];
+    const result = await this.authService.basculerBoutique(acteur, body.tenantId);
+    this.auditService.log({
+      type: 'connexion', module: 'auth',
+      actorName: result.user.name, actorRole: result.user.role,
+      detail: `Bascule de boutique par ${result.user.name}`,
+      meta: { versBoutique: String(body.tenantId) },
+    });
+    return result;
   }
 
   // Création d'utilisateur réservée au patron

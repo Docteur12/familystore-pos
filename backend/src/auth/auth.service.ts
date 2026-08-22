@@ -68,13 +68,18 @@ export class AuthService {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
-    if (valides.length === 1) return this.emettreJeton(valides[0]);
+    // Les boutiques PROUVÉES par ce couple e-mail/mot de passe. Signée dans le
+    // jeton, cette liste permet ensuite de basculer d'une boutique à l'autre
+    // sans ressaisir le mot de passe : il a déjà été vérifié sur chacune.
+    const boutiques = valides.map(u => String((u as any).tenant));
 
-    return this.proposerChoixBoutique(valides);
+    if (valides.length === 1) return this.emettreJeton(valides[0], boutiques);
+
+    return this.proposerChoixBoutique(valides, boutiques);
   }
 
   /** Deuxième écran : la liste ne contient QUE les magasins déjà authentifiés. */
-  private async proposerChoixBoutique(valides: UserDocument[]) {
+  private async proposerChoixBoutique(valides: UserDocument[], boutiquesProuvees: string[]) {
     const boutiques = [];
     for (const utilisateur of valides) {
       const tenantId = String((utilisateur as any).tenant);
@@ -91,6 +96,7 @@ export class AuthService {
       {
         typ: 'choix-boutique',
         comptes: valides.map(u => ({ tenantId: String((u as any).tenant), userId: String(u._id) })),
+        boutiques: boutiquesProuvees,
       },
       { expiresIn: '5m' },
     );
@@ -116,7 +122,33 @@ export class AuthService {
     // ferait tourner hors contexte tenant — et le plugin lèverait.
     const user = await runWithTenant(compte.tenantId, async () => this.userModel.findById(compte.userId).exec());
     if (!user) throw new UnauthorizedException('Utilisateur introuvable');
-    return this.emettreJeton(user);
+    return this.emettreJeton(user, payload.boutiques ?? [compte.tenantId]);
+  }
+
+  /**
+   * Bascule vers une autre boutique du même propriétaire, SANS ressaisir le
+   * mot de passe : il a déjà été vérifié sur cette boutique au moment de la
+   * connexion, et la liste `boutiques` du jeton — signée par le serveur —
+   * en fait foi.
+   *
+   * Deux contrôles : la boutique demandée doit figurer dans cette liste, ET
+   * le compte doit toujours exister dans cette boutique. Le second ferme la
+   * fenêtre d'un compte supprimé entre-temps ; un changement de mot de passe,
+   * lui, ne sera pris en compte qu'à la prochaine connexion (le jeton vit
+   * 7 jours).
+   */
+  async basculerBoutique(utilisateurCourant: any, tenantId: string) {
+    const autorisees: string[] = utilisateurCourant?.boutiques ?? [];
+    if (!autorisees.includes(String(tenantId))) {
+      throw new UnauthorizedException('Accès non autorisé');
+    }
+
+    const user = await runWithTenant(String(tenantId), async () =>
+      this.userModel.findOne({ email: utilisateurCourant.email }).exec(),
+    );
+    if (!user) throw new UnauthorizedException('Utilisateur introuvable');
+
+    return this.emettreJeton(user, autorisees);
   }
 
   /**
@@ -126,14 +158,16 @@ export class AuthService {
    * relu en base : un utilisateur supprimé ou une caisse modifiée (PIN…)
    * ne se renouvelle pas à l'identique.
    */
-  async refresh(userId: string) {
+  async refresh(userId: string, boutiques?: string[]) {
     const user = await this.userModel.findById(userId).populate('caisseId');
     if (!user) throw new UnauthorizedException('Utilisateur introuvable');
-    return this.emettreJeton(user);
+    // La liste des boutiques est reconduite telle quelle : elle vient d'une
+    // vérification de mot de passe déjà faite, que le renouvellement ne rejoue pas.
+    return this.emettreJeton(user, boutiques);
   }
 
   // Émission du jeton (login et renouvellement) pour un utilisateur authentifié.
-  private async emettreJeton(userDoc: any) {
+  private async emettreJeton(userDoc: any, boutiquesAutorisees?: string[]) {
     const tenantId = String(userDoc.tenant);
     // La caisse est chargée DANS le contexte du magasin : au login en mode
     // multi, aucun tenant n'est encore posé par l'interceptor, et le plugin
@@ -156,10 +190,14 @@ export class AuthService {
     // v2 : jetons sans PIN en clair, durée 24 h. L'AuthGuard rejette les
     // jetons antérieurs (30 jours, PIN lisible) — reconnexion unique.
     // tenantId : lu par TenantInterceptor en mode multi pour poser le contexte.
-    const payload = { v: 2, sub: user._id, email: user.email, name: user.name, role: user.role, tenantId, caisse };
+    // `boutiques` : magasins accessibles sans nouvelle saisie du mot de passe.
+    // Toujours au moins celui du jeton — un compte mono-boutique en a un seul.
+    const boutiques = boutiquesAutorisees?.length ? boutiquesAutorisees : [tenantId];
+    const payload = { v: 2, sub: user._id, email: user.email, name: user.name, role: user.role, tenantId, boutiques, caisse };
     return {
       access_token: await this.jwtService.signAsync(payload),
       user: { id: user._id, name: user.name, email: user.email, role: user.role, caisse },
+      boutiques,
     };
   }
 

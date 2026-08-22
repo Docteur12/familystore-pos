@@ -33,8 +33,20 @@ const AUTRE_MDP = 'UnAutreMotDePasse#2026';
 describe('Connexion multi-magasin — sans code boutique', () => {
   let app: INestApplication;
 
+  /**
+   * Chaque appel présente une IP distincte.
+   *
+   * Sans cela, la limitation de débit (5 connexions/minute) épuise son quota
+   * au fil du fichier et renvoie 429 : les tests « REFUSE » passeraient alors
+   * pour la MAUVAISE raison — jeton absent au lieu d'un refus légitime. C'est
+   * arrivé en écrivant ce fichier.
+   */
+  let compteurIp = 0;
   const login = (email: string, password: string) =>
-    request(app.getHttpServer()).post('/api/auth/login').send({ email, password });
+    request(app.getHttpServer())
+      .post('/api/auth/login')
+      .set('X-Forwarded-For', `10.0.0.${++compteurIp}`)
+      .send({ email, password });
 
   beforeAll(async () => {
     process.env.MONGO_URI = await ouvrirBaseDeTest();
@@ -42,6 +54,9 @@ describe('Connexion multi-magasin — sans code boutique', () => {
 
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
+    // Réplique de main.ts : sans « trust proxy », X-Forwarded-For est ignoré
+    // et toutes les requêtes partageraient la même identité IP.
+    app.getHttpAdapter().getInstance().set('trust proxy', 2);
     app.setGlobalPrefix('api');
     await app.init();
 
@@ -63,6 +78,15 @@ describe('Connexion multi-magasin — sans code boutique', () => {
       await runWithTenant(tenant, async () => {
         await Settings.create({ nomMagasin: nom });
         await User.create({ name: `Patron ${nom}`, email: 'partout@test.cm', password: motDePasse, role: 'patron' });
+      });
+    }
+
+    // Propriétaire des boutiques Une et Deux — compte dédié aux tests de
+    // bascule : le limiteur indexe la connexion sur l'e-mail (5/minute), un
+    // compte partagé avec les tests précédents épuiserait le quota.
+    for (const tenant of [BOUTIQUE_1, BOUTIQUE_2]) {
+      await runWithTenant(tenant, async () => {
+        await User.create({ name: 'Proprietaire', email: 'proprio@test.cm', password: hash, role: 'patron' });
       });
     }
 
@@ -106,6 +130,7 @@ describe('Connexion multi-magasin — sans code boutique', () => {
 
     const res = await request(app.getHttpServer())
       .post('/api/auth/login/boutique')
+      .set('X-Forwarded-For', `10.0.2.${++compteurIp}`)
       .send({ selectionToken: premier.body.selectionToken, tenantId: cible.tenantId });
 
     expect(res.status).toBe(200);
@@ -117,6 +142,7 @@ describe('Connexion multi-magasin — sans code boutique', () => {
     const premier = await login('partout@test.cm', MDP);
     const res = await request(app.getHttpServer())
       .post('/api/auth/login/boutique')
+      .set('X-Forwarded-For', `10.0.4.${++compteurIp}`)
       .send({ selectionToken: premier.body.selectionToken, tenantId: String(BOUTIQUE_3) });
 
     expect(res.status).toBe(401);
@@ -127,6 +153,7 @@ describe('Connexion multi-magasin — sans code boutique', () => {
     for (const selectionToken of ['', 'pas-un-jeton', 'a.b.c']) {
       const res = await request(app.getHttpServer())
         .post('/api/auth/login/boutique')
+        .set('X-Forwarded-For', `10.0.3.${++compteurIp}`)
         .send({ selectionToken, tenantId: String(BOUTIQUE_1) });
       expect(res.status).toBe(401);
     }
@@ -139,5 +166,101 @@ describe('Connexion multi-magasin — sans code boutique', () => {
     expect(inconnu.status).toBe(401);
     expect(mauvais.status).toBe(401);
     expect(inconnu.body.message).toBe(mauvais.body.message);
+  });
+
+  describe('Bascule de boutique — lot B : le propriétaire change de magasin', () => {
+    /** Connexion complète jusqu'au jeton, boutique choisie si nécessaire. */
+    async function seConnecter(email: string, mdp: string, nomBoutique?: string) {
+      const premier = await login(email, mdp);
+      if (!premier.body.choixBoutique) return premier.body;
+      const cible = premier.body.boutiques.find((b: any) => b.nom === nomBoutique);
+      const second = await request(app.getHttpServer())
+        .post('/api/auth/login/boutique')
+        .set('X-Forwarded-For', `10.0.3.${++compteurIp}`)
+        .send({ selectionToken: premier.body.selectionToken, tenantId: cible.tenantId });
+      return second.body;
+    }
+
+    const charge = (jeton: string) => JSON.parse(Buffer.from(jeton.split('.')[1], 'base64').toString());
+
+    // Une SEULE connexion pour tout le bloc, réutilisée : chaque appel
+    // supplémentaire consommerait le quota du compte.
+    let sessionUne: any;
+    beforeAll(async () => { sessionUne = await seConnecter('proprio@test.cm', MDP, 'Boutique Une'); });
+
+    it('le jeton porte la liste des boutiques prouvées à la connexion', async () => {
+      const session = sessionUne;
+      const p = charge(session.access_token);
+
+      expect(p.tenantId).toBe(String(BOUTIQUE_1));
+      expect(p.boutiques.sort()).toEqual([String(BOUTIQUE_1), String(BOUTIQUE_2)].sort());
+      // Boutique Trois a le même e-mail mais un autre mot de passe : jamais listée.
+      expect(p.boutiques).not.toContain(String(BOUTIQUE_3));
+    });
+
+    it('un compte mono-boutique n’a qu’elle dans sa liste', async () => {
+      const session = await seConnecter('unique@test.cm', MDP);
+      expect(charge(session.access_token).boutiques).toEqual([String(BOUTIQUE_1)]);
+    });
+
+    it('bascule vers une boutique autorisée, sans ressaisir le mot de passe', async () => {
+      const session = sessionUne;
+
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/basculer')
+        .set('Authorization', `Bearer ${session.access_token}`)
+        .send({ tenantId: String(BOUTIQUE_2) });
+
+      expect(res.status).toBe(200);
+      const p = charge(res.body.access_token);
+      expect(p.tenantId).toBe(String(BOUTIQUE_2));
+      // La liste est reconduite : on peut revenir.
+      expect(p.boutiques.sort()).toEqual([String(BOUTIQUE_1), String(BOUTIQUE_2)].sort());
+    });
+
+    it('REFUSE une boutique hors de la liste signée, même si elle existe', async () => {
+      const session = sessionUne;
+
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/basculer')
+        .set('Authorization', `Bearer ${session.access_token}`)
+        .send({ tenantId: String(BOUTIQUE_3) });   // même e-mail, autre mot de passe
+
+      expect(res.status).toBe(401);
+      expect(res.body.access_token).toBeUndefined();
+    });
+
+    it('REFUSE une bascule d’un compte mono-boutique vers une autre', async () => {
+      const session = await seConnecter('unique@test.cm', MDP);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/basculer')
+        .set('Authorization', `Bearer ${session.access_token}`)
+        .send({ tenantId: String(BOUTIQUE_2) });
+
+      expect(res.status).toBe(401);
+    });
+
+    it('REFUSE la bascule sans jeton', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/basculer')
+        .send({ tenantId: String(BOUTIQUE_2) });
+      expect(res.status).toBe(401);
+    });
+
+    it('le jeton obtenu par bascule ouvre bien les données de la boutique visée', async () => {
+      const session = sessionUne;
+      const bascule = await request(app.getHttpServer())
+        .post('/api/auth/basculer')
+        .set('Authorization', `Bearer ${session.access_token}`)
+        .send({ tenantId: String(BOUTIQUE_2) });
+
+      const res = await request(app.getHttpServer())
+        .get('/api/settings')
+        .set('Authorization', `Bearer ${bascule.body.access_token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.nomMagasin).toBe('Boutique Deux');
+    });
   });
 });
