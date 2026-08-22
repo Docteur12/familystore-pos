@@ -1,4 +1,6 @@
-import { get, set } from 'idb-keyval';
+// Stockage cloisonné par boutique : `idbLire`/`idbEcrire` préfixent la clé
+// par la boutique active et LÈVENT s'il n'y en a pas (voir services/storage.ts).
+import { idbLire as get, idbEcrire as set } from './storage';
 import { authHeaders } from '../api/http';
 import type { Product } from '../api/products';
 import { buildReceiptPDF } from '../components/ReceiptPrint';

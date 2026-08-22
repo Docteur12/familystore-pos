@@ -1,3 +1,4 @@
+import { deconnexion } from '../services/session';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
@@ -314,7 +315,7 @@ export default function AdminParametres() {
       if (!res.ok) throw new Error('Erreur serveur');
       addToast(t('Base réinitialisée — bienvenue en production !', 'Database reset — welcome to production!'), 'success');
       setResetText('');
-      setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 2000);
+      setTimeout(() => { void deconnexion().then(ok => { if (ok) window.location.href = '/login'; }); }, 2000);
     } catch {
       addToast(t('Erreur lors de la réinitialisation', 'Error during reset'), 'error');
     } finally {

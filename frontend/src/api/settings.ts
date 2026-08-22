@@ -1,3 +1,4 @@
+import { jeton } from '../services/storage';
 import { authHeaders } from './http';
 import { t } from '../i18n';
 
@@ -131,7 +132,7 @@ export function applySecondaryColor(hex: string) {
 }
 
 export async function getSettings(): Promise<StoreSettings> {
-  const token = localStorage.getItem('access_token');
+  const token = jeton();
   try {
     // Sans session : identité publique du magasin (nom, logo, couleurs, langue)
     // pour habiller la page de connexion et l'écran PIN.

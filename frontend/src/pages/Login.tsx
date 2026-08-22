@@ -1,3 +1,5 @@
+import { lireSession, supprimerSession } from '../services/storage';
+import { basculerVersBoutique } from '../services/session';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { forgotPassword } from '../api/auth';
@@ -49,9 +51,9 @@ export default function Login() {
 
   // Affiche un message si on a été redirigé suite à une session expirée (401).
   useEffect(() => {
-    if (sessionStorage.getItem('session_expired')) {
+    if (lireSession('session_expired')) {
       setExpiredNotice(true);
-      sessionStorage.removeItem('session_expired');
+      supprimerSession('session_expired');
     }
   }, []);
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -71,7 +73,8 @@ export default function Login() {
 
   /** Session ouverte : jeton stocké, paramètres rechargés, aiguillage par rôle. */
   const entrer = (accessToken: string) => {
-    localStorage.setItem('access_token', accessToken);
+    // Le jeton est rangé sous SA boutique (tenantId) et celle-ci devient active.
+    basculerVersBoutique(accessToken);
     reloadSettings(); // paramètres complets du magasin (le login n'avait que l'identité publique)
     const pl = JSON.parse(atob(accessToken.split('.')[1]));
     if (pl.role === 'patron')            navigate('/admin/dashboard');

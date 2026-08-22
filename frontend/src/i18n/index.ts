@@ -7,12 +7,16 @@
 // Traduction inline par paires : t('texte français', 'english text'). Deux
 // langues, un seul dépôt : Family Store (FR) et Radiance (EN) partagent ce code.
 
+// La langue est un réglage d'APPAREIL, non cloisonné par boutique : elle est
+// de toute façon resynchronisée depuis Settings.langue à chaque chargement.
+import { lireGlobal, ecrireGlobal } from '../services/storage';
+
 export type Lang = 'fr' | 'en';
 
 const LS_KEY = 'app_lang';
 
 // Français par défaut ; l'anglais est activé par les paramètres du magasin.
-let lang: Lang = localStorage.getItem(LS_KEY) === 'en' ? 'en' : 'fr';
+let lang: Lang = lireGlobal(LS_KEY) === 'en' ? 'en' : 'fr';
 
 export function getLang(): Lang {
   return lang;
@@ -23,7 +27,7 @@ export function getLang(): Lang {
 export function syncLang(l: string | undefined) {
   const next: Lang = l === 'en' ? 'en' : 'fr';
   if (next !== lang) {
-    localStorage.setItem(LS_KEY, next);
+    ecrireGlobal(LS_KEY, next);
     window.location.reload();
   }
 }

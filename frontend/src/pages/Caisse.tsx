@@ -3,6 +3,8 @@
  * Gauche : catégories  |  Centre : grille produits  |  Droite : ticket
  */
 
+import { lire, ecrire, supprimer } from '../services/storage';
+import { deconnexion } from '../services/session';
 import React, {
   memo, useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
@@ -179,7 +181,7 @@ export default function Caisse() {
   const [validating,     setValidating]     = useState(false);
   const [retryLabel,     setRetryLabel]     = useState('');
   const [heldTickets,    setHeldTickets]    = useState<HeldTicket[]>(() => {
-    try { const s = localStorage.getItem('fs_held_tickets'); if (s) { localStorage.removeItem('fs_held_tickets'); return JSON.parse(s); } } catch {}
+    try { const s = lire('fs_held_tickets'); if (s) { supprimer('fs_held_tickets'); return JSON.parse(s); } } catch {}
     return [];
   });
   const [showHeld,       setShowHeld]       = useState(false);
@@ -559,7 +561,7 @@ export default function Caisse() {
         if (kind === 'auth') {
           nonRetryable = true;
           try { await savePendingSale({ items: saleItems, total, subtotal, ...(offreAmt > 0 ? { ...(offreMode === 'pct' ? { offrePct } : {}), offreAmt } : {}), cashierName: payload?.name ?? t('Caissier', 'Cashier'), paymentLabel: pmLabel, paymentMethod, amountPaid: effPaid, idempotencyKey }); addToast(t('Session expirée — ticket sauvegardé localement', 'Session expired — receipt saved locally'), 'warning'); } catch {}
-          setTimeout(() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }, 1800);
+          setTimeout(() => { void deconnexion().then(ok => { if (ok) window.location.href = '/login'; }); }, 1800);
         } else if (kind === 'stock') {
           nonRetryable = true;
           const availMatch = msg.match(/disponible[^\d]*(\d+)/i); const nameMatch = msg.match(/pour\s+"([^"]+)"/i) ?? msg.match(/pour\s+'([^']+)'/i);
@@ -756,7 +758,7 @@ export default function Caisse() {
               </button>
             ))}
           </div>
-          <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }} style={{ marginTop: 8, background: 'none', border: 'none', color: 'rgba(245,235,217,0.35)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
+          <button onClick={() => { void deconnexion().then(ok => { if (ok) window.location.href = '/login'; }); }} style={{ marginTop: 8, background: 'none', border: 'none', color: 'rgba(245,235,217,0.35)', fontSize: 11, cursor: 'pointer', textDecoration: 'underline' }}>
             {t('Changer de session', 'Switch session')}
           </button>
         </div>
@@ -783,18 +785,17 @@ export default function Caisse() {
                     cart: [...cart],
                     total,
                   };
-                  try { localStorage.setItem('fs_held_tickets', JSON.stringify([...heldTickets, held])); } catch {}
+                  try { ecrire('fs_held_tickets', JSON.stringify([...heldTickets, held])); } catch {}
                   setShowLogoutModal(false);
                   if (sessionId) closeSession(sessionId);
-                  localStorage.removeItem('access_token');
-                  window.location.href = '/login';
+                  void deconnexion().then(ok => { if (ok) window.location.href = '/login'; });
                 }}
                 style={{ padding: '11px 0', borderRadius: 10, border: '2px solid var(--fs-wine-700)', background: 'var(--fs-wine-700)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
               >
                 {t('Mettre en attente & se déconnecter', 'Put on hold & log out')}
               </button>
               <button
-                onClick={() => { setCart([]); setAmountPaid(''); setShowLogoutModal(false); if (sessionId) closeSession(sessionId); localStorage.removeItem('access_token'); window.location.href = '/login'; }}
+                onClick={() => { setCart([]); setAmountPaid(''); setShowLogoutModal(false); if (sessionId) closeSession(sessionId); void deconnexion().then(ok => { if (ok) window.location.href = '/login'; }); }}
                 style={{ padding: '11px 0', borderRadius: 10, border: '2px solid #ef4444', background: '#fef2f2', color: '#dc2626', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
               >
                 {t('Annuler le ticket & se déconnecter', 'Cancel receipt & log out')}
@@ -1028,7 +1029,7 @@ export default function Caisse() {
           justifyContent: 'flex-end',
         }}>
           <button
-            onClick={() => { if (cart.length > 0) { setShowLogoutModal(true); } else { if (sessionId) closeSession(sessionId); localStorage.removeItem('access_token'); window.location.href = '/login'; } }}
+            onClick={() => { if (cart.length > 0) { setShowLogoutModal(true); } else { if (sessionId) closeSession(sessionId); void deconnexion().then(ok => { if (ok) window.location.href = '/login'; }); } }}
             style={{ background: 'none', border: '1px solid rgba(245,235,217,0.15)', borderRadius: 7, color: 'rgba(245,235,217,0.5)', cursor: 'pointer', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600 }}
             title={t('Déconnexion', 'Log out')}
           >

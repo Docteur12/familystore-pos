@@ -1,3 +1,4 @@
+import { deconnexion } from '../services/session';
 import React, { useEffect, useRef, useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -146,8 +147,7 @@ export default function Sidebar() {
   const alertCount = useStockAlertCount(role === 'gestionnaire' || role === 'patron', nomMagasin);
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    navigate('/login');
+    void deconnexion().then(ok => { if (ok) navigate('/login'); });
   };
 
   const roleLabel = role === 'patron' ? t('Administration', 'Administration')

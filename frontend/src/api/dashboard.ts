@@ -1,3 +1,4 @@
+import { jeton } from '../services/storage';
 import { authHeaders } from './http';
 import { t } from '../i18n';
 
@@ -125,7 +126,7 @@ export interface CaissePayload {
 }
 
 export function getTokenPayload(): { sub: string; email: string; name: string; role: string; caisse?: CaissePayload | null } | null {
-  const token = localStorage.getItem('access_token');
+  const token = jeton();
   if (!token) return null;
   try {
     return JSON.parse(atob(token.split('.')[1]));

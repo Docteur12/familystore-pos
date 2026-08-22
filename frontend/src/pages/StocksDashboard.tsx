@@ -90,13 +90,10 @@ export default function StocksDashboard() {
   const in6months    = new Date(); in6months.setMonth(in6months.getMonth() + 6);
   const expiryProds  = products.filter(p => p.expiryDate && new Date(p.expiryDate) <= in6months).sort((a, b) => new Date(a.expiryDate!).getTime() - new Date(b.expiryDate!).getTime());
 
-  const todayReceptions = (() => {
-    try {
-      const recs = JSON.parse(localStorage.getItem('fs_receptions') ?? '[]');
-      const today = new Date().toISOString().slice(0, 10);
-      return recs.filter((r: { date: string }) => r.date === today).length;
-    } catch { return 0; }
-  })();
+  // Réceptions du jour : la clé locale « fs_receptions » n'était jamais
+  // écrite — ce compteur valait donc toujours 0. Clé morte retirée au lot A ;
+  // à rebrancher sur l'API des réceptions si le chiffre doit vivre.
+  const todayReceptions = 0;
 
   const lowProducts = [...products]
     .filter(p => p.stock <= p.alertThreshold)

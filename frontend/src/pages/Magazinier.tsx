@@ -1,3 +1,4 @@
+import { deconnexion } from '../services/session';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { getAllProducts, createProduct, updateProduct, setProductPrix, getProductByBarcode, Product } from '../api/products';
@@ -803,7 +804,7 @@ export default function Magazinier() {
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name?.split(' ')[0] ?? '—'}</div>
             <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>{t('Magasinier', 'Warehouse keeper')}</div>
           </div>
-          <button onClick={() => { localStorage.removeItem('access_token'); window.location.href = '/login'; }}
+          <button onClick={() => { void deconnexion().then(ok => { if (ok) window.location.href = '/login'; }); }}
             style={{ background: 'none', border: 'none', color: 'var(--fs-gold-400)', cursor: 'pointer', padding: 2 }} title={t('Déconnexion', 'Log out')}>
             <I d={D.logout} size={14}/>
           </button>

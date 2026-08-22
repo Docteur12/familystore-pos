@@ -1,3 +1,4 @@
+import { boutiqueActive, lire, ecrire } from '../services/storage';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { getSettings, SETTINGS_DEFAULTS, StoreSettings, applyPrimaryColor, applySecondaryColor, moduleActif, ModuleId } from '../api/settings';
 import { syncLang } from '../i18n';
@@ -17,7 +18,8 @@ const CACHE_KEY = 'app_settings_cache';
 
 function settingsInitiaux(): StoreSettings {
   try {
-    const raw = localStorage.getItem(CACHE_KEY);
+    if (!boutiqueActive()) return SETTINGS_DEFAULTS; // pas encore connecté : rien en cache
+    const raw = lire(CACHE_KEY);
     if (raw) return { ...SETTINGS_DEFAULTS, ...JSON.parse(raw) };
   } catch { /* cache illisible : valeurs par défaut */ }
   return SETTINGS_DEFAULTS;
@@ -44,7 +46,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const load = useCallback(() => {
     getSettings().then(s => {
       setSettings(s);
-      try { localStorage.setItem(CACHE_KEY, JSON.stringify(s)); } catch { /* stockage plein : tant pis */ }
+      try { if (boutiqueActive()) ecrire(CACHE_KEY, JSON.stringify(s)); } catch { /* stockage plein : tant pis */ }
       appliquer(s);
     }).catch(() => {});
   }, []);

@@ -1,3 +1,4 @@
+import { lire, ecrire } from '../services/storage';
 import React, { useEffect, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import { useSettings } from '../contexts/SettingsContext';
@@ -40,9 +41,9 @@ interface SeanceRecord {
 
 const LS_KEY = 'fs_inventaires';
 function loadHistory(): SeanceRecord[] {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) ?? '[]'); } catch { return []; }
+  try { return JSON.parse(lire(LS_KEY) ?? '[]'); } catch { return []; }
 }
-function saveHistory(list: SeanceRecord[]) { localStorage.setItem(LS_KEY, JSON.stringify(list)); }
+function saveHistory(list: SeanceRecord[]) { ecrire(LS_KEY, JSON.stringify(list)); }
 
 function I({ d, size = 14 }: { d: string; size?: number }) {
   return (

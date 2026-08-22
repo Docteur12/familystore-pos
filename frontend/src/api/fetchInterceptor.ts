@@ -9,6 +9,7 @@
 // Exclusions du 1. :
 //  - /api/auth/login  : un 401 = mauvais identifiants (on reste sur la page).
 //  - /api/sales       : la caisse gère elle-même ce cas (sauvegarde hors-ligne).
+import { boutiqueActive, boutiqueDuJeton, definirJeton, supprimerJeton, oublierBoutiqueActive, ecrireSession, jeton } from '../services/storage';
 import { getLang } from '../i18n';
 import { translateBackendMessage } from '../i18n/backend-messages';
 
@@ -49,7 +50,7 @@ let dernierEssaiRefresh = 0;
 
 function maybeRefreshToken() {
   if (refreshEnCours || Date.now() - dernierEssaiRefresh < 10 * 60_000) return;
-  const token = localStorage.getItem('access_token');
+  const token = jeton();
   if (!token) return;
   try {
     const p = JSON.parse(atob(token.split('.')[1]));
@@ -63,7 +64,12 @@ function maybeRefreshToken() {
     .then(async res => {
       if (!res.ok) return; // jeton bientôt expiré → l'utilisateur se reconnectera
       const data = await res.json();
-      if (data?.access_token) localStorage.setItem('access_token', data.access_token);
+      // Le jeton renouvelé remplace celui de SA boutique (celle du tenantId
+      // qu'il porte), jamais celui d'une autre.
+      if (data?.access_token) {
+        const b = boutiqueDuJeton(data.access_token);
+        if (b) definirJeton(b, data.access_token);
+      }
     })
     .catch(() => { /* hors-ligne : on retentera */ })
     .finally(() => { refreshEnCours = false; });
@@ -101,8 +107,10 @@ window.fetch = async (rawInput: RequestInfo | URL, rawInit?: RequestInit): Promi
       const onLogin = window.location.pathname.startsWith('/login');
 
       if (isApi && !isLogin && !isSale && !onLogin) {
-        localStorage.removeItem('access_token');
-        sessionStorage.setItem('session_expired', '1');
+        const active = boutiqueActive();
+        if (active) supprimerJeton(active);
+        oublierBoutiqueActive();
+        ecrireSession('session_expired', '1');
         window.location.href = '/login';
       }
     }
