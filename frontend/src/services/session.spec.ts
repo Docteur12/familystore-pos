@@ -23,12 +23,12 @@ const faireJeton = (tenantId: string) =>
 describe('bascule de boutique — exigence 4 : les files survivent', () => {
   it('les ventes en attente de la boutique quittée sont intactes après la bascule', async () => {
     // Bonamoussadi : deux ventes non synchronisées.
-    basculerVersBoutique(faireJeton(BONAMOUSSADI));
+    await basculerVersBoutique(faireJeton(BONAMOUSSADI));
     await idbEcrire('pending_sales', [{ id: 'v1' }, { id: 'v2' }]);
     ecrire('fs_held_tickets', '[{"panier":1}]');
 
     // L'utilisateur bascule sur Bependa et y encaisse.
-    basculerVersBoutique(faireJeton(BEPENDA));
+    await basculerVersBoutique(faireJeton(BEPENDA));
     expect(boutiqueActive()).toBe(BEPENDA);
     await idbEcrire('pending_sales', [{ id: 'v3' }]);
 
@@ -39,22 +39,22 @@ describe('bascule de boutique — exigence 4 : les files survivent', () => {
     expect(await idbLire<any[]>('pending_sales', BEPENDA)).toHaveLength(1);
 
     // Et le retour est symétrique.
-    basculerVersBoutique(faireJeton(BONAMOUSSADI));
+    await basculerVersBoutique(faireJeton(BONAMOUSSADI));
     expect(await idbLire<any[]>('pending_sales')).toHaveLength(2);
   });
 
   it('chaque boutique garde son jeton, celui de la quittée reste utilisable', async () => {
-    basculerVersBoutique(faireJeton(BONAMOUSSADI));
-    basculerVersBoutique(faireJeton(BEPENDA));
+    await basculerVersBoutique(faireJeton(BONAMOUSSADI));
+    await basculerVersBoutique(faireJeton(BEPENDA));
 
     expect(jeton()).toBe(jetonDeBoutique(BEPENDA));
     // Exigence 3 : le jeton de Bonamoussadi reste disponible pour vider sa file.
     expect(jetonDeBoutique(BONAMOUSSADI)).not.toBeNull();
   });
 
-  it('refuse un jeton sans identifiant de boutique plutôt que de deviner', () => {
+  it('refuse un jeton sans identifiant de boutique plutôt que de deviner', async () => {
     const sansTenant = `e.${btoa(JSON.stringify({ v: 2, sub: 'u1' }))}.s`;
-    expect(() => basculerVersBoutique(sansTenant)).toThrow(/tenantId/);
+    await expect(basculerVersBoutique(sansTenant)).rejects.toThrow(/tenantId/);
   });
 
   it('compte les files en attente boutique par boutique', async () => {
@@ -82,7 +82,7 @@ describe('exigence 3 — une file ne part jamais avec le jeton d’une autre bou
 
     const bloquees = await boutiquesBloquees();
 
-    expect(bloquees).toEqual([{ boutiqueId: BONAMOUSSADI, total: 3 }]);
+    expect(bloquees).toEqual([{ boutiqueId: BONAMOUSSADI, nom: BONAMOUSSADI, total: 3 }]);
   });
 
   it('ne signale rien quand chaque file dispose de son jeton', async () => {
@@ -150,5 +150,87 @@ describe('déconnexion — exigence 5 : jamais de perte silencieuse', () => {
     // Bependa n'était pas la boutique active : ses ventes attendent toujours,
     // récupérables à la prochaine connexion sur cette boutique.
     expect(await idbLire<any[]>('pending_sales', BEPENDA)).toHaveLength(1);
+  });
+});
+
+describe('cycle complet — file bloquée, reconnexion, disparition (exigence 1 du bloc 4)', () => {
+  it('signale nommément, puis se tait une fois la boutique reconnectée et la file partie', async () => {
+    // ── 1. Bonamoussadi a trois ventes en attente et un jeton valide ────────
+    definirJeton(BONAMOUSSADI, faireJeton(BONAMOUSSADI));
+    ecrire('app_settings_cache', JSON.stringify({ nomMagasin: 'Bonamoussadi' }), BONAMOUSSADI);
+    await idbEcrire('pending_sales', [{ id: 'v1' }, { id: 'v2' }, { id: 'v3' }], BONAMOUSSADI);
+    expect(await boutiquesBloquees()).toEqual([]);
+
+    // ── 2. Son jeton expire ; l'utilisateur travaille sur Bependa ───────────
+    localStorage.removeItem(`cam:${BONAMOUSSADI}:access_token`); // STORAGE-DIRECT: simule l'expiration
+    definirJeton(BEPENDA, faireJeton(BEPENDA));
+
+    const alerte = await boutiquesBloquees();
+    expect(alerte).toHaveLength(1);
+    // Le message est nominatif : le nom vient du cache de CETTE boutique.
+    expect(alerte[0]).toEqual({ boutiqueId: BONAMOUSSADI, nom: 'Bonamoussadi', total: 3 });
+
+    // ── 3. Reconnexion SUR Bonamoussadi ────────────────────────────────────
+    definirJeton(BONAMOUSSADI, faireJeton(BONAMOUSSADI));
+    // La file est de nouveau synchronisable : plus aucune alerte.
+    expect(await boutiquesBloquees()).toEqual([]);
+
+    // ── 4. La file part ────────────────────────────────────────────────────
+    await idbEcrire('pending_sales', [], BONAMOUSSADI);
+    expect((await filesEnAttente(BONAMOUSSADI)).total).toBe(0);
+    expect(await boutiquesBloquees()).toEqual([]);
+  });
+
+  it('retombe sur l’identifiant si le nom de la boutique est inconnu', async () => {
+    definirJeton(BEPENDA, faireJeton(BEPENDA));
+    await idbEcrire('pending_sales', [{ id: 'v1' }], BONAMOUSSADI);
+
+    const alerte = await boutiquesBloquees();
+    expect(alerte[0].nom).toBe(BONAMOUSSADI); // message technique plutôt que muet
+  });
+});
+
+describe('bascule de boutique — pas de double rechargement (exigence 2 du bloc 4)', () => {
+  it('pose la langue de la boutique d’arrivée AVANT le rechargement', async () => {
+    ecrireGlobal('app_lang', 'fr');
+    // La boutique d'arrivée est en anglais.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, json: async () => ({ langue: 'en', nomMagasin: 'Radiance' }),
+    }));
+
+    await basculerVersBoutique(faireJeton(BEPENDA));
+
+    // La langue est déjà bonne : le rechargement que fera l'appelant suffit,
+    // syncLang n'en déclenchera pas un second.
+    expect(lireGlobal('app_lang')).toBe('en');
+    vi.unstubAllGlobals();
+  });
+
+  it('syncLang ne recharge pas quand la langue a déjà été posée', async () => {
+    ecrireGlobal('app_lang', 'fr');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true, json: async () => ({ langue: 'en' }),
+    }));
+    await basculerVersBoutique(faireJeton(BEPENDA));
+    vi.unstubAllGlobals();
+
+    // Après le rechargement unique, le module i18n repart avec 'en' : appeler
+    // syncLang('en') ne doit rien déclencher. On le vérifie en rechargeant le
+    // module dans son nouvel état.
+    vi.resetModules();
+    const rechargement = vi.fn();
+    vi.stubGlobal('location', { ...window.location, reload: rechargement });
+    const { syncLang, getLang } = await import('../i18n');
+    expect(getLang()).toBe('en');
+    syncLang('en');
+    expect(rechargement).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it('hors connexion, la bascule n’échoue pas — la langue se réglera plus tard', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('hors ligne')));
+    await expect(basculerVersBoutique(faireJeton(BEPENDA))).resolves.toBeUndefined();
+    expect(jetonDeBoutique(BEPENDA)).not.toBeNull(); // le jeton est bien posé
+    vi.unstubAllGlobals();
   });
 });

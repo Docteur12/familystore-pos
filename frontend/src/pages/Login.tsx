@@ -1,5 +1,5 @@
-import { lireSession, supprimerSession } from '../services/storage';
-import { basculerVersBoutique } from '../services/session';
+import { lireSession, supprimerSession, boutiqueDuJeton } from '../services/storage';
+import { basculerVersBoutique, nomDeBoutique } from '../services/session';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { forgotPassword } from '../api/auth';
@@ -43,6 +43,12 @@ export default function Login() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotMsg, setForgotMsg] = useState<string | null>(null);
   const [expiredNotice, setExpiredNotice] = useState(false);
+  /**
+   * Reconnexion CIBLÉE : `/login?boutique=<id>` — on arrive du bandeau qui
+   * signale des ventes bloquées. Se reconnecter sur une autre boutique ne les
+   * débloquerait pas, donc on le dit avant, et on le vérifie après.
+   */
+  const boutiqueVisee = new URLSearchParams(window.location.search).get('boutique');
   // Multi-magasin : renseigné quand le serveur demande de choisir la boutique.
   const [choixBoutique, setChoixBoutique] = useState<{
     selectionToken: string;
@@ -72,9 +78,20 @@ export default function Login() {
   };
 
   /** Session ouverte : jeton stocké, paramètres rechargés, aiguillage par rôle. */
-  const entrer = (accessToken: string) => {
-    // Le jeton est rangé sous SA boutique (tenantId) et celle-ci devient active.
-    basculerVersBoutique(accessToken);
+  const entrer = async (accessToken: string) => {
+    // Reconnexion ciblée : si le compte utilisé ouvre une AUTRE boutique, les
+    // ventes en attente resteront bloquées. Mieux vaut le dire tout de suite
+    // que de laisser l'utilisateur croire le problème réglé.
+    if (boutiqueVisee && boutiqueDuJeton(accessToken) !== boutiqueVisee) {
+      setError(t(
+        `Ce compte ouvre une autre boutique que ${nomDeBoutique(boutiqueVisee)}. Les ventes en attente y resteront bloquées.`,
+        `This account opens a different store than ${nomDeBoutique(boutiqueVisee)}. The pending sales there will stay blocked.`,
+      ));
+    }
+    // Le jeton est rangé sous SA boutique (tenantId), celle-ci devient active,
+    // et la langue de la boutique est posée au passage — sans quoi l'arrivée
+    // sur une boutique d'une autre langue enchaînerait deux rechargements.
+    await basculerVersBoutique(accessToken);
     reloadSettings(); // paramètres complets du magasin (le login n'avait que l'identité publique)
     const pl = JSON.parse(atob(accessToken.split('.')[1]));
     if (pl.role === 'patron')            navigate('/admin/dashboard');
@@ -97,7 +114,7 @@ export default function Login() {
       });
       if (!res.ok) throw new Error(t('Session de connexion expirée, recommencez.', 'Sign-in session expired, please start again.'));
       const data = await res.json();
-      entrer(data.access_token);
+      await entrer(data.access_token);
     } catch (err: any) {
       setChoixBoutique(null);
       setError(err.message ?? t('Erreur inconnue', 'Unknown error'));
@@ -126,7 +143,7 @@ export default function Login() {
         setChoixBoutique({ selectionToken: data.selectionToken, boutiques: data.boutiques ?? [] });
         return;
       }
-      entrer(data.access_token);
+      await entrer(data.access_token);
     } catch (err: any) {
       setError(err.message ?? t('Erreur inconnue', 'Unknown error'));
     } finally {
@@ -265,6 +282,16 @@ export default function Login() {
             </form>
           ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+            {boutiqueVisee && (
+              <div style={{
+                padding: '10px 14px', borderRadius: 8, marginBottom: 4,
+                background: '#FEF3C7', border: '1px solid #F59E0B', color: '#7C2D12', fontSize: 12.5,
+              }}>
+                {t('Reconnexion à', 'Signing back in to')} <strong>{nomDeBoutique(boutiqueVisee)}</strong>{' '}
+                {t('pour envoyer les ventes en attente.', 'to send the pending sales.')}
+              </div>
+            )}
 
             {expiredNotice && (
               <div style={{

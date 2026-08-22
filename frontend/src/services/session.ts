@@ -15,8 +15,16 @@
 import {
   boutiqueActive, toutesLesBoutiquesConnues, definirJeton, boutiqueDuJeton,
   purgerBoutique, idbPurgerBoutique, supprimerTousLesJetons, idbLire, jetonDeBoutique,
+  lire,
 } from './storage';
-import { t } from '../i18n';
+import { t, preparerLangue } from '../i18n';
+
+/** Boutique dont la file attend alors que son jeton a disparu ou expiré. */
+export interface BoutiqueBloquee {
+  boutiqueId: string;
+  nom: string;
+  total: number;
+}
 
 /** Files hors-ligne d'une boutique, par nature. */
 export interface FilesEnAttente {
@@ -53,16 +61,31 @@ export async function filesEnAttente(boutiqueId: string): Promise<FilesEnAttente
  * boutique. L'interface doit le dire explicitement — un échec muet coûterait
  * les ventes.
  */
-export async function boutiquesBloquees(): Promise<{ boutiqueId: string; total: number }[]> {
-  const bloquees: { boutiqueId: string; total: number }[] = [];
+export async function boutiquesBloquees(): Promise<BoutiqueBloquee[]> {
+  const bloquees: BoutiqueBloquee[] = [];
   // Vue TOUS SUPPORTS : une boutique au jeton expiré n'a plus rien en
   // localStorage, mais ses ventes dorment encore dans IndexedDB. La chercher
   // ailleurs reviendrait à ne jamais signaler le cas qui compte.
   for (const id of await toutesLesBoutiquesConnues()) {
     const { total } = await filesEnAttente(id);
-    if (total > 0 && !jetonDeBoutique(id)) bloquees.push({ boutiqueId: id, total });
+    if (total > 0 && !jetonDeBoutique(id)) bloquees.push({ boutiqueId: id, total, nom: nomDeBoutique(id) });
   }
   return bloquees;
+}
+
+/**
+ * Nom lisible d'une boutique, lu dans SON cache de paramètres — c'est
+ * précisément pour ce genre d'usage que ce cache est cloisonné. À défaut,
+ * l'identifiant : mieux vaut un message technique qu'un message muet.
+ */
+export function nomDeBoutique(boutiqueId: string): string {
+  try {
+    const brut = lire('app_settings_cache', boutiqueId);
+    const nom = brut ? (JSON.parse(brut)?.nomMagasin as string) : '';
+    return nom?.trim() || boutiqueId;
+  } catch {
+    return boutiqueId;
+  }
 }
 
 /** Message d'avertissement listant ce qui serait perdu. */
@@ -118,8 +141,21 @@ export async function deconnexion(
  * files hors-ligne des DEUX boutiques survivent — un caissier qui bascule ne
  * doit jamais perdre les ventes non synchronisées de l'autre.
  */
-export function basculerVersBoutique(jetonAcces: string): void {
+export async function basculerVersBoutique(jetonAcces: string): Promise<void> {
   const boutiqueId = boutiqueDuJeton(jetonAcces);
   if (!boutiqueId) throw new Error('Jeton sans identifiant de boutique (tenantId absent).');
   definirJeton(boutiqueId, jetonAcces);
+
+  // Langue de la boutique d'arrivée posée AVANT le rechargement de l'appelant.
+  // Sinon SettingsContext la découvrirait après coup et déclencherait un
+  // SECOND rechargement — voir preparerLangue().
+  try {
+    const res = await fetch('/api/settings', {
+      headers: { Authorization: `Bearer ${jetonAcces}`, 'Content-Type': 'application/json' },
+    });
+    if (res.ok) preparerLangue((await res.json())?.langue);
+  } catch {
+    // Hors connexion : la langue se réglera au prochain chargement réussi,
+    // au prix du rechargement qu'on cherchait à éviter. Sans gravité.
+  }
 }
