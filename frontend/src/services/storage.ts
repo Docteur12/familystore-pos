@@ -193,7 +193,14 @@ export function supprimerTousLesJetons(): void {
   oublierBoutiqueActive();
 }
 
-/** Boutiques ayant une trace locale (jeton posé au moins une fois). */
+/**
+ * Boutiques ayant une trace en localStorage.
+ *
+ * ⚠️ Ne voit PAS une boutique dont il ne resterait qu'une file dans
+ * IndexedDB — or c'est exactement le cas critique : jeton expiré, ventes en
+ * attente. Utiliser `toutesLesBoutiquesConnues()` dès qu'il s'agit de
+ * retrouver des données en souffrance.
+ */
 export function boutiquesConnues(): string[] {
   const ids = new Set<string>();
   try {
@@ -204,6 +211,27 @@ export function boutiquesConnues(): string[] {
     }
   } catch { /* stockage indisponible */ }
   return [...ids];
+}
+
+/** Boutiques ayant une trace dans IndexedDB (files hors-ligne, caches). */
+export async function boutiquesConnuesIdb(): Promise<string[]> {
+  const ids = new Set<string>();
+  for (const cle of await idbKeys()) {
+    if (typeof cle !== 'string') continue;
+    const m = cle.match(new RegExp(`^${PREFIXE}:([^:]+):`));
+    if (m) ids.add(m[1]);
+  }
+  return [...ids];
+}
+
+/**
+ * Toutes les boutiques ayant une trace locale, quel que soit le support.
+ * C'est la vue à utiliser pour ne perdre personne : une boutique dont le
+ * jeton a expiré n'a plus rien en localStorage, mais ses ventes en attente
+ * dorment toujours dans IndexedDB.
+ */
+export async function toutesLesBoutiquesConnues(): Promise<string[]> {
+  return [...new Set([...boutiquesConnues(), ...(await boutiquesConnuesIdb())])];
 }
 
 // ── Purge ────────────────────────────────────────────────────────────────────
@@ -242,6 +270,29 @@ export async function idbPurgerBoutique(boutiqueId: string): Promise<void> {
   for (const cle of toutes) {
     if (typeof cle === 'string' && cle.startsWith(prefixe)) await idbDel(cle);
   }
+}
+
+// ── Clés HÉRITÉES (d'avant le cloisonnement) ─────────────────────────────────
+//
+// Réservé à `services/migration-stockage.ts`. Ces fonctions touchent les clés
+// GLOBALES d'avant Caméléon : elles vivent ici pour que TOUT accès brut au
+// stockage reste dans ce fichier — la gouvernance peut ainsi rester stricte
+// partout ailleurs.
+
+export function lireHerite(cle: string): string | null {
+  try { return localStorage.getItem(cle); } catch { return null; }
+}
+
+export function supprimerHerite(cle: string): void {
+  try { localStorage.removeItem(cle); } catch { /* stockage indisponible */ }
+}
+
+export async function idbLireHerite<T>(cle: string): Promise<T | undefined> {
+  return idbGet<T>(cle);
+}
+
+export async function idbSupprimerHerite(cle: string): Promise<void> {
+  return idbDel(cle);
 }
 
 // ── Utilitaire : boutique portée par un jeton ────────────────────────────────

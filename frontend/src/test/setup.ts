@@ -9,10 +9,16 @@
  */
 import 'fake-indexeddb/auto';
 import { beforeEach } from 'vitest';
+import { clear as viderIndexedDb } from 'idb-keyval';
 
-// État neuf entre deux tests : sans cela, une boutique active laissée par un
-// test précédent masquerait une régression du fail-closed.
-beforeEach(() => {
+// État neuf entre deux tests.
+//
+// ⚠️ IndexedDB doit être vidée AUSSI : contrairement à localStorage, elle
+// survit d'un test à l'autre dans le même fichier. Sans cette remise à zéro,
+// les files s'empilent d'un scénario au suivant et les assertions de longueur
+// deviennent fausses — on l'a constaté en écrivant les tests de migration.
+beforeEach(async () => {
   localStorage.clear();
   sessionStorage.clear();
+  await viderIndexedDb();
 });
