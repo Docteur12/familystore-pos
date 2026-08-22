@@ -1,6 +1,6 @@
 // Utilitaires impression reçu thermique 80mm + gestion paramètres d'impression
 import { jsPDF } from 'jspdf';
-import { formatVolume } from '../utils/text';
+import { formatVolume, displayName } from '../utils/text';
 import { OffreFacture, OFFRE_DEFAULTS, StoreIdentity } from '../api/settings';
 import { t, dateLocale } from '../i18n';
 
@@ -101,7 +101,7 @@ export function buildReceiptHTML(data: ReceiptData): string {
       : '';
     return `
     <div class="item">
-      <div class="iname">${truncName(item.name)}${badge}</div>
+      <div class="iname">${truncName(displayName(item.name))}${badge}</div>
       ${localNameRow}
       <div class="irow">
         <span>${item.quantity} x ${prixLigne}</span>
@@ -271,7 +271,7 @@ export function buildReceiptPDF(data: ReceiptData): string {
 
   // Articles
   for (const item of data.items) {
-    line(truncName(item.name), 12, true);
+    line(truncName(displayName(item.name)), 12, true);
     const meta = [formatVolume(item.valeur, item.unit), item.localName].filter(Boolean).join(' · ');
     if (meta) line(meta, 8, false);
     row(`  ${item.quantity} x ${fmt(item.unitPrice)}`, `${fmt(item.quantity * item.unitPrice)}`, 10);

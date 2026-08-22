@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { getAllProducts, deleteProduct, updateProduct, Product } from '../api/products';
-import { normalizeName, formatProductName, extractVolume, getBrandColor, contientTexte } from '../utils/text';
+import { normalizeName, formatProductName, extractVolume, getBrandColor, contientTexte, displayName } from '../utils/text';
 import { inferCategoryFromName } from '../data/categories';
 import { ajusterStockEntrepot } from '../api/magazinier';
 import NouveauProduitModal from '../components/NouveauProduitModal';
@@ -259,7 +259,7 @@ function ReceptionModal({ product, onConfirm, onClose }:
       style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: '#fff', borderRadius: 14, width: 360, overflow: 'hidden', boxShadow: 'var(--fs-shadow-lg)' }}>
         <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px' }}>
-          <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{product.name}</p>
+          <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{displayName(product.name)}</p>
           <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '3px 0 0' }}>{t('Stock actuel :', 'Current stock:')} <b style={{ color: '#f5ebd9' }}>{product.stock}</b></p>
         </div>
         <div style={{ padding: '20px' }}>
@@ -316,7 +316,7 @@ function DemandeModal({ product, onConfirm, onClose }:
       <div style={{ background: '#fff', borderRadius: 14, width: 400, overflow: 'hidden', boxShadow: 'var(--fs-shadow-lg)' }}>
         <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px' }}>
           <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{t('Demande au magasinier', 'Warehouse request')}</p>
-          <p style={{ color: 'rgba(245,235,217,0.7)', fontSize: 12, margin: '3px 0 0' }}>{product.name}{product.localName ? ` · ${product.localName}` : ''}</p>
+          <p style={{ color: 'rgba(245,235,217,0.7)', fontSize: 12, margin: '3px 0 0' }}>{displayName(product.name)}{product.localName ? ` · ${product.localName}` : ''}</p>
         </div>
         <div style={{ padding: '20px' }}>
           <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
@@ -377,7 +377,7 @@ function RetourModal({ product, onConfirm, onClose }:
       <div style={{ background: '#fff', borderRadius: 14, width: 400, overflow: 'hidden', boxShadow: 'var(--fs-shadow-lg)' }}>
         <div style={{ background: '#b45309', padding: '16px 20px' }}>
           <p style={{ fontWeight: 700, color: '#fff', fontSize: 15, margin: 0 }}>{t('↩ Retour à l\'entrepôt', '↩ Return to warehouse')}</p>
-          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, margin: '3px 0 0' }}>{product.name}{product.localName ? ` · ${product.localName}` : ''}</p>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, margin: '3px 0 0' }}>{displayName(product.name)}{product.localName ? ` · ${product.localName}` : ''}</p>
         </div>
         <div style={{ padding: '20px' }}>
           <div style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 20 }}>
@@ -486,7 +486,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
         {/* Product identity */}
         <div style={{ padding: '14px 16px 0' }}>
           <div style={{ fontSize: 17, fontWeight: 800, color: 'var(--fs-ink-900)', lineHeight: 1.2, marginBottom: 2 }}>
-            {product.name}
+            {displayName(product.name)}
           </div>
           {product.localName && (
             <div style={{ fontSize: 12, color: '#999', marginBottom: 3 }}>{product.localName}</div>
@@ -635,7 +635,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
       {confirmDel ? (
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--fs-line)', flexShrink: 0 }}>
           <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-700)', margin: '0 0 10px', lineHeight: 1.4 }}>
-            {t('Supprimer', 'Delete')} <strong>{product.name}</strong>{t(' ?', '?')}<br/>
+            {t('Supprimer', 'Delete')} <strong>{displayName(product.name)}</strong>{t(' ?', '?')}<br/>
             <span style={{ fontWeight: 400, color: 'var(--fs-ink-400)' }}>{t('Cette action est irréversible.', 'This action is irreversible.')}</span>
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -791,7 +791,7 @@ export default function Stocks() {
       const r = await retourEntrepot({ produitId: retourProduct._id, quantite: qty });
       setProducts(prev => prev.map(p => p._id === retourProduct._id ? { ...p, stock: r.stock, stockMagazin: r.stockMagazin } : p));
       setSelected(prev => prev && prev._id === retourProduct._id ? { ...prev, stock: r.stock, stockMagazin: r.stockMagazin } : prev);
-      addToast(t(`↩ ${qty} ${retourProduct.name} retourné(s) à l'entrepôt`, `↩ ${qty} ${retourProduct.name} returned to the warehouse`), 'success');
+      addToast(t(`↩ ${qty} ${displayName(retourProduct.name)} retourné(s) à l'entrepôt`, `↩ ${qty} ${displayName(retourProduct.name)} returned to the warehouse`), 'success');
       setRetourProduct(null);
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : t('Erreur', 'Error'), 'error');
@@ -1128,7 +1128,7 @@ export default function Stocks() {
       const result = await addStockWithMovement(reception._id, qty);
       setProducts(prev => prev.map(p => p._id === reception._id ? { ...p, stock: result.newStock } : p));
       if (selected?._id === reception._id) setSelected(prev => prev ? { ...prev, stock: result.newStock } : null);
-      addToast(`+${qty} — ${reception.name}`, 'success');
+      addToast(`+${qty} — ${displayName(reception.name)}`, 'success');
       setReception(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '';
@@ -1140,7 +1140,7 @@ export default function Stocks() {
           setProducts(prev => prev.map(p => p._id === reception._id ? { ...p, stock: p.stock + qty } : p));
           if (selected?._id === reception._id) setSelected(prev => prev ? { ...prev, stock: prev.stock + qty } : null);
           setReception(null);
-          addToast(t(`📴 Hors connexion — +${qty} ${reception.name} enregistré sur cet ordinateur, envoi automatique au retour du réseau.`, `📴 Offline — +${qty} ${reception.name} saved on this computer, will be sent automatically when the network is back.`), 'warning');
+          addToast(t(`📴 Hors connexion — +${qty} ${displayName(reception.name)} enregistré sur cet ordinateur, envoi automatique au retour du réseau.`, `📴 Offline — +${qty} ${displayName(reception.name)} saved on this computer, will be sent automatically when the network is back.`), 'warning');
         } catch {
           addToast(t('❌ Échec — ajout NON enregistré (stockage local indisponible).', '❌ Failure — addition NOT saved (local storage unavailable).'), 'error');
         }
@@ -1320,7 +1320,7 @@ export default function Stocks() {
                 <div key={d._id} style={{ background: '#fff', border: `1px solid ${d.type === 'envoi' ? '#86efac' : '#bfdbfe'}`, borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: d.type === 'envoi' ? '#15803d' : '#1e40af' }}>{d.produit.name}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: d.type === 'envoi' ? '#15803d' : '#1e40af' }}>{displayName(d.produit.name)}</div>
                       {d.type === 'envoi' && (
                         <span style={{ fontSize: 10, fontWeight: 700, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '1px 7px', color: '#15803d' }}>
                           {t('Envoi direct', 'Direct shipment')}
@@ -1466,7 +1466,7 @@ export default function Stocks() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <div style={{ width: 8, height: 36, borderRadius: 4, background: color, flexShrink: 0 }}/>
                         <div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', marginBottom: 1 }}>{p.name}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', marginBottom: 1 }}>{displayName(p.name)}</div>
                           {p.localName && <div style={{ fontSize: 10, color: '#999', marginBottom: 1 }}>{p.localName}</div>}
                           <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{supplier}</div>
                         </div>

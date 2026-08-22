@@ -21,7 +21,7 @@ import {
 } from '../api/dashboard';
 import { getAllProducts, Product } from '../api/products';
 import { qtyUnitLabel } from '../utils/units';
-import { getBrandColor } from '../utils/text';
+import { getBrandColor, displayName } from '../utils/text';
 import { localISODate, localISOMonth } from '../utils/dates';
 import { t, dateLocale } from '../i18n';
 
@@ -433,7 +433,7 @@ function TopProductRow({ product, rank }: { product: TopProduct; rank: number })
       </span>
       <div className="flex-1 min-w-0">
         <p className="font-semibold text-sm text-gray-800 truncate leading-tight">
-          {product.name}
+          {displayName(product.name)}
         </p>
         {product.category && (
           <p className="text-xs text-gray-400">{product.category}</p>
@@ -464,7 +464,7 @@ function StockAlertCard({ product }: { product: Product }) {
       }`}
     >
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-sm text-gray-800 truncate">{product.name}</p>
+        <p className="font-semibold text-sm text-gray-800 truncate">{displayName(product.name)}</p>
         <p className="text-xs text-gray-500 mt-0.5">
           {t('Seuil :', 'Threshold:')} {product.alertThreshold}
         </p>

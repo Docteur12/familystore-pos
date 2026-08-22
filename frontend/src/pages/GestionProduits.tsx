@@ -13,7 +13,7 @@ import {
 } from '../api/products';
 import QRScanner          from '../components/QRScanner';
 import AutocompleteInput  from '../components/AutocompleteInput';
-import { contientTexte } from '../utils/text';
+import { contientTexte, displayName } from '../utils/text';
 import { matchesStockStatus } from '../utils/stock';
 import { t, dateLocale } from '../i18n';
 
@@ -517,14 +517,14 @@ export default function GestionProduits() {
     const created = await createProduct(payload);
     setProducts(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
     setShowModal(false);
-    flash(t(`Produit "${created.name}" ajouté`, `Product "${created.name}" added`));
+    flash(t(`Produit "${displayName(created.name)}" ajouté`, `Product "${displayName(created.name)}" added`));
   };
 
   const handleSaveExisting = async (id: string, payload: Partial<ProductPayload>) => {
     const updated = await updateProduct(id, payload);
     setProducts(prev => prev.map(p => p._id === id ? updated : p));
     setShowModal(false);
-    flash(t(`Produit "${updated.name}" mis à jour`, `Product "${updated.name}" updated`));
+    flash(t(`Produit "${displayName(updated.name)}" mis à jour`, `Product "${displayName(updated.name)}" updated`));
   };
 
   return (
@@ -629,7 +629,7 @@ export default function GestionProduits() {
                         className={`hover:bg-cream/30 transition-colors
                           ${low ? 'bg-red-50/30' : ''}`}>
                         <td className="px-5 py-3">
-                          <p className="font-semibold text-gray-800">{p.name}</p>
+                          <p className="font-semibold text-gray-800">{displayName(p.name)}</p>
                           {p.localName && <p className="text-xs text-gray-400 italic">{p.localName}</p>}
                           <p className="text-xs text-gray-400">{p.unit}{p.valeur ? ` · ${p.valeur}` : ''}</p>
                         </td>

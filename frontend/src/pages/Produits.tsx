@@ -1,3 +1,4 @@
+import { displayName } from '../utils/text';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createProduct,
@@ -103,11 +104,11 @@ export default function Produits() {
       if (editTarget) {
         const updated = await updateProduct(editTarget._id, form);
         setProducts(prev => prev.map(p => p._id === updated._id ? updated : p));
-        addToast(t(`"${updated.name}" mis à jour`, `"${updated.name}" updated`), 'success');
+        addToast(t(`"${displayName(updated.name)}" mis à jour`, `"${displayName(updated.name)}" updated`), 'success');
       } else {
         const created = await createProduct(form);
         setProducts(prev => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-        addToast(t(`"${created.name}" ajouté au catalogue`, `"${created.name}" added to the catalogue`), 'success');
+        addToast(t(`"${displayName(created.name)}" ajouté au catalogue`, `"${displayName(created.name)}" added to the catalogue`), 'success');
       }
       closeModal();
     } catch (e: any) {
@@ -121,12 +122,12 @@ export default function Produits() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (p: Product) => {
-    if (!window.confirm(t(`Supprimer "${p.name}" définitivement ?`, `Delete "${p.name}" permanently?`))) return;
+    if (!window.confirm(t(`Supprimer "${displayName(p.name)}" définitivement ?`, `Delete "${displayName(p.name)}" permanently?`))) return;
     setDeletingId(p._id);
     try {
       await deleteProduct(p._id);
       setProducts(prev => prev.filter(x => x._id !== p._id));
-      addToast(t(`"${p.name}" supprimé`, `"${p.name}" deleted`), 'success');
+      addToast(t(`"${displayName(p.name)}" supprimé`, `"${displayName(p.name)}" deleted`), 'success');
     } catch (e: any) {
       addToast(e.message ?? t('Erreur suppression', 'Deletion error'), 'error');
     } finally {
@@ -227,7 +228,7 @@ export default function Produits() {
               {displayed.map(p => (
                 <tr key={p._id} className="hover:bg-white transition-colors group">
                   <td className="py-3 pr-4">
-                    <p className="font-semibold text-gray-800 leading-tight">{p.name}</p>
+                    <p className="font-semibold text-gray-800 leading-tight">{displayName(p.name)}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{p.unit}</p>
                   </td>
                   <td className="py-3 pr-4">
@@ -298,7 +299,7 @@ export default function Produits() {
                   {editTarget ? t('Modifier le produit', 'Edit product') : t('Nouveau produit', 'New product')}
                 </p>
                 {editTarget && (
-                  <p className="text-gold text-xs mt-0.5">{editTarget.name}</p>
+                  <p className="text-gold text-xs mt-0.5">{displayName(editTarget.name)}</p>
                 )}
               </div>
               <button

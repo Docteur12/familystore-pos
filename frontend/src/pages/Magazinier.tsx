@@ -4,7 +4,7 @@ import { getAllProducts, createProduct, updateProduct, setProductPrix, getProduc
 import { getTokenPayload } from '../api/dashboard';
 import ToastContainer, { useToast } from '../components/Toast';
 import QRScanner from '../components/QRScanner';
-import { formatProductName, contientTexte } from '../utils/text';
+import { formatProductName, contientTexte, displayName } from '../utils/text';
 import { queueProduitLocal, queueReceptionLocale, getPendingMagazin, syncMagazin, estIdTemporaire } from '../services/offlineMagazin';
 import { useIsMobile }       from '../hooks/useIsMobile';
 import AutocompleteInput     from '../components/AutocompleteInput';
@@ -134,7 +134,7 @@ function EtiqLabelCard({ product, template, selected, onToggle }: {
       <div style={{ height: 3, borderRadius: 2, background: color, marginBottom: 8 }}/>
       <div style={{ paddingRight: 24, marginBottom: 4 }}>
         <div style={{ fontSize: isMini ? 11 : isLarge ? 15 : 12, fontWeight: 700, color: 'var(--fs-ink-900)', lineHeight: 1.3 }}>
-          {product.name}
+          {displayName(product.name)}
         </div>
         {product.localName && (
           <div style={{ fontSize: isMini ? 9 : 10, color: '#999', marginTop: 1, lineHeight: 1.2 }}>
@@ -242,7 +242,7 @@ function ProductSelect({ products, value, onChange, meta }: {
           {filtered.map(p => (
             <button key={p._id} type="button" onMouseDown={() => { onChange(p._id); setOpen(false); }}
               style={{ width: '100%', padding: '7px 12px', border: 'none', background: p._id === value ? 'var(--fs-ivory)' : '#fff', cursor: 'pointer', textAlign: 'left', borderBottom: '1px solid var(--fs-line)', display: 'block' }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{displayName(p.name)}</div>
               {meta && <div style={{ fontSize: 10, color: 'var(--fs-ink-400)' }}>{meta(p)}</div>}
             </button>
           ))}
@@ -444,7 +444,7 @@ export default function Magazinier() {
       const found = await getProductByBarcode(barcode.trim());
       setRow(i, 'productId', found._id);
       // Garde-fou : confirme le produit reconnu (détecte un code-barres mal attribué)
-      addToast(t(`✓ ${found.name} reconnu`, `✓ ${found.name} recognised`), 'success');
+      addToast(t(`✓ ${displayName(found.name)} reconnu`, `✓ ${displayName(found.name)} recognised`), 'success');
     } catch {
       addToast(t('Produit introuvable pour ce code-barres', 'No product found for this barcode'), 'error');
     }
@@ -471,7 +471,7 @@ export default function Magazinier() {
           prixAchat:     found.costPrice ? String(found.costPrice) : '',
           prixVente:     found.price ? String(found.price) : '',
         });
-        addToast(t(`✓ Produit existant trouvé : ${found.name} — vérifiez et complétez`, `✓ Existing product found: ${found.name} — check and complete`), 'success');
+        addToast(t(`✓ Produit existant trouvé : ${displayName(found.name)} — vérifiez et complétez`, `✓ Existing product found: ${displayName(found.name)} — check and complete`), 'success');
       } catch {
         addToast(t('Nouveau code-barres enregistré — remplissez les informations', 'New barcode saved — fill in the details'), 'info' as any);
       }
@@ -480,7 +480,7 @@ export default function Magazinier() {
         const found = await getProductByBarcode(code);
         setRow(scanTarget, 'productId', found._id);
         setRowBarcode(scanTarget, code);
-        addToast(t(`${found.name} sélectionné`, `${found.name} selected`), 'success');
+        addToast(t(`${displayName(found.name)} sélectionné`, `${displayName(found.name)} selected`), 'success');
       } catch {
         addToast(t('Produit introuvable pour ce code-barres', 'No product found for this barcode'), 'error');
       }
@@ -645,7 +645,7 @@ export default function Magazinier() {
         }).join('');
         return `<div class="label">
           <div class="strip" style="background:${col}"></div>
-          <div class="name">${p.name}</div>
+          <div class="name">${displayName(p.name)}</div>
           ${p.localName ? `<div class="lname">${p.localName}</div>` : ''}
           <div class="cat">${p.category ?? ''}</div>
           <div class="bc"><div class="bars">${bars}</div><div class="sku">${sku}</div></div>
@@ -1025,7 +1025,7 @@ export default function Magazinier() {
                             </div>
                             {/* Info produit */}
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', lineHeight: 1.3 }}>{prod.name}</div>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)', lineHeight: 1.3 }}>{displayName(prod.name)}</div>
                               {prod.localName && <div style={{ fontSize: 11, color: '#999', marginTop: 1 }}>{prod.localName}</div>}
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
                                 {prod.category && (
@@ -1371,7 +1371,7 @@ export default function Magazinier() {
                         <tr key={p._id} style={{ borderBottom: '1px solid var(--fs-line)', background: bas ? '#fef9f9' : i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
                           <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--fs-ink-900)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                              {p.name}
+                              {displayName(p.name)}
                               {bas && <span style={{ fontSize: 10, background: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>{t('À commander', 'To reorder')}</span>}
                               {p.category && <span style={{ fontSize: 11, color: 'var(--fs-ink-400)', fontWeight: 400 }}>{p.category}</span>}
                             </div>

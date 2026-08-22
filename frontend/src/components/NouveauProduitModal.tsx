@@ -4,7 +4,7 @@ import { getFournisseurs } from '../api/fournisseurs';
 import { getTokenPayload } from '../api/dashboard';
 import AutocompleteInput from './AutocompleteInput';
 import QRScanner from './QRScanner';
-import { formatProductName } from '../utils/text';
+import { formatProductName, displayName } from '../utils/text';
 import { queueProduitLocal } from '../services/offlineMagazin';
 import { CATEGORY_TREE, normalizeTree } from '../data/categories';
 import { getCategoryTree, addCategory, CategoryTree } from '../api/categories';
@@ -443,7 +443,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
         <div style={{ background: 'var(--fs-wine-700)', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
             <p style={{ fontWeight: 700, color: '#f5ebd9', fontSize: 15, margin: 0 }}>{product ? t('Modifier le produit', 'Edit product') : t('Nouveau produit', 'New product')}</p>
-            <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '2px 0 0' }}>{product ? (product.localName ? `${product.name} · ${product.localName}` : product.name) : t('Remplir le formulaire et enregistrer', 'Fill in the form and save')}</p>
+            <p style={{ color: 'rgba(245,235,217,0.6)', fontSize: 12, margin: '2px 0 0' }}>{product ? (product.localName ? `${displayName(product.name)} · ${displayName(product.localName)}` : displayName(product.name)) : t('Remplir le formulaire et enregistrer', 'Fill in the form and save')}</p>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(245,235,217,0.7)', cursor: 'pointer', display: 'flex' }}>
             <CloseIcon/>

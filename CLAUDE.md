@@ -186,6 +186,14 @@ cache, et impose un nouveau téléchargement de 600 Mo.
 - Messages de commit en français, préfixe conventionnel : `feat(caisse):`,
   `fix(securite):`, `docs(saas):`, `chore(scripts):`, `test(...)`.
 - Commentaires et libellés en français côté Family Store.
+- **Nomenclature des noms de produits** : toute surface qui affiche un nom de
+  produit passe par `displayName()` (frontend, `utils/text.ts`) ou
+  `nomProduit()` (backend, `common/nom-produit.ts`) — écrans, tickets,
+  étiquettes, toasts, PDF et Excel. Sans quoi le nom brut de la base ressort tel
+  quel (« isana paris deospray »), ce que le client relève à chaque livraison.
+  La règle est appliquée à l'affichage, **sans altérer les données** ;
+  `formatProductName()` (même comportement) sert, lui, à la saisie. Les deux
+  implémentations sont des miroirs : modifier l'une impose de modifier l'autre.
 - Les `.env` ne sont jamais versionnés ; `.env.example` sert de gabarit.
 - `backend/scripts/` contient des scripts qui **visent la base de production**
   (ils réécrivent l'URI de `.env` vers `familystore`). Les lire avant de les

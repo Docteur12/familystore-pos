@@ -7,6 +7,7 @@ import { AuditLog, AuditLogDocument } from '../schemas/audit-log.schema';
 import { Settings, SettingsDocument } from '../settings/settings.schema';
 import { User, UserDocument } from '../schemas/user.schema';
 import { StockMovement, StockMovementDocument } from '../schemas/stock-movement.schema';
+import { nomProduit } from '../common/nom-produit';
 
 // ── Types internes ─────────────────────────────────────────────────────────────
 
@@ -216,7 +217,7 @@ export class ReportsService {
       for (const item of sale.items) {
         const it  = item as any;
         const key = String(it.product?._id ?? it.name ?? '?');
-        const nom = it.name ?? it.product?.name ?? '?';
+        const nom = nomProduit(it.name ?? it.product?.name ?? '?');
         if (!byProd[key]) byProd[key] = { nom, ca: 0, quantite: 0 };
         byProd[key].ca       += item.unitPrice * item.quantity;
         byProd[key].quantite += item.quantity;
@@ -363,7 +364,7 @@ export class ReportsService {
       for (const item of sale.items) {
         const it  = item as any;
         const key = String(it.product?._id ?? it.name ?? '?');
-        const nom = it.name ?? it.product?.name ?? '?';
+        const nom = nomProduit(it.name ?? it.product?.name ?? '?');
         if (!byProd[key]) byProd[key] = { nom, ca: 0, quantite: 0 };
         byProd[key].ca       += item.unitPrice * item.quantity;
         byProd[key].quantite += item.quantity;
@@ -571,7 +572,7 @@ export class ReportsService {
         doc.text(hour, COL.h + 4, y + 12);
 
         const arts = sale.items
-          .map(it => `${it.quantity}× ${it.product?.name ?? '?'}`)
+          .map(it => `${it.quantity}× ${nomProduit(it.product?.name ?? '?')}`)
           .join(', ');
         const artsTrunc = arts.length > 44 ? arts.slice(0, 41) + '…' : arts;
         doc.text(artsTrunc, COL.art + 4, y + 12);
@@ -706,7 +707,7 @@ export class ReportsService {
       const heure = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
       const ticket = '#' + sale._id.toString().slice(-6).toUpperCase();
       const articles = sale.items
-        .map((it: any) => `${it.quantity}× ${(it as any).name ?? it.product?.name ?? '?'}`)
+        .map((it: any) => `${it.quantity}× ${nomProduit((it as any).name ?? it.product?.name ?? '?')}`)
         .join(', ');
 
       const row = ws.getRow(4 + i);
@@ -869,7 +870,7 @@ export class ReportsService {
     for (const sale of sales) {
       for (const it of sale.items) {
         const key  = it.product?._id?.toString() ?? (it as any).name ?? 'x';
-        const name = it.product?.name ?? (it as any).name ?? '?';
+        const name = nomProduit(it.product?.name ?? (it as any).name ?? '?');
         if (!topMap[key]) topMap[key] = { name, qty: 0, revenue: 0 };
         topMap[key].qty     += it.quantity;
         topMap[key].revenue += it.unitPrice * it.quantity;
@@ -1016,7 +1017,7 @@ export class ReportsService {
       const detail = sale.items
         .map(it => {
           ben += (it.unitPrice - (it.product?.costPrice ?? 0)) * it.quantity;
-          return `${it.quantity}× ${it.product?.name ?? '?'}`;
+          return `${it.quantity}× ${nomProduit(it.product?.name ?? '?')}`;
         }).join(', ');
       const totalQty = sale.items.reduce((s, it) => s + it.quantity, 0);
 

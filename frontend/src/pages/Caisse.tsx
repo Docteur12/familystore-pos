@@ -23,7 +23,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { storeIdentity } from '../api/settings';
 import { verifierPin } from '../utils/pin';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { formatVolume } from '../utils/text';
+import { formatVolume, displayName } from '../utils/text';
 import { useInactivityTimer } from '../hooks/useInactivityTimer';
 import StoreLogo from '../components/StoreLogo';
 import { t, dateLocale } from '../i18n';
@@ -402,7 +402,7 @@ export default function Caisse() {
       addToCart(prod);
       // Garde-fou : confirme à voix haute le produit ajouté (nom + prix) pour
       // que le caissier détecte tout de suite un code-barres mal attribué.
-      addToast(`✓ ${prod.name} — ${fmtN(effectivePrice(prod))} XAF`, 'success');
+      addToast(`✓ ${displayName(prod.name)} — ${fmtN(effectivePrice(prod))} XAF`, 'success');
     } catch (err: unknown) {
       setScanError(err instanceof Error ? err.message : t('Produit non trouvé', 'Product not found'));
       setSearchQuery(''); // vide le champ pour ne pas concaténer le scan suivant
@@ -415,7 +415,7 @@ export default function Caisse() {
   const handleQRDetected = useCallback((code: string) => {
     setScanError(null); setScanning(true);
     getProductByBarcode(code)
-      .then(prod => { addToCart(prod); addToast(`✓ ${prod.name} — ${fmtN(effectivePrice(prod))} XAF`, 'success'); })
+      .then(prod => { addToCart(prod); addToast(`✓ ${displayName(prod.name)} — ${fmtN(effectivePrice(prod))} XAF`, 'success'); })
       .catch(err => { setScanError(err instanceof Error ? err.message : t('Non trouvé', 'Not found')); playBeep(false); vibrate(150); })
       .finally(() => { setScanning(false); focusScan(); });
   }, [addToCart, focusScan, addToast]);
@@ -685,7 +685,7 @@ export default function Caisse() {
             <div style={{ padding: '18px 22px' }}>
               {ecartModal.items.map((item, i) => (
                 <div key={i} style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, padding: '10px 14px', marginBottom: 8 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1F1A1A', marginBottom: 6 }}>{item.product.name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1F1A1A', marginBottom: 6 }}>{displayName(item.product.name)}</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                     {[
                       { label: t('Stock système', 'System stock'), val: item.stockSysteme,   color: '#DC2626' },
@@ -1898,7 +1898,7 @@ const ProductCard = memo(function ProductCard({
           fontSize: 14, fontWeight: 700, color: 'var(--fs-ink-900)',
           margin: '0 0 1px',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>{product.name}</p>
+        }}>{displayName(product.name)}</p>
         {product.localName && (
           <p style={{ fontSize: 11, color: '#999', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {product.localName}
@@ -1957,7 +1957,7 @@ const ProductListRow = memo(function ProductListRow({
     >
       <div style={{ width: 32, height: 32, borderRadius: 'var(--fs-r-sm)', background: color, flexShrink: 0 }}/>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</p>
+        <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fs-ink-900)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName(product.name)}</p>
         {product.localName && (
           <p style={{ fontSize: 10, color: '#aaa', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.localName}</p>
         )}
@@ -1999,7 +1999,7 @@ const TicketItem = memo(function TicketItem({
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, marginTop: 4, flexShrink: 0, border: '1px solid rgba(0,0,0,0.1)' }}/>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--fs-ink-900)', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {item.product.name}
+            {displayName(item.product.name)}
           </p>
           {item.product.localName && (
             <p style={{ fontSize: 11, color: '#999', margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

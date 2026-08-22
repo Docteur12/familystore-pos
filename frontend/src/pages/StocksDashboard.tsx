@@ -1,3 +1,4 @@
+import { displayName } from '../utils/text';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -64,7 +65,7 @@ export default function StocksDashboard() {
     setDSending(true);
     try {
       await createDemande({ produitId: demandeModal.product._id, quantiteDemandee: qty });
-      addToast(t(`Demande envoyée au magasinier — ${demandeModal.product.name}`, `Request sent to the warehouse — ${demandeModal.product.name}`), 'success');
+      addToast(t(`Demande envoyée au magasinier — ${displayName(demandeModal.product.name)}`, `Request sent to the warehouse — ${displayName(demandeModal.product.name)}`), 'success');
       setDemandeModal(null); setDemandeQty('');
     } catch (e: unknown) {
       addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error');
@@ -121,7 +122,7 @@ export default function StocksDashboard() {
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}
             onClick={e => e.stopPropagation()}>
             <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 6px' }}>{t('Demande au magasinier', 'Warehouse request')}</p>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', margin: '0 0 16px' }}>{demandeModal.product.name}</h3>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', margin: '0 0 16px' }}>{displayName(demandeModal.product.name)}</h3>
             <p style={{ fontSize: 12, color: 'var(--fs-ink-400)', margin: '0 0 14px' }}>
               {t('Stock actuel :', 'Current stock:')} <strong style={{ color: 'var(--fs-danger-700)' }}>{demandeModal.product.stock}</strong>
             </p>
@@ -216,7 +217,7 @@ export default function StocksDashboard() {
                   return (
                     <div key={p._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--fs-ivory)', borderRadius: 9, border: '1px solid var(--fs-line)' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName(p.name)}</div>
                         <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
                           {alertPanel === 'stock'
                             ? t(`Stock : ${p.stock} / Seuil : ${p.alertThreshold}`, `Stock: ${p.stock} / Threshold: ${p.alertThreshold}`)
@@ -302,7 +303,7 @@ export default function StocksDashboard() {
                   <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-wine-700)', width: 18, flexShrink: 0 }}>{i + 1}</span>
                   <div style={{ width: 8, height: 8, borderRadius: '50%', background: catColor(p.category), flexShrink: 0 }}/>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName(p.name)}</div>
                     <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{p.totalQty}{qtyUnitLabel(p.unit) && ` ${qtyUnitLabel(p.unit)}`} · {fmtN(p.totalRevenue)} XAF</div>
                   </div>
                 </div>
@@ -322,7 +323,7 @@ export default function StocksDashboard() {
                 return (
                   <div key={p._id} style={{ padding: '9px 0', borderBottom: i < lowProducts.length - 1 ? '1px solid var(--fs-line)' : 'none' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{p.name}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{displayName(p.name)}</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                         <span style={{ fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: p.stock === 0 ? 'var(--fs-danger-700)' : '#D97706' }}>
                           {p.stock} <span style={{ fontSize: 10, fontWeight: 400 }}>{t('u.', 'u.')}</span>

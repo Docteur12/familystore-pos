@@ -1,3 +1,4 @@
+import { displayName } from '../utils/text';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
@@ -148,7 +149,7 @@ export default function StocksDivers() {
                 <tbody>
                   {groupes.map((g, i) => (
                     <tr key={g.name + i} style={{ background: i % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
-                      <td style={{ padding: '10px 12px', fontWeight: 700, color: 'var(--fs-ink-900)' }}>{g.name}</td>
+                      <td style={{ padding: '10px 12px', fontWeight: 700, color: 'var(--fs-ink-900)' }}>{displayName(g.name)}</td>
                       <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{fmtN(g.dernierPrix)} XAF</td>
                       <td style={{ padding: '10px 12px', textAlign: 'center', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-ink-800)' }}>{g.totalQte}</td>
                       <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)' }}>{fmtN(g.totalMontant)} XAF</td>

@@ -5,7 +5,7 @@ import { getCaisses, CaisseRecord } from '../api/caisses';
 import { getAllProducts, deleteProduct, Product } from '../api/products';
 import NouveauProduitModal from '../components/NouveauProduitModal';
 import { getDemandes, DemandeStock, ajusterStockEntrepot, getAllReceptions, ReceptionFull } from '../api/magazinier';
-import { contientTexte } from '../utils/text';
+import { contientTexte, displayName } from '../utils/text';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { t, dateLocale } from '../i18n';
 
@@ -377,7 +377,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
               </div>
             </div>
             <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 8 }}>
-              <strong>{confirmAdj.product.name}</strong>
+              <strong>{displayName(confirmAdj.product.name)}</strong>
             </p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, background: 'var(--fs-ivory)', borderRadius: 10, padding: '12px 16px', marginBottom: 20 }}>
               <span style={{ fontSize: 22, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-500)' }}>{fmtN(confirmAdj.from)}</span>
@@ -421,7 +421,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
               </div>
             </div>
             <p style={{ fontSize: 13, color: 'var(--fs-ink-700)', lineHeight: 1.6, marginBottom: 20 }}>
-              {t('Le produit', 'The product')} <strong>{deleteTarget.name}</strong> {t("sera définitivement supprimé du catalogue. L'opération sera enregistrée dans le journal d'audit.", 'will be permanently removed from the catalogue. The operation will be recorded in the audit log.')}
+              {t('Le produit', 'The product')} <strong>{displayName(deleteTarget.name)}</strong> {t("sera définitivement supprimé du catalogue. L'opération sera enregistrée dans le journal d'audit.", 'will be permanently removed from the catalogue. The operation will be recorded in the audit log.')}
             </p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setDeleteTarget(null)} style={{ flex: 1, padding: '10px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
@@ -538,7 +538,7 @@ function StockEntrepotView({ products, demandes, onReload }: {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                         <div style={{ width: 8, height: 34, borderRadius: 4, background: color, flexShrink: 0 }}/>
                         <div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{p.name}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{displayName(p.name)}</div>
                           {p.localName && <div style={{ fontSize: 10, color: '#999', marginTop: 1 }}>{p.localName}</div>}
                         </div>
                       </div>

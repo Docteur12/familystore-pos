@@ -13,18 +13,31 @@ const NAME_STOPWORDS = new Set([
   'et', 'ou', 'à', 'au', 'aux', 'en', 'dans', 'par', 'pour', 'sur', 'sous', 'avec', 'sans',
 ]);
 
+// Unités laissées telles quelles : « 30 ml » ne doit pas devenir « 30 Ml ».
+const NAME_UNITS = new Set(['ml', 'cl', 'l', 'g', 'kg', 'mg', 'pcs', 'pc', 'x']);
+
 // Met en forme un nom de produit (convention) :
 //  - chaque mot : 1ʳᵉ lettre en MAJUSCULE, reste en minuscule (BALEA → Balea, deo → Deo)
 //  - sauf les petits mots (le, la, les, de, du, un, une, à, pour…) → minuscule
 //  - mais le 1ᵉʳ mot est toujours capitalisé
 //  - élisions gérées : « d'aloe » → « d'Aloe », « l'urée » → « l'Urée »
+//  - tokens contenant un chiffre (« 30ml », « 5En1», « Q10 ») et unités isolées
+//    (« ml », « L ») laissés intacts
+//
+// C'est LA nomenclature de l'application : elle sert à la saisie (formulaires,
+// payloads) ET à l'affichage via `displayName`, pour que les deux ne divergent
+// jamais. Toute surface qui affiche un nom de produit doit passer par l'une des
+// deux — sinon le nom brut de la base ressort tel quel (« isana paris deospray »).
 export function formatProductName(s: string): string {
   // Capitalise la 1ʳᵉ LETTRE (en ignorant la ponctuation initiale, ex. « (soin » → « (Soin »).
   const cap = (w: string) => (w ? w.toLowerCase().replace(/[a-zà-ÿ]/i, (c) => c.toUpperCase()) : w);
-  return s
+  return (s ?? '')
     .trim()
     .split(/\s+/)
     .map((w, i) => {
+      // Chiffres et unités : intacts (« 500ml », « 5En1 », « 30 », « ml », « L »)
+      if (/\d/.test(w)) return w;
+      if (NAME_UNITS.has(w.toLowerCase())) return w;
       // Élision : article court + apostrophe + mot (d'Aloe, l'Urée, qu'…)
       const el = w.match(/^([A-Za-zÀ-ÿ]{1,2})['’](.+)$/);
       if (el) {
@@ -91,18 +104,15 @@ export function contientTexte(texte: string | undefined | null, recherche: strin
   return sansAccents(texte ?? '').includes(sansAccents(recherche));
 }
 
-// Nom de produit pour AFFICHAGE (rapports, tickets…) : applique la nomenclature
-// sans altérer les données — 1ʳᵉ lettre de chaque mot alphabétique en majuscule,
-// et laisse intacts les tokens contenant des chiffres (« 30ml », « 72 g », « 5en1 »).
-// « vanilla » → « Vanilla » ; « Balea serum vitamin c 30 ml » → « Balea Serum Vitamin C 30 ml ».
-export function displayName(s: string): string {
-  const UNITS = new Set(['ml', 'cl', 'l', 'g', 'kg', 'mg', 'pcs', 'pc']);
-  return (s ?? '')
-    .trim()
-    .split(/\s+/)
-    .map((w) => (/\d/.test(w) || UNITS.has(w.toLowerCase()) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
-    .join(' ');
-}
+// Nom de produit pour AFFICHAGE (écrans, tickets, PDF…) : applique la
+// nomenclature SANS altérer les données en base. C'est exactement la règle de
+// `formatProductName` — un seul comportement, pour que ce qui est affiché
+// corresponde à ce que la saisie aurait produit.
+//
+// « isana paris deospray » → « Isana Paris Deospray »
+// « bain de bouche »       → « Bain de Bouche »   (petit mot conservé)
+// « balea serum 30 ml »    → « Balea Serum 30 ml » (unité conservée)
+export const displayName = formatProductName;
 
 // Met en majuscule la première lettre de CHAQUE mot (Title Case),
 // en laissant le reste tel que saisi (acronymes, unités « 500ml », etc.).

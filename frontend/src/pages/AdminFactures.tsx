@@ -1,3 +1,4 @@
+import { displayName } from '../utils/text';
 import React, { useCallback, useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
@@ -346,7 +347,7 @@ export default function AdminFactures() {
                               <tbody>
                                 {f.items.map((it, idx) => (
                                   <tr key={idx} style={{ borderTop: '1px solid var(--fs-line)', background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)' }}>
-                                    <td style={{ padding: '6px 12px', fontSize: 12, color: 'var(--fs-ink-800)' }}>{it.name}</td>
+                                    <td style={{ padding: '6px 12px', fontSize: 12, color: 'var(--fs-ink-800)' }}>{displayName(it.name)}</td>
                                     <td style={{ padding: '6px 12px', textAlign: 'right', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-600)' }}>×{it.quantity}</td>
                                     <td style={{ padding: '6px 12px', textAlign: 'right', fontSize: 12, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-600)' }}>{fmtN(it.unitPrice)} XAF</td>
                                     <td style={{ padding: '6px 12px', textAlign: 'right', fontSize: 12, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)' }}>{fmtN(it.unitPrice * it.quantity)} XAF</td>

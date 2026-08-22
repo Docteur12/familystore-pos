@@ -1,3 +1,4 @@
+import { displayName } from '../utils/text';
 import React, { useEffect, useRef, useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import StocksSidebar from '../components/StocksSidebar';
@@ -127,7 +128,7 @@ function LabelCard({ product, template, selected, onToggle }: {
 
       <div style={{ paddingRight: 24, marginBottom: 4 }}>
         <div style={{ fontSize: isMini ? 11 : isLarge ? 15 : 12, fontWeight: 700, color: 'var(--fs-ink-900)', lineHeight: 1.3 }}>
-          {product.name}
+          {displayName(product.name)}
         </div>
         {product.localName && (
           <div style={{ fontSize: isMini ? 9 : 10, color: '#999', marginTop: 1, lineHeight: 1.2 }}>
@@ -245,7 +246,7 @@ export default function StocksEtiquettes() {
           return `
             <div class="label">
               <div class="strip" style="background:${col}"></div>
-              <div class="name">${p.name}</div>
+              <div class="name">${displayName(p.name)}</div>
               ${p.localName ? `<div class="lname">${p.localName}</div>` : ''}
               <div class="cat">${p.category ?? ''}</div>
               <div class="bc">

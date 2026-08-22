@@ -2,7 +2,7 @@ import React from 'react';
 import {
   ReceiptData, buildReceiptHTML, doPrint, getPrintSettings, openCashDrawer,
 } from './ReceiptPrint';
-import { formatVolume } from '../utils/text';
+import { formatVolume, displayName } from '../utils/text';
 import { OFFRE_DEFAULTS, StoreIdentity } from '../api/settings';
 import { t, dateLocale } from '../i18n';
 
@@ -93,7 +93,7 @@ export default function Receipt({ data, onNewSale }: Props) {
               return (
                 <div key={i}>
                   <div style={{ fontWeight: 700, fontSize: 16, color: '#111' }}>
-                    {item.name}
+                    {displayName(item.name)}
                     {hasDiscount && (
                       <span style={{ background: '#c0392b', color: '#fff', fontSize: 8, fontWeight: 900, padding: '1px 5px', borderRadius: 3, marginLeft: 4 }}>-{item.discount}%</span>
                     )}

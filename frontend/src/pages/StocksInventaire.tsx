@@ -4,7 +4,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { getAllProducts, Product, updateProduct } from '../api/products';
 import ToastContainer, { useToast } from '../components/Toast';
 import { qtyUnitLabel } from '../utils/units';
-import { getBrandColor } from '../utils/text';
+import { getBrandColor, displayName } from '../utils/text';
 import { useIsMobile } from '../hooks/useIsMobile';
 import OfflineSyncBanner from '../components/OfflineSyncBanner';
 import { queueAjustementStock } from '../services/offlineMagazin';
@@ -268,7 +268,7 @@ export default function StocksInventaire() {
             ${dirtyToShow.map(r => {
               const ecart = parseInt(r.counted) - r.product.stock;
               return `<tr>
-                <td>${r.product.name}</td>
+                <td>${displayName(r.product.name)}</td>
                 <td>${r.product.stock}${qtyUnitLabel(r.product.unit) ? ' ' + qtyUnitLabel(r.product.unit) : ''}</td>
                 <td><b>${r.counted}${qtyUnitLabel(r.product.unit) ? ' ' + qtyUnitLabel(r.product.unit) : ''}</b></td>
                 <td class="${ecart > 0 ? 'diff-pos' : ecart < 0 ? 'diff-neg' : 'diff-0'}">${ecart > 0 ? '+' : ''}${ecart}</td>
@@ -403,7 +403,7 @@ export default function StocksInventaire() {
                       const diff = r.dirty && r.counted !== '' ? parseInt(r.counted) - r.product.stock : null;
                       return (
                         <tr key={r.product._id} style={{ background: r.dirty ? 'var(--fs-gold-50)' : idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)', transition: 'background 0.15s' }}>
-                          <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{r.product.name}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{displayName(r.product.name)}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{r.product.category ?? '—'}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, color: 'var(--fs-ink-400)', textAlign: 'center' }}>{r.product.unit}</td>
                           <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 14, fontWeight: 700, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-700)' }}>{r.product.stock}</td>

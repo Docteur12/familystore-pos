@@ -1,3 +1,4 @@
+import { displayName } from '../utils/text';
 import React, { useCallback, useEffect, useState } from 'react';
 import { getAllProducts, Product } from '../api/products';
 import { t, dateLocale } from '../i18n';
@@ -182,7 +183,7 @@ export default function Alertes() {
                     {/* Name + barcode */}
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-gray-800 text-sm leading-tight truncate">
-                        {p.name}
+                        {displayName(p.name)}
                       </p>
                       {p.localName && (
                         <p className="text-xs text-gray-400 italic truncate mt-0">{p.localName}</p>

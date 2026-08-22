@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Product, effectivePrice } from '../api/products';
+import { displayName } from '../utils/text';
 import { t, dateLocale } from '../i18n';
 
 /**
@@ -94,7 +95,7 @@ export default function ProductTooltip({ product, children, as = 'span', style }
           }}
         >
           <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--fs-ink-900)', marginBottom: 6, lineHeight: 1.3 }}>
-            {product.name}
+            {displayName(product.name)}
             {product.localName && <span style={{ fontWeight: 400, color: 'var(--fs-ink-400)' }}> · {product.localName}</span>}
           </div>
 

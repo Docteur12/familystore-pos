@@ -4,7 +4,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { getAllProducts, Product } from '../api/products';
 import ToastContainer, { useToast } from '../components/Toast';
 import { qtyUnitLabel } from '../utils/units';
-import { getBrandColor } from '../utils/text';
+import { getBrandColor, displayName } from '../utils/text';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { t, dateLocale } from '../i18n';
 
@@ -97,7 +97,7 @@ export default function StocksAlertes() {
   const displayedLow = statusFilter === 'all' ? lowProducts : lowProducts.filter(p => getStatus(p) === statusFilter);
 
   const handleEmailRecap = () => {
-    const lines = lowProducts.map(p => t(`• ${p.name} : stock ${p.stock}/${p.alertThreshold}`, `• ${p.name}: stock ${p.stock}/${p.alertThreshold}`)).join('\n');
+    const lines = lowProducts.map(p => t(`• ${displayName(p.name)} : stock ${p.stock}/${p.alertThreshold}`, `• ${displayName(p.name)}: stock ${p.stock}/${p.alertThreshold}`)).join('\n');
     const mailto = `mailto:?subject=${encodeURIComponent(t(`Recap alertes stock — ${nomMagasin}`, `Stock alerts recap — ${nomMagasin}`))}&body=${encodeURIComponent(`${t('Résumé alertes stock', 'Stock alerts summary')} — ${new Date().toLocaleDateString(dateLocale())}\n\n${lines}`)}`;
     window.open(mailto);
   };
@@ -309,7 +309,7 @@ export default function StocksAlertes() {
                     return (
                       <tr key={p._id} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
                         <td style={{ padding: '10px 12px' }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{displayName(p.name)}</div>
                           {p.localName && <div style={{ fontSize: 11, color: '#999', marginTop: 1 }}>{p.localName}</div>}
                         </td>
                         <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{p.category ?? '—'}</td>
@@ -356,7 +356,7 @@ export default function StocksAlertes() {
                     return (
                       <tr key={p._id} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
                         <td style={{ padding: '10px 12px' }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{displayName(p.name)}</div>
                           {p.localName && <div style={{ fontSize: 11, color: '#999', marginTop: 1 }}>{p.localName}</div>}
                         </td>
                         <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{p.category ?? '—'}</td>
@@ -404,7 +404,7 @@ export default function StocksAlertes() {
                     {suggestions.map(({ p, recommended, urgency }, idx) => (
                       <tr key={p._id} style={{ background: idx % 2 === 0 ? '#fff' : 'var(--fs-ivory)', borderBottom: '1px solid var(--fs-line)' }}>
                         <td style={{ padding: '10px 12px' }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{p.name}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fs-ink-900)' }}>{displayName(p.name)}</div>
                           {p.localName && <div style={{ fontSize: 11, color: '#999', marginTop: 1 }}>{p.localName}</div>}
                         </td>
                         <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{p.category ?? '—'}</td>
