@@ -13,7 +13,7 @@
  *    boutiques, pas seulement celle qu'on consultait.
  */
 import {
-  boutiqueActive, boutiquesConnues, definirJeton, boutiqueDuJeton,
+  boutiqueActive, toutesLesBoutiquesConnues, definirJeton, boutiqueDuJeton,
   purgerBoutique, idbPurgerBoutique, supprimerTousLesJetons, idbLire, jetonDeBoutique,
 } from './storage';
 import { t } from '../i18n';
@@ -55,7 +55,10 @@ export async function filesEnAttente(boutiqueId: string): Promise<FilesEnAttente
  */
 export async function boutiquesBloquees(): Promise<{ boutiqueId: string; total: number }[]> {
   const bloquees: { boutiqueId: string; total: number }[] = [];
-  for (const id of boutiquesConnues()) {
+  // Vue TOUS SUPPORTS : une boutique au jeton expiré n'a plus rien en
+  // localStorage, mais ses ventes dorment encore dans IndexedDB. La chercher
+  // ailleurs reviendrait à ne jamais signaler le cas qui compte.
+  for (const id of await toutesLesBoutiquesConnues()) {
     const { total } = await filesEnAttente(id);
     if (total > 0 && !jetonDeBoutique(id)) bloquees.push({ boutiqueId: id, total });
   }

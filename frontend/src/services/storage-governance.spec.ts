@@ -18,13 +18,17 @@ import * as path from 'node:path';
 
 const SRC = path.resolve(__dirname, '..');
 
-/** La couche elle-même, et les tests, accèdent légitimement au stockage brut. */
-const EXEMPTS = [
-  'services/storage.ts',          // la couche
-  'services/storage.spec.ts',     // vérifie le stockage réel
-  'services/storage-governance.spec.ts',
-  'test/setup.ts',                // remise à zéro entre deux tests
-];
+/**
+ * Seuls exemptés : la couche elle-même et les fichiers de test.
+ *
+ * Les tests arrangent délibérément un état brut — un stockage hérité
+ * d'avant le cloisonnement, un jeton expiré, une IndexedDB en panne — qu'on
+ * ne peut pas fabriquer en passant par la couche. Ils ne partent pas dans le
+ * bundle : aucune caisse n'exécute ce code. La règle reste donc entière là
+ * où elle protège quelque chose, c'est-à-dire dans le code livré.
+ */
+const EXEMPTS = ['services/storage.ts', 'test/setup.ts'];
+const estFichierDeTest = (relatif: string) => /\.spec\.(ts|tsx)$/.test(relatif);
 
 function fichiersSources(dir: string): string[] {
   const out: string[] = [];
@@ -55,7 +59,7 @@ function accesDirects(): Acces[] {
   const trouves: Acces[] = [];
   for (const fichier of fichiersSources(SRC)) {
     const relatif = path.relative(SRC, fichier).replace(/\\/g, '/');
-    if (EXEMPTS.includes(relatif)) continue;
+    if (EXEMPTS.includes(relatif) || estFichierDeTest(relatif)) continue;
     fs.readFileSync(fichier, 'utf8').split('\n').forEach((contenu, i) => {
       if (estAcces(contenu) && !estJustifie(contenu)) {
         trouves.push({ fichier: relatif, ligne: i + 1, contenu: contenu.trim() });

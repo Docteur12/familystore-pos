@@ -1,6 +1,6 @@
 // Stockage cloisonné par boutique : `idbLire`/`idbEcrire` préfixent la clé
 // par la boutique active et LÈVENT s'il n'y en a pas (voir services/storage.ts).
-import { idbLire as get, idbEcrire as set } from './storage';
+import { idbLire as get, idbEcrire as set, exigerBoutiqueActive, boutiqueActive, boutiqueDuJeton, jeton } from './storage';
 import { authHeaders } from '../api/http';
 import type { Product } from '../api/products';
 import { buildReceiptPDF } from '../components/ReceiptPrint';
@@ -29,6 +29,13 @@ export interface PendingSale {
   amountPaid: number;
   createdAt: string;
   idempotencyKey?: string;
+  /**
+   * Boutique où la vente a été encaissée. Estampillée à l'enregistrement et
+   * revérifiée avant l'envoi : la clé de stockage est déjà cloisonnée, ceci
+   * est la SECONDE barrière — une vente ne doit jamais partir avec le jeton
+   * d'une autre boutique (exigence 3 du lot A).
+   */
+  boutiqueId?: string;
 }
 
 // ── Product cache ─────────────────────────────────────────────────────────────
@@ -59,6 +66,7 @@ export async function savePendingSale(
     ...sale,
     id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     createdAt: new Date().toISOString(),
+    boutiqueId: exigerBoutiqueActive("enregistrement d'une vente hors-ligne"),
   });
   await set(KEY_PENDING, pending);
 }
@@ -125,10 +133,26 @@ export async function syncPendingSales(
   const pending = await getPendingSales();
   if (pending.length === 0) return;
 
+  // Boutique du JETON qui va servir, pas celle qu'on croit consulter.
+  const boutiqueDuJetonCourant = boutiqueDuJeton(jeton() ?? '');
+  const boutiqueCourante = boutiqueActive();
+
   let synced = 0;
+  let refusees = 0;
   const remaining: PendingSale[] = [];
 
   for (const sale of pending) {
+    // ── Seconde barrière (exigence 3) ──────────────────────────────────────
+    // La file est déjà cloisonnée par clé ; on revérifie tout de même que la
+    // vente appartient bien à la boutique du jeton. Une divergence signale un
+    // stockage incohérent : on garde la vente plutôt que de l'envoyer au
+    // mauvais magasin, où elle serait irrécupérable.
+    const origine = sale.boutiqueId ?? boutiqueCourante;
+    if (boutiqueDuJetonCourant && origine && origine !== boutiqueDuJetonCourant) {
+      remaining.push(sale);
+      refusees++;
+      continue;
+    }
     try {
       const res = await fetch('/api/sales', {
         method: 'POST',
@@ -167,6 +191,15 @@ export async function syncPendingSales(
 
   if (synced > 0) {
     addToast(t(`${synced} vente(s) synchronisée(s) ✅`, `${synced} sale(s) synced ✅`), 'success');
+  }
+  if (refusees > 0) {
+    addToast(
+      t(
+        `${refusees} vente(s) appartiennent à une autre boutique — reconnectez-vous sur celle-ci pour les envoyer.`,
+        `${refusees} sale(s) belong to another store — sign in to that store to send them.`,
+      ),
+      'error',
+    );
   }
   if (remaining.length > 0) {
     addToast(t(`${remaining.length} vente(s) non synchronisée(s)`, `${remaining.length} sale(s) not synced`), 'error');
