@@ -16,6 +16,7 @@ import { User, UserDocument } from '../schemas/user.schema';
 import { AuditLog, AuditLogDocument } from '../schemas/audit-log.schema';
 import { Settings, SettingsDocument } from '../settings/settings.schema';
 import { runWithTenant } from '../tenancy/tenant-context';
+import { ProvisionnementService } from '../platform/provisionnement.service';
 
 // Hachage bcrypt d'une valeur qui n'est le mot de passe de personne. Sert
 // uniquement à consommer le même temps de calcul quand l'e-mail est inconnu,
@@ -31,6 +32,7 @@ export class AuthService {
     @InjectModel(AuditLog.name) private auditLogModel: Model<AuditLogDocument>,
     @InjectModel(Settings.name) private settingsModel: Model<SettingsDocument>,
     private jwtService: JwtService,
+    private provisionnement: ProvisionnementService,
   ) {}
 
   /**
@@ -68,14 +70,39 @@ export class AuthService {
       throw new UnauthorizedException('Email ou mot de passe incorrect');
     }
 
-    // Les boutiques PROUVÉES par ce couple e-mail/mot de passe. Signée dans le
-    // jeton, cette liste permet ensuite de basculer d'une boutique à l'autre
-    // sans ressaisir le mot de passe : il a déjà été vérifié sur chacune.
-    const boutiques = valides.map(u => String((u as any).tenant));
+    const boutiques = await this.boutiquesAccessibles(emailNormalise, valides);
 
     if (valides.length === 1) return this.emettreJeton(valides[0], boutiques);
 
     return this.proposerChoixBoutique(valides, boutiques);
+  }
+
+  /**
+   * Boutiques accessibles sans ressaisir le mot de passe.
+   *
+   * Source de vérité : le registre plateforme. Si l'e-mail correspond à un
+   * **propriétaire**, ce sont SES boutiques actives — l'appartenance est une
+   * donnée explicite, plus une déduction.
+   *
+   * Repli sur les boutiques prouvées par le mot de passe quand aucun
+   * propriétaire ne porte cet e-mail : c'est le cas de tous les comptes
+   * existants (employés, et les deux magasins d'avant le module plateforme),
+   * dont le comportement ne change pas.
+   *
+   * ⚠️ Conséquence assumée : pour un propriétaire enregistré, une boutique lui
+   * appartenant devient accessible même si le mot de passe de SON compte y
+   * diffère. C'est le sens d'un compte propriétaire — une seule identité
+   * humaine — mais cela élargit la portée d'un mot de passe compromis à
+   * l'ensemble de ses boutiques.
+   */
+  private async boutiquesAccessibles(email: string, valides: UserDocument[]): Promise<string[]> {
+    const prouvees = valides.map(u => String((u as any).tenant));
+    const duRegistre = await this.provisionnement.boutiquesDuProprietaire(email);
+    if (duRegistre.length === 0) return prouvees;
+
+    // Union : les boutiques du registre, plus celles déjà prouvées (une
+    // boutique pas encore inscrite au registre ne doit pas disparaître).
+    return [...new Set([...duRegistre.map(b => String(b.tenantId)), ...prouvees])];
   }
 
   /** Deuxième écran : la liste ne contient QUE les magasins déjà authentifiés. */

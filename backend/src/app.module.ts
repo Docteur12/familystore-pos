@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module';
 import { ProductsModule } from './products/products.module';
 import { SalesModule } from './sales/sales.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { PlatformModule } from './platform/platform.module';
 import { ConsolideModule } from './consolide/consolide.module';
 import { ReportsModule } from './reports/reports.module';
 import { StockModule } from './stock/stock.module';
@@ -42,6 +43,7 @@ import { CategoriesModule } from './categories/categories.module';
         },
       }),
     }),
+    PlatformModule,  // global — proprietaires, boutiques, licences
     TenancyModule,   // global — contexte CLS + interceptor tenant
     // Limite par défaut : 100 requêtes/minute par IP et par route.
     // Les routes de connexion et de synchronisation hors-ligne la
