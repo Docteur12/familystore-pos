@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module';
 import { ProductsModule } from './products/products.module';
 import { SalesModule } from './sales/sales.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { ConsolideModule } from './consolide/consolide.module';
 import { ReportsModule } from './reports/reports.module';
 import { StockModule } from './stock/stock.module';
 import { SettingsModule } from './settings/settings.module';
@@ -52,6 +53,7 @@ import { CategoriesModule } from './categories/categories.module';
     SalesModule,
     ExpensesModule,
     ReportsModule,
+    ConsolideModule,   // rapports multi-boutiques du proprietaire (lecture seule)
     StockModule,
     SettingsModule,
     MagazinierModule,
