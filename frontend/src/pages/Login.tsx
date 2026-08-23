@@ -152,16 +152,27 @@ export default function Login() {
   };
 
   return (
+    /* DÉFILEMENT : `#root` et `body` sont en `overflow: hidden` (index.css) —
+       voulu pour une caisse, où chaque écran gère son propre défilement. Cette
+       page doit donc gérer le sien, sinon tout ce qui dépasse est perdu.
+
+       Et l'on centre par `margin: auto` sur l'enfant, PAS par
+       `align-items: center` : avec un contenu plus haut que l'écran, le
+       centrage par alignement fait déborder des deux côtés et rend le haut
+       comme le bas inatteignables au défilement. Constaté sur l'écran
+       « quelle boutique ? » d'un propriétaire à trois boutiques, dont le
+       lien « Retour à la connexion » restait hors d'atteinte. */
     <div style={{
-      minHeight: '100vh',
+      height: '100vh',
+      overflowY: 'auto',
       background: 'var(--fs-ivory)',
       display: 'flex',
-      alignItems: 'center',
       justifyContent: 'center',
       padding: '24px 16px',
       fontFamily: 'var(--fs-font-sans)',
+      boxSizing: 'border-box',
     }}>
-      <div style={{ width: '100%', maxWidth: 380 }}>
+      <div style={{ width: '100%', maxWidth: 380, margin: 'auto' }}>
 
         {/* ── Logo block ── */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
