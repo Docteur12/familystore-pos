@@ -9,7 +9,13 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # `integration/cameleon` est validée en continu, au même titre que `main`.
+    # Sans cette ligne, une branche d'intégration ne passait la CI qu'au
+    # moment d'ouvrir une pull request vers `main` — c'est-à-dire au pire
+    # moment : plusieurs lots accumulés, et le chantier déjà à un clic du
+    # déploiement. Une branche qui reçoit des semaines de travail doit dire
+    # tout de suite si elle est verte.
+    branches: [main, integration/cameleon]
   pull_request:
 
 jobs:
