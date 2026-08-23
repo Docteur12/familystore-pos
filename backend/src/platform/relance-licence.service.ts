@@ -54,7 +54,10 @@ export class RelanceLicenceService implements OnModuleInit {
   onModuleInit(): void {
     if (process.env.NODE_ENV === 'test') return;   // pas de minuterie sous test
     const passage = () => this.relancer().catch(e => this.logger.error(e.message));
-    setTimeout(passage, 30_000);                   // laisse l'application démarrer
+    // `unref` sur les DEUX minuteries : un script qui ouvre le contexte
+    // applicatif (seed, migration) doit pouvoir se terminer sans être retenu
+    // par une tâche de fond, ni la voir s'exécuter sur une base déjà fermée.
+    setTimeout(passage, 30_000).unref?.();         // laisse l'application démarrer
     setInterval(passage, 6 * 60 * 60 * 1000).unref?.();
   }
 

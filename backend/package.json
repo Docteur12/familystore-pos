@@ -16,7 +16,10 @@
     "migrate:pin:rollback": "ts-node -r tsconfig-paths/register scripts/migrate-pin-rollback.ts",
     "migrate:settings:rollback": "ts-node -r tsconfig-paths/register scripts/migrate-settings-rollback.ts",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "seed:demo": "ts-node -r tsconfig-paths/register scripts/seed-demo.ts",
+    "demo:mongo": "node scripts/demo-mongo.js",
+    "demo:api": "node scripts/demo-api.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

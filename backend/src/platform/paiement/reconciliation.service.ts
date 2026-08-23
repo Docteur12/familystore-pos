@@ -50,7 +50,9 @@ export class ReconciliationService implements OnModuleInit {
   onModuleInit(): void {
     if (process.env.NODE_ENV === 'test') return;   // pas de minuterie sous test
     const passage = () => this.reconcilier().catch(e => this.logger.error(e.message));
-    setTimeout(passage, 15_000);
+    // unref : voir RelanceLicenceService — ne pas retenir un script qui
+    // n'a ouvert le contexte que pour écrire des données.
+    setTimeout(passage, 15_000).unref?.();
     setInterval(passage, 30_000).unref?.();
   }
 
