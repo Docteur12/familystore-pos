@@ -43,6 +43,8 @@ const D = {
   menu:         'M3 6h18M3 12h18M3 18h18',
   close:        'M18 6L6 18M6 6l12 12',
   manuel:       'M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15zM9 7h6M9 11h6',
+  // Imprimante — page « Installer un poste de caisse »
+  posteCaisse:  'M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z',
   caisseSpace:  'M2 7h20v10H2zM2 11h20M6 15h4',
   stockSpace:   'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10',
   magSpace:     'M1 3h15v13H1zM16 8h4l3 3v5h-7V8z',
@@ -86,6 +88,7 @@ const SECTIONS: NavSection[] = [
     items: [
       { id: 'caisses',      label: t('Caisses', 'Cash registers'),            icon: D.caisses,      path: '/admin/caisses'    },
       { id: 'parametres',   label: t('Paramètres magasin', 'Store settings'), icon: D.parametres,   path: '/admin/parametres' },
+      { id: 'poste-caisse', label: t('Installer un poste', 'Set up a station'), icon: D.posteCaisse, path: '/admin/poste-caisse' },
       { id: 'audit',        label: t('Audit & logs', 'Audit & logs'),       icon: D.audit,        path: '/admin/audit'      },
       { id: 'exports',      label: t('Exports', 'Exports'),            icon: D.exports,      path: '/admin/exports'    },
       // Manuel d'utilisation (PDF servi par l'app) — s'ouvre dans un nouvel onglet

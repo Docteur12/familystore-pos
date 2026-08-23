@@ -327,16 +327,17 @@ export function buildReceiptPDF(data: ReceiptData): string {
   return doc.output('datauristring').split(',')[1] ?? '';
 }
 
-// Ouverture tiroir-caisse via ESC/POS (navigator.serial — nécessite HTTPS + autorisation)
-export async function openCashDrawer() {
-  if (!('serial' in navigator)) return;
-  try {
-    const port = await (navigator as any).serial.requestPort();
-    await port.open({ baudRate: 9600 });
-    const writer = port.writable.getWriter();
-    // ESC p 0 25 250
-    await writer.write(new Uint8Array([0x1b, 0x70, 0x00, 0x19, 0xfa]));
-    writer.releaseLock();
-    await port.close();
-  } catch { /* annulé ou non supporté */ }
-}
+// TIROIR-CAISSE — volontairement absent d'ici, et à ne pas réintroduire.
+//
+// Une version précédente tentait l'ouverture par Web Serial
+// (`navigator.serial`). Ça ne pouvait pas marcher : l'imprimante de tickets
+// est un périphérique d'IMPRESSION Windows, pas un port série — elle
+// n'apparaît jamais dans la liste proposée. Éprouvé chez Radiance le
+// 22/08/2026 : depuis la caisse l'appel échouait en silence, et depuis le
+// bouton du reçu il ouvrait au caissier un sélecteur de port VIDE à chaque
+// ticket.
+//
+// L'ouverture se fait désormais côté poste, par le script
+// `public/outils/tiroir-caisse.ps1` : une tâche Windows écoute l'impression
+// et envoie l'impulsion ESC/POS au connecteur DK. Voir la page
+// « Installer un poste de caisse » (`pages/AdminPosteCaisse.tsx`).

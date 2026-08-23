@@ -20,7 +20,7 @@ import {
 } from '../services/offlineSync';
 import QRScanner from '../components/QRScanner';
 import Receipt, { ReceiptData } from '../components/Receipt';
-import { buildReceiptHTML, buildReceiptPDF, doPrint, getPrintSettings, openCashDrawer } from '../components/ReceiptPrint';
+import { buildReceiptHTML, buildReceiptPDF, doPrint, getPrintSettings } from '../components/ReceiptPrint';
 import { saveFacture } from '../api/factures';
 import { useSettings } from '../contexts/SettingsContext';
 import { storeIdentity } from '../api/settings';
@@ -554,7 +554,10 @@ export default function Caisse() {
         setReceiptData(newData); setCart([]); setAmountPaid(''); setPaymentMethod('cash'); setOffrePct(0); setOffreFcfa(0);
         setSessionSales(n => n + 1);
         if (attempt > 0) addToast(t('Vente enregistrée ✅', 'Sale recorded ✅'), 'success');
-        const ps = getPrintSettings(); if (ps.auto) { doPrint(buildReceiptHTML(newData), ps.copies); if (paymentMethod === 'cash') openCashDrawer(); }
+        // Le tiroir s'ouvre depuis le poste, à l'impression du ticket (tâche
+        // Windows posée par public/outils/tiroir-caisse.ps1) — plus rien à
+        // déclencher ici.
+        const ps = getPrintSettings(); if (ps.auto) doPrint(buildReceiptHTML(newData), ps.copies);
         for (const a of result.alerts) addToast(a.stock === 0 ? t(`Rupture — ${a.productName}`, `Out of stock — ${a.productName}`) : t(`Stock bas — ${a.productName} : ${a.stock} restant(s)`, `Low stock — ${a.productName}: ${a.stock} left`), 'warning');
       } catch (err: unknown) {
         const kind = err instanceof SaleError ? err.kind : 'unknown';

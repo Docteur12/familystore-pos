@@ -1,0 +1,70 @@
+IMPRIMANTE DE TICKETS + TIROIR-CAISSE
+=====================================
+
+1. Extraire ce dossier sur le Bureau. Les DEUX fichiers .ps1 doivent rester
+   ensemble dans le meme dossier.
+
+2. Menu Demarrer, taper : powershell
+   Clic DROIT sur "Windows PowerShell", puis
+   "Executer en tant qu'administrateur".
+
+3. Coller cette ligne, en remplacant VOTRENOM par le nom d'utilisateur
+   Windows du poste :
+
+   powershell -ExecutionPolicy Bypass -File "C:\Users\VOTRENOM\Desktop\imprimante-caisse\installer-imprimante-ticket.ps1"
+
+4. Lire ce qui s'affiche. Tout doit etre marque [OK].
+   Le tiroir doit claquer a la fin : c'est l'impulsion de controle.
+
+5. Imprimer un ticket depuis la caisse.
+   Le tiroir s'ouvre environ 3 secondes apres le ticket.
+
+
+CE QUE LE SCRIPT FAIT
+---------------------
+  - verifie que l'imprimante Epson est branchee et allumee
+  - verifie que le pilote Epson est installe
+  - choisit le BON port (ESDPRT, celui du pilote Epson) et non le port USB
+    generique de Windows, sur lequel les tickets restent bloques en file
+  - cree la file d'impression, ou la repare si elle vise le mauvais port
+  - installe une tache qui ouvre le tiroir a chaque ticket imprime
+
+Il ne modifie rien tant que tout n'est pas reuni, et peut etre relance
+autant de fois que necessaire sans risque.
+
+
+SI LE TIROIR NE BOUGE PAS
+-------------------------
+  - le cable RJ11 doit etre branche sur la prise DK de l'imprimante,
+    pas sur le PC
+  - la cle du tiroir doit etre en position deverrouillee
+  - l'imprimante doit etre sur son alimentation d'origine : c'est elle qui
+    fournit le 24 V au tiroir
+  - si tout cela est bon, le tiroir est peut-etre cable sur la broche 5.
+    Relancer alors, toujours en administrateur :
+
+    powershell -ExecutionPolicy Bypass -File "C:\Users\VOTRENOM\Desktop\imprimante-caisse\tiroir-caisse.ps1" -Installer -Broche 5
+
+
+SI LE SCRIPT DIT QUE LE PILOTE EST ABSENT
+-----------------------------------------
+  Le script affiche alors le MODELE EXACT a chercher (par exemple
+  TM-T20IV) et ouvre le site Epson tout seul. Choisir
+  "EPSON Advanced Printer Driver 6", version Europe/Middle East/Africa.
+  L'installer, puis reprendre a l'etape 3.
+
+  Le script ne telecharge pas le pilote a votre place, et c'est voulu :
+  Epson exige une acceptation de licence, et ses adresses de
+  telechargement changent a chaque version. Un lien fige dans le script
+  finirait par ne plus repondre, sans prevenir.
+
+  SI VOUS EQUIPEZ PLUSIEURS POSTES
+  Posez le fichier telecharge (par exemple APD_612_T20IV_FULL_WM.zip)
+  dans le meme dossier que les deux scripts. Le script le repere et
+  l'ouvre automatiquement : les postes suivants n'ont plus besoin
+  d'Internet.
+
+
+POUR VERIFIER LE TIROIR SEUL, SANS RIEN INSTALLER
+-------------------------------------------------
+  powershell -ExecutionPolicy Bypass -File "C:\Users\VOTRENOM\Desktop\imprimante-caisse\tiroir-caisse.ps1" -Test

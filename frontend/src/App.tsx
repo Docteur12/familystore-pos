@@ -29,6 +29,7 @@ import AdminEquipe       from './pages/AdminEquipe';
 import AdminRapports     from './pages/AdminRapports';
 import AdminJournal      from './pages/AdminJournal';
 import AdminParametres   from './pages/AdminParametres';
+import AdminPosteCaisse  from './pages/AdminPosteCaisse';
 import AdminComptabilite from './pages/AdminComptabilite';
 import AdminRoles        from './pages/AdminRoles';
 import AdminAudit        from './pages/AdminAudit';
@@ -182,6 +183,7 @@ export default function App() {
         <Route path="/admin/rapports"      element={<RequireAuthBare><AdminRapports /></RequireAuthBare>} />
         <Route path="/admin/journal"       element={<RequireAuthBare><AdminJournal /></RequireAuthBare>} />
         <Route path="/admin/parametres"    element={<RequireAuthBare><AdminParametres /></RequireAuthBare>} />
+        <Route path="/admin/poste-caisse"  element={<RequireAuthBare><AdminPosteCaisse /></RequireAuthBare>} />
         <Route path="/admin/comptabilite"  element={<RequireAuthBare><AdminComptabilite /></RequireAuthBare>} />
         <Route path="/admin/roles"         element={<RequireAuthBare><AdminRoles /></RequireAuthBare>} />
         <Route path="/admin/audit"         element={<RequireAuthBare><AdminAudit /></RequireAuthBare>} />
