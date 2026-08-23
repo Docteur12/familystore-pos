@@ -25,8 +25,16 @@ export interface DemandeBoutique {
   ville?: string;
   /** Propriétaire : rattachement à un existant, ou création à la volée. */
   proprietaire: { email: string; nom?: string; telephone?: string };
-  /** Compte patron créé dans la nouvelle boutique. */
-  patron: { nom: string; email: string; motDePasse: string };
+  /**
+   * Compte patron créé dans la nouvelle boutique.
+   *
+   * `motDePasseHash` est l'entrée du parcours payant : la boutique n'existant
+   * qu'après confirmation du paiement, le mot de passe attend dans le
+   * document `Paiement` — et il y attend HACHÉ. On accepte donc un hachage
+   * déjà calculé, pour ne jamais avoir à conserver le mot de passe en clair
+   * pendant l'attente.
+   */
+  patron: { nom: string; email: string; motDePasse?: string; motDePasseHash?: string };
 }
 
 /**
@@ -166,7 +174,8 @@ export class ProvisionnementService {
    */
   async creerBoutique(demande: DemandeBoutique) {
     if (!demande?.nom?.trim()) throw new BadRequestException('Le nom de la boutique est obligatoire');
-    if (!demande?.patron?.motDePasse || demande.patron.motDePasse.length < 6) {
+    const dejaHache = !!demande?.patron?.motDePasseHash;
+    if (!dejaHache && (!demande?.patron?.motDePasse || demande.patron.motDePasse.length < 6)) {
       throw new BadRequestException('Le mot de passe du patron doit compter au moins 6 caractères');
     }
 
@@ -188,7 +197,7 @@ export class ProvisionnementService {
       await this.userModel.create({
         name: demande.patron.nom.trim(),
         email: demande.patron.email.toLowerCase().trim(),
-        password: await bcrypt.hash(demande.patron.motDePasse, 10),
+        password: demande.patron.motDePasseHash ?? await bcrypt.hash(demande.patron.motDePasse!, 10),
         role: 'patron',
       });
     });

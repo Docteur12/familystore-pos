@@ -120,6 +120,23 @@ export default function SelecteurBoutique({ compact = false }: { compact?: boole
               {b.nom}{b.boutiqueId === active ? ` — ${t('actuelle', 'current')}` : ''}
             </button>
           ))}
+
+          {/* Ajouter une boutique — séparé du reste par un trait : c'est une
+              action, pas une destination, et la confondre avec une bascule
+              ferait quitter la caisse en cours par mégarde. */}
+          <a
+            href="/admin/boutique/nouvelle"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 12px', textDecoration: 'none',
+              borderTop: '1px solid var(--fs-line-2)',
+              background: 'var(--fs-ivory)', color: 'var(--fs-wine-700)',
+              fontSize: 13, fontWeight: 700,
+            }}
+          >
+            <span style={{ fontSize: 15, lineHeight: 1 }}>+</span>
+            {t('Ajouter une boutique', 'Add a store')}
+          </a>
         </div>
       )}
     </div>

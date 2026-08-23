@@ -11,6 +11,14 @@ import { AuthModule } from '../auth/auth.module';
 import { Proprietaire, ProprietaireSchema } from './schemas/proprietaire.schema';
 import { Boutique, BoutiqueSchema } from './schemas/boutique.schema';
 import { Licence, LicenceSchema } from './schemas/licence.schema';
+import { Paiement, PaiementSchema } from './paiement/paiement.schema';
+import { PaiementService } from './paiement/paiement.service';
+import { PaiementController } from './paiement/paiement.controller';
+import { ReconciliationService } from './paiement/reconciliation.service';
+import { PaiementSimuleProvider } from './paiement/paiement-simule.provider';
+import { MyCoolPayProvider } from './paiement/mycoolpay.provider';
+import { PAYMENT_PROVIDER } from './paiement/payment-provider';
+import { choisirPrestataire } from './paiement/choisir-prestataire';
 import { User, UserSchema } from '../schemas/user.schema';
 import { Settings, SettingsSchema } from '../settings/settings.schema';
 
@@ -28,20 +36,39 @@ import { Settings, SettingsSchema } from '../settings/settings.schema';
       { name: Proprietaire.name, schema: ProprietaireSchema },
       { name: Boutique.name,     schema: BoutiqueSchema },
       { name: Licence.name,      schema: LicenceSchema },
+      { name: Paiement.name,     schema: PaiementSchema },
       { name: User.name,         schema: UserSchema },
       { name: Settings.name,     schema: SettingsSchema },
     ]),
     AuthModule,
     MailModule,
   ],
-  controllers: [PlatformController, LicenceController],
+  controllers: [PlatformController, LicenceController, PaiementController],
   providers: [
     ProvisionnementService,
     RelanceLicenceService,
+    PaiementService,
+    ReconciliationService,
+    // Prestataire de paiement, choisi par PAIEMENT_FOURNISSEUR. Le mode
+    // simulé est REFUSÉ en production (le démarrage échoue) : il confirme
+    // les paiements sans encaissement, et une variable oubliée sur Render
+    // rendrait les licences gratuites sans que rien ne le signale.
+    PaiementSimuleProvider,
+    MyCoolPayProvider,
+    {
+      provide: PAYMENT_PROVIDER,
+      inject: [PaiementSimuleProvider, MyCoolPayProvider],
+      useFactory: (simule: PaiementSimuleProvider, mycoolpay: MyCoolPayProvider) =>
+        choisirPrestataire({ simule, mycoolpay }),
+    },
     // Licence expirée → lecture seule. Intercepteur et non garde : une garde
     // globale s'exécuterait avant l'AuthGuard, sans req.user donc sans boutique.
     { provide: APP_INTERCEPTOR, useClass: LicenceInterceptor },
   ],
-  exports: [ProvisionnementService, RelanceLicenceService, MongooseModule],
+  exports: [
+    ProvisionnementService, RelanceLicenceService,
+    PaiementService, ReconciliationService, PaiementSimuleProvider,
+    MongooseModule,
+  ],
 })
 export class PlatformModule {}

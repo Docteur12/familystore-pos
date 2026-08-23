@@ -83,6 +83,11 @@ export class LicenceInterceptor implements NestInterceptor {
     // Back-office : c'est par là que passe la prolongation.
     if (chemin.startsWith('/api/platform/')) return true;
 
+    // Paiements. Sans cette ligne, le blocage empêcherait son propre
+    // déblocage : un commerçant dont la licence a expiré ne pourrait plus
+    // ouvrir le paiement qui la renouvelle.
+    if (chemin.startsWith('/api/paiements')) return true;
+
     // Fermeture d'une session de caisse déjà ouverte.
     if (req.method === 'PATCH' && /^\/api\/sessions\/[^/]+\/close$/.test(chemin)) return true;
 

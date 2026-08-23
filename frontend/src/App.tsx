@@ -30,6 +30,7 @@ import AdminRapports     from './pages/AdminRapports';
 import AdminJournal      from './pages/AdminJournal';
 import AdminParametres   from './pages/AdminParametres';
 import AdminPosteCaisse  from './pages/AdminPosteCaisse';
+import AdminNouvelleBoutique from './pages/AdminNouvelleBoutique';
 import AdminComptabilite from './pages/AdminComptabilite';
 import AdminRoles        from './pages/AdminRoles';
 import AdminAudit        from './pages/AdminAudit';
@@ -192,6 +193,7 @@ export default function App() {
         <Route path="/admin/sessions"      element={<RequireAuthBare><AdminSessions /></RequireAuthBare>} />
         <Route path="/admin/magaziniers"   element={<RequireAuthBare><AdminMagaziniers /></RequireAuthBare>} />
         <Route path="/admin/consolide"     element={<RequireRole role={['patron']}><RapportConsolide /></RequireRole>} />
+        <Route path="/admin/boutique/nouvelle" element={<RequireRole role={['patron']}><AdminNouvelleBoutique /></RequireRole>} />
         <Route path="/admin/partenaires"   element={<RequireModule id="partenaires"><RequireAuthBare><AdminPartenaires /></RequireAuthBare></RequireModule>} />
         <Route path="/admin/fournisseurs"  element={<RequireAuthBare><AdminFournisseurs /></RequireAuthBare>} />
         <Route path="/admin/caisses"       element={<RequireAuthBare><AdminCaisses /></RequireAuthBare>} />

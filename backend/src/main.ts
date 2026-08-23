@@ -24,7 +24,19 @@ async function bootstrap() {
   const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 2);
   app.getHttpAdapter().getInstance().set('trust proxy', trustProxyHops);
 
-  app.use(json({ limit: '10mb' }));
+  // Corps BRUT conservé pour le seul webhook de paiement : une signature se
+  // calcule sur les octets reçus, et JSON.parse suivi de JSON.stringify ne
+  // les restitue pas à l'identique (ordre des clés, espaces, échappements).
+  // Restreint à cette route pour ne pas garder une copie de chaque corps —
+  // la limite est à 10 Mo.
+  app.use(json({
+    limit: '10mb',
+    verify: (req: any, _res, buf: Buffer) => {
+      if (typeof req.url === 'string' && req.url.startsWith('/api/paiements/webhook')) {
+        req.rawBody = Buffer.from(buf);
+      }
+    },
+  }));
   app.use(urlencoded({ extended: true, limit: '10mb' }));
   // CORS restreint aux origines connues (phase 3 — sécurisation). Nécessaire :
   // le site Radiance appelle ce type de backend en direct (VITE_API_BASE),
