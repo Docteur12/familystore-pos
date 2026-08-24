@@ -281,6 +281,27 @@ en cache dans `backend/node_modules/.cache/mongodb-memory-server/`.
 Ne jamais lancer `npm ci` sans y penser : il efface `node_modules`, donc ce
 cache, et impose un nouveau téléchargement de 600 Mo.
 
+En CI, ce piège ne se manifeste pas : le workflow pose `MONGOMS_DOWNLOAD_DIR`
+et met le binaire en cache. Au premier passage sans cache, le téléchargement
+observé était de **82 Mo en 16 s**, pas 600 Mo — le chiffre ci-dessus vaut
+pour un poste local.
+
+### Point de surveillance — avertissement Jest en fin de suite
+
+Depuis le 24/08/2026, la suite backend se termine par :
+
+> A worker process has failed to exit gracefully… Active timers can also
+> cause this, ensure that `.unref()` was called on them.
+
+**Les 204 tests passent** ; l'avertissement n'en fait échouer aucun, et la
+cause n'a pas été cherchée. C'est un choix : diagnostiquer une fuite de
+handle coûte plus que ce qu'elle gêne aujourd'hui.
+
+À rouvrir **si la CI ralentit** ou si la suite se met à dépasser son délai —
+ce sera le premier endroit où regarder. Piste de départ : `--detectOpenHandles`,
+et les suites qui démarrent l'application réelle (`test/platform/*.e2e`), dont
+les minuteries de relance et de réconciliation sont pourtant en `unref`.
+
 ## Conventions
 
 - Messages de commit en français, préfixe conventionnel : `feat(caisse):`,

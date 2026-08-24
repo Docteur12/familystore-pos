@@ -12,9 +12,17 @@ export interface OffreFacture {
   salutation: string;
 }
 
+/**
+ * Pied de ticket VIDE par défaut — miroir du défaut serveur
+ * (`settings.schema.ts`).
+ *
+ * Il portait le nom « Family Store » et une remise de 5 %. Une boutique
+ * neuve les aurait imprimés sur ses reçus sans les avoir décidés : une
+ * promesse commerciale faite en son nom. Un pied vide ne gêne personne.
+ */
 export const OFFRE_DEFAULTS: OffreFacture = {
   titre:      '',
-  message:    'Pour vous remercier, *Family Store vous offre 5 %* de réduction sur votre prochain achat. Présentez simplement cette facture à la caisse pour bénéficier de cette offre.',
+  message:    '',
   validite:   '',
   cta:        '',
   salutation: '',
@@ -28,6 +36,8 @@ export interface StoreSettings {
   email: string;
   devise: string;
   logoUrl: string;
+  /** Manuel d utilisation de la boutique (PDF). Vide = pas d entree de menu. */
+  manuelUrl: string;
   horaires: { ouverture: string; fermeture: string };
   reseauxSociaux: { facebook: string; whatsapp: string };
   langue: string;
@@ -67,13 +77,16 @@ export function moduleActif(settings: Pick<StoreSettings, 'modules'>, id: Module
 export const METIER_DEFAULTS = { inactiviteMinutes: 10, seedFournisseursDemo: true };
 
 export const SETTINGS_DEFAULTS: StoreSettings = {
-  nomMagasin: 'Family Store',
+  // Vide : le nom réel arrive avec les paramètres de la boutique. L'interface
+  // retombe sur « Caméléon » via nomEnseigne(), les tickets sur rien.
+  nomMagasin: '',
   adresse: '',
   ville: 'Douala',
   telephone: '',
   email: '',
   devise: 'XAF',
   logoUrl: '',
+  manuelUrl: '',
   horaires: { ouverture: '08:00', fermeture: '20:00' },
   reseauxSociaux: { facebook: '', whatsapp: '' },
   langue: 'fr',
@@ -175,7 +188,9 @@ export function storeIdentity(s: StoreSettings): StoreIdentity {
   const adresse = a && v && !a.toLowerCase().includes(v.toLowerCase()) ? `${a} – ${v}` : (a || v);
   const tels = (s.telephonesTicket ?? []).map(x => (x ?? '').trim()).filter(Boolean);
   return {
-    nom:             (s.nomMagasin || '').trim() || 'Family Store',
+    // Vide plutôt qu'une enseigne : c'est cette valeur qui s'imprime en tête
+    // du ticket remis au client. Voir STORE_FALLBACK dans ReceiptPrint.tsx.
+    nom:             (s.nomMagasin || '').trim(),
     signature:       (s.signatureTicket ?? '').trim(),
     slogan:          (s.slogan ?? '').trim(),
     mentionsLegales: (s.mentionsLegales ?? '').trim(),

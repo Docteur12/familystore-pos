@@ -4,6 +4,7 @@ import type { Transporter } from 'nodemailer';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Settings, SettingsDocument } from '../settings/settings.schema';
+import { nomApplication, MARQUE_PRODUIT } from '../config/marque';
 
 @Injectable()
 export class MailService {
@@ -20,12 +21,13 @@ export class MailService {
     });
   }
 
-  // Nom d'application affiché dans les e-mails : « <nom du magasin> POS ».
+  // Nom d'application affiché dans les e-mails : « <nom du magasin> POS »,
+  // et « Caméléon » quand la boutique n'est pas connue — voir config/marque.
   private async appName(): Promise<string> {
     try {
       const s = await this.settingsModel.findOne().lean();
-      return `${((s as any)?.nomMagasin || 'Family Store').trim()} POS`;
-    } catch { return 'Family Store POS'; }
+      return nomApplication((s as any)?.nomMagasin);
+    } catch { return MARQUE_PRODUIT; }
   }
 
   /**

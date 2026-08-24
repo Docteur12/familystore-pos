@@ -102,7 +102,7 @@ function CreatePanel({ isNarrow, onCreated, onCancel }: { isNarrow: boolean; onC
         <Field label={t('Nom *', 'Name *')} value={form.name} onChange={v => set('name', v)} placeholder={t('ex : Gérant partenaires', 'e.g. Partners manager')}/>
         <Field label={t('Téléphone', 'Phone')} value={form.phone} onChange={v => set('phone', v)} placeholder="6XX XX XX XX"/>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Connexion', 'Login')}</p>
-        <Field label={t('Email (identifiant) *', 'Email (login) *')} value={form.email} onChange={v => set('email', v)} type="email" placeholder="partenaires@familystore.cm"/>
+        <Field label={t('Email (identifiant) *', 'Email (login) *')} value={form.email} onChange={v => set('email', v)} type="email" placeholder="partenaires@exemple.cm"/>
         <div>
           <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{t('Mot de passe *', 'Password *')}</label>
           <div style={{ position: 'relative' }}>

@@ -1,4 +1,5 @@
 import { deconnexion } from '../services/session';
+import { nomEnseigne } from '../config/marque';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
@@ -73,7 +74,7 @@ function PadBtn({ label, onClick, size = 58 }: { label: React.ReactNode; onClick
 
 export default function CaissePin() {
   const { settings } = useSettings();
-  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const nomMagasin = nomEnseigne(settings.nomMagasin);
   const sousTitre  = [settings.signatureTicket, settings.slogan].map(x => (x ?? '').trim()).filter(Boolean).join(' — ');
   const navigate  = useNavigate();
   const payload   = getTokenPayload();

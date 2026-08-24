@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { nomEnseigne } from '../config/marque';
 import StocksSidebar from '../components/StocksSidebar';
 import { useSettings } from '../contexts/SettingsContext';
 import { getAllProducts, Product } from '../api/products';
@@ -51,7 +52,7 @@ type ExpiryFilter = '30' | '90' | '180';
 
 export default function StocksAlertes() {
   const { settings } = useSettings();
-  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const nomMagasin = nomEnseigne(settings.nomMagasin);
   const { toasts, addToast, removeToast } = useToast();
   const isMobile = useIsMobile();
   const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu

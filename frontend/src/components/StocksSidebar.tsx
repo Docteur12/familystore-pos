@@ -1,4 +1,5 @@
 import SelecteurBoutique from './SelecteurBoutique';
+import { nomEnseigne } from '../config/marque';
 import { lire } from '../services/storage';
 import { deconnexion } from '../services/session';
 import React, { useEffect, useState, useCallback } from 'react';
@@ -53,7 +54,7 @@ const NAV_ITEMS = [
 
 export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number }) {
   const { settings } = useSettings();
-  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const nomMagasin = nomEnseigne(settings.nomMagasin);
   const location = useLocation();
   const payload  = getTokenPayload();
   const isMobile = useIsMobile();

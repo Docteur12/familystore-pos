@@ -1,4 +1,5 @@
 import { displayName } from '../utils/text';
+import { nomEnseigne } from '../config/marque';
 import React, { useEffect, useRef, useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import StocksSidebar from '../components/StocksSidebar';
@@ -170,7 +171,7 @@ function LabelCard({ product, template, selected, onToggle }: {
 
 export default function StocksEtiquettes() {
   const { settings } = useSettings();
-  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const nomMagasin = nomEnseigne(settings.nomMagasin);
   const [products,  setProducts]  = useState<Product[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [search,    setSearch]    = useState('');

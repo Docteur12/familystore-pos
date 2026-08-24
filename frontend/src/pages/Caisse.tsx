@@ -4,6 +4,7 @@
  */
 
 import SelecteurBoutique from '../components/SelecteurBoutique';
+import { nomEnseigne } from '../config/marque';
 import { lire, ecrire, supprimer } from '../services/storage';
 import { deconnexion } from '../services/session';
 import React, {
@@ -734,7 +735,7 @@ export default function Caisse() {
       {/* ── Lock screen (inactivité 10 min) ── */}
       {locked && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--fs-wine-900)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-          <div style={{ color: 'var(--fs-gold-400)', fontFamily: 'var(--fs-font-display)', fontSize: 28, fontWeight: 700, letterSpacing: '0.1em' }}>{(settings.nomMagasin || 'Family Store').toUpperCase()}</div>
+          <div style={{ color: 'var(--fs-gold-400)', fontFamily: 'var(--fs-font-display)', fontSize: 28, fontWeight: 700, letterSpacing: '0.1em' }}>{(nomEnseigne(settings.nomMagasin)).toUpperCase()}</div>
           <div style={{ color: 'rgba(245,235,217,0.6)', fontSize: 13 }}>{t('Session verrouillée — Saisir le code PIN', 'Session locked — Enter PIN code')}</div>
           <div style={{ display: 'flex', gap: 10, margin: '8px 0' }}>
             {[0,1,2,3].map(i => (
@@ -924,7 +925,7 @@ export default function Caisse() {
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
             <StoreLogo width={140}/>
           </div>
-          <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--fs-gold-400)', marginBottom: 2 }}>{settings.nomMagasin || 'Family Store'}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--fs-gold-400)', marginBottom: 2 }}>{nomEnseigne(settings.nomMagasin)}</div>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>{t('Caisse', 'Checkout')}</div>
           <div style={{ marginTop: 10 }}><SelecteurBoutique compact/></div>
         </div>

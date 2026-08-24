@@ -4,6 +4,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { nomEnseigne } from '../config/marque';
 import { useSettings } from '../contexts/SettingsContext';
 import { getAllProducts, deleteProduct, updateProduct, Product } from '../api/products';
 import { normalizeName, formatProductName, extractVolume, getBrandColor, contientTexte, displayName } from '../utils/text';
@@ -696,7 +697,7 @@ type TabMode = 'all' | 'low' | 'expiry' | 'dup';
 
 export default function Stocks() {
   const { settings } = useSettings();
-  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const nomMagasin = nomEnseigne(settings.nomMagasin);
   const { toasts, addToast, removeToast } = useToast();
   const isMobile = useIsMobile();
   const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu

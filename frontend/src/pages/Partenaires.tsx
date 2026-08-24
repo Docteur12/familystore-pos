@@ -1,4 +1,5 @@
 import { lire, ecrire, supprimer } from '../services/storage';
+import { nomEnseigne } from '../config/marque';
 import { deconnexion } from '../services/session';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
@@ -195,7 +196,7 @@ function EditLivraisonModal({ livraison, onClose, onSaved, onError }: {
 
 export default function Partenaires({ embedded = false, allowedTabs, initialTab }: { embedded?: boolean; allowedTabs?: Tab[]; initialTab?: Tab } = {}) {
   const { settings } = useSettings();
-  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const nomMagasin = nomEnseigne(settings.nomMagasin);
   const navigate = useNavigate();
   const brand = getBrandColor();
   const payload = getTokenPayload();
@@ -1769,7 +1770,7 @@ export default function Partenaires({ embedded = false, allowedTabs, initialTab 
                 <p style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 700, color: 'var(--fs-ink-900)' }}>{t('Nouveau compte de connexion Partenaires', 'New Partners login account')}</p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
                   <div><label style={LABEL}>{t('Nom', 'Name')}</label><input value={accForm.name} onChange={e => setAccForm(f => ({ ...f, name: e.target.value }))} style={INPUT} placeholder={t('ex : Gérant partenaires', 'e.g. Partners manager')}/></div>
-                  <div><label style={LABEL}>{t('Email (identifiant)', 'Email (login)')}</label><input value={accForm.email} onChange={e => setAccForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="partenaires@familystore.cm"/></div>
+                  <div><label style={LABEL}>{t('Email (identifiant)', 'Email (login)')}</label><input value={accForm.email} onChange={e => setAccForm(f => ({ ...f, email: e.target.value }))} style={INPUT} placeholder="partenaires@exemple.cm"/></div>
                   <div><label style={LABEL}>{t('Mot de passe', 'Password')}</label><input value={accForm.password} onChange={e => setAccForm(f => ({ ...f, password: e.target.value }))} style={INPUT} placeholder={t('≥ 4 caractères', '≥ 4 characters')}/></div>
                 </div>
                 <button onClick={creerCommercial} style={BTN_PRIMARY}>{t('Créer le compte', 'Create account')}</button>

@@ -89,6 +89,7 @@ interface SForm {
   email: string;
   devise: string;
   logoUrl: string;
+  manuelUrl: string;
   ouverture: string;
   fermeture: string;
   facebook: string;
@@ -116,6 +117,7 @@ function toSForm(s: StoreSettings): SForm {
     email:             s.email,
     devise:            s.devise,
     logoUrl:           s.logoUrl,
+    manuelUrl:         s.manuelUrl ?? '',
     ouverture:         s.horaires?.ouverture ?? '08:00',
     fermeture:         s.horaires?.fermeture ?? '20:00',
     facebook:          s.reseauxSociaux?.facebook ?? '',
@@ -143,6 +145,7 @@ function fromSForm(f: SForm): Partial<StoreSettings> {
     email:      f.email.trim(),
     devise:     f.devise.trim() || 'XAF',
     logoUrl:    f.logoUrl,
+    manuelUrl:  f.manuelUrl.trim(),
     horaires:   { ouverture: f.ouverture, fermeture: f.fermeture },
     reseauxSociaux:    { facebook: f.facebook.trim(), whatsapp: f.whatsapp.trim() },
     langue:            f.langue,
@@ -230,10 +233,10 @@ export default function AdminParametres() {
 
   const OFFRE_KEYS: { key: keyof OffreFacture; csv: string; label: string; ph: string }[] = [
     { key: 'titre',      csv: 'TITRE_OFFRE',    label: t('Titre de l\'offre', 'Offer title'),   ph: t('ex : Ne laissez pas votre remise expirer !', "e.g.: Don't let your discount expire!") },
-    { key: 'message',    csv: 'MESSAGE_OFFRE',  label: t('Message de l\'offre', 'Offer message'), ph: t('ex : *Merci pour votre achat !* Family Store vous offre 5 %…', 'e.g.: *Thank you for your purchase!* Family Store offers you 5%…') },
+    { key: 'message',    csv: 'MESSAGE_OFFRE',  label: t('Message de l\'offre', 'Offer message'), ph: t('ex : *Merci pour votre achat !* Profitez de 5 % sur votre prochaine visite…', 'e.g.: *Thank you for your purchase!* Enjoy 5% off your next visit…') },
     { key: 'validite',   csv: 'VALIDITE_OFFRE', label: t('Validité', 'Validity'),            ph: t('ex : *Offre valable jusqu\'au 31 août 2026 uniquement.*', 'e.g.: *Offer valid until 31 August 2026 only.*') },
     { key: 'cta',        csv: 'CALL_TO_ACTION', label: t('Appel à l\'action', 'Call to action'),   ph: t('ex : *Revenez avant le 31 août avec cette facture…*', 'e.g.: *Come back before 31 August with this receipt…*') },
-    { key: 'salutation', csv: 'SALUTATION_FIN', label: t('Salutation de fin', 'Closing greeting'),   ph: t('ex : *À très bientôt chez Family Store !*', 'e.g.: *See you soon at Family Store!*') },
+    { key: 'salutation', csv: 'SALUTATION_FIN', label: t('Salutation de fin', 'Closing greeting'),   ph: t('ex : *À très bientôt !*', 'e.g.: *See you soon!*') },
   ];
 
   const saveOffre = async (next: OffreFacture, msg = t('Offre marketing enregistrée ✅', 'Marketing offer saved ✅')) => {
@@ -394,6 +397,14 @@ export default function AdminParametres() {
   }, [setField]);
 
   const handleSaveSettings = useCallback(async () => {
+    // Le nom du magasin s'imprime en tête de chaque ticket : l'effacer
+    // rendrait les reçus inutilisables pour le client. Le serveur refuse
+    // aussi, mais autant le dire ici, avant l'aller-retour.
+    if (!form.nomMagasin.trim()) {
+      addToast(t('Le nom du magasin est obligatoire : il figure sur tous les tickets.',
+                 'The store name is required: it appears on every receipt.'), 'error');
+      return;
+    }
     setSLoading(true);
     try {
       await updateSettings(fromSForm(form));
@@ -609,13 +620,13 @@ export default function AdminParametres() {
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
             <p style={SECTION_TITLE}>{t('Informations générales', 'General information')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <Field label={t('Nom du magasin', 'Store name')}  value={form.nomMagasin} onChange={mkChange('nomMagasin')} placeholder="Family Store"/>
+              <Field label={t('Nom du magasin *', 'Store name *')}  value={form.nomMagasin} onChange={mkChange('nomMagasin')} placeholder={t('Nom de votre commerce', 'Your business name')}/>
               <Field label={t('Adresse', 'Address')}         value={form.adresse}    onChange={mkChange('adresse')}    placeholder="Rue de la Joie, Akwa"/>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                 <Field label={t('Ville', 'City')}         value={form.ville}      onChange={mkChange('ville')}      placeholder="Douala"/>
                 <Field label={t('Téléphone', 'Phone')}     value={form.telephone}  onChange={mkChange('telephone')}  placeholder="+237 6XX XXX XXX"/>
               </div>
-              <Field label={t('Email de contact', 'Contact email')} value={form.email}     onChange={mkChange('email')}      type="email" placeholder="contact@familystore.cm"/>
+              <Field label={t('Email de contact', 'Contact email')} value={form.email}     onChange={mkChange('email')}      type="email" placeholder="contact@exemple.cm"/>
             </div>
           </div>
 
@@ -700,7 +711,13 @@ export default function AdminParametres() {
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
             <p style={SECTION_TITLE}>{t('Réseaux sociaux', 'Social media')}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <Field label={t('Page Facebook', 'Facebook page')}   value={form.facebook} onChange={mkChange('facebook')} placeholder="https://facebook.com/familystore"/>
+              <Field
+                label={t("Manuel d'utilisation (lien PDF)", 'User manual (PDF link)')}
+                value={form.manuelUrl}
+                onChange={mkChange('manuelUrl')}
+                placeholder={t('https://… — laissez vide si vous n’en avez pas', 'https://… — leave empty if you have none')}
+              />
+              <Field label={t('Page Facebook', 'Facebook page')}   value={form.facebook} onChange={mkChange('facebook')} placeholder="https://facebook.com/votre-page"/>
               <Field label="WhatsApp Business" value={form.whatsapp} onChange={mkChange('whatsapp')} placeholder="+237 6XX XXX XXX"/>
             </div>
           </div>
@@ -812,7 +829,7 @@ export default function AdminParametres() {
                   <Field label={t('Prénom', 'First name')} value={accPrenom} onChange={onAccPrenom} placeholder={t('Prénom', 'First name')}/>
                   <Field label={t('Nom', 'Last name')}    value={accNom}    onChange={onAccNom}    placeholder={t('Nom de famille', 'Last name')}/>
                 </div>
-                <Field label="Email" value={payload?.email ?? ''} onChange={() => {}} disabled placeholder="email@familystore.cm"/>
+                <Field label="Email" value={payload?.email ?? ''} onChange={() => {}} disabled placeholder="email@exemple.cm"/>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                   <Field label={t('Nouveau mot de passe', 'New password')}     value={accPwd}  onChange={onAccPwd}  type="password" placeholder={t('Laisser vide pour ne pas changer', 'Leave blank to keep unchanged')}/>
                   <Field label={t('Confirmer le mot de passe', 'Confirm password')} value={accPwd2} onChange={onAccPwd2} type="password" placeholder={t('Répéter le mot de passe', 'Repeat the password')}/>

@@ -8,7 +8,7 @@ import { logAccesEspace } from '../api/audit';
 import { useSettings } from '../contexts/SettingsContext';
 import type { ModuleId } from '../api/settings';
 import { useIsMobile } from '../hooks/useIsMobile';
-import logoFs from '../assets/logo-fs.jpg';
+import { nomEnseigne, COULEUR_MARQUE } from '../config/marque';
 import { t } from '../i18n';
 
 const BG       = 'var(--fs-wine-900)';
@@ -53,6 +53,8 @@ const D = {
 type NavItem = {
   id: string; label: string; icon: string; path: string;
   external?: boolean; module?: ModuleId;
+  /** Entrée dont l'adresse vient des paramètres de la boutique ; masquée si vide. */
+  reglage?: 'manuelUrl';
   /** Réservé aux propriétaires de plusieurs boutiques — invisible sinon. */
   multiBoutique?: boolean;
 };
@@ -91,8 +93,12 @@ const SECTIONS: NavSection[] = [
       { id: 'poste-caisse', label: t('Installer un poste', 'Set up a station'), icon: D.posteCaisse, path: '/admin/poste-caisse' },
       { id: 'audit',        label: t('Audit & logs', 'Audit & logs'),       icon: D.audit,        path: '/admin/audit'      },
       { id: 'exports',      label: t('Exports', 'Exports'),            icon: D.exports,      path: '/admin/exports'    },
-      // Manuel d'utilisation (PDF servi par l'app) — s'ouvre dans un nouvel onglet
-      { id: 'manuel',       label: t("Manuel d'utilisation", 'User manual'), icon: D.manuel,     path: '/manuel-family-store.pdf', external: true },
+      // Manuel d'utilisation — PROPRE À LA BOUTIQUE (Paramètres → manuelUrl).
+      // Il pointait en dur sur `/manuel-family-store.pdf` : Radiance affichait
+      // donc à ses employés le manuel d'un autre commerce, en français. Sans
+      // manuel renseigné, l'entrée disparaît — mieux vaut pas de manuel qu'un
+      // manuel étranger, qui fait faire des gestes faux en croyant bien faire.
+      { id: 'manuel',       label: t("Manuel d'utilisation", 'User manual'), icon: D.manuel,     path: '', external: true, reglage: 'manuelUrl' },
     ],
   },
   {
@@ -173,7 +179,7 @@ function MonCompteModal({ onClose }: { onClose: () => void }) {
           {success && <div style={{ background: 'rgba(90,139,83,0.25)', color: '#9f9', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{success}</div>}
           <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-gold-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{t('Identité', 'Identity')}</p>
           <div><label style={labelStyle}>{t('Nom complet', 'Full name')}</label><input value={name} onChange={e => setName(e.target.value)} style={inputStyle} placeholder={t('Prénom Nom', 'First name Last name')}/></div>
-          <div><label style={labelStyle}>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} placeholder="email@familystore.cm"/></div>
+          <div><label style={labelStyle}>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} style={inputStyle} placeholder="email@exemple.cm"/></div>
           <div><label style={labelStyle}>{t('Téléphone', 'Phone')}</label><input value={phone} onChange={e => setPhone(e.target.value)} style={inputStyle} placeholder="+237 6 XX XX XX XX"/></div>
           <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-gold-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '4px 0 0' }}>{t('Changer le mot de passe', 'Change password')}</p>
           <div><label style={labelStyle}>{t('Ancien mot de passe', 'Current password')}</label><input type="password" value={oldPwd} onChange={e => setOldPwd(e.target.value)} style={inputStyle} placeholder={t('Mot de passe actuel', 'Current password')}/></div>
@@ -229,7 +235,15 @@ export default function AdminSidebar() {
   const plusieursBoutiques = (getTokenPayload()?.boutiques?.length ?? 0) > 1;
   const sections = SECTIONS.map(s => ({
     ...s,
-    items: s.items.filter(it => (!it.module || hasModule(it.module)) && (!it.multiBoutique || plusieursBoutiques)),
+    items: s.items
+      // Adresse tirée des paramètres de la boutique (manuel) : on la pose ici.
+      .map(it => (it.reglage ? { ...it, path: (settings[it.reglage] ?? '').trim() } : it))
+      .filter(it =>
+        (!it.module || hasModule(it.module)) &&
+        (!it.multiBoutique || plusieursBoutiques) &&
+        // Une entrée paramétrable sans adresse ne s'affiche pas.
+        (!it.reglage || !!it.path),
+      ),
   }));
 
   const isMobile = useIsMobile();
@@ -276,10 +290,21 @@ export default function AdminSidebar() {
       )}
 
       <aside className="fs-sidebar-drawer" style={sidebarStyle}>
-        {/* Logo du magasin (personnalisé via Paramètres, sinon logo Family Store) */}
+        {/* Logo du magasin (Paramètres). Sans logo téléversé, StoreLogo écrit
+            le nom de l'enseigne — jamais l'image d'un autre commerçant. */}
         <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ background: '#fdf9f0', borderRadius: 10, border: '1px solid var(--fs-gold-400)', padding: '6px 8px', overflow: 'hidden' }}>
-            <img src={settings.logoUrl || logoFs} alt={settings.nomMagasin} style={{ width: '100%', display: 'block', borderRadius: 6 }}/>
+            {/* Même règle que StoreLogo : sans logo téléversé, le NOM de
+                l'enseigne, jamais l'image d'un autre commerçant. Ce menu
+                dupliquait le rendu du composant, et avec lui le repli. */}
+            {settings.logoUrl
+              ? <img src={settings.logoUrl} alt={nomEnseigne(settings.nomMagasin)} style={{ width: '100%', display: 'block', borderRadius: 6 }}/>
+              : <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  minHeight: 56, padding: '8px 4px', textAlign: 'center',
+                  fontFamily: 'var(--fs-font-display)', fontWeight: 700, fontSize: 15,
+                  lineHeight: 1.15, color: COULEUR_MARQUE, wordBreak: 'break-word',
+                }}>{nomEnseigne(settings.nomMagasin)}</div>}
           </div>
           {/* Boutique active, en permanence — et bascule si le propriétaire
               en a plusieurs. Rien ne s'affiche pour une boutique unique. */}

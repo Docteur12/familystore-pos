@@ -1,6 +1,7 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 import { NestFactory } from '@nestjs/core';
+import { MARQUE_PRODUIT } from './config/marque';
 import { ValidationPipe } from '@nestjs/common';
 import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
@@ -70,6 +71,6 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port, '0.0.0.0');
-  console.log(`${process.env.APP_NAME ?? 'Family Store POS'} backend running on http://localhost:${port}/api`);
+  console.log(`${process.env.APP_NAME ?? MARQUE_PRODUIT} backend running on http://localhost:${port}/api`);
 }
 bootstrap();

@@ -1,4 +1,5 @@
 import SelecteurBoutique from './SelecteurBoutique';
+import { nomEnseigne } from '../config/marque';
 import { deconnexion } from '../services/session';
 import React, { useEffect, useRef, useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
@@ -131,7 +132,7 @@ function useStockAlertCount(active: boolean, nomMagasin: string) {
 
 export default function Sidebar() {
   const { settings } = useSettings();
-  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const nomMagasin = nomEnseigne(settings.nomMagasin);
   const navigate  = useNavigate();
   const payload   = getTokenPayload();
   const role      = payload?.role ?? 'caissier';

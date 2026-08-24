@@ -17,6 +17,7 @@ import { AuditLog, AuditLogDocument } from '../schemas/audit-log.schema';
 import { Settings, SettingsDocument } from '../settings/settings.schema';
 import { runWithTenant } from '../tenancy/tenant-context';
 import { ProvisionnementService } from '../platform/provisionnement.service';
+import { nomApplication, COULEUR_MARQUE } from '../config/marque';
 
 // Hachage bcrypt d'une valeur qui n'est le mot de passe de personne. Sert
 // uniquement à consommer le même temps de calcul quand l'e-mail est inconnu,
@@ -367,8 +368,9 @@ export class AuthService {
     // Identité du magasin pour l'e-mail (nom, couleur, signature).
     let st: any = null;
     try { st = await this.settingsModel.findOne().lean(); } catch { /* défaut */ }
-    const app   = `${(st?.nomMagasin || 'Family Store').trim()} POS`;
-    const brand = /^#[0-9A-Fa-f]{6}$/.test(st?.couleurPrincipale ?? '') ? st.couleurPrincipale : '#7A1D2E';
+    const app   = nomApplication(st?.nomMagasin);
+    // Repli de couleur : le vert Caméléon, pas le bordeaux d'un client.
+    const brand = /^#[0-9A-Fa-f]{6}$/.test(st?.couleurPrincipale ?? '') ? st.couleurPrincipale : COULEUR_MARQUE;
     const signature = (st?.signatureTicket ?? '').trim();
 
     const tempPassword = this.generateTempPassword();

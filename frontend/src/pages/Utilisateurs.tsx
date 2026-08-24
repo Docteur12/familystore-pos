@@ -89,7 +89,7 @@ function UserModal({ mode, role, user, onSave, onClose }: ModalProps) {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                placeholder="caisse1@familystore.cm"
+                placeholder="caisse1@exemple.cm"
                 className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200
                   focus:border-bordeaux outline-none text-sm bg-cream/40"
               />

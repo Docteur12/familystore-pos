@@ -1,4 +1,5 @@
 import { jeton } from '../services/storage';
+import { nomEnseigne } from '../config/marque';
 import { deconnexion } from '../services/session';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -13,7 +14,7 @@ function getTokenPayload(): { name: string; role: string } | null {
 
 export default function Home() {
   const { settings } = useSettings();
-  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const nomMagasin = nomEnseigne(settings.nomMagasin);
   const initiales  = nomMagasin.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const navigate  = useNavigate();
   const payload   = getTokenPayload();

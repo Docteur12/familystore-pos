@@ -1,4 +1,5 @@
 import { lire, ecrire } from '../services/storage';
+import { nomEnseigne } from '../config/marque';
 import React, { useEffect, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
 import { useSettings } from '../contexts/SettingsContext';
@@ -65,7 +66,7 @@ type ViewMode = 'seance' | 'history';
 
 export default function StocksInventaire() {
   const { settings } = useSettings();
-  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const nomMagasin = nomEnseigne(settings.nomMagasin);
   const { toasts, addToast, removeToast } = useToast();
   const isMobile = useIsMobile();
   const isNarrow = useIsMobile(1024); // mobile + tablette : agencement empilé du contenu

@@ -16,10 +16,10 @@ import { resolve } from 'node:path';
 function brandFromEnv(mode: string) {
   const env = { ...loadEnv(mode, process.cwd(), 'VITE_'), ...process.env };
   return {
-    name:       env.VITE_APP_NAME       || 'Family Store POS',
-    shortName:  env.VITE_APP_SHORT_NAME || 'Family Store',
+    name:       env.VITE_APP_NAME       || 'Caméléon',
+    shortName:  env.VITE_APP_SHORT_NAME || 'Caméléon',
     lang:       env.VITE_APP_LANG       || 'fr',
-    themeColor: env.VITE_THEME_COLOR    || '#8B1A2B',
+    themeColor: env.VITE_THEME_COLOR    || '#3F8F6B',
     bgColor:    env.VITE_BG_COLOR       || '#F5F0E8',
     apiUrl:     (env.VITE_API_URL       || 'https://familystore-pos.onrender.com').replace(/\/+$/, ''),
     icons:      env.VITE_BRAND_ICONS    || '',   // jeu d'icônes de public/brand/<nom>

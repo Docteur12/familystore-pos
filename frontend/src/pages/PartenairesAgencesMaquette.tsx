@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { nomEnseigne } from '../config/marque';
 import { useSettings } from '../contexts/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -188,7 +189,7 @@ const fmtJour  = (d: string) => { try { return new Date(d).toLocaleDateString('f
 
 export default function PartenairesAgencesMaquette() {
   const { settings } = useSettings();
-  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const nomMagasin = nomEnseigne(settings.nomMagasin);
   const navigate = useNavigate();
   const [data, setData] = useState<Part[]>(DATA0);
   const [view, setView] = useState<'detail' | 'dashboard' | 'apport' | 'historique'>('detail');
@@ -297,7 +298,7 @@ export default function PartenairesAgencesMaquette() {
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)', background: 'var(--fs-ivory)' }}>
 
-      {/* Sidebar FamilyStore */}
+      {/* Menu latéral */}
       <aside style={{ width: 210, background: 'var(--fs-wine-900)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '18px 16px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--fs-gold-500)', marginBottom: 4 }}>{nomMagasin}</div>

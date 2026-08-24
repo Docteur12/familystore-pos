@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { nomEnseigne } from '../config/marque';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Sale, SaleDocument } from '../schemas/sale.schema';
@@ -52,10 +53,13 @@ export class ReportsService {
   // Identité de la boutique pour les documents générés (PDF, Excel) — lue
   // depuis les paramètres du magasin, avec repli sur les valeurs historiques.
   private async brand(): Promise<{ nom: string; nomMaj: string; signature: string; app: string; rgb: [number, number, number] }> {
-    const fallback: [number, number, number] = [139, 26, 43];
+    // Repli de couleur : le vert Caméléon (#3F8F6B), pas le bordeaux d'un
+    // client — un rapport d'une autre boutique en sortait aux couleurs de
+    // Family Store.
+    const fallback: [number, number, number] = [0x3F, 0x8F, 0x6B];
     let s: any = null;
     try { s = await this.settingsModel.findOne().lean(); } catch { /* défaut */ }
-    const nom = (s?.nomMagasin || 'Family Store').trim();
+    const nom = nomEnseigne(s?.nomMagasin);
     const signature = (s?.signatureTicket ?? '').trim();          // ex. « BY RDCT »
     const hex = s?.couleurPrincipale as string | undefined;
     const rgb: [number, number, number] = hex && /^#[0-9A-Fa-f]{6}$/.test(hex)

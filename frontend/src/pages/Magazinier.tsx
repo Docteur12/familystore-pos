@@ -1,4 +1,5 @@
 import { deconnexion } from '../services/session';
+import { nomEnseigne } from '../config/marque';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { getAllProducts, createProduct, updateProduct, setProductPrix, getProductByBarcode, Product } from '../api/products';
@@ -265,7 +266,7 @@ interface RecRow { productId: string; quantity: number | '' }
 
 export default function Magazinier() {
   const { settings } = useSettings();
-  const nomMagasin = settings.nomMagasin || 'Family Store';
+  const nomMagasin = nomEnseigne(settings.nomMagasin);
   const payload   = getTokenPayload();
   const isMobile  = useIsMobile();
   const { toasts, addToast, removeToast } = useToast();
