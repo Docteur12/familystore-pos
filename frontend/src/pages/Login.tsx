@@ -4,9 +4,45 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { forgotPassword } from '../api/auth';
 import { useIsMobile } from '../hooks/useIsMobile';
-import StoreLogo from '../components/StoreLogo';
 import { useSettings } from '../contexts/SettingsContext';
 import { t } from '../i18n';
+
+/**
+ * Couleurs de l'écran de connexion — FIXES, jamais des variables de thème.
+ *
+ * `SettingsContext` applique `couleurPrincipale` sur la racine du document
+ * dès qu'une boutique est connue. Utiliser `var(--fs-wine-700)` ici ferait
+ * donc virer l'écran d'accueil aux couleurs de la dernière boutique visitée —
+ * exactement l'identité qu'on veut tenir hors de cet écran.
+ */
+const ENCRE = '#2E3238';
+const ENCRE_PALE = '#8A9099';
+const VERT_CAMELEON = '#3F8F6B';
+const VERT_SOMBRE = '#2F6B50';   // survol
+const VERT_CLAIR = '#5AA585';    // état occupé
+
+/** Marque Caméléon — neutre, sans fichier image à héberger ni à charger. */
+function MarqueCameleon({ size = 52 }: { size?: number }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: size / 3.2,
+      background: VERT_CAMELEON,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: '0 2px 10px rgba(63,143,107,0.28)',
+    }}>
+      <svg width={size * 0.58} height={size * 0.58} viewBox="0 0 24 24" fill="none"
+        stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"
+        aria-hidden="true">
+        {/* Silhouette stylisée : corps, queue enroulée, patte. */}
+        <path d="M3 14c0-3.3 2.7-6 6-6h2.5a4 4 0 0 0 4-4"/>
+        <path d="M3 14c0 2.2 1.8 4 4 4h6c2.8 0 5-2.2 5-5"/>
+        <path d="M18 13c1.7 0 3 1.3 3 3s-1.3 3-3 3-2-1-2-2 .7-1.5 1.5-1.5"/>
+        <path d="M8 18v2.5"/>
+        <circle cx="14.6" cy="4.4" r="0.9" fill="#fff" stroke="none"/>
+      </svg>
+    </div>
+  );
+}
 
 function LockIcon() {
   return (
@@ -30,7 +66,6 @@ function MailIcon() {
 
 export default function Login() {
   const { settings, reloadSettings } = useSettings();
-  const nomMagasin = settings.nomMagasin || 'Family Store';
   const navigate  = useNavigate();
   const isMobile  = useIsMobile();
   const [email,    setEmail]    = useState('');
@@ -49,6 +84,16 @@ export default function Login() {
    * débloquerait pas, donc on le dit avant, et on le vérifie après.
    */
   const boutiqueVisee = new URLSearchParams(window.location.search).get('boutique');
+
+  /**
+   * Mise au point du champ e-mail SANS faire défiler la page.
+   *
+   * L'attribut `autoFocus` demandait au navigateur d'amener le champ à
+   * l'écran : sur une fenêtre un peu basse, la page s'ouvrait donc DÉFILÉE et
+   * le haut — la marque comprise — était coupé. `preventScroll` donne le
+   * focus sans bouger la vue.
+   */
+  const champEmail = React.useRef<HTMLInputElement>(null);
   // Multi-magasin : renseigné quand le serveur demande de choisir la boutique.
   const [choixBoutique, setChoixBoutique] = useState<{
     selectionToken: string;
@@ -63,6 +108,12 @@ export default function Login() {
     }
   }, []);
   const [forgotLoading, setForgotLoading] = useState(false);
+
+  // Focus du champ e-mail, sans défilement — voir `champEmail` plus haut.
+  useEffect(() => {
+    if (choixBoutique || forgotMode) return;
+    champEmail.current?.focus({ preventScroll: true });
+  }, [choixBoutique, forgotMode]);
 
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -174,32 +225,41 @@ export default function Login() {
     }}>
       <div style={{ width: '100%', maxWidth: 380, margin: 'auto' }}>
 
-        {/* ── Logo block ── */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          {/* Logo du magasin (personnalisable via Paramètres, sinon Family Store) */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-            <StoreLogo width={isMobile ? 150 : 190}/>
+        {/* ── Identité CAMÉLÉON — neutre, jamais celle d'un client ──────────
+            Cet écran PRÉCÈDE le choix de la boutique : on ne sait pas encore
+            chez qui l'on entre. Y afficher un logo, un nom ou des couleurs de
+            magasin serait faux pour tous les autres, et absurde pour un
+            propriétaire multi-boutiques qui verrait l'enseigne de l'une avant
+            de choisir l'autre.
+
+            Les couleurs sont donc écrites EN DUR, pas via les variables de
+            thème : `couleurPrincipale` est appliquée à la racine du document
+            dès que les paramètres d'une boutique arrivent (SettingsContext),
+            et teinterait cet écran-ci. L'identité du magasin — logo, couleurs,
+            langue — ne se charge qu'APRÈS la sélection. */}
+        <div style={{ textAlign: 'center', marginBottom: isMobile ? 20 : 26 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+            <MarqueCameleon size={isMobile ? 44 : 52}/>
           </div>
 
           <h1 style={{
             fontFamily: 'var(--fs-font-display)',
-            fontSize: isMobile ? 26 : 32,
+            fontSize: isMobile ? 26 : 30,
             fontWeight: 600,
-            color: 'var(--fs-wine-700)',
-            letterSpacing: '0.02em',
+            color: ENCRE,
+            letterSpacing: '0.06em',
             margin: 0,
           }}>
-            {nomMagasin}
+            Caméléon
           </h1>
           <p style={{
-            fontFamily: 'var(--fs-font-display)',
-            fontSize: 14,
-            fontStyle: 'italic',
-            color: 'var(--fs-gold-600)',
-            letterSpacing: '0.08em',
-            marginTop: 4,
+            fontSize: 12,
+            color: ENCRE_PALE,
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            margin: '6px 0 0',
           }}>
-            {settings.signatureTicket ? `${settings.signatureTicket.toLowerCase()} — ` : ''}{t('Point de Vente', 'Point of Sale')}
+            {t('Point de vente', 'Point of sale')}
           </p>
         </div>
 
@@ -214,7 +274,7 @@ export default function Login() {
           {/* Gold hairline */}
           <div style={{
             height: 2,
-            background: 'linear-gradient(90deg, transparent, var(--fs-gold-400) 30%, var(--fs-gold-400) 70%, transparent)',
+            background: `linear-gradient(90deg, transparent, ${VERT_CAMELEON} 30%, ${VERT_CAMELEON} 70%, transparent)`,
             borderRadius: 1,
             marginBottom: 24,
             opacity: 0.7,
@@ -274,7 +334,7 @@ export default function Login() {
                   <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-400)', display: 'flex', alignItems: 'center' }}>
                     <MailIcon/>
                   </span>
-                  <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder="email@familystore.cm" required autoFocus
+                  <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder={t('adresse@exemple.cm', 'address@example.cm')} required autoFocus
                     style={{ width: '100%', paddingLeft: 40, paddingRight: 14, paddingTop: 11, paddingBottom: 11, border: '1px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-md)', outline: 'none', fontSize: 14, background: 'var(--fs-ivory)', color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-sans)', boxSizing: 'border-box' }}/>
                 </div>
               </div>
@@ -284,7 +344,7 @@ export default function Login() {
               {forgotMsg && (
                 <div style={{ background: '#e8f0e5', border: '1px solid rgba(90,139,83,0.3)', color: 'var(--fs-success-700)', borderRadius: 'var(--fs-r-md)', padding: '10px 14px', fontSize: 13 }}>{forgotMsg}</div>
               )}
-              <button type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '13px', background: 'var(--fs-wine-700)', color: '#fff', border: 'none', borderRadius: 'var(--fs-r-md)', fontSize: 14, fontWeight: 600, cursor: forgotLoading ? 'not-allowed' : 'pointer', opacity: forgotLoading ? 0.8 : 1 }}>
+              <button type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '13px', background: VERT_CAMELEON, color: '#fff', border: 'none', borderRadius: 'var(--fs-r-md)', fontSize: 14, fontWeight: 600, cursor: forgotLoading ? 'not-allowed' : 'pointer', opacity: forgotLoading ? 0.8 : 1 }}>
                 {forgotLoading ? t('Envoi en cours…', 'Sending…') : t('Envoyer le mot de passe temporaire', 'Send temporary password')}
               </button>
               <button type="button" onClick={() => { setForgotMode(false); setError(null); setForgotMsg(null); }} style={{ background: 'none', border: 'none', color: 'var(--fs-ink-400)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
@@ -342,9 +402,9 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="email@familystore.cm"
+                  placeholder={t('adresse@exemple.cm', 'address@example.cm')}
                   required
-                  autoFocus
+                  ref={champEmail}
                   style={{
                     width: '100%',
                     paddingLeft: 40,
@@ -362,7 +422,7 @@ export default function Login() {
                     boxSizing: 'border-box',
                   }}
                   onFocus={e => {
-                    e.target.style.borderColor = 'var(--fs-wine-700)';
+                    e.target.style.borderColor = VERT_CAMELEON;
                     e.target.style.boxShadow = '0 0 0 3px rgba(122,29,46,0.08)';
                   }}
                   onBlur={e => {
@@ -418,7 +478,7 @@ export default function Login() {
                     boxSizing: 'border-box',
                   }}
                   onFocus={e => {
-                    e.target.style.borderColor = 'var(--fs-wine-700)';
+                    e.target.style.borderColor = VERT_CAMELEON;
                     e.target.style.boxShadow = '0 0 0 3px rgba(122,29,46,0.08)';
                   }}
                   onBlur={e => {
@@ -489,7 +549,7 @@ export default function Login() {
               style={{
                 width: '100%',
                 padding: '13px',
-                background: loading ? 'var(--fs-wine-600)' : 'var(--fs-wine-700)',
+                background: loading ? VERT_CLAIR : VERT_CAMELEON,
                 color: '#fff',
                 border: 'none',
                 borderRadius: 'var(--fs-r-md)',
@@ -507,8 +567,8 @@ export default function Login() {
                 boxShadow: 'var(--fs-shadow-sm)',
                 marginTop: 4,
               }}
-              onMouseEnter={e => { if (!loading) (e.target as HTMLButtonElement).style.background = 'var(--fs-wine-800)'; }}
-              onMouseLeave={e => { (e.target as HTMLButtonElement).style.background = loading ? 'var(--fs-wine-600)' : 'var(--fs-wine-700)'; }}
+              onMouseEnter={e => { if (!loading) (e.target as HTMLButtonElement).style.background = VERT_SOMBRE; }}
+              onMouseLeave={e => { (e.target as HTMLButtonElement).style.background = loading ? VERT_CLAIR : VERT_CAMELEON; }}
             >
               {loading ? (
                 <>
@@ -533,14 +593,14 @@ export default function Login() {
           )}
         </div>
 
-        {/* ── Footer ── */}
+        {/* ── Pied — neutre lui aussi : voir l'en-tête ── */}
         <p style={{
           textAlign: 'center',
           fontSize: 11,
-          color: 'var(--fs-ink-400)',
-          marginTop: 20,
+          color: ENCRE_PALE,
+          marginTop: 16,
         }}>
-          {nomMagasin} POS &copy; {new Date().getFullYear()}{settings.signatureTicket ? ` — ${settings.signatureTicket.toLowerCase()}` : ''}
+          Caméléon &copy; {new Date().getFullYear()}
         </p>
       </div>
 
