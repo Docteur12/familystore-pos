@@ -30,6 +30,9 @@ export interface ReceiptData {
   offreAmt?:      number;  // montant déduit (ex: 250)
   offre?:         OffreFacture; // textes marketing du pied de ticket (paramètres boutique)
   store?:         StoreIdentity; // identité imprimée en en-tête (paramètres boutique)
+  /** Mention portée en tête du ticket (ex. « TICKET CORRIGÉ ») : un duplicata
+   *  ne doit pas pouvoir passer pour l'original entre les mains d'un client. */
+  mention?:       string;
 }
 
 // Identité par défaut si le ticket est construit sans paramètres chargés.
@@ -163,6 +166,7 @@ export function buildReceiptHTML(data: ReceiptData): string {
     ${store.mentionsLegales ? `<div class="legal">${escHtml(store.mentionsLegales)}</div>` : ''}
   </div>
   <div class="solid"></div>
+  ${data.mention ? `<div style="text-align:center;font-weight:bold;border:1px solid #000;padding:2px 0;margin:3px 0">${escHtml(data.mention)}</div>` : ''}
   <div class="info">
     <div class="l">
       <div>${t('Ticket', 'Receipt')} : #${data.receiptNo}</div>
@@ -252,6 +256,8 @@ export function buildReceiptPDF(data: ReceiptData): string {
   if (store.mentionsLegales) line(store.mentionsLegales.replace(/•/g, '·'), 7, false, 'center');
   y += 1;
   solid();
+  // Même mention que sur le ticket papier : l'archive PDF doit dire la même chose.
+  if (data.mention) { line(data.mention, 9, true, 'center'); y += 1; solid(); }
 
   // Infos : meta (gauche) + adresse/contacts (droite)
   const infoL = [

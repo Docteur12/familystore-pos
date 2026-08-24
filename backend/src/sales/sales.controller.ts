@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -14,6 +15,7 @@ import {
 import { Request }       from 'express';
 import { SalesService }  from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
+import { ModifierVenteDto, SupprimerVenteDto } from './dto/modifier-vente.dto';
 import { AuthGuard }     from '../auth/auth.guard';
 import { RolesGuard }    from '../auth/roles.guard';
 import { Roles }         from '../auth/roles.decorator';
@@ -151,18 +153,54 @@ export class SalesController {
     return this.salesService.findOne(id);
   }
 
-  // DELETE /api/sales/:id — suppression d'une vente (patron uniquement)
+  // PATCH /api/sales/:id — correction d'une vente (patron uniquement).
+  // Cas d'usage : le client revient avec son ticket (article rendu, quantité ou
+  // prix erroné). Garde-fous : rôle patron, motif obligatoire, vente dans la
+  // fenêtre de correction, stock recontrôlé, montants recalculés côté serveur,
+  // état d'avant conservé sur la vente et trace au journal d'audit.
+  @Patch(':id')
+  @UseGuards(RolesGuard)
+  @Roles('patron')
+  async modifier(
+    @Param('id') id: string,
+    @Body() dto: ModifierVenteDto,
+    @Req() req: Request,
+  ) {
+    const actor  = (req as any)['user'];
+    const result = await this.salesService.modifier(id, dto, actor);
+    this.auditService.log({
+      type: 'modification', module: 'ventes',
+      actorName: actor.name, actorRole: actor.role,
+      detail:
+        `Vente corrigée #${result.ref} · ${result.ancienTotal.toLocaleString('fr-FR')} → ` +
+        `${result.nouveauTotal.toLocaleString('fr-FR')} XAF · motif : ${dto.motif}`,
+      meta: {
+        saleId: id, ancienTotal: result.ancienTotal, nouveauTotal: result.nouveauTotal,
+        motif: dto.motif, lignes: dto.items.length,
+      },
+    });
+    return result;
+  }
+
+  // DELETE /api/sales/:id — suppression d'une vente (patron uniquement).
+  // Mêmes garde-fous que la correction : motif obligatoire et fenêtre limitée.
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles('patron')
-  async remove(@Param('id') id: string, @Req() req: Request) {
+  async remove(
+    @Param('id') id: string,
+    @Body() dto: SupprimerVenteDto,
+    @Req() req: Request,
+  ) {
     const actor = (req as any)['user'];
-    const result = await this.salesService.remove(id);
+    const result = await this.salesService.remove(id, dto.motif);
     this.auditService.log({
       type: 'suppression', module: 'ventes',
       actorName: actor.name, actorRole: actor.role,
-      detail: `Vente supprimée #${id.slice(-6).toUpperCase()} · ${result.total.toLocaleString('fr-FR')} XAF`,
-      meta: { saleId: id, total: result.total, caisseName: result.caisseName },
+      detail:
+        `Vente supprimée #${id.slice(-6).toUpperCase()} · ${result.total.toLocaleString('fr-FR')} XAF` +
+        ` · motif : ${dto.motif}`,
+      meta: { saleId: id, total: result.total, caisseName: result.caisseName, motif: dto.motif },
     });
     return result;
   }
