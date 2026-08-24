@@ -187,13 +187,17 @@ function FormPanel({ caisses, isNarrow, onCreated, onCancel }: { caisses: Caisse
   const [error, setError] = useState('');
   const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
 
+  // L'adresse n'est plus fabriquée : c'est l'identifiant de connexion, elle
+  // ne doit pas être inventée dans le dos de l'utilisateur. Voir la note
+  // détaillée dans AdminCaissiers.tsx.
   const handleCreate = async () => {
     if (!form.prenom || !form.nom || !form.password) { setError(t('Prénom, nom et mot de passe obligatoires.', 'First name, last name and password are required.')); return; }
+    if (!form.email.trim()) { setError(t("L'adresse e-mail est obligatoire : c'est l'identifiant de connexion.", 'Email address is required: it is the login identifier.')); return; }
     setLoading(true); setError('');
     try {
       await createUser({
         name:             `${form.prenom} ${form.nom}`,
-        email:            form.email || `${form.prenom.toLowerCase()}.${form.nom[0].toLowerCase()}@familystore.cm`,
+        email:            form.email.trim(),
         password:         form.password,
         role:             'gestionnaire',
         phone:            form.phone            || undefined,
@@ -216,7 +220,7 @@ function FormPanel({ caisses, isNarrow, onCreated, onCancel }: { caisses: Caisse
         <Field label={t('Prénom', 'First name')} value={form.prenom} onChange={v => set('prenom', v)} placeholder="Samuel"/>
         <Field label={t('Nom', 'Last name')} value={form.nom} onChange={v => set('nom', v)} placeholder="Onana"/>
         <Field label={t('Téléphone', 'Phone')} value={form.phone} onChange={v => set('phone', v)} placeholder="+237 6 XX XX XX XX"/>
-        <Field label="Email" value={form.email} onChange={v => set('email', v)} placeholder="samuel.o@familystore.cm"/>
+        <Field label={t('Email *', 'Email *')} value={form.email} onChange={v => set('email', v)} placeholder={t('samuel.o@exemple.cm', 'samuel.o@example.com')}/>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Affectation', 'Assignment')}</p>
         <div>
           <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{t('Point de vente assigné', 'Assigned store')}</label>

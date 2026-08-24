@@ -260,16 +260,28 @@ function CreatePanel({ caisses, onCreated, onCancel, isNarrow }: { caisses: Cais
   const [error, setError] = useState('');
   const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }));
 
-  const identifiant = form.prenom && form.nom ? `${form.prenom.toLowerCase()}.${form.nom.toLowerCase().slice(0,1)}` : '';
-
+  /**
+   * L'ADRESSE N'EST PLUS FABRIQUÉE.
+   *
+   * Elle l'était à partir du prénom et du nom, sur un domaine en dur
+   * (`@familystore.cm`) — et ce n'était pas un simple défaut de marque : cette
+   * adresse est l'IDENTIFIANT DE CONNEXION, écrite en base à l'insu de celui
+   * qui remplit le formulaire. Deux employés au même prénom et à la même
+   * initiale produisaient de surcroît la même adresse, donc un échec d'unicité
+   * incompréhensible.
+   *
+   * Le compte ne peut pas s'en passer : `email` est requis par le schéma, et
+   * c'est le seul chemin de connexion. On l'exige donc, explicitement.
+   */
   const handleCreate = async () => {
     if (!form.prenom || !form.nom) { setError(t('Prénom et nom obligatoires.', 'First and last name are required.')); return; }
+    if (!form.email.trim()) { setError(t("L'adresse e-mail est obligatoire : c'est l'identifiant de connexion.", 'Email address is required: it is the login identifier.')); return; }
     if (form.pin.length < 4) { setError(t('Le mot de passe doit contenir au moins 4 caractères.', 'Password must be at least 4 characters long.')); return; }
     setLoading(true); setError('');
     try {
       await createUser({
         name: `${form.prenom} ${form.nom}`,
-        email: form.email || `${identifiant}@familystore.cm`,
+        email: form.email.trim(),
         password: form.pin,
         role: 'caissier',
         phone: form.phone || undefined,
@@ -299,7 +311,7 @@ function CreatePanel({ caisses, onCreated, onCancel, isNarrow }: { caisses: Cais
         <Field label={t('Prénom', 'First name')} value={form.prenom} onChange={v => set('prenom', v)} placeholder="Esther"/>
         <Field label={t('Nom', 'Last name')} value={form.nom} onChange={v => set('nom', v)} placeholder="Bidias"/>
         <Field label={t('Téléphone', 'Phone')} value={form.phone} onChange={v => set('phone', v)} placeholder="+237 6 91 23 45 67"/>
-        <Field label="Email" value={form.email} onChange={v => set('email', v)} placeholder="esther.b@familystore.cm"/>
+        <Field label={t('Email *', 'Email *')} value={form.email} onChange={v => set('email', v)} placeholder={t('esther.b@exemple.cm', 'esther.b@example.com')}/>
 
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '6px 0 0' }}>{t('Poste', 'Position')}</p>
         <div>
@@ -327,9 +339,12 @@ function CreatePanel({ caisses, onCreated, onCancel, isNarrow }: { caisses: Cais
         </div>
 
         <div>
-          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{t('Identifiant', 'Username')}</label>
-          <div style={{ padding: '9px 12px', border: '1.5px solid var(--fs-line)', borderRadius: 8, fontSize: 13, fontFamily: 'var(--fs-font-mono)', color: identifiant ? 'var(--fs-ink-700)' : 'var(--fs-ink-300)', background: 'var(--fs-ivory)' }}>
-            {identifiant || t('généré automatiquement', 'generated automatically')}
+          {/* L'identifiant EST l'adresse e-mail — plus un nom fabriqué à
+              partir du prénom, qui n'existait nulle part et ne permettait pas
+              de se connecter. On montre donc ce qui servira réellement. */}
+          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 }}>{t('Identifiant de connexion', 'Login identifier')}</label>
+          <div style={{ padding: '9px 12px', border: '1.5px solid var(--fs-line)', borderRadius: 8, fontSize: 13, fontFamily: 'var(--fs-font-mono)', color: form.email ? 'var(--fs-ink-700)' : 'var(--fs-ink-300)', background: 'var(--fs-ivory)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {form.email.trim() || t("l'adresse e-mail ci-dessus", 'the email address above')}
           </div>
         </div>
       </div>

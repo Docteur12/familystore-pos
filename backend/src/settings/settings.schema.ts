@@ -5,7 +5,22 @@ export type SettingsDocument = HydratedDocument<Settings>;
 
 @Schema({ timestamps: true })
 export class Settings {
-  @Prop({ default: 'Family Store' })
+  /**
+   * Nom commercial du magasin — OBLIGATOIRE à la création d'une boutique.
+   *
+   * Le défaut était « Family Store ». Une boutique neuve héritait donc du nom
+   * d'un autre commerçant, imprimé sur ses tickets. Le défaut est désormais
+   * VIDE : si le nom manque malgré tout, un ticket sans en-tête vaut mieux
+   * qu'un ticket portant l'enseigne de quelqu'un d'autre.
+   *
+   * Le caractère obligatoire n'est PAS porté par `required` ici : ce serait
+   * `SettingsService.get()`, qui crée le document singleton quand il manque,
+   * qui échouerait — et une boutique se retrouverait incapable d'ouvrir sa
+   * propre page de paramètres. Il est donc imposé aux deux endroits où le nom
+   * se décide : le provisionnement (`ProvisionnementService.creerBoutique`)
+   * et l'enregistrement des paramètres (`SettingsService.update`).
+   */
+  @Prop({ default: '', trim: true })
   nomMagasin: string;
 
   @Prop({ default: '' })
@@ -25,6 +40,20 @@ export class Settings {
 
   @Prop({ default: '' })
   logoUrl: string;   // base64 ou URL
+
+  /**
+   * Manuel d'utilisation de CETTE boutique — adresse d'un PDF.
+   *
+   * Le menu pointait en dur sur `/manuel-family-store.pdf`. Radiance affichait
+   * donc à ses employés le manuel d'un autre commerce, en français, avec des
+   * copies d'écran qui ne sont pas les siennes. Chaque client aura le sien.
+   *
+   * Vide = l'entrée de menu n'apparaît pas. Mieux vaut pas de manuel qu'un
+   * mauvais manuel : un employé qui suit des instructions étrangères fait des
+   * gestes faux en croyant bien faire.
+   */
+  @Prop({ default: '' })
+  manuelUrl: string;
 
   @Prop({ type: { ouverture: String, fermeture: String }, default: { ouverture: '08:00', fermeture: '20:00' } })
   horaires: { ouverture: string; fermeture: string };
@@ -74,9 +103,14 @@ export class Settings {
   // Les segments entre *astérisques* sont rendus en gras sur le ticket.
   @Prop({
     type: { titre: String, message: String, validite: String, cta: String, salutation: String },
+    // VIDE PAR DÉFAUT, et non un texte d'exemple. Ce défaut s'applique à
+    // toute boutique NEUVE : il portait le nom « Family Store » et une remise
+    // de 5 %, qu'un nouveau client aurait imprimés sur ses reçus sans jamais
+    // les avoir décidés — une promesse commerciale faite en son nom. Un pied
+    // de ticket vide ne gêne personne ; une offre inventée engage.
     default: {
       titre:      '',
-      message:    'Pour vous remercier, *Family Store vous offre 5 %* de réduction sur votre prochain achat. Présentez simplement cette facture à la caisse pour bénéficier de cette offre.',
+      message:    '',
       validite:   '',
       cta:        '',
       salutation: '',

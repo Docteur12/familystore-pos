@@ -34,7 +34,19 @@ export interface ReceiptData {
 }
 
 // Identité par défaut si le ticket est construit sans paramètres chargés.
-const STORE_FALLBACK: StoreIdentity = { nom: 'Family Store', signature: '', slogan: '', mentionsLegales: '', adresse: '', telephones: [] };
+/**
+ * Identité de repli d'un TICKET — volontairement VIDE.
+ *
+ * Elle portait « Family Store ». Un reçu émis par une autre boutique, avant
+ * que ses paramètres soient chargés, sortait donc à l'en-tête d'un autre
+ * commerçant — remis à un client, en main propre.
+ *
+ * Le nom du magasin est obligatoire à la création d'une boutique : ce repli
+ * ne devrait jamais être atteint. S'il l'est, un en-tête vide est un défaut
+ * visible que l'on corrige ; une enseigne étrangère est une erreur que
+ * personne ne remarque.
+ */
+const STORE_FALLBACK: StoreIdentity = { nom: '', signature: '', slogan: '', mentionsLegales: '', adresse: '', telephones: [] };
 
 // Échappe le HTML puis convertit *segment* en <b>segment</b> (gras du ticket).
 const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

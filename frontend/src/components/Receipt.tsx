@@ -6,7 +6,8 @@ import { formatVolume, displayName } from '../utils/text';
 import { OFFRE_DEFAULTS, StoreIdentity } from '../api/settings';
 import { t, dateLocale } from '../i18n';
 
-const STORE_FALLBACK: StoreIdentity = { nom: 'Family Store', signature: '', slogan: '', mentionsLegales: '', adresse: '', telephones: [] };
+// Repli VIDE, jamais une enseigne — voir la note dans ReceiptPrint.tsx.
+const STORE_FALLBACK: StoreIdentity = { nom: '', signature: '', slogan: '', mentionsLegales: '', adresse: '', telephones: [] };
 
 // Rend un texte marketing : les segments entre *astérisques* passent en gras.
 function BoldText({ text }: { text: string }) {
