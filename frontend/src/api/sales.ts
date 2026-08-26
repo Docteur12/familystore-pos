@@ -6,6 +6,18 @@ export interface SaleItem {
   name:      string;
   quantity:  number;
   unitPrice: number;
+  divers?:   boolean;
+}
+
+/** Correction d'une vente par le patron : l'état d'avant est conservé. */
+export interface ModificationVente {
+  date:         string;
+  parNom:       string;
+  parEmail:     string;
+  motif:        string;
+  ancienTotal:  number;
+  nouveauTotal: number;
+  anciensItems: { name: string; quantity: number; unitPrice: number }[];
 }
 
 export interface Sale {
@@ -25,6 +37,7 @@ export interface Sale {
   cashierEmail?: string;
   caisseName?:   string;
   sessionId?:    string;
+  modifications?: ModificationVente[];
 }
 
 export const PM_LABELS: Record<string, string> = {
@@ -67,8 +80,51 @@ export async function getDiversSales(): Promise<DiversSaleRow[]> {
   return res.json();
 }
 
-export async function deleteSale(id: string): Promise<void> {
-  const res = await fetch(`/api/sales/${id}`, { method: 'DELETE', headers: authHeaders() });
+/** Le motif est obligatoire côté serveur : une suppression de vente doit être justifiée. */
+export async function deleteSale(id: string, motif: string): Promise<void> {
+  const res = await fetch(`/api/sales/${id}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ motif }),
+  });
   if (res.status === 403) throw new Error(t('Suppression réservée à l\'administrateur', 'Only the administrator can delete'));
-  if (!res.ok) throw new Error(t('Erreur suppression de la vente', 'Failed to delete sale'));
+  if (!res.ok) {
+    const msg = await res.json().catch(() => null);
+    throw new Error(
+      (Array.isArray(msg?.message) ? msg.message[0] : msg?.message)
+      || t('Erreur suppression de la vente', 'Failed to delete sale'),
+    );
+  }
+}
+
+export interface ModifierVentePayload {
+  items: { product?: string; divers?: boolean; name: string; quantity: number; unitPrice: number }[];
+  offrePct?:      number;
+  paymentMethod?: string;
+  amountPaid?:    number;
+  motif:          string;
+}
+
+/**
+ * Correction d'une vente déjà encaissée (le client revient avec son ticket).
+ * Les totaux ne sont pas envoyés : le serveur les recalcule à partir des lignes.
+ */
+export async function modifierVente(
+  id: string,
+  payload: ModifierVentePayload,
+): Promise<{ sale: Sale; ancienTotal: number; nouveauTotal: number; ref: string }> {
+  const res = await fetch(`/api/sales/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify(payload),
+  });
+  if (res.status === 403) throw new Error(t('Correction réservée à l\'administrateur', 'Only the administrator can correct a sale'));
+  if (!res.ok) {
+    const msg = await res.json().catch(() => null);
+    throw new Error(
+      (Array.isArray(msg?.message) ? msg.message[0] : msg?.message)
+      || t('Erreur lors de la correction de la vente', 'Failed to correct the sale'),
+    );
+  }
+  return res.json();
 }

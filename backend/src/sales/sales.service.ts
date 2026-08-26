@@ -7,6 +7,17 @@ import { StockMovement, StockMovementDocument } from '../schemas/stock-movement.
 import { EcartStock, EcartStockDocument } from '../schemas/ecart-stock.schema';
 import { MailService }                    from '../mail/mail.service';
 import { CreateSaleDto }                  from './dto/create-sale.dto';
+import { ModifierVenteDto }               from './dto/modifier-vente.dto';
+import { nomProduit }                     from '../common/nom-produit';
+
+/**
+ * Fenêtre pendant laquelle le patron peut corriger ou supprimer une vente.
+ *
+ * Garde-fou comptable : au-delà, le mois est considéré comme arrêté (rapports
+ * édités, comptes remis). Rouvrir une vente ancienne changerait un chiffre
+ * d'affaires déjà communiqué, sans que personne ne s'en aperçoive.
+ */
+export const FENETRE_CORRECTION_JOURS = 30;
 
 export interface StockAlert {
   alert:          true;
@@ -239,9 +250,140 @@ export class SalesService {
   // ── DELETE /api/sales/:id ─────────────────────────────────────────────────
   // Supprime une vente (ex. vente de test) : restaure le stock des articles
   // référencés, trace un mouvement d'annulation, puis efface la vente.
-  async remove(id: string) {
+  /**
+   * Garde-fou temporel commun à la correction et à la suppression.
+   * Lève si la vente est hors de la fenêtre de correction.
+   */
+  private verifierFenetre(sale: SaleDocument) {
+    const dateVente = sale.dateVente ?? sale.createdAt;
+    const jours = Math.floor((Date.now() - new Date(dateVente).getTime()) / 86_400_000);
+    if (jours > FENETRE_CORRECTION_JOURS) {
+      throw new BadRequestException(
+        `Vente trop ancienne (${jours} jours) : au-delà de ${FENETRE_CORRECTION_JOURS} jours, ` +
+        `la comptabilité est considérée comme arrêtée. Passez par un avoir plutôt que par une correction.`,
+      );
+    }
+  }
+
+  /**
+   * PATCH /api/sales/:id — correction d'une vente (client revenu avec le ticket).
+   *
+   * Le stock est ajusté au DELTA, pas remis à zéro : si la quantité passe de 3 à
+   * 1, on remet 2 en stock ; si elle passe de 1 à 3, on en sort 2 (et on refuse
+   * si le stock ne suit pas). Les montants sont recalculés ici, jamais repris du
+   * client. L'état d'avant est conservé dans `sale.modifications`.
+   */
+  async modifier(
+    id: string,
+    dto: ModifierVenteDto,
+    actor?: { name?: string; email?: string },
+  ) {
     const sale = await this.saleModel.findById(id);
     if (!sale) throw new NotFoundException('Vente introuvable');
+
+    this.verifierFenetre(sale);
+
+    // ── 1. Quantités par produit, avant et après ──────────────────────────────
+    const quantites = (items: { product?: any; divers?: boolean; quantity: number }[]) => {
+      const m = new Map<string, number>();
+      for (const it of items) {
+        if (it.divers || !it.product) continue;   // « divers » : aucun stock à bouger
+        const k = String(it.product);
+        m.set(k, (m.get(k) ?? 0) + it.quantity);
+      }
+      return m;
+    };
+    const avant = quantites(sale.items as any[]);
+    const apres = quantites(dto.items as any[]);
+
+    // ── 2. Contrôle du stock AVANT toute écriture ─────────────────────────────
+    const ids = new Set([...avant.keys(), ...apres.keys()]);
+    const produits = await this.productModel
+      .find({ _id: { $in: [...ids].map(i => new Types.ObjectId(i)) } })
+      .lean();
+    const parId = new Map(produits.map(p => [String(p._id), p]));
+
+    const erreurs: string[] = [];
+    const deltas: { id: string; delta: number }[] = [];
+    for (const pid of ids) {
+      const delta = (apres.get(pid) ?? 0) - (avant.get(pid) ?? 0);   // > 0 = il faut sortir du stock
+      if (delta === 0) continue;
+      const p = parId.get(pid);
+      if (!p) { erreurs.push(`Produit introuvable dans le catalogue (${pid})`); continue; }
+      if (delta > 0 && p.stock < delta) {
+        erreurs.push(
+          `Stock insuffisant pour "${nomProduit(p.name)}" : disponible ${p.stock}, il en faut ${delta} de plus`,
+        );
+      }
+      deltas.push({ id: pid, delta });
+    }
+    if (erreurs.length > 0) throw new BadRequestException(erreurs.join(' | '));
+
+    // ── 3. Recalcul des montants — côté serveur uniquement ────────────────────
+    const subtotal      = dto.items.reduce((s, it) => s + it.unitPrice * it.quantity, 0);
+    const offrePct      = dto.offrePct ?? sale.offrePct ?? 0;
+    const offreAmt      = Math.round(subtotal * offrePct / 100);
+    const total         = subtotal - offreAmt;
+    const paymentMethod = dto.paymentMethod ?? sale.paymentMethod;
+    const amountPaid    = dto.amountPaid    ?? sale.amountPaid;
+
+    if (paymentMethod !== 'credit' && amountPaid < total) {
+      throw new BadRequestException(
+        `Montant remis (${amountPaid} XAF) inférieur au nouveau total (${total} XAF) : ` +
+        `encaissez le complément et saisissez le nouveau montant remis.`,
+      );
+    }
+    const change = Math.max(0, amountPaid - total);
+
+    // ── 4. Ajustement du stock + mouvements tracés ────────────────────────────
+    const ref = String(sale._id).slice(-6).toUpperCase();
+    for (const { id: pid, delta } of deltas) {
+      await this.productModel.findByIdAndUpdate(pid, { $inc: { stock: -delta } });
+      await this.movementModel.create({
+        productId: new Types.ObjectId(pid),
+        type:      delta > 0 ? 'OUT' : 'IN',
+        quantity:  Math.abs(delta),
+        reason:    'modification_vente',
+        note:      `Correction vente ${ref} — ${dto.motif}`,
+      });
+    }
+
+    // ── 5. Trace de l'état d'avant, puis écriture ─────────────────────────────
+    sale.modifications = [
+      ...(sale.modifications ?? []),
+      {
+        date:         new Date(),
+        parNom:       actor?.name  ?? '',
+        parEmail:     actor?.email ?? '',
+        motif:        dto.motif,
+        ancienTotal:  sale.total,
+        nouveauTotal: total,
+        anciensItems: (sale.items as any[]).map(it => ({
+          product: it.product ? String(it.product) : undefined,
+          name: it.name, quantity: it.quantity, unitPrice: it.unitPrice, divers: it.divers ?? false,
+        })),
+      },
+    ];
+
+    const ancienTotal = sale.total;
+    sale.items         = dto.items as any;
+    sale.subtotal      = subtotal;
+    sale.offrePct      = offrePct;
+    sale.offreAmt      = offreAmt;
+    sale.total         = total;
+    sale.paymentMethod = paymentMethod;
+    sale.amountPaid    = amountPaid;
+    sale.change        = change;
+    await sale.save();
+
+    return { sale: sale.toObject(), ancienTotal, nouveauTotal: total, ref };
+  }
+
+  async remove(id: string, motif?: string) {
+    const sale = await this.saleModel.findById(id);
+    if (!sale) throw new NotFoundException('Vente introuvable');
+
+    this.verifierFenetre(sale);
 
     for (const item of sale.items) {
       if (item.divers || !item.product) continue; // les articles divers n'ont pas de stock
@@ -251,12 +393,12 @@ export class SalesService {
         type:      'IN',
         quantity:  item.quantity,
         reason:    'annulation_vente',
-        note:      `Annulation vente ${String(sale._id).slice(-6).toUpperCase()}`,
+        note:      `Annulation vente ${String(sale._id).slice(-6).toUpperCase()}${motif ? ` — ${motif}` : ''}`,
       });
     }
 
     await this.saleModel.findByIdAndDelete(id);
-    return { ok: true, total: sale.total, caisseName: sale.caisseName ?? '' };
+    return { ok: true, total: sale.total, caisseName: sale.caisseName ?? '', motif: motif ?? '' };
   }
 
   // ── GET /api/sales/stats/today ─────────────────────────────────────────────

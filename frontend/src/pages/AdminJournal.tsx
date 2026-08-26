@@ -3,8 +3,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { getSales, deleteSale, Sale, PM_LABELS } from '../api/sales';
+import { getSales, deleteSale, modifierVente, Sale, PM_LABELS } from '../api/sales';
 import { t, dateLocale } from '../i18n';
+import { getAllProducts, effectivePrice, Product } from '../api/products';
+import { contientTexte } from '../utils/text';
+import { localISODate } from '../utils/dates';
+import { buildReceiptHTML, doPrint, getPrintSettings, ReceiptData } from '../components/ReceiptPrint';
+import { useSettings } from '../contexts/SettingsContext';
+import { storeIdentity } from '../api/settings';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -214,9 +220,279 @@ function TicketDetail({ sale }: { sale: Sale }) {
               {t('Total :', 'Total:')} {fmtN(sale.total)} XAF
             </span>
           </div>
+
+          {/* Historique des corrections — sans ça, une vente réécrite serait
+              indiscernable d'une vente d'origine. */}
+          {(sale.modifications?.length ?? 0) > 0 && (
+            <div style={{ borderTop: '1px solid var(--fs-line)', background: '#FFFBEB', padding: '8px 12px' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#92400E', marginBottom: 5 }}>
+                {t('Corrections', 'Corrections')} ({sale.modifications!.length})
+              </div>
+              {sale.modifications!.map((m, i) => (
+                <div key={i} style={{ fontSize: 11, color: 'var(--fs-ink-700)', lineHeight: 1.6 }}>
+                  <strong style={{ fontFamily: 'var(--fs-font-mono)' }}>
+                    {fmtN(m.ancienTotal)} → {fmtN(m.nouveauTotal)} XAF
+                  </strong>
+                  {' · '}{m.motif}
+                  {' · '}<span style={{ color: 'var(--fs-ink-400)' }}>
+                    {m.parNom || '—'}, {new Date(m.date).toLocaleString(dateLocale())}
+                  </span>
+                  <span style={{ color: 'var(--fs-ink-400)' }}>
+                    {' · '}{t('avant', 'before')} : {m.anciensItems.map(a => `${displayName(a.name)} ×${a.quantity}`).join(', ')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </td>
     </tr>
+  );
+}
+
+// ── Correction d'une vente (le client revient avec son ticket) ───────────────
+//
+// Réservé au patron. Les montants affichés ici sont indicatifs : c'est le
+// serveur qui recalcule et qui fait foi. Le stock est ajusté au delta de chaque
+// ligne, et l'état d'avant est conservé sur la vente.
+
+interface LigneEdit { product?: string; divers: boolean; name: string; quantity: number; unitPrice: number }
+
+function ModifierVenteModal({ sale, onClose, onSaved, imprimer }: {
+  sale: Sale;
+  onClose: () => void;
+  onSaved: (maj: Sale, ancienTotal: number, nouveauTotal: number) => void;
+  imprimer: (s: Sale) => void;
+}) {
+  // Catalogue chargé à l'ouverture : sert à AJOUTER un article au ticket
+  // (le client repart avec autre chose en échange de ce qu'il rend).
+  const [catalogue, setCatalogue] = useState<Product[]>([]);
+  const [recherche, setRecherche] = useState('');
+  useEffect(() => { getAllProducts().then(setCatalogue).catch(() => {}); }, []);
+  const [imprimerApres, setImprimerApres] = useState(true);
+  const [lignes, setLignes] = useState<LigneEdit[]>(() => sale.items.map(it => ({
+    product:   typeof it.product === 'object' ? it.product?._id : (it.product as string | undefined),
+    divers:    it.divers ?? false,
+    name:      it.name,
+    quantity:  it.quantity,
+    unitPrice: it.unitPrice,
+  })));
+  const [offrePct,  setOffrePct]  = useState<number>(sale.offrePct ?? 0);
+  const [pm,        setPm]        = useState<string>(sale.paymentMethod);
+  const [paid,      setPaid]      = useState<number>(sale.amountPaid);
+  const [motif,     setMotif]     = useState('');
+  const [busy,      setBusy]      = useState(false);
+  const [erreur,    setErreur]    = useState<string | null>(null);
+
+  const sousTotal = lignes.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
+  const remise    = Math.round(sousTotal * offrePct / 100);
+  const total     = sousTotal - remise;
+  const rendu     = Math.max(0, paid - total);
+  const ecart     = total - sale.total;   // < 0 = à rembourser au client
+
+  const majLigne = (i: number, patch: Partial<LigneEdit>) =>
+    setLignes(ls => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
+
+  // Résultats de recherche : on masque ce qui est déjà sur le ticket pour éviter
+  // les doublons (une deuxième ligne du même produit fausserait la lecture).
+  const resultats = recherche.trim().length < 2 ? [] : catalogue
+    .filter(p => contientTexte(p.name, recherche) || contientTexte(p.barcode, recherche))
+    .filter(p => !lignes.some(l => l.product === p._id))
+    .slice(0, 6);
+
+  const ajouterProduit = (p: Product) => {
+    setLignes(ls => [...ls, {
+      product: p._id, divers: false, name: p.name, quantity: 1, unitPrice: effectivePrice(p),
+    }]);
+    setRecherche('');
+  };
+
+  const motifValide = motif.trim().length >= 5;
+  const paiementOk  = pm === 'credit' || paid >= total;
+  const peutValider = lignes.length > 0 && motifValide && paiementOk && !busy;
+
+  const enregistrer = async () => {
+    setErreur(null);
+    setBusy(true);
+    try {
+      const res = await modifierVente(sale._id, {
+        items: lignes.map(l => ({
+          ...(l.product && !l.divers ? { product: l.product } : {}),
+          ...(l.divers ? { divers: true } : {}),
+          name: l.name, quantity: l.quantity, unitPrice: l.unitPrice,
+        })),
+        offrePct, paymentMethod: pm, amountPaid: paid, motif: motif.trim(),
+      });
+      if (imprimerApres) imprimer(res.sale);
+      onSaved(res.sale, res.ancienTotal, res.nouveauTotal);
+    } catch (e: unknown) {
+      setErreur(e instanceof Error ? e.message : t('Erreur', 'Error'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const champ: React.CSSProperties = {
+    border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '7px 10px',
+    fontSize: 13, fontFamily: 'var(--fs-font-sans)', width: '100%', color: 'var(--fs-ink-900)',
+  };
+
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget && !busy) onClose(); }}
+      style={{ position: 'fixed', inset: 0, zIndex: 420, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, overflowY: 'auto' }}>
+      <div style={{ background: '#fff', borderRadius: 14, padding: '22px 26px', maxWidth: 640, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '92vh', overflowY: 'auto' }}>
+
+        <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--fs-ink-900)', marginBottom: 2 }}>
+          {t('Corriger la vente', 'Correct the sale')} #{sale._id.slice(-6).toUpperCase()}
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--fs-ink-500)', margin: '0 0 14px' }}>
+          {t('Le stock est réajusté automatiquement et la correction est tracée (auteur, motif, état d’avant).',
+             'Stock is adjusted automatically and the correction is logged (author, reason, previous state).')}
+        </p>
+
+        {/* Lignes */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
+          <thead>
+            <tr style={{ background: 'var(--fs-wine-50)' }}>
+              {[t('Article', 'Item'), t('Qté', 'Qty'), t('Prix unit.', 'Unit price'), t('Total', 'Total'), ''].map((h, i) => (
+                <th key={i} style={{ padding: '6px 8px', textAlign: i === 0 ? 'left' : 'right', fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {lignes.map((l, i) => (
+              <tr key={i} style={{ borderTop: '1px solid var(--fs-line)' }}>
+                <td style={{ padding: '6px 8px', fontSize: 12, color: 'var(--fs-ink-800)' }}>{displayName(l.name)}</td>
+                <td style={{ padding: '6px 8px', textAlign: 'right' }}>
+                  <input type="number" min={1} value={l.quantity} disabled={busy}
+                    onChange={e => majLigne(i, { quantity: Math.max(1, parseInt(e.target.value || '1', 10)) })}
+                    style={{ ...champ, width: 64, textAlign: 'right', padding: '5px 7px' }}/>
+                </td>
+                <td style={{ padding: '6px 8px', textAlign: 'right' }}>
+                  <input type="number" min={0} value={l.unitPrice} disabled={busy}
+                    onChange={e => majLigne(i, { unitPrice: Math.max(0, parseInt(e.target.value || '0', 10)) })}
+                    style={{ ...champ, width: 92, textAlign: 'right', padding: '5px 7px' }}/>
+                </td>
+                <td style={{ padding: '6px 8px', textAlign: 'right', fontSize: 12, fontWeight: 700, fontFamily: 'var(--fs-font-mono)' }}>
+                  {fmtN(l.unitPrice * l.quantity)}
+                </td>
+                <td style={{ padding: '6px 8px', textAlign: 'right' }}>
+                  <button onClick={() => setLignes(ls => ls.filter((_, idx) => idx !== i))}
+                    disabled={busy || lignes.length === 1}
+                    title={lignes.length === 1
+                      ? t('Une vente doit garder au moins une ligne — utilisez la suppression', 'A sale must keep at least one line — use deletion instead')
+                      : t('Retirer cette ligne', 'Remove this line')}
+                    style={{ background: 'none', border: 'none', cursor: lignes.length === 1 ? 'not-allowed' : 'pointer', color: lignes.length === 1 ? 'var(--fs-ink-300)' : 'var(--fs-danger-700)', fontSize: 15, lineHeight: 1 }}>×</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Ajout d'un article au ticket */}
+        <div style={{ position: 'relative', marginBottom: 12 }}>
+          <input value={recherche} onChange={e => setRecherche(e.target.value)} disabled={busy}
+            placeholder={t('+ Ajouter un article (nom ou code-barres)', '+ Add an item (name or barcode)')}
+            style={{ ...champ, borderStyle: 'dashed' }}/>
+          {resultats.length > 0 && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 5, background: '#fff', border: '1px solid var(--fs-line-2)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', marginTop: 3, overflow: 'hidden' }}>
+              {resultats.map(p => (
+                <button key={p._id} onClick={() => ajouterProduit(p)}
+                  style={{ display: 'flex', justifyContent: 'space-between', gap: 10, width: '100%', border: 'none', borderBottom: '1px solid var(--fs-line)', background: 'none', padding: '8px 10px', cursor: 'pointer', textAlign: 'left', fontSize: 12, fontFamily: 'var(--fs-font-sans)' }}>
+                  <span style={{ color: 'var(--fs-ink-800)' }}>
+                    {displayName(p.name)}
+                    <span style={{ color: p.stock > 0 ? 'var(--fs-ink-400)' : 'var(--fs-danger-700)', marginLeft: 6 }}>
+                      ({t('stock', 'stock')} {p.stock})
+                    </span>
+                  </span>
+                  <span style={{ fontFamily: 'var(--fs-font-mono)', fontWeight: 700, color: 'var(--fs-wine-700)', whiteSpace: 'nowrap' }}>{fmtN(effectivePrice(p))} XAF</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Paiement */}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+          <label style={{ flex: '1 1 120px', fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)' }}>
+            {t('Réduction facture (%)', 'Invoice discount (%)')}
+            <input type="number" min={0} max={100} value={offrePct} disabled={busy}
+              onChange={e => setOffrePct(Math.min(100, Math.max(0, parseInt(e.target.value || '0', 10))))}
+              style={{ ...champ, marginTop: 3 }}/>
+          </label>
+          <label style={{ flex: '1 1 150px', fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)' }}>
+            {t('Mode de paiement', 'Payment method')}
+            <select value={pm} onChange={e => setPm(e.target.value)} disabled={busy} style={{ ...champ, marginTop: 3 }}>
+              {Object.entries(PM_LABELS).map(([k, lab]) => <option key={k} value={k}>{lab}</option>)}
+            </select>
+          </label>
+          <label style={{ flex: '1 1 130px', fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)' }}>
+            {t('Montant remis', 'Amount paid')}
+            <input type="number" min={0} value={paid} disabled={busy}
+              onChange={e => setPaid(Math.max(0, parseInt(e.target.value || '0', 10)))}
+              style={{ ...champ, marginTop: 3 }}/>
+          </label>
+        </div>
+
+        {/* Totaux */}
+        <div style={{ background: 'var(--fs-ivory)', border: '1px solid var(--fs-line)', borderRadius: 10, padding: '10px 12px', marginBottom: 12, fontSize: 12 }}>
+          {[
+            [t('Sous-total', 'Subtotal'), `${fmtN(sousTotal)} XAF`],
+            ...(remise > 0 ? [[`${t('Réduction', 'Discount')} (−${offrePct} %)`, `−${fmtN(remise)} XAF`]] : []),
+            [t('Nouveau total', 'New total'), `${fmtN(total)} XAF`],
+            [t('Monnaie à rendre', 'Change to give'), `${fmtN(rendu)} XAF`],
+          ].map(([k, v], i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', fontWeight: k === t('Nouveau total', 'New total') ? 800 : 500, color: 'var(--fs-ink-800)' }}>
+              <span>{k}</span><span style={{ fontFamily: 'var(--fs-font-mono)' }}>{v}</span>
+            </div>
+          ))}
+          {ecart !== 0 && (
+            <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--fs-line)', fontWeight: 800, color: ecart < 0 ? 'var(--fs-danger-700)' : '#15803d' }}>
+              {ecart < 0
+                ? `${t('À rembourser au client', 'To refund the customer')} : ${fmtN(-ecart)} XAF`
+                : `${t('Complément à encaisser', 'Extra to collect')} : ${fmtN(ecart)} XAF`}
+            </div>
+          )}
+        </div>
+
+        {/* Motif — obligatoire */}
+        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)' }}>
+          {t('Motif de la correction (obligatoire)', 'Reason for the correction (required)')}
+          <input value={motif} onChange={e => setMotif(e.target.value)} disabled={busy}
+            placeholder={t('Ex. : client a rendu 1 savon', 'E.g. customer returned 1 soap')}
+            style={{ ...champ, marginTop: 3, borderColor: motif && !motifValide ? 'var(--fs-danger-700)' : 'var(--fs-line-2)' }}/>
+        </label>
+        {motif.length > 0 && !motifValide && (
+          <div style={{ fontSize: 11, color: 'var(--fs-danger-700)', marginTop: 4 }}>{t('5 caractères minimum.', 'At least 5 characters.')}</div>
+        )}
+        {!paiementOk && (
+          <div style={{ fontSize: 11, color: 'var(--fs-danger-700)', marginTop: 6 }}>
+            {t('Le montant remis est inférieur au nouveau total.', 'The amount paid is lower than the new total.')}
+          </div>
+        )}
+        {erreur && (
+          <div style={{ fontSize: 12, color: 'var(--fs-danger-700)', background: '#fef2f2', border: '1px solid rgba(194,62,36,0.25)', borderRadius: 8, padding: '8px 10px', marginTop: 10 }}>{erreur}</div>
+        )}
+
+        {/* Impression du ticket corrigé — au choix */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 12, color: 'var(--fs-ink-700)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={imprimerApres} onChange={e => setImprimerApres(e.target.checked)} disabled={busy}
+            style={{ width: 15, height: 15, accentColor: 'var(--fs-wine-700)', cursor: 'pointer' }}/>
+          {t('Imprimer le ticket corrigé après enregistrement', 'Print the corrected receipt after saving')}
+        </label>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+          <button onClick={onClose} disabled={busy}
+            style={{ flex: 1, padding: '11px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
+            {t('Annuler', 'Cancel')}
+          </button>
+          <button onClick={enregistrer} disabled={!peutValider}
+            style={{ flex: 1, padding: '11px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: peutValider ? 'pointer' : 'not-allowed', background: peutValider ? 'var(--fs-wine-700)' : 'var(--fs-line-2)', color: '#fff', fontFamily: 'var(--fs-font-sans)' }}>
+            {busy ? t('Enregistrement…', 'Saving…') : t('Enregistrer la correction', 'Save correction')}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -226,6 +502,33 @@ export default function AdminJournal() {
   const { toasts, addToast, removeToast } = useToast();
   const isMobile = useIsMobile();
   const isNarrow = useIsMobile(1024);
+  const { settings } = useSettings();
+
+  /**
+   * Réimpression d'un ticket depuis le journal (client au comptoir).
+   * Un ticket déjà corrigé sort avec la mention « TICKET CORRIGÉ » : un
+   * duplicata muet pourrait servir à réclamer deux fois le même achat.
+   */
+  const imprimerTicket = useCallback((s: Sale) => {
+    const d = new Date(s.dateVente ?? s.createdAt);
+    const data: ReceiptData = {
+      receiptNo:    `FSV-${localISODate(d).replace(/-/g, '')}-${s._id.slice(-6).toUpperCase()}`,
+      date:         d,
+      cashierName:  s.cashierName ?? '',
+      storePhone:   settings.telephone || undefined,
+      store:        storeIdentity(settings),
+      items:        s.items.map(it => ({ name: it.name, unit: '', quantity: it.quantity, unitPrice: it.unitPrice })),
+      subtotal:     s.subtotal || s.items.reduce((n, it) => n + it.unitPrice * it.quantity, 0),
+      total:        s.total,
+      paymentLabel: PM_LABELS[s.paymentMethod] ?? s.paymentMethod,
+      amountPaid:   s.amountPaid,
+      change:       s.change,
+      offrePct:     s.offrePct,
+      offreAmt:     s.offreAmt,
+      mention:      (s.modifications?.length ?? 0) > 0 ? t('TICKET CORRIGÉ', 'CORRECTED RECEIPT') : undefined,
+    };
+    doPrint(buildReceiptHTML(data), getPrintSettings().copies);
+  }, [settings]);
 
   const [sales,        setSales]        = useState<Sale[]>([]);
   const [loading,      setLoading]      = useState(true);
@@ -238,6 +541,8 @@ export default function AdminJournal() {
   const [cashierFilter,setCashierFilter]= useState('');
   const [sort,         setSort]         = useState<{ key: JSortKey; dir: 'asc' | 'desc' }>({ key: 'date', dir: 'desc' });
   const [deleteTarget, setDeleteTarget] = useState<Sale | null>(null);
+  const [editTarget,   setEditTarget]   = useState<Sale | null>(null);
+  const [motifSuppr,   setMotifSuppr]   = useState('');
   const [deleting,     setDeleting]     = useState(false);
   const toggleSort = useCallback((key: JSortKey) => {
     setSort(s => s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' });
@@ -271,9 +576,10 @@ export default function AdminJournal() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await deleteSale(deleteTarget._id);
+      await deleteSale(deleteTarget._id, motifSuppr.trim());
       setSales(prev => prev.filter(s => s._id !== deleteTarget._id));
       setDeleteTarget(null);
+      setMotifSuppr('');
       addToast(t('Vente supprimée — stock restauré ✓', 'Sale deleted — stock restored ✓'), 'success');
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : t('Erreur', 'Error'), 'error');
@@ -347,6 +653,27 @@ export default function AdminJournal() {
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       {/* Modal confirmation suppression de vente */}
+      {editTarget && (
+        <ModifierVenteModal
+          sale={editTarget}
+          onClose={() => setEditTarget(null)}
+          imprimer={imprimerTicket}
+          onSaved={(maj, ancien, nouveau) => {
+            setSales(prev => prev.map(s => s._id === maj._id ? maj : s));
+            setEditTarget(null);
+            const ecart = nouveau - ancien;
+            addToast(
+              ecart === 0
+                ? t('Vente corrigée ✓', 'Sale corrected ✓')
+                : ecart < 0
+                  ? t(`Vente corrigée ✓ — ${fmtN(-ecart)} XAF à rembourser au client`, `Sale corrected ✓ — ${fmtN(-ecart)} XAF to refund the customer`)
+                  : t(`Vente corrigée ✓ — ${fmtN(ecart)} XAF à encaisser`, `Sale corrected ✓ — ${fmtN(ecart)} XAF to collect`),
+              'success',
+            );
+          }}
+        />
+      )}
+
       {deleteTarget && (
         <div onClick={e => { if (e.target === e.currentTarget) setDeleteTarget(null); }}
           style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -356,13 +683,23 @@ export default function AdminJournal() {
               {t('Vente', 'Sale')} <strong>#{deleteTarget._id.slice(-6).toUpperCase()}</strong> {t('de', 'of')} <strong>{fmtN(deleteTarget.total)} XAF</strong>.<br/>
               {t('Le', 'The')} <strong>{t('stock sera restauré', 'stock will be restored')}</strong> {t('et la vente retirée de la comptabilité. Action irréversible, tracée dans le journal d\'audit.', 'and the sale removed from accounting. This action is irreversible and logged in the audit trail.')}
             </p>
+            {/* Garde-fou : une suppression de vente doit être justifiée, comme une correction. */}
+            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)', display: 'block', marginBottom: 14 }}>
+              {t('Motif de la suppression (obligatoire)', 'Reason for deletion (required)')}
+              <input value={motifSuppr} onChange={e => setMotifSuppr(e.target.value)} disabled={deleting}
+                placeholder={t('Ex. : ticket saisi deux fois', 'E.g. receipt entered twice')}
+                style={{ width: '100%', marginTop: 3, border: '1.5px solid var(--fs-line-2)', borderRadius: 8, padding: '8px 10px', fontSize: 13, fontFamily: 'var(--fs-font-sans)', color: 'var(--fs-ink-900)' }}/>
+              {motifSuppr.length > 0 && motifSuppr.trim().length < 5 && (
+                <span style={{ fontSize: 11, color: 'var(--fs-danger-700)' }}>{t('5 caractères minimum.', 'At least 5 characters.')}</span>
+              )}
+            </label>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setDeleteTarget(null)}
+              <button onClick={() => { setDeleteTarget(null); setMotifSuppr(''); }}
                 style={{ flex: 1, padding: '11px', border: '1.5px solid var(--fs-line-2)', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: '#fff', color: 'var(--fs-ink-500)', fontFamily: 'var(--fs-font-sans)' }}>
                 {t('Annuler', 'Cancel')}
               </button>
-              <button onClick={handleDeleteSale} disabled={deleting}
-                style={{ flex: 1, padding: '11px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: '#dc2626', color: '#fff', opacity: deleting ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
+              <button onClick={handleDeleteSale} disabled={deleting || motifSuppr.trim().length < 5}
+                style={{ flex: 1, padding: '11px', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: (deleting || motifSuppr.trim().length < 5) ? 'not-allowed' : 'pointer', background: motifSuppr.trim().length < 5 ? 'var(--fs-line-2)' : '#dc2626', color: '#fff', opacity: deleting ? 0.7 : 1, fontFamily: 'var(--fs-font-sans)' }}>
                 {deleting ? t('Suppression…', 'Deleting…') : t('Oui, supprimer', 'Yes, delete')}
               </button>
             </div>
@@ -539,6 +876,12 @@ export default function AdminJournal() {
                           {/* Ticket # */}
                           <td style={{ padding: '10px 12px', fontSize: 12, fontFamily: 'var(--fs-font-mono)', fontWeight: 800, color: 'var(--fs-wine-700)', whiteSpace: 'nowrap' }}>
                             #{s._id.slice(-6).toUpperCase()}
+                            {(s.modifications?.length ?? 0) > 0 && (
+                              <span title={t('Vente corrigée — détail dans le ticket', 'Sale corrected — details in the receipt')}
+                                style={{ marginLeft: 5, background: '#FEF3C7', color: '#92400E', borderRadius: 5, padding: '1px 5px', fontSize: 9, fontWeight: 700, fontFamily: 'var(--fs-font-sans)', letterSpacing: '0.04em' }}>
+                                {t('CORRIGÉE', 'CORRECTED')}
+                              </span>
+                            )}
                           </td>
                           {/* Date heure (réelle si synchro hors-ligne) */}
                           <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
@@ -585,8 +928,16 @@ export default function AdminJournal() {
                           <td style={{ padding: '10px 14px', textAlign: 'right', fontSize: 13, fontWeight: 800, fontFamily: 'var(--fs-font-mono)', color: 'var(--fs-ink-900)', whiteSpace: 'nowrap' }}>
                             {fmtN(s.total)} XAF
                           </td>
-                          {/* Supprimer */}
-                          <td style={{ padding: '10px 12px', textAlign: 'center', width: 40 }}>
+                          {/* Réimprimer + Corriger + Supprimer */}
+                          <td style={{ padding: '10px 12px', textAlign: 'center', width: 108, whiteSpace: 'nowrap' }}>
+                            <button onClick={e => { e.stopPropagation(); imprimerTicket(s); }} title={t('Réimprimer ce ticket', 'Reprint this receipt')}
+                              style={{ background: '#fff', border: '1px solid var(--fs-line-2)', borderRadius: 7, padding: '5px 8px', cursor: 'pointer', color: 'var(--fs-ink-500)', display: 'inline-flex', alignItems: 'center', marginRight: 4 }}>
+                              <I d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z" size={13}/>
+                            </button>
+                            <button onClick={e => { e.stopPropagation(); setEditTarget(s); }} title={t('Corriger cette vente (client revenu avec le ticket)', 'Correct this sale (customer returned with the receipt)')}
+                              style={{ background: 'var(--fs-wine-50)', border: '1px solid var(--fs-line-2)', borderRadius: 7, padding: '5px 8px', cursor: 'pointer', color: 'var(--fs-wine-700)', display: 'inline-flex', alignItems: 'center', marginRight: 4 }}>
+                              <I d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z" size={13}/>
+                            </button>
                             <button onClick={e => { e.stopPropagation(); setDeleteTarget(s); }} title={t('Supprimer cette vente', 'Delete this sale')}
                               style={{ background: '#fef2f2', border: '1px solid rgba(194,62,36,0.2)', borderRadius: 7, padding: '5px 8px', cursor: 'pointer', color: 'var(--fs-danger-700)', display: 'inline-flex', alignItems: 'center' }}>
                               <I d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2" size={13}/>

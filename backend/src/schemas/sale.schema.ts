@@ -103,6 +103,34 @@ export class Sale {
   @Prop()
   idempotencyKey?: string;
 
+  /**
+   * Historique des corrections faites par le patron (client revenu avec son
+   * ticket). Chaque entrée garde l'état AVANT : sans ça, une contestation
+   * ultérieure serait impossible à arbitrer, et une modification pourrait
+   * masquer une erreur de caisse. Jamais purgé.
+   */
+  @Prop({
+    type: [{
+      date:          { type: Date,   required: true },
+      parNom:        { type: String, default: '' },
+      parEmail:      { type: String, default: '' },
+      motif:         { type: String, required: true },
+      ancienTotal:   { type: Number, required: true },
+      nouveauTotal:  { type: Number, required: true },
+      anciensItems:  { type: Array,  default: [] },
+    }],
+    default: [],
+  })
+  modifications: {
+    date:         Date;
+    parNom:       string;
+    parEmail:     string;
+    motif:        string;
+    ancienTotal:  number;
+    nouveauTotal: number;
+    anciensItems: any[];
+  }[];
+
   @Prop({ default: Date.now })
   createdAt: Date;
 }
