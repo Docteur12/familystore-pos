@@ -335,7 +335,15 @@ export default function AdminDashboard() {
             <MetricCard
               title={t("Chiffre d'affaires", 'Revenue')}
               value={`${fmtN(ca)} XAF`}
-              sup={evoCA ? t(`${evoCA} vs même jour semaine dernière`, `${evoCA} vs same day last week`) : null}
+              /* Journée pas encore commencée : on ne compare pas.
+                 Techniquement « −100 % » est exact — zéro contre le chiffre de
+                 la semaine dernière — mais c'est la première chose que le
+                 patron lit CHAQUE MATIN avant sa première vente, en gros et en
+                 rouge. Une alarme qui se déclenche tous les jours sans motif
+                 cesse d'être lue, et emporte les vraies avec elle. */
+              sup={ca === 0
+                ? t('Pas encore de vente aujourd’hui', 'No sale yet today')
+                : evoCA ? t(`${evoCA} vs même jour semaine dernière`, `${evoCA} vs same day last week`) : null}
               accent
             />
             {/* Tickets + MIN/MAX/MOYENNE */}
