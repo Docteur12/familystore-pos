@@ -42,16 +42,36 @@ jobs:
 
       # Binaire mongod de mongodb-memory-server (~80 Mo) : mis en cache pour
       # éviter de le retélécharger à chaque exécution.
+      # CHEMIN ABSOLU, et le MÊME des deux côtés.
+      #
+      # C'était `~/.cache/mongodb-binaries` ici et dans MONGOMS_DOWNLOAD_DIR.
+      # `actions/cache` résout le `~` ; une valeur de `env:` est transmise
+      # TELLE QUELLE au processus, et Node ne l'interprète pas — il créait donc
+      # un dossier littéralement nommé « ~ » dans `backend/`. Les deux ne
+      # désignaient pas le même endroit : le cache n'a jamais servi, comme le
+      # disait « Cache not found for input keys » à chaque exécution.
       - name: Cache du binaire MongoDB
         uses: actions/cache@v4
         with:
-          path: ~/.cache/mongodb-binaries
-          key: mongodb-binaries-${{ runner.os }}
+          path: ${{ runner.temp }}/mongodb-binaries
+          key: mongodb-binaries-${{ runner.os }}-7.0.24
+
+      # TÉLÉCHARGEMENT EN UN SEUL PROCESSUS, avant Jest.
+      #
+      # Sans cache, chaque worker Jest téléchargeait le binaire en parallèle
+      # dans le même dossier vide : le premier renommait le fichier, les autres
+      # échouaient en « ENOENT … .tgz.downloading -> .tgz » et treize tests
+      # tombaient d'un coup (26/08/2026). Le récupérer d'abord, une fois,
+      # supprime la course — et le cache rend l'étape quasi gratuite ensuite.
+      - name: Pré-télécharger MongoDB (évite la course entre workers Jest)
+        run: node -e "require('mongodb-memory-server').MongoMemoryServer.create().then(s => s.stop())"
+        env:
+          MONGOMS_DOWNLOAD_DIR: ${{ runner.temp }}/mongodb-binaries
 
       - name: Tests
         run: npm test
         env:
-          MONGOMS_DOWNLOAD_DIR: ~/.cache/mongodb-binaries
+          MONGOMS_DOWNLOAD_DIR: ${{ runner.temp }}/mongodb-binaries
 
   # Le frontend n'a pas encore de tests : on vérifie au moins qu'il compile.
   frontend:
