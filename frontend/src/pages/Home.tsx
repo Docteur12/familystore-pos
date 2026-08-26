@@ -20,7 +20,7 @@ export default function Home() {
   const payload   = getTokenPayload();
 
   const handleLogout = () => {
-    void deconnexion().then(ok => { if (ok) navigate('/login'); });
+    void deconnexion().then(ok => { if (ok) window.location.href = '/login'; });
   };
 
   return (

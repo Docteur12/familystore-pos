@@ -147,6 +147,41 @@ Restent à traiter avant un vrai lancement mutualisé :
 Le code hors requête HTTP (crons) doit s'exécuter dans `runWithTenant(...)` :
 voir `fournisseurs.service.ts` pour le motif.
 
+### ✅ Identité avant connexion — tranché le 26/08/2026
+
+La règle dépend du **mode**, parce que la question « à qui appartient cet
+écran ? » n'a pas la même réponse selon la façon dont on y est arrivé.
+
+**Mode `single` — un domaine dédié à un client.** L'identité du magasin
+s'affiche **partout**, y compris avant connexion : logo, couleurs, nom. Sur
+`familystore-pos.netlify.app`, **le domaine EST l'identification** — personne
+n'y arrive par hasard. C'est le comportement actuel en production, et il est
+conservé. `GET /api/settings/public` existe pour cela.
+
+**Mode `multi` — origine partagée, ou appareil vierge.** Caméléon neutre tant
+que la boutique n'a pas été choisie. Avant la connexion, on ne sait pas chez
+qui l'on entre : afficher une enseigne serait faux pour tous les autres, et
+absurde pour un propriétaire multi-boutiques qui verrait celle de l'une avant
+de choisir l'autre.
+
+Trois garanties portent cette seconde règle :
+
+- **l'écran de connexion est immunisé** : ses couleurs sont écrites en dur
+  (`pages/Login.tsx`), pas prises dans les variables de thème. Sans cela,
+  `couleurPrincipale` — appliquée sur la RACINE du document par
+  `SettingsContext` — le teindrait aux couleurs de la dernière boutique ;
+- **les défauts du dépôt sont ceux de Caméléon** : nom, thème, manifeste PWA
+  et **icônes** (`frontend/public/`). Chaque client surcharge par variables de
+  site Netlify, `VITE_BRAND_ICONS` comprise — voir `LOT-E.md` §A4 ;
+- **`reinitialiserTheme()` est appelée dans `deconnexion()`** : aucune identité
+  ne survit à une déconnexion. Elle ne dépend pas d'un rechargement de page —
+  onze déconnexions sur quatorze rechargeaient, trois non, et sur celles-là
+  l'écran de connexion gardait l'habillage du magasin quitté. Sur un poste
+  partagé, l'utilisateur suivant voyait l'enseigne du précédent.
+
+Corollaire pour les tickets, distinct : le repli d'identité imprimée est
+**vide**, jamais une marque — voir `STORE_FALLBACK` dans `ReceiptPrint.tsx`.
+
 ### Phase 2 — un magasin = une configuration, plus un fork
 
 Tout ce qui distinguait `radiance-pos` de ce dépôt est devenu de la

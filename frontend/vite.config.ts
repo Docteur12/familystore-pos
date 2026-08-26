@@ -49,10 +49,17 @@ function htmlBrand(b: Brand): Plugin {
   };
 }
 
-// Icônes par magasin : les favicons de public/ sont ceux de Family Store
-// (défaut). Si VITE_BRAND_ICONS=<nom> est définie (site Netlify du magasin),
-// les fichiers de public/brand/<nom>/ écrasent ceux de la racine de dist à la
-// fin du build — favicon de l'onglet, icône PWA, apple-touch-icon.
+// Icônes par magasin.
+//
+// Les favicons de `public/` sont désormais ceux de CAMÉLÉON — ils portaient
+// l'identité de Family Store, si bien qu'un site déployé sans surcharge
+// installait une application à l'icône d'un autre commerçant, jusque sur
+// l'écran d'accueil du téléphone.
+//
+// Chaque client pose les siens : `VITE_BRAND_ICONS=<nom>` sur son site
+// Netlify, et les fichiers de `public/brand/<nom>/` écrasent ceux de la
+// racine de `dist` à la fin du build — favicon de l'onglet, icône PWA,
+// apple-touch-icon. `family-store` et `radiance` existent tous deux.
 function brandIcons(b: Brand): Plugin {
   return {
     name: 'brand-icons',
@@ -100,9 +107,16 @@ export default defineConfig(({ mode }) => {
         display: 'standalone',
         background_color: brand.bgColor,
         theme_color: brand.themeColor,
+        // 192 et 512 sont les tailles qu'Android réclame à l'installation ;
+        // sans elles, le système agrandissait le favicon 32×32 — icône floue
+        // sur l'écran d'accueil. `maskable` évite qu'Android rogne le « C »
+        // en appliquant sa propre forme par-dessus.
         icons: [
-          { src: '/favicon-32x32.png',   sizes: '32x32',   type: 'image/png' },
+          { src: '/favicon-32x32.png',    sizes: '32x32',   type: 'image/png' },
           { src: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+          { src: '/pwa-192x192.png',      sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/pwa-512x512.png',      sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/pwa-512x512.png',      sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {

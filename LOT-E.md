@@ -73,10 +73,18 @@ surcharger**, Family Store comme Radiance le fait déjà :
 | `VITE_APP_LANG` | `fr` | `en` |
 | `VITE_THEME_COLOR` | `#8B1A2B` | (sa couleur) |
 | `VITE_API_URL` | son backend Render | son backend Render |
+| `VITE_BRAND_ICONS` | `family-store` | `radiance` |
 
 ⚠️ **Sans ces variables, le site déployé s'appellerait « Caméléon »** —
 manifeste PWA, titre d'onglet et couleur de thème compris. À poser AVANT le
 déploiement, pas après.
+
+⚠️ **`VITE_BRAND_ICONS` est NOUVELLE pour Family Store.** Ses icônes étaient
+celles de `public/`, c'est-à-dire le défaut du dépôt ; elles ont déménagé dans
+`public/brand/family-store/` et le défaut est passé à Caméléon. Sans cette
+variable, Family Store se déploierait avec l'icône Caméléon — onglet du
+navigateur ET icône installée sur les téléphones. Radiance, lui, la déclare
+déjà.
 
 ### A5. Paiements — clés MyCoolPay sur Render
 
@@ -87,7 +95,20 @@ déploiement, pas après.
 le mode `simule` est interdit en production (il confirmerait les paiements
 sans encaissement). Les clés partent donc en même temps que le code.
 
-L'URL du webhook doit être déclarée dans le tableau de bord MyCoolPay.
+**URL de callback à déclarer dans le tableau de bord MyCoolPay :**
+
+```
+https://<service-render-cameleon>/api/paiements/webhook
+```
+
+Ce chemin n'est pas arbitraire : c'est aussi celui sur lequel `main.ts` capte
+le **corps brut** de la requête. Le changer sans changer les deux romprait la
+lecture de la référence.
+
+Les URL de succès / annulation / erreur pointent sur `/paiement/retour`. Elles
+ne créditent rien et ne doivent jamais le faire : le navigateur du payeur y
+arrive parce qu'on l'y a envoyé, ce que n'importe qui peut reproduire en
+tapant l'adresse.
 
 ### A6. Migrations déjà connues
 
@@ -95,6 +116,47 @@ L'URL du webhook doit être déclarée dans le tableau de bord MyCoolPay.
   historique dans `Settings`) — voir `DEPLOY.md` §6.
 - `npm run migrate:pin -- --execute` sur `familystore` **et** la base
   Radiance, AVANT le merge.
+
+### A7. Le service Render Caméléon — plan PAYANT, et sa propre base
+
+Caméléon a besoin de **son** service Render et de **sa** base, distincts de
+ceux des clients. Les collections plateforme — `Proprietaire`, `Boutique`,
+`Licence`, `Paiement` — sont hors cloisonnement (`skipTenant`) : elles vivent
+dans la base du backend. Les poser dans `familystore` mélangerait les licences
+de tous les clients aux données d'un seul.
+
+⚠️ **Plan payant, pas le plan gratuit.** Ce n'est pas un confort technique.
+C'est ce service qui reçoit les webhooks de paiement, et le plan gratuit met
+l'instance en veille après inactivité :
+
+- un webhook réveillant un service endormi attend 30 à 60 s, parfois échoue ;
+- MyCoolPay rejoue alors en rafale — 202 requêtes pour 2 paiements ont été
+  observées chez Tontina Market — ce qui aggrave l'encombrement ;
+- surtout, **la réconciliation active ne tourne pas pendant la veille**. C'est
+  elle qui rattrape les webhooks perdus. Un service endormi, c'est un client
+  qui a payé et dont la boutique n'existe pas tant que personne n'ouvre
+  l'application.
+
+Le risque est donc commercial : encaisser sans rendre le service. La
+conception le prévoit (500 pour forcer le rejeu, suivi 24 h après expiration),
+mais aucune de ces défenses ne fonctionne si le processus dort.
+
+### A8. Vérifier le webhook APRÈS déploiement, par un vrai paiement
+
+MyCoolPay n'a **pas d'environnement d'essai** : aucun test automatique ne peut
+prouver que la route est atteinte. La seule vérification possible est un
+paiement réel, une fois le service en ligne.
+
+À contrôler dans le journal du service, sur ce paiement :
+
+1. une requête arrive sur `/api/paiements/webhook` ;
+2. elle déclenche un appel `checkStatus` sortant — le webhook n'est cru sur
+   rien, il ne fait que déclencher la vérification ;
+3. le paiement passe à `confirme` et la boutique est créée **une seule fois**.
+
+Si aucune requête n'arrive : vérifier l'URL déclarée chez MyCoolPay. La
+boutique se créera quand même, par la réconciliation active — plus lentement.
+C'est le filet, pas le fonctionnement normal.
 
 ---
 

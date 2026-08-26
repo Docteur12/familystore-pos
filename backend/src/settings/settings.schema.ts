@@ -64,8 +64,20 @@ export class Settings {
   @Prop({ default: 'fr', enum: ['fr', 'en'] })
   langue: string;
 
-  @Prop({ default: '#FF0000' })
-  couleurPrincipale: string;   // couleur de la boutique (interface + PDF)
+  /**
+   * Couleur de la boutique (interface + PDF). Défaut : le vert Caméléon.
+   *
+   * Le défaut était `#FF0000`. `applyPrimaryColor` en dérive TOUTE la palette
+   * `--fs-wine-*` par éclaircissement et assombrissement : `--fs-wine-900`
+   * tombait à ≈ `#9E0000`. Une boutique neuve sortait donc en rouge bordeaux,
+   * c'est-à-dire aux couleurs de Family Store, sans que personne l'ait choisi.
+   *
+   * Cette valeur avait échappé au recensement de la marque parce que c'est un
+   * code hexadécimal, pas la chaîne « Family Store » — un rappel que l'identité
+   * d'un client ne tient pas qu'à son nom.
+   */
+  @Prop({ default: '#3F8F6B' })
+  couleurPrincipale: string;
 
   @Prop({ default: '#B8893E' })
   couleurSecondaire: string;   // palette « gold » (accents, titres de la caisse)

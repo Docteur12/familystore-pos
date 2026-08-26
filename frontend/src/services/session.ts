@@ -18,6 +18,7 @@ import {
   lire,
 } from './storage';
 import { t, preparerLangue } from '../i18n';
+import { reinitialiserTheme } from '../api/settings';
 
 /** Boutique dont la file attend alors que son jeton a disparu ou expiré. */
 export interface BoutiqueBloquee {
@@ -131,6 +132,13 @@ export async function deconnexion(
   // Aucun jeton dormant ne survit à une déconnexion, même pour une boutique
   // qu'on ne consultait pas.
   supprimerTousLesJetons();
+
+  // Les couleurs de la boutique sont posées EN LIGNE sur la racine du
+  // document : elles survivent à une navigation côté client. Sans cette
+  // remise à zéro, l'écran de connexion gardait l'habillage du magasin qu'on
+  // vient de quitter — sur un poste partagé, l'utilisateur suivant voyait
+  // l'enseigne du précédent. Voir `reinitialiserTheme`.
+  reinitialiserTheme();
   return true;
 }
 

@@ -149,7 +149,7 @@ export default function Sidebar() {
   const alertCount = useStockAlertCount(role === 'gestionnaire' || role === 'patron', nomMagasin);
 
   const handleLogout = () => {
-    void deconnexion().then(ok => { if (ok) navigate('/login'); });
+    void deconnexion().then(ok => { if (ok) window.location.href = '/login'; });
   };
 
   const roleLabel = role === 'patron' ? t('Administration', 'Administration')

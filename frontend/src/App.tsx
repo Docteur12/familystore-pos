@@ -31,6 +31,7 @@ import AdminJournal      from './pages/AdminJournal';
 import AdminParametres   from './pages/AdminParametres';
 import AdminPosteCaisse  from './pages/AdminPosteCaisse';
 import AdminNouvelleBoutique from './pages/AdminNouvelleBoutique';
+import PaiementRetour from './pages/PaiementRetour';
 import AdminComptabilite from './pages/AdminComptabilite';
 import AdminRoles        from './pages/AdminRoles';
 import AdminAudit        from './pages/AdminAudit';
@@ -157,6 +158,12 @@ export default function App() {
       <InactivityWatcher />
       <Routes>
         <Route path="/login"     element={<Login />} />
+        {/* PUBLIQUE, volontairement : c'est là que retombe le navigateur du
+            payeur après la page hébergée du prestataire, et le règlement se
+            fait souvent depuis un autre appareil que celui où la session est
+            ouverte — un téléphone, puisqu'il s'agit de Mobile Money. Cette
+            page ne lit ni ne crédite aucun paiement. */}
+        <Route path="/paiement/retour" element={<PaiementRetour />} />
         <Route path="/"          element={<RequireAuth><HomeRedirect /></RequireAuth>} />
         <Route path="/caisse-pin" element={<RequireAuthBare><CaissePin /></RequireAuthBare>} />
         <Route path="/caisse"    element={<RequireAuthBare><Caisse /></RequireAuthBare>} />

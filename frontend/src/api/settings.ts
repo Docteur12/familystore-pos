@@ -90,7 +90,10 @@ export const SETTINGS_DEFAULTS: StoreSettings = {
   horaires: { ouverture: '08:00', fermeture: '20:00' },
   reseauxSociaux: { facebook: '', whatsapp: '' },
   langue: 'fr',
-  couleurPrincipale: '#FF0000',
+  // Vert Cameleon — miroir du defaut serveur. Le defaut etait #FF0000, dont
+  // applyPrimaryColor derivait un bordeaux : une boutique neuve sortait aux
+  // couleurs de Family Store sans que personne l ait choisi.
+  couleurPrincipale: '#3F8F6B',
   couleurSecondaire: '#B8893E',
   slogan: '',
   signatureTicket: '',
@@ -121,6 +124,36 @@ export function applyPrimaryColor(hex: string) {
   set('--fs-wine-200', tint(0.78));
   set('--fs-wine-100', tint(0.90));
   set('--fs-wine-50',  tint(0.95));
+}
+
+/**
+ * Retire les couleurs de boutique posées sur la racine du document.
+ *
+ * ═══ POURQUOI CE N'EST PAS FACULTATIF ═══
+ *
+ * `applyPrimaryColor` et `applySecondaryColor` écrivent des propriétés CSS
+ * personnalisées EN LIGNE sur `documentElement`. Elles survivent à tout, sauf
+ * à un rechargement complet de la page.
+ *
+ * Onze des quatorze déconnexions faisaient `window.location.href = '/login'`
+ * — rechargement, donc remise à zéro fortuite. Trois faisaient
+ * `navigate('/login')`, une navigation côté client : l'écran de connexion
+ * gardait alors les couleurs de la boutique qu'on venait de quitter. Sur un
+ * poste partagé, l'utilisateur suivant voyait l'enseigne du précédent.
+ *
+ * Dépendre du fait que chaque appelant recharge la page est une garantie
+ * fragile : il suffit d'un quinzième appel écrit autrement. La remise à zéro
+ * est donc faite dans `deconnexion()`, une fois, pour tous.
+ */
+export function reinitialiserTheme(): void {
+  try {
+    const racine = document.documentElement.style;
+    for (const palette of ['wine', 'gold']) {
+      for (const ton of [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]) {
+        racine.removeProperty(`--fs-${palette}-${ton}`);
+      }
+    }
+  } catch { /* pas de DOM (test, rendu serveur) : rien à nettoyer */ }
 }
 
 // Palette secondaire (« gold ») : accents, titres de la caisse, focus.
