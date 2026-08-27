@@ -81,6 +81,22 @@ L'unification en **SaaS multi-tenant** est en cours. Conséquence pratique :
 avant de coder une règle métier, se demander si elle vaut pour les deux clients
 ou seulement pour l'un — et si un libellé doit être traduit.
 
+### 5. Une fonctionnalité sans son test est un WIP, pas une livraison
+
+Toute fonctionnalité livrée inclut sa garantie **dans le même commit** : le
+test qui prouve son contrôle d'accès si elle en a un, le test de gouvernance
+si elle crée une table ou un miroir front/back, le test du cas nominal sinon.
+Une fonctionnalité sans son test est un WIP, pas une livraison — quelle que
+soit la session qui la produit.
+
+Origine (27/08/2026) : deux chantiers repris d'une autre session étaient
+corrects — la correction de vente, les libellés des motifs de stock — et
+arrivaient l'un sans la preuve que seul le patron y accède, l'autre sans le
+miroir front/back qui empêche un nouveau motif de réapparaître en code brut.
+À chaque fois la fonctionnalité était bonne ; c'est la garantie qui manquait,
+et la reconstruire a posteriori coûte une demi-journée là où l'écrire avec le
+contexte coûte cinq minutes.
+
 ---
 
 ## État du chantier multi-tenant
