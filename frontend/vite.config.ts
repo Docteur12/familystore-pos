@@ -21,7 +21,6 @@ function brandFromEnv(mode: string) {
     lang:       env.VITE_APP_LANG       || 'fr',
     themeColor: env.VITE_THEME_COLOR    || '#3F8F6B',
     bgColor:    env.VITE_BG_COLOR       || '#F5F0E8',
-    apiUrl:     (env.VITE_API_URL       || 'https://familystore-pos.onrender.com').replace(/\/+$/, ''),
     icons:      env.VITE_BRAND_ICONS    || '',   // jeu d'icônes de public/brand/<nom>
   };
 }

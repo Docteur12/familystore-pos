@@ -7,6 +7,12 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
     <meta name="theme-color" content="%VITE_THEME_COLOR%">
+    <!-- L'application gère SA langue (Settings.langue) : la traduction
+         automatique du navigateur ne peut que la contredire. Le 27/08/2026,
+         Chrome a retraduit le site Radiance (anglais) en français — « Post /
+         Register » devenu « PUBLIER / S'INSCRIRE » — et le client a cru voir
+         l'application d'un autre magasin. Faux incident, vraie journée perdue. -->
+    <meta name="google" content="notranslate">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
     <title>%VITE_APP_NAME%</title>
   </head>

@@ -72,12 +72,20 @@ surcharger**, Family Store comme Radiance le fait déjà :
 | `VITE_APP_SHORT_NAME` | `Family Store` | `Radiance` |
 | `VITE_APP_LANG` | `fr` | `en` |
 | `VITE_THEME_COLOR` | `#8B1A2B` | (sa couleur) |
-| `VITE_API_URL` | son backend Render | son backend Render |
+| `VITE_API_BASE` | *(vide — proxy `netlify.toml`)* | `https://familystore-pos-cd26.onrender.com` |
 | `VITE_BRAND_ICONS` | `family-store` | `radiance` |
 
 ⚠️ **Sans ces variables, le site déployé s'appellerait « Caméléon »** —
 manifeste PWA, titre d'onglet et couleur de thème compris. À poser AVANT le
 déploiement, pas après.
+
+⚠️ **`VITE_API_BASE`, pas `VITE_API_URL`.** Ce tableau documentait
+`VITE_API_URL` — une variable que **rien ne lit** (le code lit `VITE_API_BASE`,
+dans `api/fetchInterceptor.ts`). Elle vivait aussi dans `.env.production` et
+`vite.config.ts`, calculée puis jamais employée. Retirée le 27/08/2026 : un
+site configuré en s'y fiant aurait interrogé le mauvais backend, sans erreur.
+Pour Family Store, la laisser **vide** — c'est le proxy de `netlify.toml` qui
+route vers son backend.
 
 ⚠️ **`VITE_BRAND_ICONS` est NOUVELLE pour Family Store.** Ses icônes étaient
 celles de `public/`, c'est-à-dire le défaut du dépôt ; elles ont déménagé dans
