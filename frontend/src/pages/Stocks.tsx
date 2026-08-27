@@ -21,6 +21,23 @@ import { queueAjoutStock }                     from '../services/offlineMagazin'
 import { createDemande, getDemandes, marquerRecu, annulerEnvoi, retourEntrepot, DemandeStock } from '../api/magazinier';
 import { t, dateLocale } from '../i18n';
 
+// Libellés des motifs de mouvement de stock. Sans cette table, le gestionnaire
+// voyait le code brut (« modification_vente ») dans la fiche produit. Un motif
+// inconnu retombe sur son code — mieux vaut un code visible qu'un blanc.
+// Liste de référence : backend/src/schemas/stock-movement.schema.ts.
+const REASON_LABELS: Record<string, string> = {
+  restock:              t('Réapprovisionnement', 'Restock'),
+  sale:                 t('Vente', 'Sale'),
+  adjustment:           t('Ajustement', 'Adjustment'),
+  reception:            t('Réception fournisseur', 'Supplier delivery'),
+  annulation_vente:     t('Annulation de vente', 'Sale cancelled'),
+  modification_vente:   t('Retour client (correction de vente)', 'Customer return (sale corrected)'),
+  livraison_partenaire: t('Livraison partenaire', 'Partner delivery'),
+  retour_partenaire:    t('Retour partenaire', 'Partner return'),
+  retour_entrepot:      t('Retour entrepôt', 'Warehouse return'),
+  retour_fournisseur:   t('Retour fournisseur', 'Supplier return'),
+};
+
 // ── Design tokens ─────────────────────────────────────────────────────────────
 
 const CAT_COLORS: Record<string, string> = {
@@ -622,7 +639,7 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
                 }}>
                   {m.type === 'IN' ? '+' : '−'}{m.quantity}
                 </span>
-                <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginLeft: 6 }}>{m.reason}</span>
+                <span style={{ fontSize: 10, color: 'var(--fs-ink-400)', marginLeft: 6 }}>{REASON_LABELS[m.reason] ?? m.reason}</span>
               </div>
               <span style={{ fontSize: 10, color: 'var(--fs-ink-300)', fontFamily: 'var(--fs-font-mono)' }}>
                 {new Date(m.createdAt).toLocaleDateString(dateLocale(), { day: '2-digit', month: 'short' })}

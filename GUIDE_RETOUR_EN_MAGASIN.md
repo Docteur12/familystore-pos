@@ -45,10 +45,10 @@ Après coup, le ticket porte le badge **CORRIGÉE** dans le journal, et son hist
 
 | Situation | Stock caisse | Mouvement enregistré |
 |---|---|---|
-| Article rendu (quantité baissée ou ligne retirée) | **+ quantité rendue** | Entrée (+), motif `modification_vente` |
-| Article donné en échange | **− quantité donnée** | Sortie (−), motif `modification_vente` |
+| Article rendu (quantité baissée ou ligne retirée) | **+ quantité rendue** | Entrée (+), motif « Retour client (correction de vente) » |
+| Article donné en échange | **− quantité donnée** | Sortie (−), motif « Retour client (correction de vente) » |
 | Prix corrigé seulement | aucun changement | aucun |
-| Ticket supprimé (corbeille) | **+ tout le ticket** | Entrée (+), motif `annulation_vente` |
+| Ticket supprimé (corbeille) | **+ tout le ticket** | Entrée (+), motif « Annulation de vente » |
 
 Deux précisions :
 
@@ -64,7 +64,7 @@ Deux précisions :
 Une ligne de retour ressemble à :
 
 ```
-+2   modification_vente   22 août
++2   Retour client (correction de vente)   22 août
 ```
 
 Le motif saisi par l'administrateur n'apparaît **pas** dans ce panneau. Pour le lire, il faut le *Journal des ventes* (ticket déplié) ou le journal d'audit de l'administration.
