@@ -68,6 +68,20 @@ la main — ça aurait dû être dit avant, pas constaté après.
 
 Ne jamais annoncer « le retour arrière est prêt » sans l'avoir vérifié.
 
+**Le pré-vol `npm run verifier:lot-e` est systématique APRÈS toute migration
+de production** — pas seulement avant une bascule. Il lit la base (rien
+d'autre) et compte : PIN hachés, documents cloisonnés, index composites,
+identité, e-mails. Une migration « faite » n'est faite que quand ce compte le
+dit.
+
+Origine : le 21/08/2026, `migrate:pin` a été appliquée sur une base `radiance`
+du **mauvais cluster** (`4uxjx09` au lieu de `fjo84gc`), puis « refaite » sur
+le bon — sauf qu'elle ne l'a pas été. Personne ne l'a vu : le code déployé
+exigeait `pinKdf`, les quatre caisses Radiance n'en avaient pas, et la
+découverte a attendu le pré-vol du lot E, **six jours plus tard**. Lancé le
+jour même sur la base réelle, il aurait rendu `4/4 SANS pinKdf` en dix
+secondes. Une vérification chiffrée qui n'est pas lancée n'a jamais existé.
+
 ### 4. Deux clients, une base de code
 
 Ce dépôt sert **deux clients** :

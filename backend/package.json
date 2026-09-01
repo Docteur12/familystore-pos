@@ -19,7 +19,8 @@
     "test:watch": "jest --watch",
     "seed:demo": "ts-node -r tsconfig-paths/register scripts/seed-demo.ts",
     "demo:mongo": "node scripts/demo-mongo.js",
-    "demo:api": "node scripts/demo-api.js"
+    "demo:api": "node scripts/demo-api.js",
+    "verifier:lot-e": "ts-node -r tsconfig-paths/register scripts/verifier-lot-e.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

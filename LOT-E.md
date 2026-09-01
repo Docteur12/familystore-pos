@@ -39,6 +39,18 @@ db.settings.find({}, { nomMagasin: 1, offreFacture: 1 })
   bascule, avant de déployer. Ne pas le retaper de mémoire : le texte exact
   engage commercialement.
 
+**✅ Résultat du pré-vol (27/08/2026, sur copies fraîches) :**
+
+- **Family Store** : présent, 170 caractères (« Bénéficiez de *5 % de
+  réduction* sur tout achat… »). Rien à faire.
+- **Radiance** : **absent** — et décision prise : **ne rien restaurer.**
+  Radiance n'a jamais eu de texte à elle ; ce que ses tickets impriment
+  aujourd'hui, c'est le défaut du frontend en production — « *Family Store
+  vous offre 5 %* », en français, sur les reçus d'une boutique anglophone. Un
+  défaut subi, pas un réglage choisi. La bascule le fait disparaître : le
+  nouveau défaut est vide. Si Radiance veut un pied de ticket, elle le saisit
+  elle-même, en anglais, dans ses Paramètres.
+
 ### A2. `nomMagasin` — obligatoire, et il ne doit pas être vide
 
 Le défaut `'Family Store'` a été retiré (une boutique neuve en héritait). Les
@@ -184,6 +196,155 @@ bloquent pas. Ils bloquent le jour où deux clients partagent une origine.
   passe. 2FA à décider.
 
 ---
+
+## D. Préparation — tout ce qui se fait AVANT le jour J
+
+Écrit le 27/08/2026. Objectif : le jour J, il ne reste que la bascule
+elle-même — une heure, pas une journée.
+
+### D0. Ce que la bascule est, et n'est pas
+
+**La bascule = merger `integration/cameleon` dans `main`.** Les deux services
+Render (Family Store, Radiance `cd26`) et les deux sites Netlify se
+reconstruisent depuis `main` : un seul merge déploie les deux clients.
+
+Les deux clients **restent en `TENANT_MODE=single`, chacun sur sa base**. Le
+code Caméléon fonctionne en single : le module plateforme est inerte (pas de
+licence connue = pas de blocage), le prestataire de paiement ne lève qu'à
+l'usage — **aucune clé MyCoolPay n'est nécessaire** pour ces deux services.
+
+**Aucune migration de données** n'est requise : tous les champs nouveaux ont
+un défaut, les anciens documents se lisent tels quels. Le pré-vol (D1) vérifie
+que les migrations DÉJÀ exigées par la production actuelle (tenant, identité,
+PIN haché) sont bien passées.
+
+**Le service Caméléon (A7) n'est PAS un prérequis de la bascule.** C'est le
+lancement SaaS — nouveaux clients, paiements, superadmin. Il se prépare en
+parallèle (D5) et se met en service à sa propre date.
+
+### D1. Le pré-vol chiffré — `npm run verifier:lot-e`
+
+Lecture seule. Vise la base de `MONGO_URI`. Rend `BLOQUANT` / `À DÉCIDER` /
+`OK` / `INFO`, et sort en erreur s'il reste un point bloquant. Couvre A1, A2,
+A3, le PIN haché et purgé, les e-mails d'employés, le cloisonnement et ses
+index composites.
+
+À lancer **sur la copie** pour la répétition, **sur la production** le jour J.
+
+### D2. La répétition sur copie — ce qu'il faut demander à Valdes
+
+Le cycle de la règle n° 3 exige une copie FRAÎCHE de chaque base, faite avec
+`copy-db.js` (il recrée les index partiels ; `mongodump` ne suffit pas). Sur
+le cluster de production (`fjo84gc`), avec `MONGO_URI` visant ce cluster :
+
+```
+node scripts/copy-db.js familystore familystore_lotE
+node scripts/copy-db.js radiance    radiance_lotE
+```
+
+Puis communiquer une URI en lecture vers ces deux copies. La répétition
+consiste alors à : lancer `verifier:lot-e` sur chacune, démarrer le backend
+`integration/cameleon` dessus (`TENANT_MODE=single`), et rejouer les
+vérifications de D4 — connexion, `settings/public`, ticket, journal.
+
+### D3. Ce que Valdes saisit — valeurs exactes
+
+**Netlify — site Family Store** (`familystore-pos.netlify.app`) :
+
+| Variable | Valeur |
+|---|---|
+| `VITE_APP_NAME` | `Family Store POS` |
+| `VITE_APP_SHORT_NAME` | `Family Store` |
+| `VITE_APP_LANG` | `fr` |
+| `VITE_THEME_COLOR` | `#8B1A2B` |
+| `VITE_BG_COLOR` | `#F5F0E8` |
+| `VITE_API_BASE` | *(ne pas définir — proxy `netlify.toml`)* |
+| `VITE_BRAND_ICONS` | `family-store` ← **NOUVELLE, obligatoire** |
+
+**Netlify — site Radiance** (`radiance-pos.netlify.app`) — à VÉRIFIER, elles
+existent déjà :
+
+| Variable | Valeur |
+|---|---|
+| `VITE_APP_NAME` | `Radiance POS` |
+| `VITE_APP_SHORT_NAME` | `Radiance` |
+| `VITE_APP_LANG` | `en` |
+| `VITE_THEME_COLOR` | `#221C1A` |
+| `VITE_BG_COLOR` | `#FCF8EA` |
+| `VITE_API_BASE` | `https://familystore-pos-cd26.onrender.com` |
+| `VITE_BRAND_ICONS` | `radiance` |
+
+**Render — service Family Store** (`familystore-pos.onrender.com`), à vérifier :
+
+| Variable | Valeur |
+|---|---|
+| `TENANT_MODE` | `single` |
+| `APP_NAME` | `Family Store POS` |
+| `JWT_EXPIRES_IN` | `24h` |
+| `MONGO_URI` | `…fjo84gc…/familystore` — **vérifier le nom de base** |
+| `CORS_ORIGINS` | *(défaut : les deux sites Netlify — ne rien mettre)* |
+
+**Render — service Radiance** (`familystore-pos-cd26.onrender.com`), à vérifier :
+`TENANT_MODE=single`, `APP_NAME=Radiance POS`, `JWT_EXPIRES_IN=24h`,
+`MONGO_URI` → `…fjo84gc…/radiance`, et confirmer que le service déploie
+depuis `main` de `Docteur12/familystore-pos`.
+
+### D4. Le jour J — une heure, dans la fenêtre (avant 9 h ou après fermeture)
+
+| Quand | Quoi | Qui |
+|---|---|---|
+| T−20 | **Sauvegarde fraîche** : `copy-db.js familystore familystore_sauv_JJMMAAAA`, idem `radiance` | Valdes |
+| T−15 | `verifier:lot-e` sur `familystore` puis `radiance` (lecture seule) — **zéro BLOQUANT** | Claude |
+| T−10 | Variables Netlify et Render (D3) confirmées dans les tableaux de bord | Valdes |
+| T−5 | Noter le commit de `main` courant = **cible de retour arrière** | Claude |
+| **T0** | **Merge `integration/cameleon` → `main`** — c'est le déploiement | Valdes |
+| T+5 | `/api/health` et `/api/settings/public` des DEUX services : nom, langue, couleur | Claude |
+| T+8 | Les deux sites : `<title>`, `lang`, favicon, manifeste — identité de chaque client | Claude |
+| T+12 | Connexion patron sur chaque client ; ticket de test imprimé (nom en tête) ; journal des ventes | Valdes |
+| T+20 → T+60 | Journaux Render des deux services, aucune erreur 5xx | Claude |
+
+**Retour arrière — testé le jour même, sur la copie, avant T0** : aucune
+migration de données à défaire. Render → *Rollback to previous deploy*,
+Netlify → *Publish* du déploiement précédent : instantané des deux côtés.
+Les champs que le nouveau code aura écrits entre-temps (`sale.modifications`,
+`settings.manuelUrl`) sont **ignorés par l'ancien code**, pas détruits.
+
+### D5. Le service Caméléon — en parallèle, pas un prérequis
+
+**Render** → New Web Service → dépôt `Docteur12/familystore-pos`, branche
+`main`, racine `backend`, **plan Starter (payant — voir A7)**, région
+Frankfurt. Build `npm install --include=dev --ignore-scripts && npm run build`,
+start `node dist/main.js`.
+
+| Variable | Valeur |
+|---|---|
+| `NODE_ENV` | `production` |
+| `PORT` | `3000` |
+| `TZ` | `Africa/Douala` |
+| `TENANT_MODE` | `multi` |
+| `APP_NAME` | `Caméléon` |
+| `MONGO_URI` | `…fjo84gc…/cameleon` — **base neuve, distincte** |
+| `JWT_SECRET` | **nouveau secret, distinct des clients** |
+| `JWT_EXPIRES_IN` | `24h` |
+| `CORS_ORIGINS` | `https://<site-cameleon>.netlify.app` |
+| `PAIEMENT_FOURNISSEUR` | `mycoolpay` |
+| `COOLPAY_PUBLIC_KEY` | *(tableau de bord MyCoolPay, application Caméléon)* |
+| `COOLPAY_PRIVATE_KEY` | *(idem — diagnostic seulement, ne bloque rien)* |
+| `EMAIL_USER` / `EMAIL_PASS` / `EMAIL_ALERT_TO` | *(comme les autres services)* |
+
+**Netlify — site Caméléon** : aucune surcharge d'identité (les défauts du
+dépôt SONT Caméléon), seulement `VITE_API_BASE=https://<service-cameleon>.onrender.com`.
+
+**MyCoolPay — application Caméléon**, une fois le service créé :
+
+| Champ | Valeur |
+|---|---|
+| URL de callback | `https://<service-cameleon>.onrender.com/api/paiements/webhook` |
+| URL de succès / annulation / erreur | `https://<site-cameleon>.netlify.app/paiement/retour` |
+
+**Manque encore** : un script pour créer le **premier superadmin** en
+production (`seed-demo` le fait pour la démonstration, rien ne le fait pour
+une base neuve). À écrire avant la mise en service Caméléon.
 
 ## C. Après bascule
 
