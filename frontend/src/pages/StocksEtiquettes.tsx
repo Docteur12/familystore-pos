@@ -42,18 +42,21 @@ async function imprimerPdfBrother(produits: Product[]): Promise<void> {
     const code = sku.replace(/-/g, '').slice(0, 14);
     doc.setTextColor(0, 0, 0);
     const nom = displayName(p.name);
+    // La QL-800 ne peut pas imprimer les ~2 premiers millimètres du rouleau :
+    // à 4,2 mm, le haut des lettres du nom sortait coupé en deux. Tout le
+    // contenu démarre donc à 5,2 mm — la zone morte reste vide.
     doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-    doc.text(nom.length > 38 ? nom.slice(0, 37) + '…' : nom, 2, 4.2);
+    doc.text(nom.length > 38 ? nom.slice(0, 37) + '…' : nom, 2, 5.2);
     // Barres : mêmes cotes que l'étiquette de test qui se scanne — zone
-    // 4 → 58 mm, 11 mm de haut, zones blanches de silence de chaque côté.
+    // 4 → 58 mm, zones blanches de silence de chaque côté.
     doc.setFillColor(0, 0, 0);
-    for (const r of rectsCode39(code, 4, 54)) doc.rect(r.x, 5.5, r.w, 11, 'F');
+    for (const r of rectsCode39(code, 4, 54)) doc.rect(r.x, 6.4, r.w, 10.4, 'F');
     doc.setFont('courier', 'bold'); doc.setFontSize(7);
-    doc.text(sku, 31, 19.5, { align: 'center' });
+    doc.text(sku, 31, 19.6, { align: 'center' });
     doc.setFont('helvetica', 'normal'); doc.setFontSize(6);
-    doc.text(`${p.unit ?? ''}${p.valeur ? ' · ' + p.valeur : ''}`, 2, 26.5);
+    doc.text(`${p.unit ?? ''}${p.valeur ? ' · ' + p.valeur : ''}`, 2, 26.8);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-    doc.text(`${num(p.price)} XAF`, 60, 26.5, { align: 'right' });
+    doc.text(`${num(p.price)} XAF`, 60, 26.8, { align: 'right' });
   });
 
   // Visionneuse PDF du navigateur — on imprime depuis là, exactement comme
