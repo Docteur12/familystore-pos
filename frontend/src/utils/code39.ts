@@ -80,7 +80,10 @@ export function barresHtml(texte: string): string {
     if (e.barre) rects.push(`<rect x="${x}" y="0" width="${e.unites}" height="10" fill="#000"/>`);
     x += e.unites;
   }
-  return `<svg viewBox="0 0 ${total} 10" preserveAspectRatio="none" style="display:block;width:100%;height:100%">${rects.join('')}</svg>`;
+  // shape-rendering="crispEdges" : SANS lui, l'anticrénelage adoucit des
+  // barres de quelques dixièmes de millimètre en dégradés gris — que le
+  // thermique rend flous, et la douchette ne lit plus rien.
+  return `<svg viewBox="0 0 ${total} 10" preserveAspectRatio="none" shape-rendering="crispEdges" style="display:block;width:100%;height:100%">${rects.join('')}</svg>`;
 }
 
 /** Dessin sur canvas — l'aperçu à l'écran. Même encodage que l'impression. */

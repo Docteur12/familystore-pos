@@ -183,7 +183,9 @@ export default function StocksEtiquettes() {
     const fs = fontSizes[template];
     // Hauteur des barres et marge de page : le rouleau Brother (62 mm) se joue
     // au millimètre, les autres formats ont de la place.
-    const barresMm: Record<Template, number> = { brother: 8, mini: 6, standard: 8, grande: 11 };
+    // Brother : 10 mm de haut — plus de tolérance de visée pour la douchette,
+    // le gabarit compact (sans catégorie ni nom local) laisse la place.
+    const barresMm: Record<Template, number> = { brother: 10, mini: 6, standard: 8, grande: 11 };
     const margeMm = template === 'brother' ? 2 : 3;
     const compact = template === 'brother';
 

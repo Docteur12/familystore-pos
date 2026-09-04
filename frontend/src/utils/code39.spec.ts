@@ -64,6 +64,9 @@ describe('barresHtml — rendu imprimable (SVG)', () => {
   it('le viewBox couvre exactement le total des unités (rapports préservés à toute taille)', () => {
     expect(html).toContain(`viewBox="0 0 ${totalUnites(elements)} 10"`);
     expect(html).toContain('preserveAspectRatio="none"');
+    // Sans crispEdges, l'anticrénelage grise les barres fines — flou au
+    // thermique, illisible à la douchette.
+    expect(html).toContain('shape-rendering="crispEdges"');
   });
 
   it('les rects se suivent sans se chevaucher, aux largeurs 1 ou RAPPORT_LARGE', () => {
