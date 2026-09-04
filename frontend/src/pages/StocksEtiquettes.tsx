@@ -11,6 +11,7 @@ import { t, dateLocale } from '../i18n';
 // l'impression — les barres imprimées étaient décoratives, illisibles à la
 // douchette, alors que l'aperçu montrait un vrai code.
 import { drawCode39, barresHtml } from '../utils/code39';
+import { skuProduit } from '../utils/sku';
 
 function BarcodeCanvas({ value, width = 200, height = 44 }: { value: string; width?: number; height?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -22,10 +23,9 @@ function BarcodeCanvas({ value, width = 200, height = 44 }: { value: string; wid
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function skuOf(p: Product): string {
-  if (p.barcode) return p.barcode;
-  return p._id.slice(-9).toUpperCase().replace(/(.{3})/g, '$1-').slice(0, 11);
-}
+// SKU partagé avec la caisse (utils/sku.ts) : ce que l'étiquette encode est
+// exactement ce que `trouverParCode` sait retrouver au scan.
+const skuOf = (p: Product): string => skuProduit(p);
 
 const CAT_COLORS: Record<string, string> = {
   'beauté': '#F5C4B2', 'hygiène': '#B8D8EC', 'parfumerie': '#D8C4E8',

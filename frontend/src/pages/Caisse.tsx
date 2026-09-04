@@ -11,6 +11,7 @@ import React, {
   memo, useCallback, useEffect, useMemo, useRef, useState,
 } from 'react';
 import { getAllProducts, createSale, getProductByBarcode, Product, SalePayload, SaleError, effectivePrice } from '../api/products';
+import { trouverParCode } from '../utils/sku';
 import { openSession, closeSession, getActiveSession } from '../api/sessions';
 import { getCaisseAudit, AuditLogEntry } from '../api/audit';
 import { getTokenPayload } from '../api/dashboard';
@@ -398,10 +399,10 @@ export default function Caisse() {
     setScanError(null);
     setScanning(true);
     try {
-      // Recherche locale d'abord (instantané, pas de réseau)
-      const local = allProducts.find(
-        p => p.barcode && p.barcode.toLowerCase() === code.toLowerCase()
-      );
+      // Recherche locale d'abord (instantané, pas de réseau) : code-barres du
+      // produit, PUIS numéro interne des étiquettes maison (produits sans code
+      // fabricant) — voir utils/sku.ts, la même source que la page Étiquettes.
+      const local = trouverParCode(allProducts, code);
       const prod = local ?? await getProductByBarcode(code);
       addToCart(prod);
       // Garde-fou : confirme à voix haute le produit ajouté (nom + prix) pour
