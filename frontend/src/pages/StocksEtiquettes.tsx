@@ -5,45 +5,11 @@ import StocksSidebar from '../components/StocksSidebar';
 import { getAllProducts, Product } from '../api/products';
 import { t, dateLocale } from '../i18n';
 
-// ── Barcode canvas renderer ────────────────────────────────────────────────────
-// Simple Code39 encoding (5 bars + 4 spaces per char, narrow/wide pattern)
-
-const CODE39_MAP: Record<string, string> = {
-  '0':'nnnwwnwnn','1':'wnnwnnnnw','2':'nnwwnnnnw','3':'wnwwnnnnn',
-  '4':'nnnwwnnnw','5':'wnnwwnnnn','6':'nnwwwnnnn','7':'nnnwnnwnw',
-  '8':'wnnwnnwnn','9':'nnwwnnwnn','A':'wnnnnwnnw','B':'nnwnnwnnw',
-  'C':'wnwnnwnnn','D':'nnnnwwnnw','E':'wnnnwwnnn','F':'nnwnwwnnn',
-  'G':'nnnnnwwnw','H':'wnnnnwwnn','I':'nnwnnwwnn','J':'nnnnwwwnn',
-  'K':'wnnnnnnww','L':'nnwnnnnww','M':'wnwnnnnwn','N':'nnnnwnnww',
-  'O':'wnnnwnnwn','P':'nnwnwnnwn','Q':'nnnnnnwww','R':'wnnnnnwwn',
-  'S':'nnwnnnwwn','T':'nnnnwnwwn','-':'nnnnnwwwn',' ':'nwnnwnwnn',
-  '*':'nwnnwwwnn',
-};
-const NARROW = 2; const WIDE = 5;
-
-function drawCode39(canvas: HTMLCanvasElement, text: string, color = '#111') {
-  const encoded = `*${text.toUpperCase()}*`;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  let x = 8;
-  const h = canvas.height - 4;
-  for (let c = 0; c < encoded.length; c++) {
-    const pattern = CODE39_MAP[encoded[c]];
-    if (!pattern) continue;
-    for (let i = 0; i < 9; i++) {
-      const w = pattern[i] === 'w' ? WIDE : NARROW;
-      if (i % 2 === 0) { // bar
-        ctx.fillStyle = color;
-        ctx.fillRect(x, 2, w, h);
-      }
-      x += w;
-    }
-    x += NARROW; // inter-char gap
-  }
-}
+// ── Barcode renderer ──────────────────────────────────────────────────────────
+// Encodage Code39 partagé (utils/code39) : le MÊME code à l'écran et à
+// l'impression — les barres imprimées étaient décoratives, illisibles à la
+// douchette, alors que l'aperçu montrait un vrai code.
+import { drawCode39, barresHtml } from '../utils/code39';
 
 function BarcodeCanvas({ value, width = 200, height = 44 }: { value: string; width?: number; height?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -83,8 +49,11 @@ const D = {
   check:   'M20 6L9 17l-5-5',
 };
 
-type Template = 'mini' | 'standard' | 'grande';
+type Template = 'brother' | 'mini' | 'standard' | 'grande';
 const TEMPLATES: { id: Template; label: string; size: string }[] = [
+  // Rouleaux DK des étiqueteuses Brother QL (62 mm de large) — les autres
+  // formats débordent de ce média, celui-ci est taillé pour.
+  { id: 'brother',  label: 'Brother 62', size: '62×29 mm' },
   { id: 'mini',     label: 'Mini',     size: '57×32 mm' },
   { id: 'standard', label: 'Standard', size: '90×50 mm' },
   { id: 'grande',   label: t('Grande', 'Large'),   size: '100×70 mm' },
@@ -101,7 +70,7 @@ function LabelCard({ product, template, selected, onToggle }: {
   const sku   = skuOf(product);
   const color = catColor(product.category);
   const isLarge = template === 'grande';
-  const isMini  = template === 'mini';
+  const isMini  = template === 'mini' || template === 'brother';   // compacts
 
   return (
     <div style={{
@@ -204,20 +173,26 @@ export default function StocksEtiquettes() {
     const toPrint = products.filter(p => selected.has(p._id));
     if (toPrint.length === 0) return;
 
-    const sizes: Record<Template, string> = { mini: '57mm 32mm', standard: '90mm 50mm', grande: '100mm 70mm' };
+    const sizes: Record<Template, string> = { brother: '62mm 29mm', mini: '57mm 32mm', standard: '90mm 50mm', grande: '100mm 70mm' };
     const fontSizes: Record<Template, { name: number; price: number; sku: number }> = {
+      brother:  { name: 10, price: 13, sku: 8 },
       mini:     { name: 11, price: 14, sku: 8 },
       standard: { name: 13, price: 18, sku: 9 },
       grande:   { name: 16, price: 24, sku: 10 },
     };
     const fs = fontSizes[template];
+    // Hauteur des barres et marge de page : le rouleau Brother (62 mm) se joue
+    // au millimètre, les autres formats ont de la place.
+    const barresMm: Record<Template, number> = { brother: 8, mini: 6, standard: 8, grande: 11 };
+    const margeMm = template === 'brother' ? 2 : 3;
+    const compact = template === 'brother';
 
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) return;
     win.document.write(`
       <html><head><title>${t(`Étiquettes — ${nomMagasin}`, `Labels — ${nomMagasin}`)}</title>
       <style>
-        @page { size: ${sizes[template]}; margin: 3mm; }
+        @page { size: ${sizes[template]}; margin: ${margeMm}mm; }
         body { margin: 0; font-family: Arial, sans-serif; }
         .label { page-break-after: always; padding: 4px; }
         .strip { height: 3px; border-radius: 2px; margin-bottom: 6px; }
@@ -229,26 +204,24 @@ export default function StocksEtiquettes() {
         .price { font-size: ${fs.price}px; font-weight: 900; color: var(--fs-wine-700); }
         .row   { display: flex; justify-content: space-between; align-items: baseline; }
         .unit  { font-size: 10px; color: #666; }
-        .bars  { display: flex; align-items: flex-end; justify-content: center; gap: 1px; height: ${template === 'mini' ? 20 : template === 'grande' ? 32 : 26}px; }
-        .bar   { background: #111; border-radius: 0.5px; }
+        /* Vrai Code39 : les largeurs sont des POURCENTAGES du conteneur — les
+           rapports barre/espace sont préservés à toute taille, c'est eux que la
+           douchette lit. Pas d'espace entre éléments, pas d'arrondi. */
+        .bars  { display: flex; align-items: stretch; height: ${barresMm[template]}mm; background: #fff; padding: 0 2mm; }
         @media print { body { background: none; } }
       </style></head>
       <body>
         ${toPrint.map(p => {
           const sku = skuOf(p);
           const col = catColor(p.category);
-          const chars = sku.replace(/-/g, '').slice(0, 14);
-          const bars = chars.split('').map((c, i) => {
-            const w = (c.charCodeAt(0) % 2 === 0) ? 3 : 1.5;
-            const h = 60 + (c.charCodeAt(0) % 40);
-            return `<div class="bar" style="width:${w}px;height:${h}%"></div>`;
-          }).join('');
+          // Le code encodé est le SKU sans tirets — celui que lit la douchette.
+          const bars = barresHtml(sku.replace(/-/g, '').slice(0, 14));
           return `
             <div class="label">
               <div class="strip" style="background:${col}"></div>
               <div class="name">${displayName(p.name)}</div>
-              ${p.localName ? `<div class="lname">${p.localName}</div>` : ''}
-              <div class="cat">${p.category ?? ''}</div>
+              ${!compact && p.localName ? `<div class="lname">${p.localName}</div>` : ''}
+              ${compact ? '' : `<div class="cat">${p.category ?? ''}</div>`}
               <div class="bc">
                 <div class="bars">${bars}</div>
                 <div class="sku">${sku}</div>
@@ -329,7 +302,7 @@ export default function StocksEtiquettes() {
           {loading ? (
             <div style={{ textAlign: 'center', padding: '60px', color: 'var(--fs-ink-300)', fontSize: 14 }}>{t('Chargement…', 'Loading…')}</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${template === 'mini' ? 200 : template === 'grande' ? 280 : 240}px, 1fr))`, gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${template === 'mini' || template === 'brother' ? 200 : template === 'grande' ? 280 : 240}px, 1fr))`, gap: 14 }}>
               {displayed.map(p => (
                 <LabelCard key={p._id} product={p} template={template} selected={selected.has(p._id)} onToggle={() => toggle(p._id)}/>
               ))}
