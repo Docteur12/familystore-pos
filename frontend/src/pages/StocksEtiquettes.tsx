@@ -193,21 +193,25 @@ export default function StocksEtiquettes() {
       <html><head><title>${t(`Étiquettes — ${nomMagasin}`, `Labels — ${nomMagasin}`)}</title>
       <style>
         @page { size: ${sizes[template]}; margin: ${margeMm}mm; }
-        body { margin: 0; font-family: Arial, sans-serif; }
+        /* Impression THERMIQUE : pas de gris — il sort pâle et flou. Tout le
+           texte est en noir pur et appuyé, c'est l'encre qu'on lit en rayon. */
+        body { margin: 0; font-family: Arial, sans-serif; color: #000; }
         .label { page-break-after: always; padding: 4px; }
         .strip { height: 3px; border-radius: 2px; margin-bottom: 6px; }
-        .name  { font-size: ${fs.name}px; font-weight: bold; margin-bottom: 1px; }
-        .lname { font-size: ${Math.max(fs.name - 3, 8)}px; color: #999; margin-bottom: 3px; }
-        .cat   { font-size: 8px; color: #999; text-transform: uppercase; margin-bottom: 6px; }
-        .bc    { background: #f5f5f0; border-radius: 4px; padding: 4px; text-align: center; margin-bottom: 6px; }
-        .sku   { font-size: ${fs.sku}px; font-family: monospace; letter-spacing: 0.1em; }
-        .price { font-size: ${fs.price}px; font-weight: 900; color: var(--fs-wine-700); }
+        .name  { font-size: ${fs.name}px; font-weight: 900; color: #000; margin-bottom: 1px; }
+        .lname { font-size: ${Math.max(fs.name - 3, 8)}px; font-weight: 600; color: #000; margin-bottom: 3px; }
+        .cat   { font-size: 8px; font-weight: 700; color: #000; text-transform: uppercase; margin-bottom: 6px; }
+        .bc    { background: #fff; text-align: center; margin-bottom: 6px; }
+        .sku   { font-size: ${fs.sku}px; font-family: monospace; font-weight: bold; color: #000; letter-spacing: 0.1em; }
+        .price { font-size: ${fs.price}px; font-weight: 900; color: #000; }
         .row   { display: flex; justify-content: space-between; align-items: baseline; }
-        .unit  { font-size: 10px; color: #666; }
-        /* Vrai Code39 : les largeurs sont des POURCENTAGES du conteneur — les
-           rapports barre/espace sont préservés à toute taille, c'est eux que la
-           douchette lit. Pas d'espace entre éléments, pas d'arrondi. */
-        .bars  { display: flex; align-items: stretch; height: ${barresMm[template]}mm; background: #fff; padding: 0 2mm; }
+        .unit  { font-size: 10px; font-weight: 700; color: #000; }
+        /* Le code-barres est un SVG (voir utils/code39) : du contenu, imprimé
+           même sans « Graphiques d'arrière-plan ». Le conteneur ne fait que le
+           dimensionner, avec 2 mm de zone blanche de chaque côté. */
+        .bars  { height: ${barresMm[template]}mm; background: #fff; padding: 0 2mm; }
+        /* Les fonds décoratifs (bande de catégorie, cartouche) suivent. */
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         @media print { body { background: none; } }
       </style></head>
       <body>
