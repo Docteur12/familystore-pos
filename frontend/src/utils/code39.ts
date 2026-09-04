@@ -59,17 +59,28 @@ export function totalUnites(elements: ElementCode39[]): number {
 }
 
 /**
- * Rendu HTML du code — barres en pourcentage de la largeur du conteneur :
- * les RAPPORTS de largeur sont préservés quelle que soit la taille imprimée,
- * c'est eux que lit la douchette. Le conteneur doit être en `display:flex`.
+ * Rendu imprimable du code — un SVG dont les barres sont des `<rect>`.
+ *
+ * SURTOUT PAS des `div` à fond noir : les navigateurs suppriment les fonds
+ * (`background`) à l'impression tant que « Graphiques d'arrière-plan » n'est
+ * pas coché — l'étiquette sortait SANS son code-barres, et personne ne coche
+ * cette case. Un `<rect>` SVG est du contenu : il s'imprime toujours.
+ *
+ * Le viewBox est en unités étroites et s'étire sur le conteneur : les
+ * RAPPORTS de largeur — ce que lit la douchette — sont préservés à toute
+ * taille d'impression.
  */
 export function barresHtml(texte: string): string {
   const elements = elementsCode39(texte);
   const total = totalUnites(elements);
   if (total === 0) return '';
-  return elements
-    .map(e => `<div style="width:${((e.unites / total) * 100).toFixed(4)}%;background:${e.barre ? '#000' : 'transparent'}"></div>`)
-    .join('');
+  let x = 0;
+  const rects: string[] = [];
+  for (const e of elements) {
+    if (e.barre) rects.push(`<rect x="${x}" y="0" width="${e.unites}" height="10" fill="#000"/>`);
+    x += e.unites;
+  }
+  return `<svg viewBox="0 0 ${total} 10" preserveAspectRatio="none" style="display:block;width:100%;height:100%">${rects.join('')}</svg>`;
 }
 
 /** Dessin sur canvas — l'aperçu à l'écran. Même encodage que l'impression. */

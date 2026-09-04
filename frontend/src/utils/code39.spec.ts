@@ -48,29 +48,33 @@ describe('elementsCode39 — structure du code', () => {
   });
 });
 
-describe('barresHtml — rendu imprimable', () => {
+describe('barresHtml — rendu imprimable (SVG)', () => {
   const html = barresHtml('AB12');
   const elements = elementsCode39('AB12');
 
-  it('produit un div par élément, barres noires et espaces transparents', () => {
-    const divs = html.match(/<div /g) ?? [];
-    expect(divs).toHaveLength(elements.length);
-    const noirs = html.match(/background:#000/g) ?? [];
-    expect(noirs).toHaveLength(elements.filter(e => e.barre).length);
+  it('les barres sont des <rect> SVG — du CONTENU, pas des fonds : les fonds ne', () => {
+    // s'impriment que si « Graphiques d'arrière-plan » est coché, et personne
+    // ne le coche — l'étiquette sortait sans son code-barres.
+    expect(html.startsWith('<svg')).toBe(true);
+    expect(html).not.toContain('background');
+    const rects = html.match(/<rect /g) ?? [];
+    expect(rects).toHaveLength(elements.filter(e => e.barre).length);
   });
 
-  it('les largeurs en % somment à 100 (rapports préservés à toute taille)', () => {
-    const largeurs = [...html.matchAll(/width:([\d.]+)%/g)].map(m => parseFloat(m[1]));
-    expect(largeurs).toHaveLength(elements.length);
-    const somme = largeurs.reduce((s, l) => s + l, 0);
-    expect(Math.abs(somme - 100)).toBeLessThan(0.1);
+  it('le viewBox couvre exactement le total des unités (rapports préservés à toute taille)', () => {
+    expect(html).toContain(`viewBox="0 0 ${totalUnites(elements)} 10"`);
+    expect(html).toContain('preserveAspectRatio="none"');
   });
 
-  it('la largeur d’un élément large vaut RAPPORT_LARGE fois celle d’un étroit', () => {
-    const largeurs = [...html.matchAll(/width:([\d.]+)%/g)].map(m => parseFloat(m[1]));
-    const etroit = Math.min(...largeurs);
-    const large  = Math.max(...largeurs);
-    expect(large / etroit).toBeCloseTo(RAPPORT_LARGE, 2);
+  it('les rects se suivent sans se chevaucher, aux largeurs 1 ou RAPPORT_LARGE', () => {
+    const rects = [...html.matchAll(/x="([\d.]+)" y="0" width="([\d.]+)"/g)]
+      .map(m => ({ x: parseFloat(m[1]), w: parseFloat(m[2]) }));
+    let precedent = -1;
+    for (const r of rects) {
+      expect(r.x).toBeGreaterThan(precedent);
+      expect([1, RAPPORT_LARGE]).toContain(r.w);
+      precedent = r.x;
+    }
   });
 
   it('un texte sans aucun caractère encodable garde les étoiles (jamais un code vide silencieux)', () => {
