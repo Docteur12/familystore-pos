@@ -7,6 +7,7 @@ import { AuditLog, AuditLogDocument } from '../schemas/audit-log.schema';
 import { Settings, SettingsDocument } from '../settings/settings.schema';
 import { User, UserDocument } from '../schemas/user.schema';
 import { StockMovement, StockMovementDocument } from '../schemas/stock-movement.schema';
+import { Product, ProductDocument } from '../schemas/product.schema';
 import { nomProduit } from '../common/nom-produit';
 
 // ── Types internes ─────────────────────────────────────────────────────────────
@@ -38,6 +39,66 @@ const PM_LABELS: Record<string, string> = {
   mobile_money: 'Mobile Money',
 };
 
+// ── Catalogue produits : regroupement par catégorie → sous-catégorie ────────────
+//
+// Le patron voulait un état LISIBLE de ce qu'il vend (noms, catégories,
+// sous-catégories), pas la fiche comptable. Ce regroupement est isolé du
+// générateur PDF pour être testé seul : l'ordre et les compteurs se prouvent
+// sans avoir à ouvrir un binaire (cf. reports.catalogue.spec.ts).
+
+export const SANS_CATEGORIE = 'Sans catégorie';
+export const SANS_SOUS_CATEGORIE = 'Sans sous-catégorie';
+
+export interface CatalogueLigne { nom: string; stock: number; stockMagazin: number; prix: number; }
+export interface CatalogueSousGroupe { sousCategorie: string; lignes: CatalogueLigne[]; }
+export interface CatalogueGroupe { categorie: string; nbProduits: number; sousGroupes: CatalogueSousGroupe[]; }
+
+interface ProduitCatalogue {
+  name?: string; category?: string; subCategory?: string;
+  stock?: number; stockMagazin?: number; price?: number;
+}
+
+export function grouperCatalogue(products: ProduitCatalogue[]): CatalogueGroupe[] {
+  // "Sans catégorie"/"Sans sous-catégorie" toujours en dernier ; sinon, ordre
+  // alphabétique français (accents compris).
+  const trierClefs = (clefs: string[], sentinelle: string) =>
+    clefs.sort((a, b) => {
+      if (a === sentinelle) return 1;
+      if (b === sentinelle) return -1;
+      return a.localeCompare(b, 'fr');
+    });
+
+  const parCat = new Map<string, Map<string, CatalogueLigne[]>>();
+  for (const p of products) {
+    const cat  = (p.category ?? '').trim()    || SANS_CATEGORIE;
+    const sous = (p.subCategory ?? '').trim() || SANS_SOUS_CATEGORIE;
+    if (!parCat.has(cat)) parCat.set(cat, new Map());
+    const sousMap = parCat.get(cat)!;
+    if (!sousMap.has(sous)) sousMap.set(sous, []);
+    // nomProduit() : même nomenclature d'affichage que les écrans et les tickets.
+    sousMap.get(sous)!.push({
+      nom:          nomProduit(p.name ?? ''),
+      stock:        Math.max(0, Math.round(p.stock ?? 0)),
+      stockMagazin: Math.max(0, Math.round(p.stockMagazin ?? 0)),
+      prix:         Math.max(0, Math.round(p.price ?? 0)),
+    });
+  }
+
+  const groupes: CatalogueGroupe[] = [];
+  for (const cat of trierClefs([...parCat.keys()], SANS_CATEGORIE)) {
+    const sousMap = parCat.get(cat)!;
+    const sousGroupes: CatalogueSousGroupe[] = [];
+    let nbProduits = 0;
+    for (const sous of trierClefs([...sousMap.keys()], SANS_SOUS_CATEGORIE)) {
+      const lignes = sousMap.get(sous)!.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+      nbProduits += lignes.length;
+      sousGroupes.push({ sousCategorie: sous, lignes });
+    }
+    groupes.push({ categorie: cat, nbProduits, sousGroupes });
+  }
+  return groupes;
+}
+
 @Injectable()
 export class ReportsService {
   constructor(
@@ -47,6 +108,7 @@ export class ReportsService {
     @InjectModel(Settings.name) private settingsModel: Model<SettingsDocument>,
     @InjectModel(User.name)     private userModel:     Model<UserDocument>,
     @InjectModel(StockMovement.name) private movementModel: Model<StockMovementDocument>,
+    @InjectModel(Product.name)  private productModel:  Model<ProductDocument>,
   ) {}
 
   // Identité de la boutique pour les documents générés (PDF, Excel) — lue
@@ -1422,6 +1484,136 @@ export class ReportsService {
     doc.setFontSize(8);
     doc.setTextColor(107, 114, 128);
     doc.text(`Document généré automatiquement par ${B.app}`, ML, 812);
+    return Buffer.from(doc.output('arraybuffer'));
+  }
+
+  // ── Catalogue produits (PDF) — noms, catégories, sous-catégories ───────────
+  //
+  // Un état lisible du catalogue, regroupé par catégorie puis sous-catégorie,
+  // avec pour chaque produit le stock (boutique + entrepôt) et le prix de
+  // vente. C'est le rapport que le patron réclamait : « les noms, les
+  // catégories et les sous-catégories des produits ».
+  async generateCataloguePdf(): Promise<Buffer> {
+    const B = await this.brand();
+    // Le modèle Mongoose passe par le plugin de cloisonnement : seuls les
+    // produits du magasin courant sont lus. Aucune fuite d'un tenant à l'autre.
+    const produits = await this.productModel.find().sort({ name: 1 }).lean();
+    const groupes  = grouperCatalogue(produits as any);
+
+    const { jsPDF } = require('jspdf');
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+    const W = 595, ML = 40, MR = W - 40, UW = MR - ML;
+    const C = {
+      bordeaux: B.rgb,
+      gold:  [201, 168, 76] as [number, number, number],
+      cream: [245, 240, 232] as [number, number, number],
+      light: [249, 250, 251] as [number, number, number],
+      gray:  [107, 114, 128] as [number, number, number],
+      dark:  [30, 30, 30] as [number, number, number],
+      white: [255, 255, 255] as [number, number, number],
+    };
+    const fill  = (c: [number, number, number]) => doc.setFillColor(c[0], c[1], c[2]);
+    const draw  = (c: [number, number, number]) => doc.setDrawColor(c[0], c[1], c[2]);
+    const color = (c: [number, number, number]) => doc.setTextColor(c[0], c[1], c[2]);
+    const fr    = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+    // Colonnes du tableau produits
+    const cX = { nom: ML + 8, stock: ML + 330, entrepot: ML + 415, prix: MR - 6 };
+    const RH = 17;
+    const BAS = 792;   // limite basse avant saut de page
+
+    // ── En-tête ────────────────────────────────────────────────────────────
+    fill(C.bordeaux); doc.rect(0, 0, W, 78, 'F');
+    color(C.white); doc.setFont('helvetica', 'bold'); doc.setFontSize(22);
+    doc.text(B.nomMaj, ML, 36);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    color(C.gold); if (B.signature) doc.text(B.signature.toLowerCase(), ML, 53);
+    color([210, 210, 210]); doc.setFontSize(8);
+    doc.text('Point de Vente — Logiciel de caisse', ML, 66);
+
+    color(C.white); doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+    doc.text('CATALOGUE PRODUITS', MR, 34, { align: 'right' });
+    color(C.gold); doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text(`${produits.length} produit${produits.length !== 1 ? 's' : ''} · ${groupes.length} catégorie${groupes.length !== 1 ? 's' : ''}`, MR, 50, { align: 'right' });
+    color([200, 200, 200]); doc.setFontSize(7.5);
+    doc.text(`Édité le ${new Date().toLocaleString('fr-FR')}`, MR, 65, { align: 'right' });
+    draw(C.gold); doc.setLineWidth(2); doc.line(0, 78, W, 78);
+
+    let y = 104;
+
+    const sautSiBesoin = (besoin: number) => {
+      if (y + besoin > BAS) { doc.addPage(); y = 48; }
+    };
+
+    // En-tête de colonnes (répété à chaque sous-catégorie et changement de page)
+    const enteteColonnes = () => {
+      fill(C.bordeaux); doc.rect(ML, y, UW, RH, 'F');
+      color(C.white); doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+      doc.text('Produit', cX.nom, y + 12);
+      doc.text('Stock bout.', cX.stock, y + 12, { align: 'right' });
+      doc.text('Entrepôt', cX.entrepot, y + 12, { align: 'right' });
+      doc.text('Prix (XAF)', cX.prix, y + 12, { align: 'right' });
+      y += RH;
+    };
+
+    if (produits.length === 0) {
+      color(C.gray); doc.setFont('helvetica', 'italic'); doc.setFontSize(11);
+      doc.text('Aucun produit au catalogue.', ML, y + 10);
+    }
+
+    for (const g of groupes) {
+      // Titre de catégorie
+      sautSiBesoin(30 + RH * 2);
+      y += 6;
+      color(C.bordeaux); doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+      doc.text(g.categorie, ML, y + 4);
+      color(C.gray); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+      doc.text(`${g.nbProduits} produit${g.nbProduits !== 1 ? 's' : ''}`, MR, y + 4, { align: 'right' });
+      y += 10;
+      draw(C.gold); doc.setLineWidth(1); doc.line(ML, y, MR, y);
+      y += 12;
+
+      for (const sg of g.sousGroupes) {
+        // Sous-catégorie
+        sautSiBesoin(16 + RH * 2);
+        color(C.dark); doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+        doc.text(sg.sousCategorie, ML, y);
+        y += 8;
+
+        enteteColonnes();
+
+        for (let i = 0; i < sg.lignes.length; i++) {
+          if (y + RH > BAS) { doc.addPage(); y = 48; enteteColonnes(); }
+          const l = sg.lignes[i];
+          fill(i % 2 === 0 ? C.cream : C.light); doc.rect(ML, y, UW, RH, 'F');
+          color(C.dark); doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+          const nm = l.nom.length > 52 ? l.nom.slice(0, 49) + '…' : l.nom;
+          doc.text(nm, cX.nom, y + 12);
+          doc.text(fr(l.stock), cX.stock, y + 12, { align: 'right' });
+          doc.text(fr(l.stockMagazin), cX.entrepot, y + 12, { align: 'right' });
+          doc.setFont('helvetica', 'bold');
+          doc.text(fr(l.prix), cX.prix, y + 12, { align: 'right' });
+          y += RH;
+        }
+        y += 8;
+      }
+      y += 6;
+    }
+
+    // ── Pied de page sur chaque page ─────────────────────────────────────────
+    const n = doc.getNumberOfPages();
+    for (let i = 1; i <= n; i++) {
+      doc.setPage(i);
+      fill(C.bordeaux); doc.rect(0, 820, W, 22, 'F');
+      color([200, 200, 200]); doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+      doc.text(
+        `${B.app}${B.signature ? ' — ' + B.signature.toLowerCase() : ''}  •  Catalogue édité le ${new Date().toLocaleString('fr-FR')}`,
+        W / 2, 834, { align: 'center' },
+      );
+      doc.text(`Page ${i}/${n}`, MR, 834, { align: 'right' });
+    }
+
     return Buffer.from(doc.output('arraybuffer'));
   }
 }

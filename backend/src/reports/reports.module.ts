@@ -8,6 +8,7 @@ import { AuditLog, AuditLogSchema } from '../schemas/audit-log.schema';
 import { Settings, SettingsSchema } from '../settings/settings.schema';
 import { User, UserSchema } from '../schemas/user.schema';
 import { StockMovement, StockMovementSchema } from '../schemas/stock-movement.schema';
+import { Product, ProductSchema } from '../schemas/product.schema';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { AuthModule } from '../auth/auth.module';
       { name: Settings.name, schema: SettingsSchema },
       { name: User.name,     schema: UserSchema     },
       { name: StockMovement.name, schema: StockMovementSchema },
+      { name: Product.name,  schema: ProductSchema  },
     ]),
     AuthModule,
   ],

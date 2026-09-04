@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import ImportExportProduits from '../components/ImportExportProduits';
@@ -26,98 +26,98 @@ interface ExportItem {
 const today    = localISODate();
 const thisYear = new Date().getFullYear();
 const thisMon  = new Date().getMonth() + 1;
-const prevMon  = thisMon === 1 ? 12 : thisMon - 1;
-const prevYear = thisMon === 1 ? thisYear - 1 : thisYear;
 const PAD = (n: number) => String(n).padStart(2, '0');
 const MON_LABEL = (y: number, m: number) =>
   new Date(y, m - 1, 1).toLocaleDateString(dateLocale(), { month: 'long', year: 'numeric' });
 
-const EXPORTS: ExportItem[] = [
-  {
-    id: 'e1', title: t('Ventes du jour', 'Daily sales'), section: 'Caisse',
-    desc: t('Tous les tickets de la journée en cours', 'All receipts for the current day'),
-    format: 'xlsx', size: t('~48 Ko', '~48 KB'), updated: t("Aujourd'hui", 'Today'),
-    url: `/api/reports/daily/excel?date=${today}`,
-    filename: `ventes-jour-${today}.xlsx`,
-  },
-  {
-    id: 'e2', title: t(`Journal des ventes — ${MON_LABEL(thisYear, thisMon)}`, `Sales journal — ${MON_LABEL(thisYear, thisMon)}`), section: 'Caisse',
-    desc: t('Historique complet des ventes du mois (détail + résumé par jour + résumé par caissier)', 'Complete sales history for the month (details + daily summary + summary per cashier)'),
-    format: 'xlsx', size: t('~320 Ko', '~320 KB'), updated: t("Aujourd'hui 00:00", 'Today 00:00'),
-    url: `/api/reports/monthly/excel?month=${thisMon}&year=${thisYear}`,
-    filename: `journal-ventes-${thisYear}-${PAD(thisMon)}.xlsx`,
-  },
-  {
-    id: 'e3', title: t(`Rapport mensuel — ${MON_LABEL(thisYear, thisMon)}`, `Monthly report — ${MON_LABEL(thisYear, thisMon)}`), section: 'Rapports',
-    desc: t('CA, bénéfice, ventes par jour, top produits', 'Revenue, profit, daily sales, top products'),
-    format: 'pdf', size: t('~1.2 Mo', '~1.2 MB'), updated: t("Aujourd'hui 00:00", 'Today 00:00'),
-    url: `/api/reports/monthly/pdf?month=${thisMon}&year=${thisYear}`,
-    filename: `rapport-mensuel-${thisYear}-${PAD(thisMon)}.pdf`,
-  },
-  {
-    id: 'e4', title: t(`Rapport mensuel — ${MON_LABEL(prevYear, prevMon)}`, `Monthly report — ${MON_LABEL(prevYear, prevMon)}`), section: 'Rapports',
-    desc: t(`CA, bénéfice, synthèse ${MON_LABEL(prevYear, prevMon)}`, `Revenue, profit, ${MON_LABEL(prevYear, prevMon)} summary`),
-    format: 'pdf', size: t('~1.1 Mo', '~1.1 MB'), updated: `${new Date(prevYear, prevMon, 0).getDate()}/${PAD(prevMon)}/${prevYear}`,
-    url: `/api/reports/monthly/pdf?month=${prevMon}&year=${prevYear}`,
-    filename: `rapport-mensuel-${prevYear}-${PAD(prevMon)}.pdf`,
-  },
-  {
-    id: 'e5', title: t('Catalogue produits', 'Product catalogue'), section: 'Stock',
-    desc: t('Tous les produits avec prix, codes-barres, catégories, stocks et fournisseurs', 'All products with prices, barcodes, categories, stock levels and suppliers'),
-    format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
-    url: '/api/products/export-excel',
-    filename: `produits_${today}.xlsx`,
-  },
-  {
-    id: 'e6', title: t('État du stock', 'Stock status'), section: 'Stock',
-    desc: t('Quantités en stock par produit (boutique + entrepôt) — même fichier que le catalogue', 'Stock quantities per product (shop + warehouse) — same file as the catalogue'),
-    format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
-    url: '/api/products/export-excel',
-    filename: `etat-stock_${today}.xlsx`,
-  },
-  {
-    id: 'e7', title: t('Mouvements de stock', 'Stock movements'), section: 'Stock',
-    desc: t('Entrées et sorties des 30 derniers jours (produit, quantité, motif)', 'Inbound and outbound over the last 30 days (product, quantity, reason)'),
-    format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
-    url: '/api/reports/mouvements-stock/excel',
-    filename: `mouvements-stock_${today}.xlsx`,
-  },
-  {
-    id: 'e8', title: t(`Fiche comptable — ${MON_LABEL(thisYear, thisMon)}`, `Accounting sheet — ${MON_LABEL(thisYear, thisMon)}`), section: 'Comptabilité',
-    desc: t('Compte de résultat, dépenses par catégorie, ventes par mode de paiement', 'Income statement, expenses by category, sales by payment method'),
-    format: 'pdf', size: 'PDF', updated: t('Temps réel', 'Real-time'),
-    url: `/api/reports/compta/pdf?month=${thisMon}&year=${thisYear}`,
-    filename: `fiche-comptable_${thisYear}-${PAD(thisMon)}.pdf`,
-  },
-  {
-    id: 'e9', title: t(`Fiche comptable — ${MON_LABEL(prevYear, prevMon)}`, `Accounting sheet — ${MON_LABEL(prevYear, prevMon)}`), section: 'Comptabilité',
-    desc: t(`Compte de résultat, charges et bénéfice de ${MON_LABEL(prevYear, prevMon)}`, `Income statement, expenses and profit for ${MON_LABEL(prevYear, prevMon)}`),
-    format: 'pdf', size: 'PDF', updated: t('Temps réel', 'Real-time'),
-    url: `/api/reports/compta/pdf?month=${prevMon}&year=${prevYear}`,
-    filename: `fiche-comptable_${prevYear}-${PAD(prevMon)}.pdf`,
-  },
-  {
-    id: 'e10', title: t('Liste des collaborateurs', 'Staff list'), section: 'Personnel',
-    desc: t('Noms, rôles, identifiants, téléphones et affectations', 'Names, roles, logins, phone numbers and assignments'),
-    format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
-    url: '/api/reports/equipe/excel',
-    filename: `equipe_${today}.xlsx`,
-  },
-  {
-    id: 'e11', title: t('Performance caissiers', 'Cashier performance'), section: 'Personnel',
-    desc: t('Ventes, articles, CA et panier moyen par caissier sur 30 jours', 'Sales, items, revenue and average basket per cashier over 30 days'),
-    format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
-    url: '/api/reports/caissiers/excel',
-    filename: `caissiers-30j_${today}.xlsx`,
-  },
-  {
-    id: 'e12', title: t("Journal d'audit", 'Audit log'), section: 'Système',
-    desc: t('Toutes les actions sensibles tracées (qui, quoi, quand)', 'All sensitive actions tracked (who, what, when)'),
-    format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
-    url: '/api/reports/audit/excel',
-    filename: `journal-audit_${today}.xlsx`,
-  },
-];
+// Construit la liste des documents pour un MOIS choisi. Les documents mensuels
+// (journal, rapport, fiche comptable) suivent ce mois — c'est ainsi qu'on peut
+// enfin télécharger n'importe quel mois passé, et pas seulement le mois en
+// cours. La logique est isolée ici pour être testée sans rendre la page.
+export function buildExports(sel: { year: number; month: number }, jour: string): ExportItem[] {
+  const { year: sy, month: sm } = sel;
+  const slug  = `${sy}-${PAD(sm)}`;
+  const label = MON_LABEL(sy, sm);
+  return [
+    {
+      id: 'e1', title: t('Ventes du jour', 'Daily sales'), section: 'Caisse',
+      desc: t('Tous les tickets de la journée en cours', 'All receipts for the current day'),
+      format: 'xlsx', size: t('~48 Ko', '~48 KB'), updated: t("Aujourd'hui", 'Today'),
+      url: `/api/reports/daily/excel?date=${jour}`,
+      filename: `ventes-jour-${jour}.xlsx`,
+    },
+    {
+      id: 'e2', title: t(`Journal des ventes — ${label}`, `Sales journal — ${label}`), section: 'Caisse',
+      desc: t('Historique complet des ventes du mois (détail + résumé par jour + résumé par caissier)', 'Complete sales history for the month (details + daily summary + summary per cashier)'),
+      format: 'xlsx', size: 'Excel', updated: label,
+      url: `/api/reports/monthly/excel?month=${sm}&year=${sy}`,
+      filename: `journal-ventes-${slug}.xlsx`,
+    },
+    {
+      id: 'e3', title: t(`Rapport mensuel — ${label}`, `Monthly report — ${label}`), section: 'Rapports',
+      desc: t('CA, bénéfice, ventes par jour, top produits', 'Revenue, profit, daily sales, top products'),
+      format: 'pdf', size: 'PDF', updated: label,
+      url: `/api/reports/monthly/pdf?month=${sm}&year=${sy}`,
+      filename: `rapport-mensuel-${slug}.pdf`,
+    },
+    {
+      id: 'e-catalogue', title: t('Catalogue produits (PDF)', 'Product catalogue (PDF)'), section: 'Stock',
+      desc: t('État lisible du catalogue : produits regroupés par catégorie et sous-catégorie, avec stock et prix', 'Readable catalogue: products grouped by category and sub-category, with stock and price'),
+      format: 'pdf', size: 'PDF', updated: t('Temps réel', 'Real-time'),
+      url: '/api/reports/catalogue/pdf',
+      filename: `catalogue-produits_${jour}.pdf`,
+    },
+    {
+      id: 'e5', title: t('Catalogue produits (Excel)', 'Product catalogue (Excel)'), section: 'Stock',
+      desc: t('Tous les produits avec prix, codes-barres, catégories, stocks et fournisseurs', 'All products with prices, barcodes, categories, stock levels and suppliers'),
+      format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
+      url: '/api/products/export-excel',
+      filename: `produits_${jour}.xlsx`,
+    },
+    {
+      id: 'e6', title: t('État du stock', 'Stock status'), section: 'Stock',
+      desc: t('Quantités en stock par produit (boutique + entrepôt) — même fichier que le catalogue', 'Stock quantities per product (shop + warehouse) — same file as the catalogue'),
+      format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
+      url: '/api/products/export-excel',
+      filename: `etat-stock_${jour}.xlsx`,
+    },
+    {
+      id: 'e7', title: t('Mouvements de stock', 'Stock movements'), section: 'Stock',
+      desc: t('Entrées et sorties des 30 derniers jours (produit, quantité, motif)', 'Inbound and outbound over the last 30 days (product, quantity, reason)'),
+      format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
+      url: '/api/reports/mouvements-stock/excel',
+      filename: `mouvements-stock_${jour}.xlsx`,
+    },
+    {
+      id: 'e8', title: t(`Fiche comptable — ${label}`, `Accounting sheet — ${label}`), section: 'Comptabilité',
+      desc: t('Compte de résultat, dépenses par catégorie, ventes par mode de paiement', 'Income statement, expenses by category, sales by payment method'),
+      format: 'pdf', size: 'PDF', updated: label,
+      url: `/api/reports/compta/pdf?month=${sm}&year=${sy}`,
+      filename: `fiche-comptable_${slug}.pdf`,
+    },
+    {
+      id: 'e10', title: t('Liste des collaborateurs', 'Staff list'), section: 'Personnel',
+      desc: t('Noms, rôles, identifiants, téléphones et affectations', 'Names, roles, logins, phone numbers and assignments'),
+      format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
+      url: '/api/reports/equipe/excel',
+      filename: `equipe_${jour}.xlsx`,
+    },
+    {
+      id: 'e11', title: t('Performance caissiers', 'Cashier performance'), section: 'Personnel',
+      desc: t('Ventes, articles, CA et panier moyen par caissier sur 30 jours', 'Sales, items, revenue and average basket per cashier over 30 days'),
+      format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
+      url: '/api/reports/caissiers/excel',
+      filename: `caissiers-30j_${jour}.xlsx`,
+    },
+    {
+      id: 'e12', title: t("Journal d'audit", 'Audit log'), section: 'Système',
+      desc: t('Toutes les actions sensibles tracées (qui, quoi, quand)', 'All sensitive actions tracked (who, what, when)'),
+      format: 'xlsx', size: 'Excel', updated: t('Temps réel', 'Real-time'),
+      url: '/api/reports/audit/excel',
+      filename: `journal-audit_${jour}.xlsx`,
+    },
+  ];
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -164,6 +164,13 @@ export default function AdminExports() {
   const { toasts, addToast, removeToast } = useToast();
   const isMobile = useIsMobile();
   const isNarrow = useIsMobile(1024);
+
+  // Mois choisi pour les documents mensuels — par défaut le mois en cours, mais
+  // n'importe quel mois passé est téléchargeable (pas de borne basse).
+  const moisCourant = `${thisYear}-${PAD(thisMon)}`;
+  const [mois, setMois] = useState(moisCourant);
+  const [selYear, selMon] = mois.split('-').map(Number);
+  const EXPORTS = useMemo(() => buildExports({ year: selYear, month: selMon }, today), [selYear, selMon]);
 
   // Liste des produits (pour l'import/export de la section Stock)
   const [products, setProducts] = useState<Product[]>([]);
@@ -220,7 +227,19 @@ export default function AdminExports() {
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Système', 'System')}</p>
               <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>Exports</h1>
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              {/* Mois des documents mensuels — n'importe quel mois passé */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 600, color: 'var(--fs-ink-500)' }}>
+                <span>{t('Mois', 'Month')}</span>
+                <input
+                  type="month"
+                  value={mois}
+                  max={moisCourant}
+                  onChange={e => e.target.value && setMois(e.target.value)}
+                  title={t('Choisir le mois des rapports mensuels et fiches comptables', 'Pick the month for monthly reports and accounting sheets')}
+                  style={{ border: '1px solid var(--fs-line)', borderRadius: 8, padding: '6px 8px', fontSize: 12, color: 'var(--fs-ink-700)', background: '#fff' }}
+                />
+              </label>
               {SECTIONS.map(s => (
                 <button key={s} onClick={() => setSection(s)}
                   style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',

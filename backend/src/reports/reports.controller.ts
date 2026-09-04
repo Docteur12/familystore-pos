@@ -99,6 +99,20 @@ export class ReportsController {
     res.send(buffer);
   }
 
+  // GET /api/reports/catalogue/pdf — état du catalogue par catégorie/sous-catégorie
+  @Get('catalogue/pdf')
+  async cataloguePdf(@Res() res: Response) {
+    try {
+      const buffer = await this.reportsService.generateCataloguePdf();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="catalogue-produits_${new Date().toISOString().slice(0, 10)}.pdf"`);
+      res.setHeader('Content-Length', buffer.length);
+      res.end(buffer);
+    } catch (err: any) {
+      res.status(500).json({ message: 'Erreur génération PDF', error: err.message });
+    }
+  }
+
   // GET /api/reports/daily/pdf?date=2026-04-24
   @Get('daily/pdf')
   async dailyPdf(@Query('date') date: string, @Res() res: Response) {
