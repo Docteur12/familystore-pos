@@ -10,7 +10,7 @@ import { t, dateLocale } from '../i18n';
 // Encodage Code39 partagé (utils/code39) : le MÊME code à l'écran et à
 // l'impression — les barres imprimées étaient décoratives, illisibles à la
 // douchette, alors que l'aperçu montrait un vrai code.
-import { drawCode39, barresHtml } from '../utils/code39';
+import { drawCode39, barresHtml, rectsCode39 } from '../utils/code39';
 import { skuProduit } from '../utils/sku';
 
 function BarcodeCanvas({ value, width = 200, height = 44 }: { value: string; width?: number; height?: number }) {
@@ -26,6 +26,43 @@ function BarcodeCanvas({ value, width = 200, height = 44 }: { value: string; wid
 // SKU partagé avec la caisse (utils/sku.ts) : ce que l'étiquette encode est
 // exactement ce que `trouverParCode` sait retrouver au scan.
 const skuOf = (p: Product): string => skuProduit(p);
+
+// ── Impression Brother 62×29 : un PDF VECTORIEL, pas d'impression HTML ────────
+// C'est la chaîne de l'étiquette de test VALIDÉE à la douchette : des
+// rectangles jsPDF posés au millimètre, imprimés depuis la visionneuse PDF.
+// L'impression HTML du navigateur rastérise et lisse des barres de 0,3 mm —
+// sur le terrain, la douchette lisait le PDF de test et pas l'étiquette HTML.
+async function imprimerPdfBrother(produits: Product[]): Promise<void> {
+  const { jsPDF } = await import('jspdf');
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [62, 29] });
+  const num = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+  produits.forEach((p, i) => {
+    if (i > 0) doc.addPage([62, 29], 'landscape');
+    const sku  = skuOf(p);
+    const code = sku.replace(/-/g, '').slice(0, 14);
+    doc.setTextColor(0, 0, 0);
+    const nom = displayName(p.name);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+    doc.text(nom.length > 38 ? nom.slice(0, 37) + '…' : nom, 2, 4.2);
+    // Barres : mêmes cotes que l'étiquette de test qui se scanne — zone
+    // 4 → 58 mm, 11 mm de haut, zones blanches de silence de chaque côté.
+    doc.setFillColor(0, 0, 0);
+    for (const r of rectsCode39(code, 4, 54)) doc.rect(r.x, 5.5, r.w, 11, 'F');
+    doc.setFont('courier', 'bold'); doc.setFontSize(7);
+    doc.text(sku, 31, 19.5, { align: 'center' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6);
+    doc.text(`${p.unit ?? ''}${p.valeur ? ' · ' + p.valeur : ''}`, 2, 26.5);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+    doc.text(`${num(p.price)} XAF`, 60, 26.5, { align: 'right' });
+  });
+
+  // Visionneuse PDF du navigateur — on imprime depuis là, exactement comme
+  // l'étiquette de test. Fenêtre bloquée → le fichier se télécharge.
+  const url = doc.output('bloburl');
+  const win = window.open(url, '_blank');
+  if (!win) doc.save(`etiquettes-brother_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
 
 const CAT_COLORS: Record<string, string> = {
   'beauté': '#F5C4B2', 'hygiène': '#B8D8EC', 'parfumerie': '#D8C4E8',
@@ -170,9 +207,16 @@ export default function StocksEtiquettes() {
     }
   };
 
-  const handleBatchPrint = () => {
+  const handleBatchPrint = async () => {
     const toPrint = products.filter(p => selected.has(p._id));
     if (toPrint.length === 0) return;
+
+    // Brother : PDF vectoriel (la chaîne validée à la douchette), pas
+    // d'impression HTML — voir imprimerPdfBrother.
+    if (template === 'brother') {
+      await imprimerPdfBrother(toPrint);
+      return;
+    }
 
     const sizes: Record<Template, string> = { brother: '62mm 29mm', mini: '57mm 32mm', standard: '90mm 50mm', grande: '100mm 70mm' };
     const fontSizes: Record<Template, { name: number; price: number; sku: number }> = {
@@ -182,13 +226,11 @@ export default function StocksEtiquettes() {
       grande:   { name: 16, price: 24, sku: 10 },
     };
     const fs = fontSizes[template];
-    // Hauteur des barres et marge de page : le rouleau Brother (62 mm) se joue
-    // au millimètre, les autres formats ont de la place.
-    // Brother : 10 mm de haut — plus de tolérance de visée pour la douchette,
-    // le gabarit compact (sans catégorie ni nom local) laisse la place.
+    // Hauteur des barres selon le format (le Brother, lui, passe par le PDF
+    // vectoriel ci-dessus et n'arrive jamais ici).
     const barresMm: Record<Template, number> = { brother: 10, mini: 6, standard: 8, grande: 11 };
-    const margeMm = template === 'brother' ? 2 : 3;
-    const compact = template === 'brother';
+    const margeMm = 3;
+    const compact = false;
 
     const win = window.open('', '_blank', 'width=900,height=700');
     if (!win) return;

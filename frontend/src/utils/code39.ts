@@ -86,6 +86,28 @@ export function barresHtml(texte: string): string {
   return `<svg viewBox="0 0 ${total} 10" preserveAspectRatio="none" shape-rendering="crispEdges" style="display:block;width:100%;height:100%">${rects.join('')}</svg>`;
 }
 
+/**
+ * Barres en coordonnées absolues (mm) pour un dessin VECTORIEL (jsPDF).
+ *
+ * C'est le chemin de l'étiquette de test validée à la douchette : des
+ * rectangles posés au millimètre dans un PDF, sans rastérisation navigateur.
+ * Renvoie uniquement les barres noires ; les espaces sont les creux entre.
+ */
+export function rectsCode39(texte: string, x0: number, largeur: number): { x: number; w: number }[] {
+  const elements = elementsCode39(texte);
+  const total = totalUnites(elements);
+  if (total === 0) return [];
+  const unite = largeur / total;
+  const rects: { x: number; w: number }[] = [];
+  let x = x0;
+  for (const e of elements) {
+    const w = e.unites * unite;
+    if (e.barre) rects.push({ x, w });
+    x += w;
+  }
+  return rects;
+}
+
 /** Dessin sur canvas — l'aperçu à l'écran. Même encodage que l'impression. */
 export function drawCode39(canvas: HTMLCanvasElement, texte: string, color = '#111', unite = 2): void {
   const ctx = canvas.getContext('2d');

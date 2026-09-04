@@ -12,7 +12,7 @@
  *  - à l'impression, des largeurs en % qui préservent les rapports.
  */
 import { describe, it, expect } from 'vitest';
-import { CODE39_MAP, RAPPORT_LARGE, elementsCode39, totalUnites, barresHtml } from './code39';
+import { CODE39_MAP, RAPPORT_LARGE, elementsCode39, totalUnites, barresHtml, rectsCode39 } from './code39';
 
 describe('elementsCode39 — structure du code', () => {
   it('encode *TEXTE* : 9 éléments par caractère + 1 espace inter-caractère', () => {
@@ -82,5 +82,28 @@ describe('barresHtml — rendu imprimable (SVG)', () => {
 
   it('un texte sans aucun caractère encodable garde les étoiles (jamais un code vide silencieux)', () => {
     expect(totalUnites(elementsCode39(''))).toBeGreaterThan(0);
+  });
+});
+
+describe('rectsCode39 — barres en millimètres pour le PDF vectoriel (chaîne validée douchette)', () => {
+  const rects = rectsCode39('AB12', 4, 54);
+  const elements = elementsCode39('AB12');
+
+  it('une barre noire par élément barre, la première à x0', () => {
+    expect(rects).toHaveLength(elements.filter(e => e.barre).length);
+    expect(rects[0].x).toBeCloseTo(4, 6);
+  });
+
+  it('la dernière barre finit exactement à x0 + largeur (le code remplit la zone)', () => {
+    const fin = rects[rects.length - 1];
+    expect(fin.x + fin.w).toBeCloseTo(4 + 54, 6);
+  });
+
+  it('barres croissantes, jamais superposées, rapport large/étroit préservé', () => {
+    const larg = rects.map(r => r.w);
+    expect(Math.max(...larg) / Math.min(...larg)).toBeCloseTo(RAPPORT_LARGE, 6);
+    for (let i = 1; i < rects.length; i++) {
+      expect(rects[i].x).toBeGreaterThan(rects[i - 1].x + rects[i - 1].w - 1e-9);
+    }
   });
 });
