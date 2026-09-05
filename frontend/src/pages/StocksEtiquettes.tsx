@@ -14,9 +14,12 @@ import { skuProduit } from '../utils/sku';
 
 function BarcodeCanvas({ value, width = 200, height = 44 }: { value: string; width?: number; height?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  // width/height dans les dépendances : redimensionner un canvas l'EFFACE.
+  // Au changement de format d'étiquette, les vignettes changeaient de taille
+  // et tous les aperçus de codes-barres devenaient blancs.
   useEffect(() => {
     if (ref.current) drawCode39(ref.current, value);
-  }, [value]);
+  }, [value, width, height]);
   return <canvas ref={ref} width={width} height={height} style={{ display: 'block', imageRendering: 'pixelated' }}/>;
 }
 
