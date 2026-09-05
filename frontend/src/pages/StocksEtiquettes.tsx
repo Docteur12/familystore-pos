@@ -34,7 +34,7 @@ const skuOf = (p: Product): string => skuProduit(p);
 // rectangles jsPDF posés au millimètre, imprimés depuis la visionneuse PDF.
 // L'impression HTML du navigateur rastérise et lisse des barres de 0,3 mm —
 // sur le terrain, la douchette lisait le PDF de test et pas l'étiquette HTML.
-async function imprimerPdfBrother(produits: Product[], enseigne: string): Promise<void> {
+async function imprimerPdfBrother(produits: Product[]): Promise<void> {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [62, 29] });
   const num = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -57,10 +57,10 @@ async function imprimerPdfBrother(produits: Product[], enseigne: string): Promis
     for (const r of rectsCode39(code, 4, 54)) doc.rect(r.x, 6.8, r.w, 9.2, 'F');
     doc.setFont('courier', 'bold'); doc.setFontSize(7);
     doc.text(sku, 31, 18.6, { align: 'center' });
-    // Enseigne à gauche (petit, italique, gras) ; PRIX gros et lisible de loin.
-    doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(6.5);
-    doc.text(enseigne, 2, 24.6);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5);
+    // Unité · quantité à gauche ; PRIX gros et lisible de loin à droite.
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
+    doc.text(`${p.unit ?? ''}${p.valeur ? ' · ' + p.valeur : ''}`, 2, 24.6);
+    doc.setFontSize(12.5);
     doc.text(`${num(p.price)} XAF`, 60, 25.0, { align: 'right' });
   });
 
@@ -223,7 +223,7 @@ export default function StocksEtiquettes() {
     // Brother : PDF vectoriel (la chaîne validée à la douchette), pas
     // d'impression HTML — voir imprimerPdfBrother.
     if (template === 'brother') {
-      await imprimerPdfBrother(toPrint, nomMagasin);
+      await imprimerPdfBrother(toPrint);
       return;
     }
 
