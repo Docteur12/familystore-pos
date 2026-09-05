@@ -52,6 +52,13 @@ describe('trouverParCode — la douchette retrouve le produit', () => {
     expect(trouverParCode([avecCode], codeInterne(avecCode))).toBeNull();
   });
 
+  it('douchette QWERTY sur Windows AZERTY : les chiffres accentués sont retraduits', () => {
+    // Cas réel : la douchette a tapé « àééààààà(&'' » pour le code 022000005144.
+    const produit = { _id: '000000000000000000000001', barcode: '022000005144' };
+    expect(normaliserCode("àééààààà(&''")).toBe('022000005144');
+    expect(trouverParCode([produit], "àééààààà(&''")).toBe(produit);
+  });
+
   it('code inconnu ou vide → null (l’appelant tente alors le backend)', () => {
     expect(trouverParCode(produits, 'ZZZZZZZZZ')).toBeNull();
     expect(trouverParCode(produits, '   ')).toBeNull();

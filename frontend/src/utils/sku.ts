@@ -16,9 +16,22 @@ export interface ProduitScannable {
   barcode?: string;
 }
 
+// Douchette « QWERTY » sur un Windows en AZERTY : les chiffres arrivent en
+// à&é"'(-è_ç (vécu : « àééààààà(&'' » scanné pour 022000005144). Si la chaîne
+// contient un caractère typique d'AZERTY, on retraduit tout — y compris
+// « - » → 6, sans risque puisque le déclencheur est un caractère accentué
+// qu'aucun code-barres légitime ne contient.
+const AZERTY_VERS_CHIFFRE: Record<string, string> =
+  { 'à': '0', '&': '1', 'é': '2', '"': '3', "'": '4', '(': '5', '-': '6', 'è': '7', '_': '8', 'ç': '9' };
+
 /** Ce que le scanner restitue : sans tirets ni espaces, en majuscules. */
-export const normaliserCode = (code: string): string =>
-  code.replace(/[-\s]/g, '').toUpperCase();
+export const normaliserCode = (code: string): string => {
+  let brut = code.trim();
+  if (/[à&é"'(è_ç]/.test(brut)) {
+    brut = brut.replace(/[à&é"'(\-è_ç]/g, c => AZERTY_VERS_CHIFFRE[c] ?? c);
+  }
+  return brut.replace(/[-\s]/g, '').toUpperCase();
+};
 
 /** Numéro interne d'un produit sans code-barres — la partie ENCODÉE (9 car.). */
 export const codeInterne = (p: ProduitScannable): string =>
