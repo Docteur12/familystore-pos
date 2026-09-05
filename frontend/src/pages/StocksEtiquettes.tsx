@@ -11,6 +11,7 @@ import { t, dateLocale } from '../i18n';
 // douchette, alors que l'aperçu montrait un vrai code.
 import { drawCode39, barresHtml, rectsCode39 } from '../utils/code39';
 import { skuProduit } from '../utils/sku';
+import { uniteAffichee } from '../utils/unites';
 
 function BarcodeCanvas({ value, width = 200, height = 44 }: { value: string; width?: number; height?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -57,9 +58,10 @@ async function imprimerPdfBrother(produits: Product[]): Promise<void> {
     for (const r of rectsCode39(code, 4, 54)) doc.rect(r.x, 6.8, r.w, 9.2, 'F');
     doc.setFont('courier', 'bold'); doc.setFontSize(7);
     doc.text(sku, 31, 18.6, { align: 'center' });
-    // Unité · quantité à gauche ; PRIX gros et lisible de loin à droite.
+    // Unité · quantité à gauche (traduite selon la langue du magasin) ;
+    // PRIX gros et lisible de loin à droite.
     doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
-    doc.text(`${p.unit ?? ''}${p.valeur ? ' · ' + p.valeur : ''}`, 2, 24.6);
+    doc.text(`${uniteAffichee(p.unit)}${p.valeur ? ' · ' + p.valeur : ''}`, 2, 24.6);
     doc.setFontSize(12.5);
     doc.text(`${num(p.price)} XAF`, 60, 25.0, { align: 'right' });
   });
@@ -173,7 +175,7 @@ function LabelCard({ product, template, selected, onToggle }: {
         </div>
         <div style={{ textAlign: 'right' }}>
           {!isMini && <div style={{ fontSize: 9, color: 'var(--fs-ink-400)', fontWeight: 600, marginBottom: 1 }}>{t('UNITÉ', 'UNIT')}</div>}
-          <div style={{ fontSize: isMini ? 10 : 12, fontWeight: 700, color: 'var(--fs-ink-600)' }}>{product.unit}{product.valeur ? ` · ${product.valeur}` : ''}</div>
+          <div style={{ fontSize: isMini ? 10 : 12, fontWeight: 700, color: 'var(--fs-ink-600)' }}>{uniteAffichee(product.unit)}{product.valeur ? ` · ${product.valeur}` : ''}</div>
         </div>
       </div>
     </div>
@@ -286,7 +288,7 @@ export default function StocksEtiquettes() {
               </div>
               <div class="row">
                 <div class="price">${fmtN(p.price)} <span style="font-size:10px;font-weight:600">XAF</span></div>
-                <div class="unit">${p.unit}${p.valeur ? ' · ' + p.valeur : ''}</div>
+                <div class="unit">${uniteAffichee(p.unit)}${p.valeur ? ' · ' + p.valeur : ''}</div>
               </div>
             </div>
           `;
