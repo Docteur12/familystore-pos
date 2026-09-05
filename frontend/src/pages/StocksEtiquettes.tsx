@@ -35,7 +35,7 @@ const skuOf = (p: Product): string => skuProduit(p);
 // rectangles jsPDF posés au millimètre, imprimés depuis la visionneuse PDF.
 // L'impression HTML du navigateur rastérise et lisse des barres de 0,3 mm —
 // sur le terrain, la douchette lisait le PDF de test et pas l'étiquette HTML.
-async function imprimerPdfBrother(produits: Product[]): Promise<void> {
+async function imprimerPdfBrother(produits: Product[], enseigne: string): Promise<void> {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [62, 29] });
   const num = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
@@ -47,20 +47,22 @@ async function imprimerPdfBrother(produits: Product[]): Promise<void> {
     doc.setTextColor(0, 0, 0);
     const nom = displayName(p.name);
     // La QL-800 ne peut pas imprimer les ~2 premiers millimètres du rouleau :
-    // à 4,2 mm, le haut des lettres du nom sortait coupé en deux. Tout le
-    // contenu démarre donc à 5,2 mm — la zone morte reste vide.
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-    doc.text(nom.length > 38 ? nom.slice(0, 37) + '…' : nom, 2, 5.2);
+    // le contenu démarre à 5,6 mm — la zone morte reste vide. Et le bas de
+    // l'étiquette est REMONTÉ : glissée dans un porte-étiquette, la dernière
+    // ligne (le prix) sortait cachée par le rail du support.
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+    doc.text(nom.length > 34 ? nom.slice(0, 33) + '…' : nom, 2, 5.6);
     // Barres : mêmes cotes que l'étiquette de test qui se scanne — zone
     // 4 → 58 mm, zones blanches de silence de chaque côté.
     doc.setFillColor(0, 0, 0);
-    for (const r of rectsCode39(code, 4, 54)) doc.rect(r.x, 6.4, r.w, 10.4, 'F');
+    for (const r of rectsCode39(code, 4, 54)) doc.rect(r.x, 6.8, r.w, 9.2, 'F');
     doc.setFont('courier', 'bold'); doc.setFontSize(7);
-    doc.text(sku, 31, 19.6, { align: 'center' });
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(6);
-    doc.text(`${p.unit ?? ''}${p.valeur ? ' · ' + p.valeur : ''}`, 2, 26.8);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-    doc.text(`${num(p.price)} XAF`, 60, 26.8, { align: 'right' });
+    doc.text(sku, 31, 18.6, { align: 'center' });
+    // Enseigne à gauche (petit, italique, gras) ; PRIX gros et lisible de loin.
+    doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(6.5);
+    doc.text(enseigne, 2, 24.6);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(12.5);
+    doc.text(`${num(p.price)} XAF`, 60, 25.0, { align: 'right' });
   });
 
   // Visionneuse PDF du navigateur — on imprime depuis là, exactement comme
@@ -187,7 +189,9 @@ export default function StocksEtiquettes() {
   const [products,  setProducts]  = useState<Product[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [search,    setSearch]    = useState('');
-  const [template,  setTemplate]  = useState<Template>('standard');
+  // Brother 62 par défaut : c'est le format de l'étiqueteuse validée en
+  // boutique — celui qu'on imprime réellement au quotidien.
+  const [template,  setTemplate]  = useState<Template>('brother');
   const [selected,  setSelected]  = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -220,7 +224,7 @@ export default function StocksEtiquettes() {
     // Brother : PDF vectoriel (la chaîne validée à la douchette), pas
     // d'impression HTML — voir imprimerPdfBrother.
     if (template === 'brother') {
-      await imprimerPdfBrother(toPrint);
+      await imprimerPdfBrother(toPrint, nomMagasin);
       return;
     }
 
