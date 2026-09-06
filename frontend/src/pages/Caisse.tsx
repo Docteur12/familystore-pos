@@ -1828,7 +1828,10 @@ const ProductCard = memo(function ProductCard({
 }: { product: Product; flash: boolean; onClick: () => void }) {
   const [hovered, setHovered] = useState(false);
   const lowStock = product.stock <= product.alertThreshold && product.stock > 0;
-  const noStock  = product.stock === 0;
+  // ≤ 0, pas === 0 : un stock NÉGATIF (correction, vente hors-ligne
+  // synchronisée) est une rupture aussi — il passait le filtre « Ruptures »
+  // sans badge ni grisé, et restait vendable.
+  const noStock  = product.stock <= 0;
   const color    = cardColor(product.category);
 
   return (
@@ -1947,7 +1950,7 @@ const ProductCard = memo(function ProductCard({
 const ProductListRow = memo(function ProductListRow({
   product, flash, onClick,
 }: { product: Product; flash: boolean; onClick: () => void }) {
-  const noStock = product.stock === 0;
+  const noStock = product.stock <= 0;   // ≤ 0 : le stock négatif est une rupture aussi
   const color   = cardColor(product.category);
   return (
     <div
