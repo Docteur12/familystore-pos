@@ -19,6 +19,7 @@ export interface Product {
   expiryDate?:           string | null;
   magazinierThreshold?:  number;
   divers?:        boolean;   // article « divers » synthétique (non référencé)
+  createdAt?:     string;    // date d'entrée du produit au catalogue (Mongo timestamps)
   prixVerrouille?: boolean;  // prix fixé par le magasinier → non modifiable par le gestionnaire
   prixModifiePar?: string;
   prixModifieParRole?: string;

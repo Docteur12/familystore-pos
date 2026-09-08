@@ -29,6 +29,39 @@ const CLE_PAR_ENTETE: Record<string, string> = {
 const sansAccents = (t: string) =>
   t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 
+// ── Traçabilité des prix ──────────────────────────────────────────────────────
+//
+// Un prix passé de 4 500 à 3 500 « mystérieusement » (Serviette Belday,
+// 07/09/2026) : le journal disait QUI avait modifié, mais pas DE COMBIEN À
+// COMBIEN — et un import Excel ne citait même pas les produits touchés.
+// Ces deux fonctions portent le récit exact du changement dans l'audit.
+
+const frN = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+export interface ChangementPrix { nom: string; avant: number; apres: number; }
+
+/**
+ * Résume, en clair, ce qui change entre l'état d'un produit et une
+ * modification demandée : « — prix : 4 500 → 3 500 ; réduction : 0 % → 10 % ».
+ * Chaîne vide si rien de financier ne change (le journal reste sobre).
+ */
+export function resumerChangementsPrix(
+  avant: { price?: number; costPrice?: number; discount?: number },
+  apres: { price?: number; costPrice?: number; discount?: number },
+): string {
+  const morceaux: string[] = [];
+  if (apres.price !== undefined && apres.price !== avant.price) {
+    morceaux.push(`prix : ${frN(avant.price ?? 0)} → ${frN(apres.price)}`);
+  }
+  if (apres.costPrice !== undefined && apres.costPrice !== avant.costPrice) {
+    morceaux.push(`prix d'achat : ${frN(avant.costPrice ?? 0)} → ${frN(apres.costPrice)}`);
+  }
+  if (apres.discount !== undefined && apres.discount !== avant.discount) {
+    morceaux.push(`réduction : ${avant.discount ?? 0} % → ${apres.discount} %`);
+  }
+  return morceaux.length ? ` — ${morceaux.join(' ; ')}` : '';
+}
+
 @Injectable()
 export class ProductsService {
   private readonly logger = new Logger(ProductsService.name);
@@ -155,6 +188,10 @@ export class ProductsService {
     let crees = 0;
     let modifies = 0;
     const erreurs: { ligne: number; nom: string; message: string }[] = [];
+    // Chaque prix de vente écrasé par l'import est relevé (nom, avant, après) :
+    // le contrôleur en fait des lignes d'audit individuelles, retrouvables en
+    // cherchant le produit par son nom.
+    const changementsPrix: ChangementPrix[] = [];
     const clean = (v: unknown) => String(v ?? '').trim();
     const num = (v: unknown): number | undefined => {
       const t = clean(v).replace(/\s/g, '').replace(',', '.');
@@ -189,13 +226,20 @@ export class ProductsService {
           if (!isNaN(d.getTime())) set.expiryDate = d;
         }
 
-        let existing: { _id: unknown } | null = null;
+        let existing: { _id: unknown; name?: string; price?: number } | null = null;
         if (barcode) existing = await this.productModel.findOne({ barcode }).lean();
         if (!existing && nom) {
           existing = await this.productModel.findOne({ name: { $regex: `^${escapeRegex(nom)}$`, $options: 'i' } }).lean();
         }
 
         if (existing) {
+          if (typeof set.price === 'number' && Number(existing.price ?? 0) !== set.price) {
+            changementsPrix.push({
+              nom: existing.name ?? nom,
+              avant: Number(existing.price ?? 0),
+              apres: set.price,
+            });
+          }
           await this.productModel.updateOne({ _id: existing._id }, { $set: set });
           modifies++;
         } else {
@@ -211,7 +255,7 @@ export class ProductsService {
         erreurs.push({ ligne: i + 2, nom: nom || barcode, message: String(e?.message ?? 'erreur').slice(0, 140) });
       }
     }
-    return { crees, modifies, erreurs };
+    return { crees, modifies, erreurs, changementsPrix };
   }
 
   // ── Export de tout le catalogue en VRAI fichier Excel (.xlsx) ───────────────

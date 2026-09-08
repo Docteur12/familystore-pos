@@ -494,6 +494,12 @@ function DetailPanel({ product, isMobile, onClose, onReception, onRefresh, onEdi
           <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', fontFamily: 'var(--fs-font-mono)' }}>
             {sku}
           </div>
+          {product.createdAt && (
+            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 2 }}>
+              {t('Créé le', 'Created on')}{' '}
+              {new Date(product.createdAt).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}
+            </div>
+          )}
         </div>
 
         {/* Color block with location */}
