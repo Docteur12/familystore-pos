@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { ProductsService } from './products.service';
+import { ProductsService, resumerChangementsPrix } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AuthGuard }    from '../auth/auth.guard';
@@ -77,9 +77,21 @@ export class ProductsController {
     this.auditService.log({
       type: 'modification', module: 'produits',
       actorName: actor.name, actorRole: actor.role,
-      detail: `Import produits en masse : ${result.crees} créé(s), ${result.modifies} modifié(s), ${result.erreurs.length} erreur(s)`,
-      meta: { crees: result.crees, modifies: result.modifies, erreurs: result.erreurs.length },
+      detail: `Import produits en masse : ${result.crees} créé(s), ${result.modifies} modifié(s), ${result.erreurs.length} erreur(s), ${result.changementsPrix.length} changement(s) de prix`,
+      meta: { crees: result.crees, modifies: result.modifies, erreurs: result.erreurs.length, changementsPrix: result.changementsPrix.length },
     });
+    // Une ligne d'audit PAR prix écrasé : un import qui change un prix doit se
+    // retrouver en cherchant le produit par son NOM — la ligne agrégée
+    // ci-dessus ne cite personne, c'est elle qui rendait l'import invisible.
+    // Plafonné : au-delà, la ligne agrégée porte quand même le compte exact.
+    for (const c of result.changementsPrix.slice(0, 100)) {
+      this.auditService.log({
+        type: 'modification', module: 'produits',
+        actorName: actor.name, actorRole: actor.role,
+        detail: `Produit modifié (import) : ${c.nom}${resumerChangementsPrix({ price: c.avant }, { price: c.apres })}`,
+        meta: { import: true, prixAvant: c.avant, prixApres: c.apres },
+      });
+    }
     return result;
   }
 
@@ -107,12 +119,21 @@ export class ProductsController {
   @Roles('patron', 'gestionnaire')
   async update(@Param('id') id: string, @Body() dto: UpdateProductDto, @Req() req: Request) {
     const actor = (req as any)['user'];
+    // L'état AVANT est lu d'abord : le journal doit dire « prix : 4 500 →
+    // 3 500 », pas seulement « champ price modifié » — sans les valeurs,
+    // l'audit ne répond pas à la question du patron.
+    const avant = await this.productsService.findById(id);
+    const resume = resumerChangementsPrix(avant, dto);
     const result = await this.productsService.update(id, dto);
     this.auditService.log({
       type: 'modification', module: 'produits',
       actorName: actor.name, actorRole: actor.role,
-      detail: `Produit modifié : ${result.name}`,
-      meta: { productId: id, fields: Object.keys(dto) },
+      detail: `Produit modifié : ${result.name}${resume}`,
+      meta: {
+        productId: id, fields: Object.keys(dto),
+        ...(dto.price !== undefined && dto.price !== avant.price
+          ? { prixAvant: avant.price, prixApres: dto.price } : {}),
+      },
     });
     return result;
   }
