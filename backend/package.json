@@ -20,9 +20,11 @@
     "seed:demo": "ts-node -r tsconfig-paths/register scripts/seed-demo.ts",
     "demo:mongo": "node scripts/demo-mongo.js",
     "demo:api": "node scripts/demo-api.js",
-    "verifier:lot-e": "ts-node -r tsconfig-paths/register scripts/verifier-lot-e.ts"
+    "verifier:lot-e": "ts-node -r tsconfig-paths/register scripts/verifier-lot-e.ts",
+    "init:boutique": "ts-node -r tsconfig-paths/register scripts/init-boutique.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/jwt": "^10.0.0",

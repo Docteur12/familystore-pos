@@ -50,6 +50,25 @@ export const IDENTITES: Record<string, Record<string, unknown>> = {
     modules:          ['aucun'],
     metier:           { inactiviteMinutes: 30, seedFournisseursDemo: false },
   },
+  // HERVAN Élite — collection exclusive pour enfants (Douala). Troisième
+  // magasin, créé NEUF par scripts/init-boutique.ts (pas une migration) :
+  // identité noir & or, interface FR, pas de module Partenaires. Mentions
+  // légales et téléphones du ticket : à saisir dans Paramètres par le client.
+  hervan: {
+    nomMagasin:       'HERVAN Élite',
+    langue:           'fr',
+    slogan:           'Collection exclusive pour enfants',
+    signatureTicket:  '',
+    telephone:        '+237 674 63 54 11',
+    telephonesTicket: ['+237 674 63 54 11'],
+    ville:            'Douala',
+    couleurPrincipale:'#1A1A1A',
+    couleurSecondaire:'#C9A24A',
+    // Module OCR des factures fournisseurs activé (demande prioritaire du
+    // cahier des charges) ; pas de Partenaires.
+    modules:          ['factures-fournisseurs'],
+    metier:           { inactiviteMinutes: 15, seedFournisseursDemo: false },
+  },
 };
 
 async function main() {

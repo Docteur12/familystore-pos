@@ -141,3 +141,69 @@ Reste à faire dans les dashboards (comptes Radiance) :
 
 Fenêtre horaire : Radiance est une boutique en activité — mêmes règles
 (avant 9 h ou après fermeture).
+
+---
+
+## Ouvrir un nouveau magasin — procédure HERVAN Élite (08/09/2026)
+
+Un nouveau client = **un site Netlify + un service Render + une base** sur le
+même code (`main`). Rien n'est à coder pour l'identité : elle est dans les
+variables du site et dans `Settings`. Ordre à respecter :
+
+### 1. Base de données (Atlas, cluster de production)
+
+- Créer la base **`hervan`** (elle naît au premier `insert`) et, de préférence,
+  un utilisateur Atlas dédié `hervan_app` limité à cette base.
+- Depuis `backend/`, avec `MONGO_URI` visant le cluster de production :
+
+  ```bash
+  npm run init:boutique -- --base=hervan --identite=hervan \
+    --patron-nom="Nom du patron" --patron-email=patron@... --patron-mdp="..." \
+    --caisses="C01:Caisse 01:1234,C02:Caisse 02:5678"
+  npm run init:boutique -- ... --execute        # après lecture du dry-run
+  ```
+
+  Le script crée Settings (identité `hervan`), le compte patron, les caisses
+  (PIN haché) et la taxonomie enfants. Il **refuse** `familystore` et
+  `radiance`, et ne crée jamais de doublon.
+
+### 2. Backend Render
+
+New → Web Service depuis `Docteur12/familystore-pos` — Root `backend`, build
+`npm install --include=dev && npm run build`, start `node dist/main.js`.
+**Plan payant** (service actif en permanence, cf. cahier des charges).
+Variables :
+
+| Variable | Valeur |
+|---|---|
+| `MONGO_URI` | URI Atlas vers la base `hervan` |
+| `JWT_SECRET` | `openssl rand -hex 32` (propre à ce service) |
+| `JWT_EXPIRES_IN` | `24h` |
+| `TENANT_MODE` | `single` |
+| `APP_NAME` | `HERVAN Élite` |
+| `CORS_ORIGINS` | `https://<site-hervan>.netlify.app` |
+| `EMAIL_USER` / `EMAIL_PASS` / `EMAIL_ALERT_TO` | comme les autres services |
+| `ANTHROPIC_API_KEY` | clé API Anthropic — lecture automatique des factures fournisseurs (module OCR) |
+| `FACTURE_OCR_MODEL` | *(optionnel)* `claude-opus-5` par défaut |
+| `FACTURE_OCR_FOURNISSEUR` | **ne pas poser** en production (`claude` par défaut ; `simule` = refus de démarrer) |
+
+### 3. Frontend Netlify
+
+Add new site depuis le même dépôt (base `frontend`, build `npm run build`,
+publish `dist`). Variables du site :
+
+| Variable | Valeur |
+|---|---|
+| `VITE_APP_NAME` | `HERVAN Élite` |
+| `VITE_APP_SHORT_NAME` | `HERVAN` |
+| `VITE_APP_LANG` | `fr` |
+| `VITE_THEME_COLOR` | `#1A1A1A` |
+| `VITE_BG_COLOR` | `#F7F3EA` |
+| `VITE_API_BASE` | URL du service Render créé en 2 |
+| `VITE_BRAND_ICONS` | `hervan` (jeu `frontend/public/brand/hervan/`) |
+
+### 4. Vérification
+
+Connexion avec le compte patron → Paramètres : compléter logo, téléphones et
+mentions du ticket → un ticket test → une étiquette test → `verifier:lot-e`
+sur la base `hervan` (lecture seule) : 0 point bloquant.
