@@ -13,9 +13,11 @@
     "migrate:settings": "ts-node -r tsconfig-paths/register scripts/migrate-settings-identite.ts",
     "migrate:pin": "ts-node -r tsconfig-paths/register scripts/migrate-pin-caisses.ts",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "init:boutique": "ts-node -r tsconfig-paths/register scripts/init-boutique.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/jwt": "^10.0.0",
