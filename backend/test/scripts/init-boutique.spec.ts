@@ -49,7 +49,8 @@ describe('init-boutique — ouverture d’une boutique neuve', () => {
     expect(r.categories).toEqual({ creees: nbLignes, existantes: 0 });
 
     const settings = await db.collection('settings').findOne({});
-    expect(settings).toMatchObject({ nomMagasin: 'HERVAN Élite', langue: 'fr', modules: ['aucun'] });
+    // Module OCR des factures actif chez HERVAN (demande prioritaire), rien d'autre.
+    expect(settings).toMatchObject({ nomMagasin: 'HERVAN Élite', langue: 'fr', modules: ['factures-fournisseurs'] });
     expect(String(settings!.tenant)).toBe(String(DEFAULT_TENANT_ID));
 
     // Aucun document sans tenant : le plugin fail-closed ne les verrait pas.
