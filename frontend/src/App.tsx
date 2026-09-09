@@ -46,6 +46,7 @@ import AdminCaisses      from './pages/AdminCaisses';
 import Magazinier        from './pages/Magazinier';
 import StocksEcarts      from './pages/StocksEcarts';
 import StocksDivers      from './pages/StocksDivers';
+import StocksFactures    from './pages/StocksFactures';
 import Partenaires       from './pages/Partenaires';
 import PartenairesAgencesMaquette from './pages/PartenairesAgencesMaquette';
 import { getTokenPayload } from './api/dashboard';
@@ -183,6 +184,7 @@ export default function App() {
         <Route path="/stocks/fournisseurs"  element={<RequireAuthBare><StocksFournisseurs /></RequireAuthBare>} />
         <Route path="/stocks/ecarts"        element={<RequireAuthBare><StocksEcarts /></RequireAuthBare>} />
         <Route path="/stocks/divers"        element={<RequireAuthBare><StocksDivers /></RequireAuthBare>} />
+        <Route path="/stocks/factures"      element={<RequireModule id="factures-fournisseurs"><RequireAuthBare><StocksFactures /></RequireAuthBare></RequireModule>} />
         <Route path="/stocks/dashboard"     element={<RequireAuthBare><StocksDashboard /></RequireAuthBare>} />
         <Route path="/admin/dashboard"    element={<RequireAuthBare><AdminDashboard /></RequireAuthBare>} />
         <Route path="/admin/caissiers"     element={<RequireAuthBare><AdminCaissiers /></RequireAuthBare>} />

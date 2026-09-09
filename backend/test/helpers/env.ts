@@ -22,5 +22,8 @@ process.env.JWT_EXPIRES_IN ??= '1h';
  * lever, jamais se replier en silence sur un prestataire qui n'encaisse rien.
  */
 process.env.PAIEMENT_FOURNISSEUR ??= 'simule';
+// Même logique pour la lecture des factures fournisseurs : aucun test ne doit
+// appeler l'API Anthropic ; le simule est refuse en production (extracteur.ts).
+process.env.FACTURE_OCR_FOURNISSEUR ??= 'simule';
 
 export {};

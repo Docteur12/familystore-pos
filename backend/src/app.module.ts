@@ -27,6 +27,7 @@ import { FournisseursModule } from './fournisseurs/fournisseurs.module';
 import { BonsLivraisonModule } from './bons-livraison/bons-livraison.module';
 import { PartenairesModule } from './partenaires/partenaires.module';
 import { CategoriesModule } from './categories/categories.module';
+import { FacturesFournisseursModule } from './factures-fournisseurs/factures-fournisseurs.module';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { CategoriesModule } from './categories/categories.module';
     BonsLivraisonModule,
     PartenairesModule,
     CategoriesModule,
+    FacturesFournisseursModule,   // factures fournisseurs : import, lecture automatique, validation → réception
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],

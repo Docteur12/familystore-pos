@@ -58,6 +58,19 @@ const EXACT: Record<string, string> = {
   'Si un compte existe avec cet email, un message a été envoyé.':
                                                           'If an account exists with this email, a message has been sent.',
   'Trop de tentatives, réessayez plus tard.':             'Too many attempts, please try again later.',
+  // Factures fournisseurs (lecture automatique)
+  'Fichier manquant.':                                    'Missing file.',
+  'Fichier vide ou illisible.':                           'Empty or unreadable file.',
+  'Facture introuvable':                                  'Invoice not found',
+  'Le nom du fournisseur est requis.':                    'The supplier name is required.',
+  'Aucune ligne à réceptionner.':                         'No line to receive.',
+  'Un produit à créer doit avoir un nom.':                'A product to create must have a name.',
+  'Le motif du rejet est requis.':                        'The rejection reason is required.',
+  'Seule une facture à vérifier peut être rejetée.':      'Only an invoice under review can be rejected.',
+  'Lecture refusée par le modèle — document non exploitable ou contenu inattendu.':
+                                                          'Reading refused by the model — unusable document or unexpected content.',
+  'Lecture incomplète : la réponse ne respecte pas le format attendu. Réessayez avec une photo plus nette.':
+                                                          'Incomplete read: the response does not match the expected format. Try again with a sharper photo.',
 };
 
 const PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
@@ -67,6 +80,12 @@ const PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/^Stock (boutique|entrepôt) insuffisant pour « (.+) » : (.+?) (?:disponible\(s\)|en stock), (.+?) (?:demandé\(s\)|à retourner)\.$/,
     m => `Insufficient ${m[1] === 'boutique' ? 'store' : 'warehouse'} stock for "${m[2]}": ${m[3]} available, ${m[4]} requested.`],
   [/^Stock insuffisant pour (.+)$/,                             m => `Insufficient stock for ${m[1]}`],
+  // Factures fournisseurs
+  [/^Format non pris en charge \((.*)\) — photo JPEG\/PNG\/WEBP ou PDF\.$/, m => `Unsupported format (${m[1]}) — JPEG/PNG/WEBP photo or PDF.`],
+  [/^Fichier trop lourd \((\d+) Mo\) — 8 Mo maximum\.$/,        m => `File too large (${m[1]} MB) — 8 MB maximum.`],
+  [/^Quantité invalide pour « (.+) »\.$/,                       m => `Invalid quantity for "${m[1]}".`],
+  [/^Produit introuvable pour « (.+) »\.$/,                     m => `Product not found for "${m[1]}".`],
+  [/^Cette facture est déjà (validée|rejetée)\.$/,              m => `This invoice is already ${m[1] === 'validée' ? 'validated' : 'rejected'}.`],
 ];
 
 export function translateBackendMessage(msg: string): string {

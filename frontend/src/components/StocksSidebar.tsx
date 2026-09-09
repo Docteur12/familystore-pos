@@ -4,6 +4,7 @@ import { lire } from '../services/storage';
 import { deconnexion } from '../services/session';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
+import type { ModuleId } from '../api/settings';
 import { Link, useLocation } from 'react-router-dom';
 import { getTokenPayload } from '../api/dashboard';
 import { getAllReceptions } from '../api/magazinier';
@@ -30,6 +31,7 @@ const D = {
   dashboard:   'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
   catalogue:   'M4 6h16M4 10h16M4 14h10',
   reception:   'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2zM16 3l-4 4-4-4',
+  factures:    'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5',
   inventaire:  'M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 0 2-2h2a2 2 0 0 1 2 2',
   alertes:     'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
   etiquettes:  'M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01',
@@ -39,10 +41,12 @@ const D = {
   logout:      'M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l-5-5 5-5M5 12h12',
 };
 
-const NAV_ITEMS = [
+// `module` : entrée visible seulement si le module optionnel est actif pour ce magasin.
+const NAV_ITEMS: { id: string; label: string; icon: string; path: string; module?: ModuleId }[] = [
   { id: 'dashboard',    label: t('Tableau de bord', 'Dashboard'),   icon: D.dashboard,    path: '/stocks/dashboard'    },
   { id: 'catalogue',   label: t('Catalogue produits', 'Product catalog'), icon: D.catalogue,    path: '/stocks'              },
   { id: 'receptions',  label: t('Réceptions', 'Goods receipts'),         icon: D.reception,    path: '/stocks/receptions'   },
+  { id: 'factures',    label: t('Factures fournisseurs', 'Supplier invoices'), icon: D.factures,  path: '/stocks/factures', module: 'factures-fournisseurs' },
   { id: 'inventaire',  label: t('Inventaire', 'Stocktaking'),         icon: D.inventaire,   path: '/stocks/inventaire'   },
   { id: 'alertes',     label: t('Alertes & seuils', 'Alerts & thresholds'),   icon: D.alertes,      path: '/stocks/alertes'      },
   { id: 'etiquettes',  label: t('Étiquettes / SKU', 'Labels / SKU'),   icon: D.etiquettes,   path: '/stocks/etiquettes'   },
@@ -53,7 +57,7 @@ const NAV_ITEMS = [
 ];
 
 export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number }) {
-  const { settings } = useSettings();
+  const { settings, hasModule } = useSettings();
   const nomMagasin = nomEnseigne(settings.nomMagasin);
   const location = useLocation();
   const payload  = getTokenPayload();
@@ -144,7 +148,7 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
           <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', padding: '0 14px', marginBottom: 6 }}>
             {t('Gestion', 'Management')}
           </p>
-          {NAV_ITEMS.map(item => {
+          {NAV_ITEMS.filter(item => !item.module || hasModule(item.module)).map(item => {
             const isActive = item.id === activeId;
             return (
               <Link key={item.id} to={item.path}
