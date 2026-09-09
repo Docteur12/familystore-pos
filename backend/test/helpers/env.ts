@@ -10,4 +10,8 @@
 process.env.JWT_SECRET ??= 'secret-de-test-uniquement';
 process.env.JWT_EXPIRES_IN ??= '1h';
 
+// Lecture des factures fournisseurs : aucun test ne doit appeler l'API
+// Anthropic ; l'extracteur simule est refuse en production (extracteur.ts).
+process.env.FACTURE_OCR_FOURNISSEUR ??= 'simule';
+
 export {};

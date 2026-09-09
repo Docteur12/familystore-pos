@@ -88,5 +88,6 @@ export class Settings {
 export const SettingsSchema = SchemaFactory.createForClass(Settings);
 
 /** Modules pouvant être désactivés par magasin (frontend : menus + routes). */
-export const MODULES_DISPONIBLES = ['partenaires'] as const;
+// Miroir de frontend/src/api/settings.ts (MODULES_DISPONIBLES) — meme liste d'identifiants.
+export const MODULES_DISPONIBLES = ['partenaires', 'factures-fournisseurs'] as const;
 export type ModuleId = (typeof MODULES_DISPONIBLES)[number];

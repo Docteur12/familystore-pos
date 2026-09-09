@@ -46,8 +46,11 @@ export interface StoreSettings {
 }
 
 // Modules pouvant être désactivés par magasin (menus + routes).
+// MIROIR de backend/src/settings/settings.schema.ts (mêmes identifiants) —
+// verrouillé par modules-governance.spec.ts.
 export const MODULES_DISPONIBLES = [
-  { id: 'partenaires', label: 'Partenaires (dépôt-vente, agences)' },
+  { id: 'partenaires',           label: 'Partenaires (dépôt-vente, agences)' },
+  { id: 'factures-fournisseurs', label: 'Factures fournisseurs (scan et lecture automatique — clé API requise)' },
 ] as const;
 export type ModuleId = (typeof MODULES_DISPONIBLES)[number]['id'];
 
