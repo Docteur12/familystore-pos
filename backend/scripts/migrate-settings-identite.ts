@@ -21,7 +21,8 @@ import { MongoClient } from 'mongodb';
 
 // Valeurs historiques codées en dur dans chaque fork (ReceiptPrint.tsx…),
 // par magasin. Sélection : --identite=familystore (défaut) | radiance.
-const IDENTITES: Record<string, Record<string, unknown>> = {
+// Exporte : init-boutique.ts (ouverture d'une boutique neuve) lit ces prereglages.
+export const IDENTITES: Record<string, Record<string, unknown>> = {
   // Anciennement dans familystore-pos.
   familystore: {
     slogan:           'Beauté • Saveur • Bien-être',
@@ -122,4 +123,10 @@ async function main() {
   await client.close();
 }
 
-main().catch(err => { console.error(err); process.exit(1); });
+
+// Ne s'execute QUE lance directement : ce fichier est aussi importe (pour ses
+// constantes) par init-boutique.ts — sans cette garde, un import declencherait
+// la migration, y compris avec --execute.
+if (require.main === module) {
+  main().catch(err => { console.error(err); process.exit(1); });
+}
