@@ -7,6 +7,7 @@ import { Proprietaire, ProprietaireDocument } from './schemas/proprietaire.schem
 import { User, UserDocument } from '../schemas/user.schema';
 import { MailService } from '../mail/mail.service';
 import { runWithTenant } from '../tenancy/tenant-context';
+import { consigneRenouvellement } from './contact-licence';
 
 /**
  * Seuils de relance, en jours avant échéance.
@@ -88,6 +89,7 @@ export class RelanceLicenceService implements OnModuleInit {
         dateEcheance: licence.dateEcheance,
         montant: licence.montant,
         devise: licence.devise,
+        consigne: consigneRenouvellement(),
       });
 
       // Un envoi raté n'est PAS marqué : le rappel reste dû au prochain passage.

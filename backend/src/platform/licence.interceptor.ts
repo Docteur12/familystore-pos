@@ -3,6 +3,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { ProvisionnementService, EtatLicence } from './provisionnement.service';
+import { consigneRenouvellement } from './contact-licence';
 
 /**
  * Licence expirée → boutique en LECTURE SEULE, jamais coupée.
@@ -61,7 +62,8 @@ export class LicenceInterceptor implements NestInterceptor {
         message:
           `Licence expirée depuis le ${etat.dateEcheance.toLocaleDateString('fr-FR')}. ` +
           `La boutique reste consultable, mais les nouvelles saisies sont suspendues. ` +
-          `Renouvellement : ${etat.montant.toLocaleString('fr-FR').replace(/ | /g, ' ')} ${etat.devise} par an.`,
+          `Renouvellement : ${etat.montant.toLocaleString('fr-FR').replace(/ | /g, ' ')} ${etat.devise} par an. ` +
+          consigneRenouvellement(),
         licence: {
           expiree: true,
           montant: etat.montant,

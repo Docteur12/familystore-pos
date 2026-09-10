@@ -57,10 +57,20 @@ type NavItem = {
   reglage?: 'manuelUrl';
   /** Réservé aux propriétaires de plusieurs boutiques — invisible sinon. */
   multiBoutique?: boolean;
+  /** Réservé au superadmin (revendeur) — invisible pour tout autre rôle. */
+  superadmin?: boolean;
 };
 type NavSection = { title: string; items: NavItem[] };
 
 const SECTIONS: NavSection[] = [
+  {
+    // Back-office du revendeur : registre des boutiques, licences, règlements
+    // reçus. N'apparaît que pour le superadmin.
+    title: t('Plateforme', 'Platform'),
+    items: [
+      { id: 'boutiques', label: t('Boutiques & licences', 'Stores & licences'), icon: D.stockSpace, path: '/admin/boutiques', superadmin: true },
+    ],
+  },
   {
     title: t('Pilotage', 'Overview'),
     items: [
@@ -233,6 +243,7 @@ export default function AdminSidebar() {
   // Un commerçant à boutique unique ne voit aucune trace de la mécanique
   // multi-boutiques : ni sélecteur, ni entrée « Rapport consolidé ».
   const plusieursBoutiques = (getTokenPayload()?.boutiques?.length ?? 0) > 1;
+  const estSuperadmin = payload?.role === 'superadmin';
   const sections = SECTIONS.map(s => ({
     ...s,
     items: s.items
@@ -241,10 +252,15 @@ export default function AdminSidebar() {
       .filter(it =>
         (!it.module || hasModule(it.module)) &&
         (!it.multiBoutique || plusieursBoutiques) &&
+        (!it.superadmin || estSuperadmin) &&
         // Une entrée paramétrable sans adresse ne s'affiche pas.
         (!it.reglage || !!it.path),
       ),
-  }));
+  }))
+    // Le superadmin n'a pas de boutique : les écrans métier lui montreraient
+    // un magasin vide. Il ne voit que la plateforme.
+    .filter(s => (estSuperadmin ? s.items.some(it => it.superadmin) : true))
+    .filter(s => s.items.length > 0);   // une section vidée par les filtres ne laisse pas de titre orphelin
 
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
@@ -363,6 +379,7 @@ export default function AdminSidebar() {
             <div style={{ fontSize: 12, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{payload?.name ?? '—'}</div>
             <div style={{ fontSize: 10, color: 'var(--fs-gold-400)' }}>
               {payload?.role === 'patron' ? t('Administrateur', 'Administrator')
+                : payload?.role === 'superadmin'   ? t('Plateforme', 'Platform')
                 : payload?.role === 'gestionnaire' ? t('Chef de stock', 'Stock manager')
                 : payload?.role === 'magazinier'   ? t('Manutentionnaire', 'Warehouse keeper')
                 : payload?.role === 'caissier'     ? t('Caissier(e)', 'Cashier')

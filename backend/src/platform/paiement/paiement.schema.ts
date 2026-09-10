@@ -24,6 +24,15 @@ export interface DemandeBoutiqueEnAttente {
   patronMotDePasseHash: string;
 }
 
+/**
+ * Moyens par lesquels un règlement MANUEL a été reçu par le revendeur.
+ *
+ * Miroir frontend : `frontend/src/api/plateforme.ts` (MOYENS_REGLEMENT) —
+ * un test de gouvernance compare les deux listes.
+ */
+export const MOYENS_REGLEMENT = ['mobile_money', 'especes', 'virement', 'autre'] as const;
+export type MoyenReglement = typeof MOYENS_REGLEMENT[number];
+
 /** Une ligne du journal : qui a annoncé quoi, et quand. */
 export interface EntreeJournal {
   le: Date;
@@ -97,6 +106,20 @@ export class Paiement {
    */
   @Prop({ default: '' })
   telephonePayeur: string;
+
+  /**
+   * Règlement MANUEL (fournisseur « manuel ») : comment l'argent est arrivé,
+   * une note libre (référence MoMo, nom du payeur…) et qui l'a enregistré.
+   * `null` pour un paiement en ligne.
+   */
+  @Prop({ type: String, enum: [...MOYENS_REGLEMENT, null], default: null })
+  moyenReglement: MoyenReglement | null;
+
+  @Prop({ default: '' })
+  note: string;
+
+  @Prop({ default: '' })
+  enregistrePar: string;
 
   @Prop({ required: true, min: 0 })
   montant: number;

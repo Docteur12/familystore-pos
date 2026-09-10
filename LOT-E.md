@@ -106,29 +106,31 @@ variable, Family Store se déploierait avec l'icône Caméléon — onglet du
 navigateur ET icône installée sur les téléphones. Radiance, lui, la déclare
 déjà.
 
-### A5. Paiements — clés MyCoolPay sur Render
+### A5. Licences en mode MANUEL — pas de MyCoolPay
 
-`PAIEMENT_FOURNISSEUR` doit valoir `mycoolpay`, avec `COOLPAY_PUBLIC_KEY` et
-`COOLPAY_PRIVATE_KEY` renseignées.
+**Décision du 10/09/2026 : aucun paiement en ligne.** La majorité des clients
+ont le numéro de Valdes ; ils règlent de la main à la main (Mobile Money,
+espèces, virement) et **c'est Valdes, superadmin, qui active la licence**
+depuis l'écran « Boutiques & licences » (`/admin/boutiques`). Chaque
+prolongation enregistre un `Paiement` **confirmé, source `manuel`**, avec
+montant, moyen, note et auteur — la trace d'un litige.
 
-⚠️ **Le backend REFUSE de démarrer** si `mycoolpay` est demandé sans clé, et
-le mode `simule` est interdit en production (il confirmerait les paiements
-sans encaissement). Les clés partent donc en même temps que le code.
+Ce que ça donne côté configuration :
 
-**URL de callback à déclarer dans le tableau de bord MyCoolPay :**
+- `PAIEMENT_FOURNISSEUR` **absent ou `manuel`** (c'est le défaut). Une valeur
+  inconnue refuse le démarrage ; `simule` reste interdit en production.
+- `CONTACT_LICENCE` : le numéro affiché aux commerçants pour renouveler
+  (bandeau de préavis, refus 402, e-mails de relance). Défaut :
+  `+237 6 74 63 54 11`.
+- **Aucune clé MyCoolPay, aucune URL de callback à déclarer.** Le code
+  MyCoolPay reste dans le dépôt, débranché : le jour où l'on voudrait le
+  paiement en ligne, poser `PAIEMENT_FOURNISSEUR=mycoolpay` et ses clés, et
+  reprendre l'ancienne version de cette section dans l'historique git.
 
-```
-https://<service-render-cameleon>/api/paiements/webhook
-```
-
-Ce chemin n'est pas arbitraire : c'est aussi celui sur lequel `main.ts` capte
-le **corps brut** de la requête. Le changer sans changer les deux romprait la
-lecture de la référence.
-
-Les URL de succès / annulation / erreur pointent sur `/paiement/retour`. Elles
-ne créditent rien et ne doivent jamais le faire : le navigateur du payeur y
-arrive parce qu'on l'y a envoyé, ce que n'importe qui peut reproduire en
-tapant l'adresse.
+Ce que voit le commerçant : le bandeau J-14/J-7/J-3/J-1 puis « expirée » avec
+le numéro à appeler ; la page « Ajouter une boutique » renvoie vers le
+revendeur au lieu d'un formulaire de paiement ; toute tentative d'ouvrir un
+paiement en ligne répond 400 avec le contact, sans rien écrire en base.
 
 ### A6. Migrations déjà connues
 
@@ -137,7 +139,7 @@ tapant l'adresse.
 - `npm run migrate:pin -- --execute` sur `familystore` **et** la base
   Radiance, AVANT le merge.
 
-### A7. Le service Render Caméléon — plan PAYANT, et sa propre base
+### A7. Le service Render Caméléon — sa propre base ; plan gratuit + cron acceptable
 
 Caméléon a besoin de **son** service Render et de **sa** base, distincts de
 ceux des clients. Les collections plateforme — `Proprietaire`, `Boutique`,
@@ -145,38 +147,68 @@ ceux des clients. Les collections plateforme — `Proprietaire`, `Boutique`,
 dans la base du backend. Les poser dans `familystore` mélangerait les licences
 de tous les clients aux données d'un seul.
 
-⚠️ **Plan payant, pas le plan gratuit.** Ce n'est pas un confort technique.
-C'est ce service qui reçoit les webhooks de paiement, et le plan gratuit met
-l'instance en veille après inactivité :
+**Plan.** Le plan payant était exigé parce que le service recevait des
+webhooks de paiement et faisait tourner la réconciliation en continu — un
+service endormi, c'était un client qui a payé sans être servi. **En mode
+manuel (A5), il n'y a plus ni webhook ni réconciliation** : rien n'arrive de
+l'extérieur sans qu'un humain soit devant l'écran. Le plan gratuit maintenu
+éveillé par cron-job.org (A9) redevient acceptable ; le payant reste un
+confort (pas de réveil de 30 s le matin), pas une exigence.
 
-- un webhook réveillant un service endormi attend 30 à 60 s, parfois échoue ;
-- MyCoolPay rejoue alors en rafale — 202 requêtes pour 2 paiements ont été
-  observées chez Tontina Market — ce qui aggrave l'encombrement ;
-- surtout, **la réconciliation active ne tourne pas pendant la veille**. C'est
-  elle qui rattrape les webhooks perdus. Un service endormi, c'est un client
-  qui a payé et dont la boutique n'existe pas tant que personne n'ouvre
-  l'application.
+Ce qui reste vrai quel que soit le plan : les **relances e-mail** de licence
+(J-14, J-7, J-3, J-1) tournent dans le processus. Un service qui dort la nuit
+les enverra au prochain réveil — l'idempotence des seuils fait qu'aucune n'est
+perdue, seulement retardée de quelques heures.
 
-Le risque est donc commercial : encaisser sans rendre le service. La
-conception le prévoit (500 pour forcer le rejeu, suivi 24 h après expiration),
-mais aucune de ces défenses ne fonctionne si le processus dort.
+### A8. Vérifier le mode manuel APRÈS déploiement
 
-### A8. Vérifier le webhook APRÈS déploiement, par un vrai paiement
+Rien n'est encaissé en ligne, donc rien à vérifier chez un prestataire. Trois
+contrôles, dans l'ordre :
 
-MyCoolPay n'a **pas d'environnement d'essai** : aucun test automatique ne peut
-prouver que la route est atteinte. La seule vérification possible est un
-paiement réel, une fois le service en ligne.
+1. **Journal Render au démarrage** : aucune erreur `PAIEMENT_FOURNISSEUR`
+   (une valeur inconnue ou `simule` en production refuse le démarrage).
+2. **`GET /api/licence/etat`** avec un jeton de boutique : la réponse porte
+   `paiementEnLigne: false` et `contact` = le numéro attendu. C'est ce que lit
+   le bandeau.
+3. **Premier règlement réel** depuis « Boutiques & licences » : la ligne passe
+   au vert, l'historique de la boutique montre le paiement `confirme`,
+   `manuel`, avec l'auteur ; l'entrée « Licence prolongée jusqu'au … » figure
+   dans Audit & logs.
 
-À contrôler dans le journal du service, sur ce paiement :
+### A9. Keep-alive cron-job.org — les URL exactes à pinger
 
-1. une requête arrive sur `/api/paiements/webhook` ;
-2. elle déclenche un appel `checkStatus` sortant — le webhook n'est cru sur
-   rien, il ne fait que déclencher la vérification ;
-3. le paiement passe à `confirme` et la boutique est créée **une seule fois**.
+Le plan Render gratuit met un service en veille après ~15 min d'inactivité ;
+le réveil à froid prend **~30 s**. Un cron externe (cron-job.org) appelle la
+route `/api/health` de chaque backend pour l'empêcher de dormir. Cette route
+est taillée pour lui dans `main.ts` (2 octets, `Connection: close`) — ne pas
+la modifier.
 
-Si aucune requête n'arrive : vérifier l'URL déclarée chez MyCoolPay. La
-boutique se créera quand même, par la réconciliation active — plus lentement.
-C'est le filet, pas le fonctionnement normal.
+**Les URL à pinger, chacune toutes les ~10 min (sous le seuil de 15 min) :**
+
+| Client | URL de keep-alive |
+|---|---|
+| **Family Store** | `https://familystore-pos.onrender.com/api/health` |
+| **Radiance** | `https://familystore-pos-cd26.onrender.com/api/health` |
+
+⚠️ **URL périmées à NE PLUS pinger** — elles ne réveillent rien :
+
+- `https://radiance-api.onrender.com/api/health` — **ancien** service Radiance,
+  suspendu. C'est vers lui que le cron pointait probablement encore : le
+  27/08/2026, Radiance s'est réveillée lentement et son écran de connexion a
+  affiché Family Store pendant ~30 s, symptôme exact d'un service **non**
+  maintenu éveillé. La production Radiance est passée à `cd26` ; le cron doit
+  suivre.
+- `https://familystore-api.onrender.com/…` — nom d'un service qui n'existe
+  pas (répond 404 instantané). Le vrai Family Store est `familystore-pos`.
+
+Source de vérité, si un doute subsiste sur l'URL réelle d'un client : ouvrir
+son site Netlify, regarder quelle adresse `onrender.com` son bundle appelle
+(`VITE_API_BASE`), ou vers quoi mène le proxy `/api` de `netlify.toml`.
+
+**Le service Caméléon** peut lui aussi vivre en gratuit + cron depuis le
+passage en mode manuel (A5, A7) : plus de webhook à recevoir ni de
+réconciliation à faire tourner. Ajouter son URL `/api/health` à la même liste
+dès qu'il existe.
 
 ---
 
@@ -312,8 +344,8 @@ Les champs que le nouveau code aura écrits entre-temps (`sale.modifications`,
 ### D5. Le service Caméléon — en parallèle, pas un prérequis
 
 **Render** → New Web Service → dépôt `Docteur12/familystore-pos`, branche
-`main`, racine `backend`, **plan Starter (payant — voir A7)**, région
-Frankfurt. Build `npm install --include=dev --ignore-scripts && npm run build`,
+`main`, racine `backend`, **plan gratuit + cron-job.org, ou Starter — voir
+A7**, région Frankfurt. Build `npm install --include=dev --ignore-scripts && npm run build`,
 start `node dist/main.js`.
 
 | Variable | Valeur |
@@ -327,24 +359,26 @@ start `node dist/main.js`.
 | `JWT_SECRET` | **nouveau secret, distinct des clients** |
 | `JWT_EXPIRES_IN` | `24h` |
 | `CORS_ORIGINS` | `https://<site-cameleon>.netlify.app` |
-| `PAIEMENT_FOURNISSEUR` | `mycoolpay` |
-| `COOLPAY_PUBLIC_KEY` | *(tableau de bord MyCoolPay, application Caméléon)* |
-| `COOLPAY_PRIVATE_KEY` | *(idem — diagnostic seulement, ne bloque rien)* |
+| `PAIEMENT_FOURNISSEUR` | `manuel` (ou absent — voir A5 ; **jamais** `simule`) |
+| `CONTACT_LICENCE` | `+237 6 74 63 54 11` — le numéro que les commerçants appellent |
 | `EMAIL_USER` / `EMAIL_PASS` / `EMAIL_ALERT_TO` | *(comme les autres services)* |
 
 **Netlify — site Caméléon** : aucune surcharge d'identité (les défauts du
 dépôt SONT Caméléon), seulement `VITE_API_BASE=https://<service-cameleon>.onrender.com`.
 
-**MyCoolPay — application Caméléon**, une fois le service créé :
+**Premier superadmin** — le compte de Valdes, sans lequel aucune boutique ne
+s'ouvre et aucune licence ne s'active. Depuis `backend/`, `.env` pointant sur
+la base Caméléon (`MONGO_URI=…/cameleon`) :
 
-| Champ | Valeur |
-|---|---|
-| URL de callback | `https://<service-cameleon>.onrender.com/api/paiements/webhook` |
-| URL de succès / annulation / erreur | `https://<site-cameleon>.netlify.app/paiement/retour` |
+```bash
+npm run creer:superadmin -- --base=cameleon --email=<e-mail> --nom="Valdes" --mdp=<12 caractères min, Aa1>
+npm run creer:superadmin -- --base=cameleon --email=<e-mail> --nom="Valdes" --mdp=... --execute
+```
 
-**Manque encore** : un script pour créer le **premier superadmin** en
-production (`seed-demo` le fait pour la démonstration, rien ne le fait pour
-une base neuve). À écrire avant la mise en service Caméléon.
+Dry-run d'abord (défaut), puis `--execute`. Le script refuse les bases
+`familystore` et `radiance`, un mot de passe faible, et ne crée jamais de
+doublon. Le compte vit dans un tenant technique qui n'est la boutique de
+personne ; à la connexion, l'accueil mène à « Boutiques & licences ».
 
 ## C. Après bascule
 

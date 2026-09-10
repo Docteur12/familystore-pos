@@ -3,6 +3,17 @@ import { PaymentProvider } from './payment-provider';
 /**
  * Choix du prestataire de paiement, et VERROU sur le mode simulé.
  *
+ * Trois modes :
+ *
+ *  - **`manuel`** (défaut) — décision du 10/09/2026 : les licences sont
+ *    réglées de la main à la main (Mobile Money, espèces, virement) et
+ *    ACTIVÉES par le superadmin depuis le back-office. Aucun paiement en
+ *    ligne n'est proposé ; le code MyCoolPay reste, débranché, pour le jour
+ *    où l'on changerait d'avis.
+ *  - **`mycoolpay`** — encaissement en ligne. Doit être demandé
+ *    explicitement, avec ses clés.
+ *  - **`simule`** — développement et tests uniquement.
+ *
  * MyCoolPay n'offre pas d'environnement d'essai : impossible de dérouler un
  * parcours de bout en bout sans encaisser réellement. Le prestataire simulé
  * tient donc ce rôle en développement et dans les tests.
@@ -15,26 +26,49 @@ import { PaymentProvider } from './payment-provider';
  *
  * Le verrou ci-dessous fait donc **échouer le démarrage** plutôt que de
  * laisser l'application tourner dans cet état. Une application qui ne démarre
- * pas se voit tout de suite ; un mode simulé actif en production, non.
+ * pas se voit tout de suite ; un mode simulé actif en production, non. Même
+ * traitement pour une valeur inconnue : une faute de frappe ne doit pas
+ * choisir un mode en silence.
  */
 
-export type NomPrestataire = 'mycoolpay' | 'simule';
+export type NomPrestataire = 'manuel' | 'mycoolpay' | 'simule';
 
 export class ModeSimuleInterditError extends Error {
   constructor() {
     super(
       'PAIEMENT_FOURNISSEUR=simule est INTERDIT en production : les paiements ' +
-      'seraient confirmés sans encaissement. Retirez la variable ou mettez-la ' +
-      'à « mycoolpay ».',
+      'seraient confirmés sans encaissement. Retirez la variable (mode manuel) ' +
+      'ou mettez-la à « mycoolpay ».',
     );
     this.name = 'ModeSimuleInterditError';
   }
 }
 
-/** Prestataire demandé par la configuration. `mycoolpay` par défaut. */
+export class PrestataireInconnuError extends Error {
+  constructor(valeur: string) {
+    super(
+      `PAIEMENT_FOURNISSEUR=« ${valeur} » est inconnu. Valeurs admises : ` +
+      '« manuel » (défaut, licences activées par le superadmin), « mycoolpay », « simule » (hors production).',
+    );
+    this.name = 'PrestataireInconnuError';
+  }
+}
+
+/**
+ * Prestataire demandé par la configuration. `manuel` quand la variable est
+ * absente ou vide ; une valeur inconnue LÈVE plutôt que d'être interprétée.
+ */
 export function nomPrestataireDemande(env: NodeJS.ProcessEnv = process.env): NomPrestataire {
   const brut = (env.PAIEMENT_FOURNISSEUR ?? '').trim().toLowerCase();
-  return brut === 'simule' ? 'simule' : 'mycoolpay';
+  if (brut === '' || brut === 'manuel') return 'manuel';
+  if (brut === 'simule') return 'simule';
+  if (brut === 'mycoolpay') return 'mycoolpay';
+  throw new PrestataireInconnuError(brut);
+}
+
+/** Le paiement en ligne est-il proposé aux propriétaires ? Faux en mode manuel. */
+export function paiementEnLigneActif(env: NodeJS.ProcessEnv = process.env): boolean {
+  return nomPrestataireDemande(env) !== 'manuel';
 }
 
 /**
@@ -50,7 +84,7 @@ export function estProduction(env: NodeJS.ProcessEnv = process.env): boolean {
   if (env.NODE_ENV === 'test') return false;
   if (env.NODE_ENV === 'production') return true;
   if (env.NODE_ENV === 'development') return false;
-  return /mongodb(\+srv)?:\/\/[^/]*\/(familystore|radiance)(\?|$)/i.test(env.MONGO_URI ?? '');
+  return /mongodb(\+srv)?:\/\/[^/]*\/(familystore|radiance|hervan|cameleon)(\?|$)/i.test(env.MONGO_URI ?? '');
 }
 
 /**
@@ -62,10 +96,12 @@ export function estProduction(env: NodeJS.ProcessEnv = process.env): boolean {
  * empêcher.
  */
 export function choisirPrestataire(
-  disponibles: { mycoolpay?: PaymentProvider; simule: PaymentProvider },
+  disponibles: { mycoolpay?: PaymentProvider; simule: PaymentProvider; manuel: PaymentProvider },
   env: NodeJS.ProcessEnv = process.env,
 ): PaymentProvider {
   const demande = nomPrestataireDemande(env);
+
+  if (demande === 'manuel') return disponibles.manuel;
 
   if (demande === 'simule') {
     if (estProduction(env)) throw new ModeSimuleInterditError();

@@ -9,6 +9,8 @@
  * Les mêmes seuils servent aux relances par e-mail côté serveur
  * (`RelanceLicenceService`) : si l'un change, l'autre doit suivre.
  */
+import { t } from '../i18n';
+
 
 /** Jours avant échéance déclenchant un rappel. Du plus lointain au plus proche. */
 export const SEUILS_ALERTE = [14, 7, 3, 1] as const;
@@ -52,4 +54,20 @@ export function seuilAtteint(joursRestants: number): number | null {
     }
   }
   return null;
+}
+
+/**
+ * Comment renouveler — la phrase du bandeau et du refus de saisie.
+ *
+ * Mode manuel (Caméléon) : le commerçant appelle le revendeur, qui active la
+ * licence dès le règlement reçu. Sans contact connu (serveur ancien), on
+ * garde la formule générique.
+ */
+export function consigneRenouvellement(contact?: string | null): string {
+  const numero = (contact ?? '').trim();
+  if (!numero) return t('Contactez votre revendeur pour régler.', 'Contact your reseller to pay.');
+  return t(
+    `Pour renouveler, appelez votre revendeur au ${numero} : la licence est activée dès le règlement reçu.`,
+    `To renew, call your reseller on ${numero}: the licence is activated as soon as payment is received.`,
+  );
 }

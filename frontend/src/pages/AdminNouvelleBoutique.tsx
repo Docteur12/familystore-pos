@@ -16,6 +16,7 @@ import AdminSidebar from '../components/AdminSidebar';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { demanderBoutique, etatPaiement, reessayerPaiement, telephonePayeurParDefaut, Paiement } from '../api/paiements';
 import { normaliserTelephone, formatTelephoneAttendu } from '../utils/telephone';
+import { getEtatLicence, EtatLicence } from '../api/licence';
 import { t } from '../i18n';
 
 const SONDAGE_MS = 4000;
@@ -34,8 +35,13 @@ export default function AdminNouvelleBoutique() {
   const [erreur, setErreur]           = useState('');
   const [envoi, setEnvoi]             = useState(false);
   const [paiement, setPaiement]       = useState<Paiement | null>(null);
+  // Mode manuel : pas de paiement en ligne — on donne le contact du revendeur
+  // AVANT que le patron ne remplisse un formulaire qui serait refusé.
+  const [licence, setLicence]         = useState<EtatLicence | null>(null);
 
   const minuterie = useRef<number | null>(null);
+
+  useEffect(() => { getEtatLicence().then(setLicence).catch(() => {}); }, []);
 
   // Numéro du propriétaire, en SUGGESTION. Il reste modifiable : le patron
   // peut régler depuis un autre compte Mobile Money, et c'est le numéro
@@ -113,7 +119,23 @@ export default function AdminNouvelleBoutique() {
 
         <div style={{ padding: isNarrow ? '16px' : '20px 28px 40px', maxWidth: 620 }}>
 
-          {!paiement && (
+          {licence?.paiementEnLigne === false && (
+            <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px' }}>
+              <p style={{ fontSize: 13.5, color: 'var(--fs-ink-900)', margin: 0, lineHeight: 1.7 }}>
+                {t(
+                  'L’ouverture d’une boutique se fait avec votre revendeur : il crée la boutique et pose sa licence dès le règlement reçu.',
+                  'Opening a store is done with your reseller: they create the store and set up its licence as soon as payment is received.',
+                )}
+              </p>
+              {licence.contact && (
+                <p style={{ fontSize: 15, fontWeight: 800, color: 'var(--fs-wine-700)', margin: '12px 0 0' }}>
+                  {t('Appelez le', 'Call')} {licence.contact}
+                </p>
+              )}
+            </div>
+          )}
+
+          {!paiement && licence?.paiementEnLigne !== false && (
             <>
               <div style={{ background: 'var(--fs-wine-100)', border: '1px solid var(--fs-wine-700)', borderRadius: 10, padding: '12px 14px', marginBottom: 20 }}>
                 <p style={{ fontSize: 12.5, color: 'var(--fs-ink-900)', margin: 0, lineHeight: 1.6 }}>

@@ -7,6 +7,10 @@ export interface EtatLicence {
   joursRestants?: number;
   montant?: number;
   devise?: string;
+  /** Numéro du revendeur à appeler pour renouveler (mode manuel). */
+  contact?: string;
+  /** Un paiement en ligne est-il proposé ? Faux en mode manuel : on n'affiche alors aucun bouton « payer ». */
+  paiementEnLigne?: boolean;
 }
 
 /** État de licence de la boutique consultée. `connue: false` = rien à signaler. */

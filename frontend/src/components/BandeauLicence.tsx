@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getEtatLicence, EtatLicence } from '../api/licence';
-import { niveauAlerte, doitAlerter } from '../utils/licence';
+import { niveauAlerte, doitAlerter, consigneRenouvellement } from '../utils/licence';
 import { t, dateLocale } from '../i18n';
 
 /**
@@ -62,7 +62,8 @@ export default function BandeauLicence() {
       <span style={{ flex: 1, minWidth: 240 }}>
         <strong>{message}</strong>{' '}
         {t(`Renouvellement : ${montant} par an.`, `Renewal: ${montant} per year.`)}{' '}
-        {t('Contactez votre revendeur pour régler.', 'Contact your reseller to pay.')}
+        {/* Mode manuel : le numéro à appeler, pas un bouton « payer ». */}
+        {consigneRenouvellement(etat.contact)}
       </span>
     </div>
   );

@@ -43,6 +43,7 @@ import AdminPartenaires  from './pages/AdminPartenaires';
 import RapportConsolide  from './pages/RapportConsolide';
 import AdminFournisseurs from './pages/AdminFournisseurs';
 import AdminCaisses      from './pages/AdminCaisses';
+import AdminBoutiques    from './pages/AdminBoutiques';
 import Magazinier        from './pages/Magazinier';
 import StocksEcarts      from './pages/StocksEcarts';
 import StocksDivers      from './pages/StocksDivers';
@@ -145,6 +146,9 @@ function RequireRole({ role, children }: { role: string | string[]; children: Re
 function HomeRedirect() {
   const payload = getTokenPayload();
   const role = payload?.role;
+  // Le superadmin (revendeur) n'a pas de boutique à lui : son accueil est le
+  // registre des boutiques et de leurs licences.
+  if (role === 'superadmin')   return <Navigate to="/admin/boutiques" replace />;
   if (role === 'patron')       return <Navigate to="/admin/dashboard" replace />;
   if (role === 'gestionnaire') return <Navigate to="/stocks/dashboard" replace />;
   if (role === 'magazinier')   return <Navigate to="/magazinier" replace />;
@@ -203,6 +207,7 @@ export default function App() {
         <Route path="/admin/magaziniers"   element={<RequireAuthBare><AdminMagaziniers /></RequireAuthBare>} />
         <Route path="/admin/consolide"     element={<RequireRole role={['patron']}><RapportConsolide /></RequireRole>} />
         <Route path="/admin/boutique/nouvelle" element={<RequireRole role={['patron']}><AdminNouvelleBoutique /></RequireRole>} />
+        <Route path="/admin/boutiques"     element={<RequireRole role={['superadmin']}><AdminBoutiques /></RequireRole>} />
         <Route path="/admin/partenaires"   element={<RequireModule id="partenaires"><RequireAuthBare><AdminPartenaires /></RequireAuthBare></RequireModule>} />
         <Route path="/admin/fournisseurs"  element={<RequireAuthBare><AdminFournisseurs /></RequireAuthBare>} />
         <Route path="/admin/caisses"       element={<RequireAuthBare><AdminCaisses /></RequireAuthBare>} />

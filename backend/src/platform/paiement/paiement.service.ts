@@ -3,8 +3,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
-import { Paiement, PaiementDocument, ObjetPaiement, EntreeJournal } from './paiement.schema';
+import {
+  Paiement, PaiementDocument, ObjetPaiement, EntreeJournal, MOYENS_REGLEMENT, MoyenReglement,
+} from './paiement.schema';
 import { PAYMENT_PROVIDER, PaymentProvider } from './payment-provider';
+import { PaiementEnLigneIndisponibleError } from './paiement-manuel.provider';
 import { StatutPaiement, evaluer, estDepasse, estTerminal } from './machine-etats';
 import { Proprietaire, ProprietaireDocument } from '../schemas/proprietaire.schema';
 import { Boutique, BoutiqueDocument } from '../schemas/boutique.schema';
@@ -151,6 +154,11 @@ export class PaiementService {
     tentative?: number;
     paiementPrecedent?: Types.ObjectId;
   }) {
+    // Mode manuel : on refuse AVANT d'écrire quoi que ce soit. Un document
+    // « en attente » sans prestataire derrière serait interrogé par la
+    // réconciliation jusqu'à expiration, pour rien.
+    if (this.prestataire.nom === 'manuel') throw new PaiementEnLigneIndisponibleError();
+
     const reference = this.nouvelleReference();
     // L'identifiant est décidé ici pour qu'une PREMIÈRE tentative soit sa
     // propre racine de chaîne dès l'écriture, sans seconde mise à jour.
@@ -196,6 +204,88 @@ export class PaiementService {
     }
 
     return this.vue(paiement);
+  }
+
+  // ── Règlement manuel ───────────────────────────────────────────────────
+
+  /**
+   * Règlement reçu DE LA MAIN À LA MAIN par le revendeur — mode manuel.
+   *
+   * Le superadmin a encaissé (Mobile Money sur son numéro, espèces,
+   * virement) et prolonge la licence. Plutôt que d'appeler la prolongation
+   * directement, on écrit un `Paiement` et on le CONFIRME par `annoncer()`,
+   * source « manuel » : la trace comptable existe (qui a enregistré, quand,
+   * combien, par quel moyen), et la prolongation passe par le même verrou
+   * d'effet unique que les paiements en ligne. Un litige se règle sur ce
+   * document comme sur un relevé d'opérateur.
+   *
+   * Un montant à 0 est permis (geste commercial), mais doit être expliqué
+   * dans la note.
+   */
+  async enregistrerReglementManuel(
+    boutiqueId: string,
+    reglement: { montant?: number; moyen?: string; note?: string },
+    acteur: { name?: string; email?: string },
+  ) {
+    const boutique = await this.boutiqueModel.findById(boutiqueId);
+    if (!boutique) throw new NotFoundException('Boutique introuvable');
+
+    const moyen = (reglement?.moyen ?? 'mobile_money') as MoyenReglement;
+    if (!MOYENS_REGLEMENT.includes(moyen)) {
+      throw new BadRequestException(`Moyen de règlement invalide : « ${reglement?.moyen} »`);
+    }
+    const montant = reglement?.montant === undefined || reglement?.montant === null
+      ? MONTANT_LICENCE_ANNUELLE
+      : Number(reglement.montant);
+    if (!Number.isFinite(montant) || montant < 0) throw new BadRequestException('Montant de règlement invalide');
+    const note = (reglement?.note ?? '').trim();
+    if (montant === 0 && !note) {
+      throw new BadRequestException('Un règlement à 0 FCFA doit être expliqué dans la note');
+    }
+
+    const enregistrePar = acteur?.email ?? acteur?.name ?? '';
+    const _id = new Types.ObjectId();
+    const reference = this.nouvelleReference();
+    const detail = `Règlement manuel (${moyen}) reçu par ${enregistrePar}${note ? ` — ${note}` : ''}`;
+
+    await this.paiementModel.create({
+      _id,
+      reference,
+      fournisseur: 'manuel',
+      objet: 'renouvellement_licence',
+      proprietaire: boutique.proprietaire,
+      boutique: boutique._id,
+      demandeBoutique: null,
+      telephonePayeur: '',
+      moyenReglement: moyen,
+      note,
+      enregistrePar,
+      chaine: _id,
+      tentative: 1,
+      paiementPrecedent: null,
+      montant,
+      devise: 'XAF',
+      statut: 'en_attente',
+      journal: [{ le: new Date(), de: 'en_attente', vers: 'en_attente', source: 'creation', detail }],
+    });
+
+    const r = await this.annoncer(reference, 'confirme', 'manuel', detail);
+    if (!r.effetApplique) {
+      // Ne doit pas arriver : le document vient d'être créé, personne d'autre
+      // ne le connaît. Si ça arrive, on le dit — la licence n'a PAS bougé.
+      throw new BadRequestException('Le règlement est enregistré mais la licence n’a pas pu être prolongée — voir le journal du paiement');
+    }
+
+    const licence = await this.provisionnement.licenceCourante(String(boutique.tenantId));
+    const paiement = await this.paiementModel.findOne({ reference });
+    return { licence, paiement: this.vue(paiement!) };
+  }
+
+  /** Paiements d'une boutique — historique du back-office, du plus récent au plus ancien. */
+  async listerPourBoutique(boutiqueId: string) {
+    const paiements = await this.paiementModel
+      .find({ boutique: new Types.ObjectId(boutiqueId) }).sort({ createdAt: -1 }).limit(100);
+    return paiements.map(p => this.vue(p));
   }
 
   // ── Annonces de statut ─────────────────────────────────────────────────
@@ -501,6 +591,10 @@ export class PaiementService {
       tentative: p.tentative,
       depasse: estDepasse((p as any).createdAt ?? new Date()),
       cree: (p as any).createdAt ?? null,
+      fournisseur: p.fournisseur,
+      moyenReglement: p.moyenReglement ?? null,
+      note: p.note ?? '',
+      enregistrePar: p.enregistrePar ?? '',
     };
   }
 }

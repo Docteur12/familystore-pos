@@ -17,6 +17,7 @@ import { PaiementController } from './paiement/paiement.controller';
 import { ReconciliationService } from './paiement/reconciliation.service';
 import { PaiementSimuleProvider } from './paiement/paiement-simule.provider';
 import { MyCoolPayProvider } from './paiement/mycoolpay.provider';
+import { PaiementManuelProvider } from './paiement/paiement-manuel.provider';
 import { PAYMENT_PROVIDER } from './paiement/payment-provider';
 import { choisirPrestataire } from './paiement/choisir-prestataire';
 import { User, UserSchema } from '../schemas/user.schema';
@@ -49,17 +50,20 @@ import { Settings, SettingsSchema } from '../settings/settings.schema';
     RelanceLicenceService,
     PaiementService,
     ReconciliationService,
-    // Prestataire de paiement, choisi par PAIEMENT_FOURNISSEUR. Le mode
-    // simulé est REFUSÉ en production (le démarrage échoue) : il confirme
-    // les paiements sans encaissement, et une variable oubliée sur Render
-    // rendrait les licences gratuites sans que rien ne le signale.
+    // Prestataire de paiement, choisi par PAIEMENT_FOURNISSEUR — « manuel »
+    // par défaut : les licences sont activées par le superadmin après un
+    // règlement de la main à la main. Le mode simulé est REFUSÉ en production
+    // (le démarrage échoue) : il confirme les paiements sans encaissement, et
+    // une variable oubliée sur Render rendrait les licences gratuites sans
+    // que rien ne le signale.
     PaiementSimuleProvider,
     MyCoolPayProvider,
+    PaiementManuelProvider,
     {
       provide: PAYMENT_PROVIDER,
-      inject: [PaiementSimuleProvider, MyCoolPayProvider],
-      useFactory: (simule: PaiementSimuleProvider, mycoolpay: MyCoolPayProvider) =>
-        choisirPrestataire({ simule, mycoolpay }),
+      inject: [PaiementSimuleProvider, MyCoolPayProvider, PaiementManuelProvider],
+      useFactory: (simule: PaiementSimuleProvider, mycoolpay: MyCoolPayProvider, manuel: PaiementManuelProvider) =>
+        choisirPrestataire({ simule, mycoolpay, manuel }),
     },
     // Licence expirée → lecture seule. Intercepteur et non garde : une garde
     // globale s'exécuterait avant l'AuthGuard, sans req.user donc sans boutique.

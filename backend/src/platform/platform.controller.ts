@@ -5,6 +5,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AuditService } from '../audit/audit.service';
+import { PaiementService } from './paiement/paiement.service';
 
 /**
  * Back-office plateforme — réservé au `superadmin`.
@@ -25,6 +26,7 @@ import { AuditService } from '../audit/audit.service';
 export class PlatformController {
   constructor(
     private provisionnement: ProvisionnementService,
+    private paiements: PaiementService,
     private auditService: AuditService,
   ) {}
 
@@ -61,16 +63,38 @@ export class PlatformController {
     return boutique;
   }
 
+  /**
+   * Prolongation d'un an — après un règlement reçu par le revendeur.
+   *
+   * Le corps décrit le règlement (montant, moyen, note) ; il est enregistré
+   * comme un `Paiement` confirmé, source « manuel », AVANT que la licence ne
+   * bouge. Sans corps : plein tarif, Mobile Money.
+   */
   @Post('boutiques/:id/prolonger')
-  async prolonger(@Param('id') id: string, @Req() req: Request) {
+  async prolonger(
+    @Param('id') id: string,
+    @Body() body: { montant?: number; moyen?: string; note?: string } | undefined,
+    @Req() req: Request,
+  ) {
     const acteur = (req as any)['user'];
-    const licence = await this.provisionnement.prolongerLicence(id);
+    const { licence, paiement } = await this.paiements.enregistrerReglementManuel(id, body ?? {}, acteur);
     this.auditService.log({
       type: 'modification', module: 'plateforme',
       actorName: acteur.name, actorRole: acteur.role,
-      detail: `Licence prolongée jusqu'au ${new Date(licence.dateEcheance).toLocaleDateString('fr-FR')}`,
-      meta: { boutiqueId: id, dateEcheance: licence.dateEcheance },
+      detail: `Licence prolongée jusqu'au ${new Date(licence!.dateEcheance).toLocaleDateString('fr-FR')} — ` +
+        `règlement ${paiement.montant.toLocaleString('fr-FR').replace(/[  ]/g, ' ')} ${paiement.devise} (${paiement.moyenReglement}) ${paiement.reference}`,
+      meta: { boutiqueId: id, dateEcheance: licence!.dateEcheance, reference: paiement.reference, montant: paiement.montant, moyen: paiement.moyenReglement },
     });
-    return licence;
+    return {
+      id: String(licence!._id), montant: licence!.montant, devise: licence!.devise,
+      dateDebut: licence!.dateDebut, dateEcheance: licence!.dateEcheance, statut: licence!.statut,
+      reglement: paiement,
+    };
+  }
+
+  /** Historique des paiements d'une boutique — en ligne et manuels. */
+  @Get('boutiques/:id/paiements')
+  paiementsBoutique(@Param('id') id: string) {
+    return this.paiements.listerPourBoutique(id);
   }
 }

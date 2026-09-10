@@ -48,6 +48,8 @@ export class MailService {
     dateEcheance: Date;
     montant: number;
     devise: string;
+    /** Comment renouveler — en mode manuel, le contact du revendeur. */
+    consigne?: string;
   }): Promise<boolean> {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
       this.logger.warn(`[Licence] messagerie non configurée — relance non envoyée pour ${params.nomBoutique}`);
@@ -70,6 +72,7 @@ export class MailService {
           `La licence de la boutique « ${params.nomBoutique} » arrive à échéance ${quand}, le ${echeance}.`,
           '',
           `Renouvellement : ${montant} par an.`,
+          ...(params.consigne ? [params.consigne] : []),
           '',
           "Passé l'échéance, la boutique reste consultable et vos états restent exportables :",
           "seules les nouvelles saisies (ventes, produits, stock) sont suspendues jusqu'au règlement.",

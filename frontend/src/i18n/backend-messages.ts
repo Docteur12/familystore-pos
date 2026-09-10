@@ -18,6 +18,9 @@ const EXACT: Record<string, string> = {
   'Aucune quantité à livrer':                             'No quantity to deliver',
   'Aucune session active':                                'No active session',
   'Bon de livraison déjà généré pour cette commande':     'Delivery note already generated for this order',
+  'Boutique introuvable':                                 'Store not found',
+  'Montant de règlement invalide':                        'Invalid payment amount',
+  'Un règlement à 0 FCFA doit être expliqué dans la note': 'A zero payment must be explained in the note',
   'Caisse introuvable':                                   'Cash register not found',
   'Ce code-barres est déjà utilisé par un autre produit': 'This barcode is already used by another product',
   'Cet email est déjà utilisé':                           'This email is already in use',
@@ -86,6 +89,10 @@ const PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/^Quantité invalide pour « (.+) »\.$/,                       m => `Invalid quantity for "${m[1]}".`],
   [/^Produit introuvable pour « (.+) »\.$/,                     m => `Product not found for "${m[1]}".`],
   [/^Cette facture est déjà (validée|rejetée)\.$/,              m => `This invoice is already ${m[1] === 'validée' ? 'validated' : 'rejected'}.`],
+  // Licences — mode manuel
+  [/^Le paiement en ligne n'est pas proposé\. Pour renouveler, contactez votre revendeur au (.+?) : il active la licence dès le règlement reçu\.$/,
+    m => `Online payment is not offered. To renew, contact your reseller on ${m[1]}: the licence is activated as soon as payment is received.`],
+  [/^Moyen de règlement invalide : « (.+) »$/,                  m => `Invalid payment method: "${m[1]}"`],
 ];
 
 export function translateBackendMessage(msg: string): string {

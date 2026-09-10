@@ -6,7 +6,7 @@
  * surpris. D'où des tests sur les bornes exactes.
  */
 import { describe, it, expect } from 'vitest';
-import { niveauAlerte, doitAlerter, seuilAtteint, SEUILS_ALERTE } from './licence';
+import { niveauAlerte, doitAlerter, seuilAtteint, consigneRenouvellement, SEUILS_ALERTE } from './licence';
 
 describe('niveau d’alerte de licence', () => {
   it('ne dérange pas tant que l’échéance est lointaine', () => {
@@ -65,5 +65,19 @@ describe('seuil de relance', () => {
     expect([...SEUILS_ALERTE]).toEqual([14, 7, 3, 1]);
     const decroissant = [...SEUILS_ALERTE].every((s, i, a) => i === 0 || a[i - 1] > s);
     expect(decroissant).toBe(true);
+  });
+});
+
+describe('consigne de renouvellement — mode manuel', () => {
+  it('donne le numéro du revendeur quand il est connu', () => {
+    const texte = consigneRenouvellement('+237 6 74 63 54 11');
+    expect(texte).toContain('+237 6 74 63 54 11');
+    expect(texte).toMatch(/revendeur/i);
+  });
+
+  it('sans contact (serveur ancien), garde la formule générique — jamais un numéro inventé', () => {
+    expect(consigneRenouvellement(undefined)).toMatch(/revendeur/i);
+    expect(consigneRenouvellement('   ')).not.toContain('+237');
+    expect(consigneRenouvellement(null)).not.toMatch(/\d{2} \d{2}/);
   });
 });
