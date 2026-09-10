@@ -5,20 +5,30 @@ import { AuthGuard }       from '../auth/auth.guard';
 import { RolesGuard }      from '../auth/roles.guard';
 import { Roles }           from '../auth/roles.decorator';
 import { AuditService }    from '../audit/audit.service';
+import { getTenantMode }   from '../tenancy/tenant-context';
 
-// Identité publique du magasin — affichée AVANT connexion (page de login,
-// écran PIN) : nom, logo, couleurs, langue. Aucune donnée sensible.
-// En mode multi-tenant, la résolution du tenant sur une route sans JWT relève
-// de l'onboarding (phase ultérieure) : hors contexte tenant, le plugin lève et
-// le frontend retombe sur ses valeurs par défaut.
+/**
+ * Identité publique du magasin — affichée AVANT connexion (page de login,
+ * écran PIN) : nom, logo, couleurs, langue. Aucune donnée sensible.
+ *
+ * La réponse dépend du MODE (règle tranchée le 26/08/2026, voir CLAUDE.md) :
+ *  - **single** — un domaine par client : le domaine EST l'identification, on
+ *    rend l'identité complète et l'écran de connexion l'affiche ;
+ *  - **multi** — origine partagée : on ne sait pas encore chez qui l'on entre,
+ *    la réponse est NEUTRE (`{ mode: 'multi' }`) et l'écran reste Caméléon.
+ *    Avant, la route répondait 500 (plugin fail-closed hors contexte tenant) ;
+ *    répondre « neutre » est le comportement voulu, pas une panne.
+ */
 @Controller('settings/public')
 export class SettingsPublicController {
   constructor(private settingsService: SettingsService) {}
 
   @Get()
   async get() {
+    if (getTenantMode() === 'multi') return { mode: 'multi' as const };
     const s: any = await this.settingsService.get();
     return {
+      mode:              'single' as const,
       nomMagasin:        s.nomMagasin,
       logoUrl:           s.logoUrl,
       couleurPrincipale: s.couleurPrincipale,

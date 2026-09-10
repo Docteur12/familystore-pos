@@ -143,11 +143,12 @@ d'isolation le prouve route par route.
 
 Restent à traiter avant un vrai lancement mutualisé :
 
-- **`GET /api/settings/public` répond 500 en `multi`** : sans JWT, aucun tenant
-  n'est résolu et le plugin lève. C'est la route qui habille la page de
-  connexion (nom, logo, couleurs). Il faudra déduire le magasin de l'origine
-  (sous-domaine ou domaine dédié) — sans quoi, sur une origine partagée, on ne
-  sait pas quelle marque afficher avant de savoir qui se connecte.
+- **`GET /api/settings/public` en `multi`** répond désormais `{ mode: 'multi' }`
+  (neutre, 200) au lieu de 500 — fait le 10/09/2026, avec `mode: 'single'` et
+  l'identité complète en single, que l'écran de connexion affiche (règle
+  ci-dessous). Reste, pour une origine partagée, à déduire le magasin de
+  l'origine (sous-domaine ou domaine dédié) si l'on veut une enseigne avant
+  connexion — sans quoi l'écran reste Caméléon, ce qui est le comportement voulu.
 - **Cache `documents-pdf` du service worker non cloisonné** (dette relevée au
   lot A de Caméléon, à traiter au lot C). `vite.config.ts` met les PDF en
   `NetworkFirst` dans un cache indexé par URL seule. Aujourd'hui sans

@@ -171,8 +171,11 @@ variables du site et dans `Settings`. Ordre à respecter :
 
 New → Web Service depuis `Docteur12/familystore-pos` — Root `backend`, build
 `npm install --include=dev && npm run build`, start `node dist/main.js`.
-**Plan payant** (service actif en permanence, cf. cahier des charges).
-Variables :
+Plan : **payant** (7 $/mois, service actif en permanence, cf. cahier des
+charges) ou, **en attendant Caméléon, gratuit + cron-job.org** toutes les
+10 min sur `https://<service-hervan>.onrender.com/api/health` (décision du
+09/09/2026), sur un **compte Render séparé** de celui des autres clients.
+Région Frankfurt. Variables :
 
 | Variable | Valeur |
 |---|---|

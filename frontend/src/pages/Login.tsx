@@ -6,6 +6,7 @@ import { forgotPassword } from '../api/auth';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useSettings } from '../contexts/SettingsContext';
 import { t } from '../i18n';
+import { identiteConnexion, assombrir } from '../utils/identite-connexion';
 
 /**
  * Couleurs de l'écran de connexion — FIXES, jamais des variables de thème.
@@ -66,6 +67,12 @@ function MailIcon() {
 
 export default function Login() {
   const { settings, reloadSettings } = useSettings();
+  // Mode single : l'enseigne du magasin ; mode multi ou inconnu : Caméléon
+  // neutre. Voir utils/identite-connexion.ts.
+  const identite = identiteConnexion(settings);
+  const ACCENT        = identite.couleur;
+  const ACCENT_SOMBRE = identite.neutre ? VERT_SOMBRE : assombrir(ACCENT);
+  const ACCENT_CLAIR  = identite.neutre ? VERT_CLAIR : ACCENT;
   const navigate  = useNavigate();
   const isMobile  = useIsMobile();
   const [email,    setEmail]    = useState('');
@@ -225,21 +232,30 @@ export default function Login() {
     }}>
       <div style={{ width: '100%', maxWidth: 380, margin: 'auto' }}>
 
-        {/* ── Identité CAMÉLÉON — neutre, jamais celle d'un client ──────────
-            Cet écran PRÉCÈDE le choix de la boutique : on ne sait pas encore
-            chez qui l'on entre. Y afficher un logo, un nom ou des couleurs de
-            magasin serait faux pour tous les autres, et absurde pour un
-            propriétaire multi-boutiques qui verrait l'enseigne de l'une avant
-            de choisir l'autre.
+        {/* ── Identité — selon le MODE (règle du 26/08/2026, CLAUDE.md) ─────
+            Mode single (un domaine par client — les boutiques existantes) :
+            le domaine EST l'identification, l'écran porte le logo, le nom et
+            la couleur du magasin, comme partout ailleurs.
 
-            Les couleurs sont donc écrites EN DUR, pas via les variables de
-            thème : `couleurPrincipale` est appliquée à la racine du document
-            dès que les paramètres d'une boutique arrivent (SettingsContext),
-            et teinterait cet écran-ci. L'identité du magasin — logo, couleurs,
-            langue — ne se charge qu'APRÈS la sélection. */}
+            Mode multi (origine partagée) ou mode inconnu : Caméléon neutre.
+            Cet écran PRÉCÈDE alors le choix de la boutique : on ne sait pas
+            encore chez qui l'on entre, et un propriétaire multi-boutiques
+            verrait l'enseigne de l'une avant de choisir l'autre.
+
+            Dans les deux cas les couleurs viennent de `identite`, jamais des
+            variables de thème : `couleurPrincipale` est appliquée à la racine
+            du document dès que les paramètres d'une boutique arrivent
+            (SettingsContext) et teinterait cet écran avec la DERNIÈRE boutique
+            visitée — en multi, exactement ce qu'on veut éviter. */}
         <div style={{ textAlign: 'center', marginBottom: isMobile ? 20 : 26 }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
-            <MarqueCameleon size={isMobile ? 44 : 52}/>
+            {identite.neutre ? (
+              <MarqueCameleon size={isMobile ? 44 : 52}/>
+            ) : identite.logoUrl ? (
+              <div style={{ background: '#fdf9f0', borderRadius: 10, border: `1px solid ${ACCENT}`, padding: '6px 8px', width: isMobile ? 150 : 190, overflow: 'hidden' }}>
+                <img src={identite.logoUrl} alt={identite.nom} style={{ width: '100%', display: 'block', borderRadius: 6 }}/>
+              </div>
+            ) : null}
           </div>
 
           <h1 style={{
@@ -250,7 +266,7 @@ export default function Login() {
             letterSpacing: '0.06em',
             margin: 0,
           }}>
-            Caméléon
+            {identite.nom}
           </h1>
           <p style={{
             fontSize: 12,
@@ -274,7 +290,7 @@ export default function Login() {
           {/* Gold hairline */}
           <div style={{
             height: 2,
-            background: `linear-gradient(90deg, transparent, ${VERT_CAMELEON} 30%, ${VERT_CAMELEON} 70%, transparent)`,
+            background: `linear-gradient(90deg, transparent, ${ACCENT} 30%, ${ACCENT} 70%, transparent)`,
             borderRadius: 1,
             marginBottom: 24,
             opacity: 0.7,
@@ -344,7 +360,7 @@ export default function Login() {
               {forgotMsg && (
                 <div style={{ background: '#e8f0e5', border: '1px solid rgba(90,139,83,0.3)', color: 'var(--fs-success-700)', borderRadius: 'var(--fs-r-md)', padding: '10px 14px', fontSize: 13 }}>{forgotMsg}</div>
               )}
-              <button type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '13px', background: VERT_CAMELEON, color: '#fff', border: 'none', borderRadius: 'var(--fs-r-md)', fontSize: 14, fontWeight: 600, cursor: forgotLoading ? 'not-allowed' : 'pointer', opacity: forgotLoading ? 0.8 : 1 }}>
+              <button type="submit" disabled={forgotLoading} style={{ width: '100%', padding: '13px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 'var(--fs-r-md)', fontSize: 14, fontWeight: 600, cursor: forgotLoading ? 'not-allowed' : 'pointer', opacity: forgotLoading ? 0.8 : 1 }}>
                 {forgotLoading ? t('Envoi en cours…', 'Sending…') : t('Envoyer le mot de passe temporaire', 'Send temporary password')}
               </button>
               <button type="button" onClick={() => { setForgotMode(false); setError(null); setForgotMsg(null); }} style={{ background: 'none', border: 'none', color: 'var(--fs-ink-400)', fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}>
@@ -422,7 +438,7 @@ export default function Login() {
                     boxSizing: 'border-box',
                   }}
                   onFocus={e => {
-                    e.target.style.borderColor = VERT_CAMELEON;
+                    e.target.style.borderColor = ACCENT;
                     e.target.style.boxShadow = '0 0 0 3px rgba(122,29,46,0.08)';
                   }}
                   onBlur={e => {
@@ -478,7 +494,7 @@ export default function Login() {
                     boxSizing: 'border-box',
                   }}
                   onFocus={e => {
-                    e.target.style.borderColor = VERT_CAMELEON;
+                    e.target.style.borderColor = ACCENT;
                     e.target.style.boxShadow = '0 0 0 3px rgba(122,29,46,0.08)';
                   }}
                   onBlur={e => {
@@ -549,7 +565,7 @@ export default function Login() {
               style={{
                 width: '100%',
                 padding: '13px',
-                background: loading ? VERT_CLAIR : VERT_CAMELEON,
+                background: loading ? ACCENT_CLAIR : ACCENT,
                 color: '#fff',
                 border: 'none',
                 borderRadius: 'var(--fs-r-md)',
@@ -567,8 +583,8 @@ export default function Login() {
                 boxShadow: 'var(--fs-shadow-sm)',
                 marginTop: 4,
               }}
-              onMouseEnter={e => { if (!loading) (e.target as HTMLButtonElement).style.background = VERT_SOMBRE; }}
-              onMouseLeave={e => { (e.target as HTMLButtonElement).style.background = loading ? VERT_CLAIR : VERT_CAMELEON; }}
+              onMouseEnter={e => { if (!loading) (e.target as HTMLButtonElement).style.background = ACCENT_SOMBRE; }}
+              onMouseLeave={e => { (e.target as HTMLButtonElement).style.background = loading ? ACCENT_CLAIR : ACCENT; }}
             >
               {loading ? (
                 <>
@@ -593,14 +609,14 @@ export default function Login() {
           )}
         </div>
 
-        {/* ── Pied — neutre lui aussi : voir l'en-tête ── */}
+        {/* ── Pied — même identité que l'en-tête ── */}
         <p style={{
           textAlign: 'center',
           fontSize: 11,
           color: ENCRE_PALE,
           marginTop: 16,
         }}>
-          Caméléon &copy; {new Date().getFullYear()}
+          {identite.nom} &copy; {new Date().getFullYear()}
         </p>
       </div>
 

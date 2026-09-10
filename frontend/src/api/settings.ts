@@ -56,6 +56,12 @@ export interface StoreSettings {
   // (vêtements) — plus de date par défaut à la création, alertes masquées.
   metier?: { inactiviteMinutes?: number; seedFournisseursDemo?: boolean; suiviPeremption?: boolean };
   offreFacture?: OffreFacture;
+  /**
+   * Mode d'identification AVANT connexion, dit par `GET /api/settings/public` :
+   * `single` (un domaine par client → l'écran de connexion porte l'enseigne)
+   * ou `multi` (origine partagée → écran neutre). Absent = neutre.
+   */
+  modeIdentite?: 'single' | 'multi';
 }
 
 // Modules pouvant être désactivés par magasin (menus + routes).
@@ -194,7 +200,8 @@ export async function getSettings(): Promise<StoreSettings> {
     if (!token) {
       const res = await fetch('/api/settings/public');
       if (!res.ok) return SETTINGS_DEFAULTS;
-      return { ...SETTINGS_DEFAULTS, ...(await res.json()) };
+      const { mode, ...identite } = await res.json();
+      return { ...SETTINGS_DEFAULTS, ...identite, modeIdentite: mode === 'single' ? 'single' : 'multi' };
     }
     const res = await fetch('/api/settings', { headers: authHeaders() });
     if (!res.ok) return SETTINGS_DEFAULTS;
