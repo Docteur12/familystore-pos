@@ -9,6 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as ExcelJS from 'exceljs';
 import { Product, ProductDocument } from '../schemas/product.schema';
+import { Settings, SettingsDocument } from '../settings/settings.schema';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
@@ -68,7 +69,19 @@ export class ProductsService {
 
   constructor(
     @InjectModel(Product.name) private productModel: Model<ProductDocument>,
+    @InjectModel(Settings.name) private settingsModel: Model<SettingsDocument>,
   ) {}
+
+  /**
+   * Le magasin suit-il les dates de péremption ? Règle métier des Paramètres
+   * (`metier.suiviPeremption`) ; absente ou sans document Settings = oui.
+   * Un magasin de vêtements la coupe : sinon chaque produit créé recevrait
+   * une péremption « à un an » et tout le catalogue finirait en alerte.
+   */
+  async suiviPeremption(): Promise<boolean> {
+    const s = await this.settingsModel.findOne({}, { metier: 1 }).lean();
+    return (s as any)?.metier?.suiviPeremption !== false;
+  }
 
   findAll(search?: string) {
     if (!search?.trim()) {
@@ -110,9 +123,12 @@ export class ProductsService {
     const initialStock = dto.stock ?? 0;
     // Seuil = 10% de la quantité initiale (= maximale), jamais en dessous de 2.
     const alertThreshold = Math.max(2, Math.ceil(initialStock * 0.10));
+    // Date de péremption : celle saisie ; sinon « +1 an » SEULEMENT si le
+    // magasin suit les péremptions — pour des vêtements, aucune date.
     const oneYearFromNow = new Date();
     oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
-    const expiryDate = dto.expiryDate ?? oneYearFromNow.toISOString().slice(0, 10);
+    const expiryDate = dto.expiryDate
+      ?? ((await this.suiviPeremption()) ? oneYearFromNow.toISOString().slice(0, 10) : null);
     // Si le prix est verrouillé (fixé par le magasinier à la création), on trace l'auteur.
     const trace = dto.prixVerrouille
       ? { prixModifiePar: actor?.name ?? '', prixModifieParRole: actor?.role ?? '', prixModifieLe: new Date() }
