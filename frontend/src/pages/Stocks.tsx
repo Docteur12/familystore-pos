@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { nomEnseigne } from '../config/marque';
 import { useSettings } from '../contexts/SettingsContext';
+import { suiviPeremptionActif } from '../api/settings';
 import { getAllProducts, deleteProduct, updateProduct, Product } from '../api/products';
 import { normalizeName, formatProductName, extractVolume, getBrandColor, contientTexte, displayName } from '../utils/text';
 import { inferCategoryFromName } from '../data/categories';
@@ -720,6 +721,9 @@ type TabMode = 'all' | 'low' | 'expiry' | 'dup';
 
 export default function Stocks() {
   const { settings } = useSettings();
+  // Règle métier du magasin : sans suivi des péremptions (vêtements), la
+  // colonne, l'indicateur et l'onglet « péremption » n'existent pas.
+  const suiviPeremption = suiviPeremptionActif(settings);
   const nomMagasin = nomEnseigne(settings.nomMagasin);
   const { toasts, addToast, removeToast } = useToast();
   const isMobile = useIsMobile();
@@ -1329,7 +1333,9 @@ export default function Stocks() {
           <MetricCard title={t('Références actives', 'Active SKUs')} value={products.length} sub="+12" subColor="var(--fs-success-700)" icon={D.pkg}/>
           <MetricCard title={t('Valeur du stock', 'Stock value')} value={`${fmtN(stockValue)} XAF`} sub={t('+6,2 %', '+6.2%')} subColor="var(--fs-success-700)" icon={D.export} accent/>
           <MetricCard title={t('Stock faible', 'Low stock')} value={lowCount} sub={lowCount > 0 ? t(`${lowCount} à réapprovisionner`, `${lowCount} to restock`) : t('Tout est OK', 'All good')} subColor={lowCount > 0 ? 'var(--fs-warning-700)' : undefined} icon={D.alertes} onClick={lowCount > 0 ? () => setTab('low') : undefined}/>
-          <MetricCard title={t('Péremption < 6 mois', 'Expiry < 6 months')} value={expiryCount} sub={expiryCount > 0 ? t('À surveiller ↓', 'Needs attention ↓') : t('Aucune alerte', 'No alerts')} subColor={expiryCount > 0 ? 'var(--fs-danger-700)' : undefined} icon={D.bell} onClick={expiryCount > 0 ? () => setTab('expiry') : undefined}/>
+          {suiviPeremption && (
+            <MetricCard title={t('Péremption < 6 mois', 'Expiry < 6 months')} value={expiryCount} sub={expiryCount > 0 ? t('À surveiller ↓', 'Needs attention ↓') : t('Aucune alerte', 'No alerts')} subColor={expiryCount > 0 ? 'var(--fs-danger-700)' : undefined} icon={D.bell} onClick={expiryCount > 0 ? () => setTab('expiry') : undefined}/>
+          )}
         </div>
 
         {/* Livraisons en transit */}
@@ -1390,7 +1396,7 @@ export default function Stocks() {
             {([
               { id: 'all',    label: t('Tous', 'All'),             count: products.length },
               { id: 'low',    label: t('Stock bas', 'Low stock'),        count: lowCount        },
-              { id: 'expiry', label: t('Péremption proche', 'Expiring soon'),count: expiryCount     },
+              ...(suiviPeremption ? [{ id: 'expiry' as TabMode, label: t('Péremption proche', 'Expiring soon'), count: expiryCount }] : []),
               ...(dupIds.size > 0 ? [{ id: 'dup' as TabMode, label: t('Doublons', 'Duplicates'), count: dupIds.size }] : []),
             ] as { id: TabMode; label: string; count: number }[]).map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{
@@ -1434,7 +1440,7 @@ export default function Stocks() {
           <table className="fs-grid" style={{ width: '100%', minWidth: isNarrow ? 720 : undefined, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#fff' }}>
-                {STOCK_COLS.map((col, i) => {
+                {STOCK_COLS.filter(col => suiviPeremption || col.key !== 'expiry').map((col, i) => {
                   const active = col.key !== null && sort.key === col.key;
                   return (
                     <th key={col.label || `col-${i}`}
@@ -1535,12 +1541,14 @@ export default function Stocks() {
                       </span>
                     </td>
 
-                    {/* Péremption */}
-                    <td style={{ padding: '10px 12px' }}>
-                      <span style={{ background: exCfg.bg, color: exCfg.color, fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 10, fontFamily: 'var(--fs-font-mono)', whiteSpace: 'nowrap' }}>
-                        {exCfg.label(exDays)}
-                      </span>
-                    </td>
+                    {/* Péremption — seulement si le magasin la suit */}
+                    {suiviPeremption && (
+                      <td style={{ padding: '10px 12px' }}>
+                        <span style={{ background: exCfg.bg, color: exCfg.color, fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 10, fontFamily: 'var(--fs-font-mono)', whiteSpace: 'nowrap' }}>
+                          {exCfg.label(exDays)}
+                        </span>
+                      </td>
+                    )}
 
                     {/* Arrow */}
                     <td style={{ padding: '10px 8px' }}>

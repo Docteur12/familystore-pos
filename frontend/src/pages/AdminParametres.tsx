@@ -106,6 +106,7 @@ interface SForm {
   modules: ModuleId[];
   inactiviteMinutes: string;
   seedFournisseursDemo: boolean;
+  suiviPeremption: boolean;
 }
 
 function toSForm(s: StoreSettings): SForm {
@@ -133,6 +134,7 @@ function toSForm(s: StoreSettings): SForm {
     modules:           (s.modules && s.modules.length) ? s.modules.filter((x): x is ModuleId => (MODULES_DISPONIBLES as readonly { id: string }[]).some(m => m.id === x)) : MODULES_DISPONIBLES.map(m => m.id),
     inactiviteMinutes: String(s.metier?.inactiviteMinutes ?? METIER_DEFAULTS.inactiviteMinutes),
     seedFournisseursDemo: s.metier?.seedFournisseursDemo ?? METIER_DEFAULTS.seedFournisseursDemo,
+    suiviPeremption:      s.metier?.suiviPeremption ?? METIER_DEFAULTS.suiviPeremption,
   };
 }
 
@@ -160,6 +162,7 @@ function fromSForm(f: SForm): Partial<StoreSettings> {
     metier: {
       inactiviteMinutes:    Math.max(1, Math.min(240, Number(f.inactiviteMinutes) || METIER_DEFAULTS.inactiviteMinutes)),
       seedFournisseursDemo: f.seedFournisseursDemo,
+      suiviPeremption:      f.suiviPeremption,
     },
   };
 }
@@ -697,6 +700,10 @@ export default function AdminParametres() {
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, cursor: 'pointer' }}>
                 <input type="checkbox" checked={form.seedFournisseursDemo} onChange={e => setField('seedFournisseursDemo', e.target.checked)}/>
                 <span>{t('Créer les ', 'Create the ')}<strong>{t('fournisseurs de démonstration', 'demo suppliers')}</strong>{t(' quand la liste est vide', ' when the list is empty')}</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, cursor: 'pointer' }}>
+                <input type="checkbox" checked={form.suiviPeremption} onChange={e => setField('suiviPeremption', e.target.checked)}/>
+                <span>{t('Suivre les ', 'Track ')}<strong>{t('dates de péremption', 'expiry dates')}</strong>{t(' (à décocher pour des produits qui ne périment pas : vêtements, accessoires)', ' (untick for products that do not expire: clothing, accessories)')}</span>
               </label>
               <div style={{ maxWidth: 260 }}>
                 <Field label={t('Déconnexion après inactivité (minutes)', 'Sign out after inactivity (minutes)')} value={form.inactiviteMinutes} onChange={mkChange('inactiviteMinutes')} type="number" placeholder="10"/>

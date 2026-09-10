@@ -52,7 +52,9 @@ export interface StoreSettings {
   // Contient les ids actifs, ou [MODULE_AUCUN] pour « aucun module optionnel ».
   modules?: string[];
   // Règles métier paramétrables
-  metier?: { inactiviteMinutes?: number; seedFournisseursDemo?: boolean };
+  // suiviPeremption : false pour un magasin dont les produits ne périment pas
+  // (vêtements) — plus de date par défaut à la création, alertes masquées.
+  metier?: { inactiviteMinutes?: number; seedFournisseursDemo?: boolean; suiviPeremption?: boolean };
   offreFacture?: OffreFacture;
 }
 
@@ -77,7 +79,11 @@ export function moduleActif(settings: Pick<StoreSettings, 'modules'>, id: Module
   return !m || m.length === 0 || m.includes(id);
 }
 
-export const METIER_DEFAULTS = { inactiviteMinutes: 10, seedFournisseursDemo: true };
+export const METIER_DEFAULTS = { inactiviteMinutes: 10, seedFournisseursDemo: true, suiviPeremption: true };
+
+/** Le magasin suit-il les dates de péremption ? (défaut : oui — absent = oui) */
+export const suiviPeremptionActif = (s: Pick<StoreSettings, 'metier'>): boolean =>
+  s.metier?.suiviPeremption !== false;
 
 export const SETTINGS_DEFAULTS: StoreSettings = {
   // Vide : le nom réel arrive avec les paramètres de la boutique. L'interface

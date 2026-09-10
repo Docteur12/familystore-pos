@@ -19,6 +19,7 @@ import { Connection, Model } from 'mongoose';
 
 import { ProductsService, resumerChangementsPrix } from '../../src/products/products.service';
 import { Product, ProductSchema, ProductDocument } from '../../src/schemas/product.schema';
+import { Settings, SettingsSchema } from '../../src/settings/settings.schema';
 import { ouvrirBaseDeTest, fermerBaseDeTest, viderCollections } from '../helpers/db';
 
 describe('resumerChangementsPrix — le récit du changement', () => {
@@ -54,7 +55,7 @@ describe('importBulk — chaque prix écrasé est relevé', () => {
     module = await Test.createTestingModule({
       imports: [
         MongooseModule.forRoot(uri),
-        MongooseModule.forFeature([{ name: Product.name, schema: ProductSchema }]),
+        MongooseModule.forFeature([{ name: Product.name, schema: ProductSchema }, { name: Settings.name, schema: SettingsSchema }]),
       ],
       providers: [ProductsService],
     }).compile();

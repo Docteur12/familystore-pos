@@ -105,11 +105,14 @@ export class Settings {
   modules: string[];
 
   // ── Règles métier paramétrables ──────────────────────────────────────────
+  // suiviPeremption : false pour un magasin dont les produits ne périment pas
+  // (vêtements, HERVAN) — plus de date par défaut à la création, alertes et
+  // colonne « péremption » masquées. Absent = true (magasins existants).
   @Prop({
-    type: { inactiviteMinutes: Number, seedFournisseursDemo: Boolean },
-    default: { inactiviteMinutes: 10, seedFournisseursDemo: true },
+    type: { inactiviteMinutes: Number, seedFournisseursDemo: Boolean, suiviPeremption: Boolean },
+    default: { inactiviteMinutes: 10, seedFournisseursDemo: true, suiviPeremption: true },
   })
-  metier: { inactiviteMinutes: number; seedFournisseursDemo: boolean };
+  metier: { inactiviteMinutes: number; seedFournisseursDemo: boolean; suiviPeremption?: boolean };
 
   // Offre marketing imprimée en pied de facture — éditable (import/export CSV).
   // Les segments entre *astérisques* sont rendus en gras sur le ticket.

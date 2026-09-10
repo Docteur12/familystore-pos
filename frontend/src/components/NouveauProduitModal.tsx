@@ -9,6 +9,8 @@ import { queueProduitLocal } from '../services/offlineMagazin';
 import { CATEGORY_TREE, normalizeTree } from '../data/categories';
 import { getCategoryTree, addCategory, CategoryTree } from '../api/categories';
 import { t, dateLocale } from '../i18n';
+import { useSettings } from '../contexts/SettingsContext';
+import { suiviPeremptionActif } from '../api/settings';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -221,6 +223,9 @@ const INITIAL_FORM: FormState = {
 // ── Modal component ───────────────────────────────────────────────────────────
 
 export default function NouveauProduitModal({ onClose, onCreated, onUpdated, product, knownCategories, existingProducts = [], prefill }: Props) {
+  // Magasin sans suivi des péremptions (vêtements) : pas de champ, pas de date envoyée.
+  const { settings } = useSettings();
+  const suiviPeremption = suiviPeremptionActif(settings);
   const [form, setForm] = useState<FormState>(() => product ? {
     name:        product.name,
     localName:   product.localName ?? '',
@@ -391,7 +396,7 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
       costPrice:   parseFloat(form.costPrice) || 0,
       stock:       parseInt(form.stock),
       discount:    Math.min(100, Math.max(0, parseFloat(form.discount) || 0)),
-      expiryDate:  form.expiryDate || null,
+      expiryDate:  suiviPeremption ? (form.expiryDate || null) : null,
       subCategory: finalSubCategory.trim() || undefined,
       fournisseur: form.fournisseur.trim() || undefined,
     };
@@ -655,18 +660,20 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
             </div>
           </div>
 
-          <div>
-            <label style={LABEL_STYLE}>📅 {t('Date de péremption', 'Expiry date')} <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>{t('(défaut : +1 an)', '(default: +1 year)')}</span></label>
-            <input
-              type="date"
-              value={form.expiryDate}
-              onChange={e => setField('expiryDate')(e.target.value)}
-              style={{ ...INPUT_STYLE }}
-            />
-            {form.expiryDate && new Date(form.expiryDate) < new Date() && (
-              <div style={{ marginTop: 4, fontSize: 11, color: '#c0392b', fontWeight: 600 }}>{t('⚠ Date déjà expirée', '⚠ Date already expired')}</div>
-            )}
-          </div>
+          {suiviPeremption && (
+            <div>
+              <label style={LABEL_STYLE}>📅 {t('Date de péremption', 'Expiry date')} <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 10 }}>{t('(défaut : +1 an)', '(default: +1 year)')}</span></label>
+              <input
+                type="date"
+                value={form.expiryDate}
+                onChange={e => setField('expiryDate')(e.target.value)}
+                style={{ ...INPUT_STYLE }}
+              />
+              {form.expiryDate && new Date(form.expiryDate) < new Date() && (
+                <div style={{ marginTop: 4, fontSize: 11, color: '#c0392b', fontWeight: 600 }}>{t('⚠ Date déjà expirée', '⚠ Date already expired')}</div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

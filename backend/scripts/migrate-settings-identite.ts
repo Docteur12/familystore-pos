@@ -67,7 +67,9 @@ export const IDENTITES: Record<string, Record<string, unknown>> = {
     // Module OCR des factures fournisseurs activé (demande prioritaire du
     // cahier des charges) ; pas de Partenaires.
     modules:          ['factures-fournisseurs'],
-    metier:           { inactiviteMinutes: 15, seedFournisseursDemo: false },
+    // Vêtements : pas de dates de péremption (sinon tout le catalogue
+    // remonterait en alerte « péremption proche » au bout de six mois).
+    metier:           { inactiviteMinutes: 15, seedFournisseursDemo: false, suiviPeremption: false },
   },
 };
 
