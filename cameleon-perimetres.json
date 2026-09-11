@@ -1,0 +1,59 @@
+{
+  "$commentaire": "Périmètres des sessions parallèles de la gamme Caméléon (voir CAMELEON-GAMME.md §2.1 et §5). Vérifié par `npm run verifier:perimetre -- --profil=<profil>` (backend/scripts/verifier-perimetre.ts) et par le job CI « Périmètre ». Tant que socleMerge vaut false, une branche feat/cameleon-<profil> ne modifie que ses fichiers `propres`. Après le signal (socleMerge: true, posé par la référente au merge du socle), elle peut AJOUTER dans les `partages` — jamais retirer une ligne. Tout autre fichier est interdit. Les *.spec.ts existant au merge-base ne changent jamais (Commerce intact).",
+  "socleMerge": false,
+  "base": "integration/cameleon",
+  "partages": [
+    "frontend/src/App.tsx",
+    "frontend/src/components/AdminSidebar.tsx",
+    "frontend/src/components/StocksSidebar.tsx",
+    "frontend/src/i18n/backend-messages.ts",
+    "frontend/src/pages/Stocks.tsx",
+    "frontend/src/services/session.ts",
+    "backend/src/app.module.ts",
+    "backend/src/schemas/stock-movement.schema.ts",
+    "backend/src/schemas/product.schema.ts",
+    "backend/src/schemas/user.schema.ts"
+  ],
+  "profils": {
+    "snack": {
+      "branche": "feat/cameleon-snack",
+      "propres": [
+        "backend/src/comptoir/**",
+        "backend/test/comptoir/**",
+        "frontend/src/pages/Comptoir*.tsx",
+        "frontend/src/pages/StocksReserve*.tsx",
+        "frontend/src/api/comptoir.ts",
+        "frontend/src/utils/comptoir*.ts",
+        "frontend/src/components/comptoir/**"
+      ]
+    },
+    "restaurant": {
+      "branche": "feat/cameleon-restaurant",
+      "propres": [
+        "backend/src/salle/**",
+        "backend/test/salle/**",
+        "frontend/src/pages/Salle*.tsx",
+        "frontend/src/pages/Cuisine*.tsx",
+        "frontend/src/pages/StocksRecettes*.tsx",
+        "frontend/src/pages/AdminAdditions*.tsx",
+        "frontend/src/api/salle.ts",
+        "frontend/src/utils/salle*.ts",
+        "frontend/src/components/salle/**"
+      ]
+    },
+    "hotel": {
+      "branche": "feat/cameleon-hotel",
+      "propres": [
+        "backend/src/hotel/**",
+        "backend/test/hotel/**",
+        "frontend/src/pages/Reception*.tsx",
+        "frontend/src/pages/Calendrier*.tsx",
+        "frontend/src/pages/Menage*.tsx",
+        "frontend/src/pages/AdminChambres*.tsx",
+        "frontend/src/api/hotel.ts",
+        "frontend/src/utils/hotel*.ts",
+        "frontend/src/components/hotel/**"
+      ]
+    }
+  }
+}

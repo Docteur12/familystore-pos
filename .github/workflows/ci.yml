@@ -1,6 +1,12 @@
 # Intégration continue — à chaque push et pull request :
 #  1. le backend doit compiler ;
-#  2. les tests doivent passer (base MongoDB en mémoire, aucun service externe).
+#  2. les tests backend doivent passer (base MongoDB en mémoire, aucun service externe) ;
+#  3. le frontend doit compiler ET passer ses tests — dont les gouvernances qui
+#     lisent les sources des deux côtés (modules, motifs de stock, marque,
+#     stockage cloisonné) ;
+#  4. sur une branche de profil `feat/cameleon-*`, le PÉRIMÈTRE est vérifié :
+#     fichiers propres seulement avant le signal, ajouts seulement dans les
+#     partagés après, aucun test préexistant modifié (CAMELEON-GAMME.md §2.1).
 #
 # C'est le filet de sécurité du chantier SaaS : aucune modification ne part
 # en production sans que les parcours critiques (vente, stock…) aient été
@@ -15,7 +21,11 @@ on:
     # moment : plusieurs lots accumulés, et le chantier déjà à un clic du
     # déploiement. Une branche qui reçoit des semaines de travail doit dire
     # tout de suite si elle est verte.
-    branches: [main, integration/cameleon]
+    #
+    # Les branches de profil de la gamme (`feat/cameleon-*`) le sont aussi :
+    # quatre sessions travaillent en parallèle, chacune doit savoir tout de
+    # suite si elle a débordé de son périmètre ou cassé Commerce.
+    branches: [main, integration/cameleon, 'feat/cameleon-*']
   pull_request:
 
 jobs:
@@ -73,9 +83,13 @@ jobs:
         env:
           MONGOMS_DOWNLOAD_DIR: ${{ runner.temp }}/mongodb-binaries
 
-  # Le frontend n'a pas encore de tests : on vérifie au moins qu'il compile.
+  # Build ET tests. Le commentaire « le frontend n'a pas encore de tests »
+  # était périmé : dix-sept fichiers Vitest, dont six gouvernances — quatre
+  # d'entre elles lisent les sources BACKEND pour vérifier des miroirs
+  # (modules, motifs de stock, moyens de règlement, marque). Sans cette étape,
+  # elles ne protégeaient personne en CI (constat du 11/09/2026).
   frontend:
-    name: Frontend — build
+    name: Frontend — build + tests
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -94,3 +108,38 @@ jobs:
 
       - name: Compiler
         run: npm run build
+
+      - name: Tests
+        run: npm test
+
+  # Périmètre des sessions parallèles — branches de profil et PR vers
+  # integration/cameleon uniquement. Le script lit cameleon-perimetres.json,
+  # déduit le profil du nom de la branche, et échoue sur tout fichier hors
+  # périmètre, toute ligne supprimée dans un partagé, tout test préexistant
+  # modifié. Sur une branche qui n'est pas un profil, il ne fait rien.
+  perimetre:
+    name: Périmètre — sessions parallèles
+    if: startsWith(github.head_ref || github.ref_name, 'feat/cameleon-')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # le merge-base avec integration/cameleon a besoin de l'historique
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Installer les dépendances
+        run: npm ci --include=dev --ignore-scripts
+
+      - name: Récupérer la branche de base
+        run: git fetch origin integration/cameleon:refs/remotes/origin/integration/cameleon
+
+      - name: Vérifier le périmètre
+        run: npm run verifier:perimetre

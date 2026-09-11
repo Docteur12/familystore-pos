@@ -23,7 +23,8 @@
     "verifier:lot-e": "ts-node -r tsconfig-paths/register scripts/verifier-lot-e.ts",
     "init:boutique": "ts-node -r tsconfig-paths/register scripts/init-boutique.ts",
     "creer:superadmin": "ts-node -r tsconfig-paths/register scripts/creer-superadmin.ts",
-    "provision:superadmin": "npm run creer:superadmin --"
+    "provision:superadmin": "npm run creer:superadmin --",
+    "verifier:perimetre": "ts-node -r tsconfig-paths/register scripts/verifier-perimetre.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
