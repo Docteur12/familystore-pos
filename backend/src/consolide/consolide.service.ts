@@ -56,11 +56,20 @@ export class ConsolideService {
       { ca: 0, ventes: 0 },
     );
 
+    // Sous-totaux par type d'établissement (gamme Caméléon) : un propriétaire
+    // d'une boutique et d'un snack lit les deux métiers séparément. La source
+    // reste Sale, boutique par boutique — rien ne change pour un mono-type.
+    const parType: Record<string, { ca: number; ventes: number; boutiques: number }> = {};
+    for (const b of boutiques) {
+      const t = parType[b.typeEtablissement] ?? (parType[b.typeEtablissement] = { ca: 0, ventes: 0, boutiques: 0 });
+      t.ca += b.ca; t.ventes += b.ventes; t.boutiques += 1;
+    }
+
     return {
       debut: bornes.debut.toISOString(),
       fin:   bornes.fin.toISOString(),
       boutiques,
-      total: { ...total, panierMoyen: total.ventes ? Math.round(total.ca / total.ventes) : 0 },
+      total: { ...total, panierMoyen: total.ventes ? Math.round(total.ca / total.ventes) : 0, parType },
     };
   }
 
@@ -71,11 +80,14 @@ export class ConsolideService {
   async boutiques(boutiquesAutorisees: string[]) {
     const sortie = [];
     for (const boutiqueId of boutiquesAutorisees ?? []) {
-      const nom = await runWithTenant(boutiqueId, async () => {
+      const { nom, typeEtablissement } = await runWithTenant(boutiqueId, async () => {
         const s: any = await this.settingsModel.findOne().lean();
-        return (s?.nomMagasin as string)?.trim() || boutiqueId;
+        return {
+          nom: (s?.nomMagasin as string)?.trim() || boutiqueId,
+          typeEtablissement: (s?.typeEtablissement as string) || 'commerce',
+        };
       });
-      sortie.push({ boutiqueId, nom });
+      sortie.push({ boutiqueId, nom, typeEtablissement });
     }
     return sortie;
   }
@@ -97,6 +109,7 @@ export class ConsolideService {
       return {
         boutiqueId,
         nom: (settings?.nomMagasin as string)?.trim() || boutiqueId,
+        typeEtablissement: ((settings?.typeEtablissement as string) || 'commerce'),
         ca,
         ventes,
         panierMoyen: ventes ? Math.round(ca / ventes) : 0,

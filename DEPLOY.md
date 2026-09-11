@@ -210,3 +210,32 @@ publish `dist`). Variables du site :
 Connexion avec le compte patron → Paramètres : compléter logo, téléphones et
 mentions du ticket → un ticket test → une étiquette test → `verifier:lot-e`
 sur la base `hervan` (lecture seule) : 0 point bloquant.
+
+## Ouvrir une boutique d'un AUTRE type — snack-bar, restaurant, hôtel (11/09/2026)
+
+Un profil métier n'est pas un autre logiciel : c'est **le même code** avec un
+`typeEtablissement` et ses préréglages (CAMELEON-GAMME.md §2). Deux chemins.
+
+**Boutique isolée, mode single** (comme HERVAN) : même procédure que ci-dessus,
+avec le type au moment de l'ouverture :
+
+```bash
+npm run init:boutique -- --base=<base> --identite=<identite> --type=snack \
+  --patron-nom="…" --patron-email=… --patron-mdp="…" --caisses="C01:Comptoir:1234"
+```
+
+Le script pose `typeEtablissement`, les modules du profil et ses règles métier
+dans `Settings`. Types admis : `commerce` (défaut), `snack`, `restaurant`,
+`hotel`. L'accueil du caissier suit le profil dès que l'écran du profil existe.
+
+**Tenant du service Caméléon, mode multi** : depuis « Boutiques & licences »
+(superadmin), « Nouvelle boutique » avec le type dans le formulaire — ou en
+acceptant une demande d'ouverture qui porte déjà le type choisi par le patron.
+La boutique naît avec sa licence d'un an et ses préréglages.
+
+**Changer le type d'une boutique existante** : « Boutiques & licences »,
+sélecteur « Type » sur la ligne. La boîte de dialogue demande si le
+préréglage (modules, règles) doit remplacer les choix actuels du patron ;
+« Annuler » ne change que le type. L'opération est **journalisée** (Audit &
+logs, module plateforme : « Type de « X » : commerce → snack »). Le patron,
+lui, voit son type en lecture seule dans Paramètres.

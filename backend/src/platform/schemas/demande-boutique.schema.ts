@@ -37,6 +37,10 @@ export class DemandeBoutique {
   @Prop({ type: Object, required: true })
   patron: { nom: string; email: string; motDePasseHash: string };
 
+  /** Profil métier souhaité (gamme Caméléon) ; défaut commerce. */
+  @Prop({ default: 'commerce' })
+  typeEtablissement: string;
+
   /** Numéro où le revendeur rappelle le demandeur. */
   @Prop({ default: '' })
   telephone: string;

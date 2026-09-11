@@ -54,14 +54,22 @@ export class SalesService {
 
     // ── 1. Vérification stock AVANT toute écriture ────────────────────────────
     // Les articles « divers » (non référencés) n'ont pas de produit → on les ignore.
-    const realItems = dto.items.filter(i => !i.divers && i.product);
-    const productIds = realItems.map(i => new Types.ObjectId(i.product!));
+    const itemsReferences = dto.items.filter(i => !i.divers && i.product);
+    const productIds = itemsReferences.map(i => new Types.ObjectId(i.product!));
     const products   = await this.productModel
       .find({ _id: { $in: productIds } })
       .lean();
 
     const productMap = new Map(products.map(p => [String(p._id), p]));
     const stockErrors: string[] = [];
+
+    // Produits à stock NON suivi (plat, nuitée — gamme Caméléon) : traités
+    // comme des « divers » pour le stock, mais le produit reste sur la ligne
+    // (marge). Un produit introuvable reste une erreur, comme avant.
+    const realItems = itemsReferences.filter(i => {
+      const p = productMap.get(i.product!);
+      return !p || (p as any).stockSuivi !== false;
+    });
 
     for (const item of realItems) {
       const p = productMap.get(item.product!);
@@ -310,6 +318,7 @@ export class SalesService {
       if (delta === 0) continue;
       const p = parId.get(pid);
       if (!p) { erreurs.push(`Produit introuvable dans le catalogue (${pid})`); continue; }
+      if ((p as any).stockSuivi === false) continue;   // stock non suivi : rien à bouger
       if (delta > 0 && p.stock < delta) {
         erreurs.push(
           `Stock insuffisant pour "${nomProduit(p.name)}" : disponible ${p.stock}, il en faut ${delta} de plus`,
@@ -385,8 +394,14 @@ export class SalesService {
 
     this.verifierFenetre(sale);
 
+    const produitsVente = await this.productModel
+      .find({ _id: { $in: sale.items.filter(i => !i.divers && i.product).map(i => i.product) } })
+      .lean();
+    const stockNonSuivi = new Set(produitsVente.filter(p => (p as any).stockSuivi === false).map(p => String(p._id)));
+
     for (const item of sale.items) {
       if (item.divers || !item.product) continue; // les articles divers n'ont pas de stock
+      if (stockNonSuivi.has(String(item.product))) continue; // stock non suivi : rien à restituer
       await this.productModel.findByIdAndUpdate(item.product, { $inc: { stock: item.quantity } });
       await this.movementModel.create({
         productId: item.product,

@@ -1,10 +1,13 @@
 import { authHeaders } from './http';
 import { t } from '../i18n';
+import type { TypeEtablissement } from './settings';
 
 /** Une boutique du périmètre du propriétaire. */
 export interface BoutiqueProprietaire {
   boutiqueId: string;
   nom: string;
+  /** Absent sur un serveur antérieur au socle : commerce. */
+  typeEtablissement?: TypeEtablissement;
 }
 
 export interface LigneConsolidee extends BoutiqueProprietaire {
@@ -17,7 +20,11 @@ export interface RapportConsolide {
   debut: string;
   fin: string;
   boutiques: LigneConsolidee[];
-  total: { ca: number; ventes: number; panierMoyen: number };
+  total: {
+    ca: number; ventes: number; panierMoyen: number;
+    /** Sous-totaux par type d'établissement (absent sur un serveur antérieur au socle). */
+    parType?: Record<string, { ca: number; ventes: number; boutiques: number }>;
+  };
 }
 
 /**

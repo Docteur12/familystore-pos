@@ -1,5 +1,6 @@
 import { authHeaders } from './http';
 import { t } from '../i18n';
+import type { TypeEtablissement } from './settings';
 
 /**
  * Back-office plateforme — réservé au superadmin (le revendeur).
@@ -37,6 +38,8 @@ export interface BoutiquePlateforme {
   ville: string;
   tenantId: string;
   statut: 'active' | 'suspendue';
+  /** Absent sur un serveur antérieur au socle : commerce. */
+  typeEtablissement?: TypeEtablissement;
   proprietaire: { nom: string; email: string } | null;
   licence: LicenceBoutique | null;
 }
@@ -63,6 +66,7 @@ export interface Reglement {
 export interface DemandeNouvelleBoutique {
   nom: string;
   ville?: string;
+  typeEtablissement?: TypeEtablissement;
   proprietaire: { email: string; nom?: string; telephone?: string };
   patron: { nom: string; email: string; motDePasse: string };
 }
@@ -95,6 +99,18 @@ export async function prolongerLicence(boutiqueId: string, reglement: Reglement)
   return res.json();
 }
 
+/**
+ * Change le type d'une boutique (superadmin, journalisé). Avec
+ * `appliquerPrereglage`, modules et règles métier suivent le nouveau type.
+ */
+export async function changerTypeBoutique(boutiqueId: string, type: TypeEtablissement, appliquerPrereglage: boolean) {
+  const res = await fetch(`/api/platform/boutiques/${encodeURIComponent(boutiqueId)}/type`, {
+    method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ type, appliquerPrereglage }),
+  });
+  if (!res.ok) return lire(res);
+  return res.json();
+}
+
 export async function changerStatutBoutique(boutiqueId: string, statut: 'active' | 'suspendue') {
   const res = await fetch(`/api/platform/boutiques/${encodeURIComponent(boutiqueId)}/statut`, {
     method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ statut }),
@@ -121,6 +137,8 @@ export interface DemandeBoutique {
   patron: { nom: string; email: string };
   telephone: string;
   message: string;
+  /** Absent sur un serveur antérieur au socle : commerce. */
+  typeEtablissement?: TypeEtablissement;
   statut: StatutDemande;
   traiteeLe: string | null;
   traiteePar: string;

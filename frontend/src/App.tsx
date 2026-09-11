@@ -51,6 +51,18 @@ import StocksFactures    from './pages/StocksFactures';
 import Partenaires       from './pages/Partenaires';
 import PartenairesAgencesMaquette from './pages/PartenairesAgencesMaquette';
 import { getTokenPayload } from './api/dashboard';
+import { typeEtablissement } from './api/settings';
+import { accueilCaissier } from './api/profils';
+
+/**
+ * Accueils de profil DÉJÀ branchés dans les routes ci-dessous. Une branche
+ * verticale ajoute le sien en même temps que sa route (fichier partagé, ajout
+ * seulement). Tant qu'il n'y est pas, un caissier de ce type retombe sur la
+ * caisse commerce plutôt que sur une page blanche.
+ */
+const ACCUEILS_IMPLEMENTES: ReadonlySet<string> = new Set([
+  '/caisse-pin',
+]);
 
 // ── Sécurité machine partagée : pas de reprise automatique de session ────────
 // À chaque OUVERTURE de l'application (machine fermée puis rouverte), la
@@ -145,6 +157,7 @@ function RequireRole({ role, children }: { role: string | string[]; children: Re
 
 function HomeRedirect() {
   const payload = getTokenPayload();
+  const { settings } = useSettings();
   const role = payload?.role;
   // Le superadmin (revendeur) n'a pas de boutique à lui : son accueil est le
   // registre des boutiques et de leurs licences.
@@ -153,7 +166,9 @@ function HomeRedirect() {
   if (role === 'gestionnaire') return <Navigate to="/stocks/dashboard" replace />;
   if (role === 'magazinier')   return <Navigate to="/magazinier" replace />;
   if (role === 'commercial')   return <Navigate to="/partenaires" replace />;
-  return <Navigate to="/caisse-pin" replace />;
+  // Caissier : le poste de vente du PROFIL (comptoir, salle, réception) — la
+  // caisse commerce pour un commerce, ou tant que la route du profil n'existe pas.
+  return <Navigate to={accueilCaissier(typeEtablissement(settings), ACCUEILS_IMPLEMENTES)} replace />;
 }
 
 export default function App() {

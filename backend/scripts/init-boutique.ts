@@ -27,6 +27,7 @@ import * as bcrypt from 'bcryptjs';
 import { DEFAULT_TENANT_ID } from '../src/tenancy/tenant-context';
 import { deriverPin, nouveauSelPin } from '../src/config/pin';
 import { IDENTITES } from './migrate-settings-identite';
+import { estTypeEtablissement, prereglage } from '../src/settings/profils';
 
 /** Bases de clients EN PRODUCTION : jamais une « boutique neuve ». */
 export const BASES_PROTEGEES = ['familystore', 'radiance'];
@@ -47,6 +48,8 @@ export interface CaisseInit { nom: string; code: string; pin: string; ville?: st
 
 export interface OptionsInit {
   identite: string;
+  /** Profil métier de la gamme (défaut : celui de l'identité, sinon commerce). */
+  type?: string;
   patron: { nom: string; email: string; motDePasse: string };
   caisses: CaisseInit[];
   categories?: Record<string, string[]>;
@@ -67,6 +70,7 @@ const TENANT = DEFAULT_TENANT_ID;
 
 export function validerOptions(o: OptionsInit): void {
   if (!IDENTITES[o.identite]) throw new Error(`Identité inconnue « ${o.identite} » — attendu : ${Object.keys(IDENTITES).join(' | ')}`);
+  if (o.type !== undefined && !estTypeEtablissement(o.type)) throw new Error(`Type d'établissement inconnu « ${o.type} » — attendu : commerce | snack | restaurant | hotel`);
   if (!o.patron.nom.trim()) throw new Error('Nom du patron manquant.');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(o.patron.email)) throw new Error(`E-mail du patron invalide : « ${o.patron.email} »`);
   // Le compte patron ouvre TOUT le magasin : pas de mot de passe court.
@@ -103,7 +107,13 @@ export async function initialiserBoutique(db: Db, o: OptionsInit): Promise<Rappo
     // Le logo voyage en data URL (Settings.logoUrl accepte « base64 ou URL ») :
     // pas de stockage de fichiers à mettre en place pour ouvrir une boutique.
     const logo = o.logoPng ? { logoUrl: `data:image/png;base64,${o.logoPng.toString('base64')}` } : {};
-    if (o.execute) await settings.insertOne({ tenant: TENANT, ...identite, ...logo, createdAt: maintenant, updatedAt: maintenant });
+    // Le type demandé l'emporte sur celui de l'identité ; avec un type autre
+    // que commerce, modules et règles métier suivent le préréglage du profil.
+    const type = o.type ?? (identite.typeEtablissement as string | undefined) ?? 'commerce';
+    const profil = estTypeEtablissement(type) && type !== 'commerce'
+      ? prereglage(type, (identite.metier as Record<string, unknown>) ?? {})
+      : { typeEtablissement: type };
+    if (o.execute) await settings.insertOne({ tenant: TENANT, ...identite, ...profil, ...logo, createdAt: maintenant, updatedAt: maintenant });
   }
 
   // 2. Patron — e-mail unique par tenant (index composite du schéma User).
@@ -184,6 +194,7 @@ async function main() {
   }
   const options: OptionsInit = {
     identite: arg('identite') ?? 'hervan',
+    type: arg('type'),
     patron: { nom: arg('patron-nom') ?? '', email: arg('patron-email') ?? '', motDePasse: arg('patron-mdp') ?? '' },
     caisses: parserCaisses(arg('caisses') ?? ''),
     logoPng,

@@ -1,6 +1,7 @@
 import { authHeaders } from './http';
 import { t } from '../i18n';
 import type { DemandeBoutique } from './plateforme';
+import type { TypeEtablissement } from './settings';
 
 /**
  * Demandes d'ouverture de boutique — côté patron, mode manuel.
@@ -15,6 +16,7 @@ export interface NouvelleDemande {
   patron: { nom: string; email: string; motDePasse: string };
   telephone?: string;
   message?: string;
+  typeEtablissement?: TypeEtablissement;
 }
 
 async function lire(res: Response): Promise<never> {

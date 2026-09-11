@@ -29,6 +29,7 @@ export class SettingsPublicController {
     const s: any = await this.settingsService.get();
     return {
       mode:              'single' as const,
+      typeEtablissement: s.typeEtablissement ?? 'commerce',
       nomMagasin:        s.nomMagasin,
       logoUrl:           s.logoUrl,
       couleurPrincipale: s.couleurPrincipale,

@@ -20,6 +20,7 @@ import { getEtatLicence, EtatLicence } from '../api/licence';
 import { demanderOuverture, mesDemandes } from '../api/demandesBoutique';
 import type { DemandeBoutique } from '../api/plateforme';
 import { etiquetteDemande, trierDemandes } from '../utils/plateforme';
+import { TYPES_ETABLISSEMENT, TypeEtablissement } from '../api/settings';
 import { t, dateLocale } from '../i18n';
 
 const SONDAGE_MS = 4000;
@@ -244,6 +245,7 @@ function DemandeOuverture({ contact, champ, etiquette }: {
   contact?: string; champ: React.CSSProperties; etiquette: React.CSSProperties;
 }) {
   const [f, setF] = useState({ nom: '', ville: 'Douala', patronNom: '', patronEmail: '', motDePasse: '', telephone: '', message: '' });
+  const [type, setType] = useState<TypeEtablissement>('commerce');
   const [demandes, setDemandes] = useState<DemandeBoutique[]>([]);
   const [erreur, setErreur] = useState('');
   const [succes, setSucces] = useState('');
@@ -262,7 +264,7 @@ function DemandeOuverture({ contact, champ, etiquette }: {
     setEnvoi(true);
     try {
       await demanderOuverture({
-        nom: f.nom.trim(), ville: f.ville.trim(),
+        nom: f.nom.trim(), ville: f.ville.trim(), typeEtablissement: type,
         patron: { nom: f.patronNom.trim(), email: f.patronEmail.trim(), motDePasse: f.motDePasse },
         telephone: f.telephone.trim(), message: f.message.trim(),
       });
@@ -297,6 +299,12 @@ function DemandeOuverture({ contact, champ, etiquette }: {
       <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div><label style={etiquette}>{t('Nom de la boutique', 'Store name')}</label><input value={f.nom} onChange={maj('nom')} style={champ} placeholder={t('Ex. Bonamoussadi', 'e.g. Bonamoussadi')}/></div>
         <div><label style={etiquette}>{t('Ville', 'City')}</label><input value={f.ville} onChange={maj('ville')} style={champ}/></div>
+        <div>
+          <label style={etiquette}>{t('Type d’établissement', 'Business type')}</label>
+          <select value={type} onChange={e => setType(e.target.value as TypeEtablissement)} style={champ}>
+            {TYPES_ETABLISSEMENT.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
+          </select>
+        </div>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '4px 0 0' }}>{t('Responsable de la boutique', 'Store manager')}</p>
         <div><label style={etiquette}>{t('Nom complet', 'Full name')}</label><input value={f.patronNom} onChange={maj('patronNom')} style={champ}/></div>
         <div><label style={etiquette}>{t('Adresse e-mail', 'Email address')}</label><input type="email" value={f.patronEmail} onChange={maj('patronEmail')} style={champ}/></div>

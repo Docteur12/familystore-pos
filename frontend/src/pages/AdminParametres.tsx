@@ -4,7 +4,7 @@ import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import { updateUser } from '../api/auth';
 import { getTokenPayload } from '../api/dashboard';
-import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings, applyPrimaryColor, applySecondaryColor, OffreFacture, OFFRE_DEFAULTS, MODULES_DISPONIBLES, ModuleId, MODULE_AUCUN, METIER_DEFAULTS } from '../api/settings';
+import { getSettings, updateSettings, SETTINGS_DEFAULTS, StoreSettings, applyPrimaryColor, applySecondaryColor, OffreFacture, OFFRE_DEFAULTS, MODULES_DISPONIBLES, ModuleId, MODULE_AUCUN, METIER_DEFAULTS, typeEtablissement, libelleType } from '../api/settings';
 import { useSettings } from '../contexts/SettingsContext';
 import { getPendingSales, getLastSyncTime, syncPendingSales } from '../services/offlineSync';
 import { getPrintSettings, savePrintSettings, PrintSettings } from '../components/ReceiptPrint';
@@ -372,11 +372,14 @@ export default function AdminParametres() {
 
   // ── Settings form ────────────────────────────────────────────────────────
   const [form, setForm]       = useState<SForm>(toSForm(SETTINGS_DEFAULTS));
+  // Type d'établissement : lecture seule ici — il se change depuis le
+  // back-office plateforme (superadmin), et c'est journalisé.
+  const [typeMagasin, setTypeMagasin] = useState<string>('commerce');
   const [sLoading, setSLoading] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    getSettings().then(s => setForm(toSForm(s))).catch(() => {});
+    getSettings().then(s => { setForm(toSForm(s)); setTypeMagasin(typeEtablissement(s)); }).catch(() => {});
   }, []);
 
   // useCallback pour chaque champ — évite les re-renders et closures périmées
@@ -690,6 +693,10 @@ export default function AdminParametres() {
           {/* ── Modules & règles métier ──────────────────────────────────── */}
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '20px', marginBottom: 16, boxShadow: 'var(--fs-shadow-sm)' }}>
             <p style={SECTION_TITLE}>{t('Modules et règles métier', 'Modules and business rules')}</p>
+            <p style={{ fontSize: 12.5, color: 'var(--fs-ink-500)', margin: '0 0 12px', lineHeight: 1.6 }}>
+              {t('Type d’établissement :', 'Business type:')} <strong>{libelleType(typeMagasin as never)}</strong>
+              {' — '}{t('défini par votre revendeur, contactez-le pour le changer.', 'set by your reseller; contact them to change it.')}
+            </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {MODULES_DISPONIBLES.map(m => (
                 <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, cursor: 'pointer' }}>

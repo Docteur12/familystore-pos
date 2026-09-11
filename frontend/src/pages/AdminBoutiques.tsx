@@ -15,9 +15,10 @@ import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import {
   listerBoutiques, prolongerLicence, changerStatutBoutique, paiementsBoutique, creerBoutique,
-  listerDemandes, accepterDemande, refuserDemande,
+  listerDemandes, accepterDemande, refuserDemande, changerTypeBoutique,
   BoutiquePlateforme, PaiementPlateforme, MoyenReglement, MOYENS_REGLEMENT, Reglement, DemandeBoutique,
 } from '../api/plateforme';
+import { TYPES_ETABLISSEMENT, TypeEtablissement, libelleType } from '../api/settings';
 import { etiquetteLicence, trierBoutiques, libelleMoyen, montantLisible, trierDemandes, etiquetteDemande } from '../utils/plateforme';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { t, dateLocale } from '../i18n';
@@ -130,6 +131,7 @@ function ModaleReglement({ cible, onFerme, onFait }: {
 
 function FormulaireBoutique({ onFerme, onFait }: { onFerme: () => void; onFait: (message: string) => void }) {
   const [f, setF] = useState({ nom: '', ville: 'Douala', proprioEmail: '', proprioNom: '', proprioTel: '', patronNom: '', patronEmail: '', motDePasse: '' });
+  const [type, setType] = useState<TypeEtablissement>('commerce');
   const [erreur, setErreur] = useState('');
   const [envoi, setEnvoi] = useState(false);
   const maj = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF(prev => ({ ...prev, [k]: e.target.value }));
@@ -142,7 +144,7 @@ function FormulaireBoutique({ onFerme, onFait }: { onFerme: () => void; onFait: 
     setEnvoi(true); setErreur('');
     try {
       await creerBoutique({
-        nom: f.nom.trim(), ville: f.ville.trim(),
+        nom: f.nom.trim(), ville: f.ville.trim(), typeEtablissement: type,
         proprietaire: { email: f.proprioEmail.trim(), nom: f.proprioNom.trim() || undefined, telephone: f.proprioTel.trim() || undefined },
         patron: { nom: f.patronNom.trim(), email: f.patronEmail.trim(), motDePasse: f.motDePasse },
       });
@@ -163,6 +165,12 @@ function FormulaireBoutique({ onFerme, onFait }: { onFerme: () => void; onFait: 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
         <div><label style={ETIQUETTE}>{t('Nom de la boutique', 'Store name')}</label><input value={f.nom} onChange={maj('nom')} style={CHAMP}/></div>
         <div><label style={ETIQUETTE}>{t('Ville', 'City')}</label><input value={f.ville} onChange={maj('ville')} style={CHAMP}/></div>
+        <div>
+          <label style={ETIQUETTE}>{t('Type d’établissement', 'Business type')}</label>
+          <select value={type} onChange={e => setType(e.target.value as TypeEtablissement)} style={CHAMP}>
+            {TYPES_ETABLISSEMENT.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
+          </select>
+        </div>
       </div>
       <p style={{ ...ETIQUETTE, color: 'var(--fs-wine-700)', margin: '4px 0 0' }}>{t('Propriétaire (clé maîtresse de ses boutiques)', 'Owner (master key to their stores)')}</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
@@ -295,6 +303,19 @@ export default function AdminBoutiques() {
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
   };
 
+  const changerType = async (b: BoutiquePlateforme, type: TypeEtablissement) => {
+    if (type === b.typeEtablissement) return;
+    const appliquer = window.confirm(t(
+      `Passer « ${b.nom} » en ${libelleType(type)}.\n\nOK : appliquer aussi les modules et règles du profil (remplace les choix actuels du patron).\nAnnuler : changer le type seulement.`,
+      `Switch "${b.nom}" to ${libelleType(type)}.\n\nOK: also apply the profile's modules and rules (replaces the manager's current choices).\nCancel: change the type only.`,
+    ));
+    try {
+      await changerTypeBoutique(b.id, type, appliquer);
+      addToast(t(`Type de « ${b.nom} » : ${libelleType(type)}${appliquer ? ' — préréglage appliqué' : ''}.`, `"${b.nom}" type: ${libelleType(type)}${appliquer ? ' — preset applied' : ''}.`), 'success');
+      await charger();
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
+  };
+
   const demandesATraiter = demandes.filter(d => d.statut === 'en_attente').length;
   const aRappeler = boutiques.filter(b => b.licence && (b.licence.expiree || b.licence.joursRestants <= 14)).length;
 
@@ -351,7 +372,7 @@ export default function AdminBoutiques() {
                         <tr key={d.id} style={{ opacity: d.statut === 'en_attente' ? 1 : 0.7 }}>
                           <td style={TD}>
                             <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)' }}>{d.nom}</div>
-                            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{d.ville}{d.message ? ` · ${d.message}` : ''}</div>
+                            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{d.ville} · {libelleType(d.typeEtablissement ?? 'commerce')}{d.message ? ` · ${d.message}` : ''}</div>
                           </td>
                           <td style={TD}>
                             <div>{d.proprietaire.nom}</div>
@@ -385,15 +406,16 @@ export default function AdminBoutiques() {
               <thead><tr>
                 <th style={TH}>{t('Boutique', 'Store')}</th>
                 <th style={TH}>{t('Propriétaire', 'Owner')}</th>
+                <th style={TH}>{t('Type', 'Type')}</th>
                 <th style={TH}>{t('Statut', 'Status')}</th>
                 <th style={TH}>{t('Échéance', 'Expiry')}</th>
                 <th style={TH}>{t('Licence', 'Licence')}</th>
                 <th style={{ ...TH, textAlign: 'right' }}>{t('Actions', 'Actions')}</th>
               </tr></thead>
               <tbody>
-                {chargement && <tr><td colSpan={6} style={{ ...TD, textAlign: 'center', color: 'var(--fs-ink-400)' }}>{t('Chargement…', 'Loading…')}</td></tr>}
+                {chargement && <tr><td colSpan={7} style={{ ...TD, textAlign: 'center', color: 'var(--fs-ink-400)' }}>{t('Chargement…', 'Loading…')}</td></tr>}
                 {!chargement && boutiques.length === 0 && (
-                  <tr><td colSpan={6} style={{ ...TD, textAlign: 'center', color: 'var(--fs-ink-400)' }}>{t('Aucune boutique au registre.', 'No store registered.')}</td></tr>
+                  <tr><td colSpan={7} style={{ ...TD, textAlign: 'center', color: 'var(--fs-ink-400)' }}>{t('Aucune boutique au registre.', 'No store registered.')}</td></tr>
                 )}
                 {boutiques.map(b => {
                   const etiq = etiquetteLicence(b.licence);
@@ -408,6 +430,13 @@ export default function AdminBoutiques() {
                         </td>
                         <td style={TD}>
                           {b.proprietaire ? <><div>{b.proprietaire.nom}</div><div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{b.proprietaire.email}</div></> : '—'}
+                        </td>
+                        <td style={TD}>
+                          {/* Le type se change ici, et seulement ici : décision du revendeur, journalisée. */}
+                          <select value={b.typeEtablissement ?? 'commerce'} onChange={e => changerType(b, e.target.value as TypeEtablissement)}
+                            style={{ ...CHAMP, width: 'auto', padding: '5px 8px', fontSize: 12 }} title={t('Changer le type (journalisé)', 'Change type (logged)')}>
+                            {TYPES_ETABLISSEMENT.map(x => <option key={x.id} value={x.id}>{x.id}</option>)}
+                          </select>
                         </td>
                         <td style={TD}>
                           <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: b.statut === 'active' ? '#E6F4EA' : '#EEE', color: b.statut === 'active' ? '#1E6B3A' : '#555' }}>
@@ -429,7 +458,7 @@ export default function AdminBoutiques() {
                         </td>
                       </tr>
                       {ouvert && (
-                        <tr><td colSpan={6} style={{ ...TD, background: 'var(--fs-ivory)' }}><Historique boutiqueId={b.id}/></td></tr>
+                        <tr><td colSpan={7} style={{ ...TD, background: 'var(--fs-ivory)' }}><Historique boutiqueId={b.id}/></td></tr>
                       )}
                     </React.Fragment>
                   );

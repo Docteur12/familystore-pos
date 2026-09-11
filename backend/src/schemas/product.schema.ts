@@ -48,6 +48,17 @@ export class Product {
   @Prop({ default: 0, min: 0, max: 100 })
   discount: number;
 
+  /**
+   * Le stock de ce produit est-il suivi ? (gamme Caméléon — CAMELEON-GAMME.md §2.3)
+   *
+   * `false` pour un plat, une nuitée, une boisson au verre : la vente ne
+   * vérifie ni ne décrémente `stock`, n'écrit aucun mouvement — comme une
+   * ligne « divers » — mais garde `product`, donc `costPrice`, donc la marge.
+   * Défaut `true` : aucun produit existant ne change de comportement.
+   */
+  @Prop({ default: true })
+  stockSuivi: boolean;
+
   @Prop({ default: 0 })
   stockMagazin: number;  // stock entrepôt (magasinier) — indépendant du stock caisse
 

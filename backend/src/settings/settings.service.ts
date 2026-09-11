@@ -28,6 +28,13 @@ export class SettingsService {
         'Le nom du magasin est obligatoire : il figure sur tous les tickets.',
       );
     }
+    // Le type d'établissement est une décision du revendeur (superadmin),
+    // journalisée côté plateforme — jamais un réglage du patron.
+    if ('typeEtablissement' in data) {
+      throw new BadRequestException(
+        "Le type d'établissement se change depuis le back-office plateforme.",
+      );
+    }
 
     const doc = await this.settingsModel.findOneAndUpdate(
       {},

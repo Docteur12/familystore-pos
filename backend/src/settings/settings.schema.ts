@@ -3,6 +3,17 @@ import { HydratedDocument } from 'mongoose';
 
 export type SettingsDocument = HydratedDocument<Settings>;
 
+/**
+ * Types d'établissement de la gamme Caméléon.
+ *
+ * Miroir de frontend/src/api/settings.ts (TYPES_ETABLISSEMENT) — verrouillé
+ * par types-etablissement-governance.spec.ts. Un profil = un jeu de modules
+ * préréglés (settings/profils.ts), un écran d'accueil pour le caissier, un
+ * vocabulaire. Jamais un fork.
+ */
+export const TYPES_ETABLISSEMENT = ['commerce', 'snack', 'restaurant', 'hotel'] as const;
+export type TypeEtablissement = (typeof TYPES_ETABLISSEMENT)[number];
+
 @Schema({ timestamps: true })
 export class Settings {
   /**
@@ -97,6 +108,16 @@ export class Settings {
   @Prop({ type: [String], default: [] })
   telephonesTicket: string[];  // numéros imprimés sur le ticket (2-3 max)
 
+  // ── Profil métier (gamme Caméléon) ───────────────────────────────────────
+  // SOURCE DE VÉRITÉ du type d'établissement : ici, par tenant — et non sur la
+  // Boutique du registre, que les clients en mode single n'ont pas. Défaut
+  // « commerce » : les documents antérieurs (Family Store, Radiance, HERVAN)
+  // ne changent pas de comportement. Modifiable par le superadmin seulement
+  // (PATCH /platform/boutiques/:id/type, journalisé) ; PATCH /settings le refuse.
+  // Voir CAMELEON-GAMME.md §2.2 et settings/profils.ts pour les préréglages.
+  @Prop({ default: 'commerce', enum: TYPES_ETABLISSEMENT })
+  typeEtablissement: TypeEtablissement;
+
   // ── Modules optionnels ───────────────────────────────────────────────────
   // Modules activés pour ce magasin (voir MODULES_DISPONIBLES). Un module
   // absent n'apparaît ni dans les menus ni dans les routes du frontend.
@@ -136,7 +157,17 @@ export class Settings {
 
 export const SettingsSchema = SchemaFactory.createForClass(Settings);
 
-/** Modules pouvant être désactivés par magasin (frontend : menus + routes). */
-// Miroir de frontend/src/api/settings.ts (MODULES_DISPONIBLES) — meme liste d'identifiants.
-export const MODULES_DISPONIBLES = ['partenaires', 'factures-fournisseurs'] as const;
+/**
+ * Modules pouvant être désactivés par magasin (frontend : menus + routes).
+ *
+ * Miroir de frontend/src/api/settings.ts (MODULES_DISPONIBLES) — meme liste
+ * d'identifiants, verrouillé par modules-governance.spec.ts.
+ *
+ * `comptoir`, `salle`, `reception` sont les modules des profils Snack-bar,
+ * Restaurant et Hôtel de la gamme Caméléon. Ils sont déclarés ICI, par le
+ * socle, pour que les branches verticales n'aient pas à toucher ce miroir
+ * (CAMELEON-GAMME.md §2.2). Tant qu'aucun écran ne les référence, un module
+ * déclaré n'affiche rien.
+ */
+export const MODULES_DISPONIBLES = ['partenaires', 'factures-fournisseurs', 'comptoir', 'salle', 'reception'] as const;
 export type ModuleId = (typeof MODULES_DISPONIBLES)[number];

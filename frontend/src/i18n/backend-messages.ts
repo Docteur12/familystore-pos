@@ -24,6 +24,7 @@ const EXACT: Record<string, string> = {
   "L'e-mail du patron est obligatoire":                   'The manager’s email is required',
   'Le mot de passe du patron doit compter au moins 8 caractères': 'The manager’s password must be at least 8 characters long',
   'Le motif du refus est obligatoire':                    'A reason for the refusal is required',
+  "Le type d'établissement se change depuis le back-office plateforme.": 'The business type is changed from the platform back-office.',
   'Montant de règlement invalide':                        'Invalid payment amount',
   'Un règlement à 0 FCFA doit être expliqué dans la note': 'A zero payment must be explained in the note',
   'Caisse introuvable':                                   'Cash register not found',
@@ -99,6 +100,7 @@ const PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
     m => `Online payment is not offered. To renew, contact your reseller on ${m[1]}: the licence is activated as soon as payment is received.`],
   [/^Moyen de règlement invalide : « (.+) »$/,                  m => `Invalid payment method: "${m[1]}"`],
   [/^Statut inconnu : « (.+) »$/,                               m => `Unknown status: "${m[1]}"`],
+  [/^Type d'établissement inconnu : « (.+) »$/,                  m => `Unknown business type: "${m[1]}"`],
 ];
 
 export function translateBackendMessage(msg: string): string {

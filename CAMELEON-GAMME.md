@@ -476,6 +476,23 @@ Critère de fin : `git diff --stat` du socle ne touche **aucun fichier
 `*.spec.ts` existant** ; 295 + 120 tests passent ; les nouveaux tests couvrent
 type, profils, `stockSuivi`, vocabulaire, consolidé mixte.
 
+### 2.8 État du socle — livré le 11/09/2026
+
+| Bloc | Où |
+|---|---|
+| S0 | `.github/workflows/ci.yml` (tests frontend, job Périmètre), `cameleon-perimetres.json`, `backend/scripts/verifier-perimetre.ts` (`npm run verifier:perimetre`) |
+| S1 | `Settings.typeEtablissement` (+ `TYPES_ETABLISSEMENT`), copie sur `Boutique`, `PATCH /platform/boutiques/:id/type` journalisé, `PATCH /settings` le refuse, `init:boutique --type=`, formulaire et sélecteur dans `AdminBoutiques.tsx`, lecture seule dans `AdminParametres.tsx`, type sur les demandes d'ouverture |
+| S2 | `backend/src/settings/profils.ts` ↔ `frontend/src/api/profils.ts` (miroir gouverné), `MODULES_DISPONIBLES` + `comptoir`/`salle`/`reception`, `Product.stockSuivi` (create, correction, annulation), `HomeRedirect` par profil avec `ACCUEILS_IMPLEMENTES` dans `App.tsx` |
+| S3 | `frontend/src/i18n/vocabulaire.ts` — `v(terme, type)`, `V()` |
+| S4 | `GET /consolide/boutiques` et `/rapport` portent le type et `total.parType` ; `utils/consolide.ts` (sous-totaux, pictogramme du sélecteur) |
+| S5 | `DEPLOY.md` « Ouvrir une boutique d'un AUTRE type », ce tableau |
+
+**Signal donné** : `cameleon-perimetres.json › socleMerge: true` dans le
+commit du socle. Les branches verticales rebasent sur `integration/cameleon`,
+puis peuvent ajouter dans les `partages`. Pour brancher l'accueil d'un
+profil : la route dans `App.tsx` **et** son chemin dans `ACCUEILS_IMPLEMENTES`,
+dans le même commit.
+
 ---
 
 ## 3. Discipline de travail — chaque session verticale

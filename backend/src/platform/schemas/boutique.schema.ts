@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
+import { TYPES_ETABLISSEMENT, TypeEtablissement } from '../../settings/settings.schema';
 
 export type BoutiqueDocument = HydratedDocument<Boutique>;
 
@@ -33,6 +34,14 @@ export class Boutique {
    */
   @Prop({ default: 'active', enum: ['active', 'suspendue'] })
   statut: string;
+
+  /**
+   * COPIE du type d'établissement, pour la liste du back-office. La source de
+   * vérité est `Settings.typeEtablissement` dans le tenant (les boutiques en
+   * mode single n'ont pas de document Boutique). En cas d'écart, Settings gagne.
+   */
+  @Prop({ default: 'commerce', enum: TYPES_ETABLISSEMENT })
+  typeEtablissement: TypeEtablissement;
 }
 
 export const BoutiqueSchema = SchemaFactory.createForClass(Boutique);

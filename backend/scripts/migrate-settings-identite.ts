@@ -31,6 +31,7 @@ export const IDENTITES: Record<string, Record<string, unknown>> = {
     adresse:          'Bonamoussadi',
     ville:            'Douala',
     couleurSecondaire:'#B8893E',
+    typeEtablissement: 'commerce',
     modules:          ['partenaires'],
     metier:           { inactiviteMinutes: 10, seedFournisseursDemo: true },
   },
@@ -47,6 +48,7 @@ export const IDENTITES: Record<string, Record<string, unknown>> = {
     ville:            'Douala',
     couleurPrincipale:'#221C1A',
     couleurSecondaire:'#C9A24A',
+    typeEtablissement: 'commerce',
     modules:          ['aucun'],
     metier:           { inactiviteMinutes: 30, seedFournisseursDemo: false },
   },
@@ -66,6 +68,7 @@ export const IDENTITES: Record<string, Record<string, unknown>> = {
     couleurSecondaire:'#C9A24A',
     // Module OCR des factures fournisseurs activé (demande prioritaire du
     // cahier des charges) ; pas de Partenaires.
+    typeEtablissement: 'commerce',
     modules:          ['factures-fournisseurs'],
     // Vêtements : pas de dates de péremption (sinon tout le catalogue
     // remonterait en alerte « péremption proche » au bout de six mois).

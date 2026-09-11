@@ -1,6 +1,6 @@
 {
   "$commentaire": "Périmètres des sessions parallèles de la gamme Caméléon (voir CAMELEON-GAMME.md §2.1 et §5). Vérifié par `npm run verifier:perimetre -- --profil=<profil>` (backend/scripts/verifier-perimetre.ts) et par le job CI « Périmètre ». Tant que socleMerge vaut false, une branche feat/cameleon-<profil> ne modifie que ses fichiers `propres`. Après le signal (socleMerge: true, posé par la référente au merge du socle), elle peut AJOUTER dans les `partages` — jamais retirer une ligne. Tout autre fichier est interdit. Les *.spec.ts existant au merge-base ne changent jamais (Commerce intact).",
-  "socleMerge": false,
+  "socleMerge": true,
   "base": "integration/cameleon",
   "partages": [
     "frontend/src/App.tsx",

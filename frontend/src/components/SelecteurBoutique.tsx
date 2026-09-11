@@ -5,6 +5,7 @@ import { basculerVersBoutique } from '../services/session';
 import { filesEnAttente, messagePerteFiles } from '../services/session';
 import { boutiqueActive } from '../services/storage';
 import { t } from '../i18n';
+import { pictoType } from '../utils/consolide';
 
 /**
  * Sélecteur de boutique du propriétaire.
@@ -117,7 +118,7 @@ export default function SelecteurBoutique({ compact = false }: { compact?: boole
                 fontWeight: b.boutiqueId === active ? 700 : 500,
               }}
             >
-              {b.nom}{b.boutiqueId === active ? ` — ${t('actuelle', 'current')}` : ''}
+              {pictoType(b.typeEtablissement, boutiques)}{b.nom}{b.boutiqueId === active ? ` — ${t('actuelle', 'current')}` : ''}
             </button>
           ))}
 

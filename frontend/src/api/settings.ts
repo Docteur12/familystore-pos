@@ -62,14 +62,47 @@ export interface StoreSettings {
    * ou `multi` (origine partagée → écran neutre). Absent = neutre.
    */
   modeIdentite?: 'single' | 'multi';
+  /**
+   * Profil métier de la gamme Caméléon (source : Settings du tenant).
+   * Absent = commerce (documents antérieurs). Lecture seule pour le patron :
+   * il se change depuis le back-office plateforme (superadmin), journalisé.
+   */
+  typeEtablissement?: TypeEtablissement;
+}
+
+// Types d'établissement de la gamme — MIROIR de
+// backend/src/settings/settings.schema.ts (TYPES_ETABLISSEMENT), verrouillé
+// par types-etablissement-governance.spec.ts.
+export const TYPES_ETABLISSEMENT = [
+  { id: 'commerce',   label: 'Commerce (boutique, code-barres)' },
+  { id: 'snack',      label: 'Snack-bar (comptoir tactile)' },
+  { id: 'restaurant', label: 'Restaurant (tables, cuisine)' },
+  { id: 'hotel',      label: 'Hôtel / meublé (chambres, séjours)' },
+] as const;
+export type TypeEtablissement = (typeof TYPES_ETABLISSEMENT)[number]['id'];
+
+/** Type d'un magasin — absent ou inconnu = commerce (rien ne change pour l'existant). */
+export function typeEtablissement(s: Pick<StoreSettings, 'typeEtablissement'> | null | undefined): TypeEtablissement {
+  const v = s?.typeEtablissement;
+  return TYPES_ETABLISSEMENT.some(x => x.id === v) ? (v as TypeEtablissement) : 'commerce';
+}
+
+export function libelleType(type: TypeEtablissement): string {
+  return TYPES_ETABLISSEMENT.find(x => x.id === type)?.label ?? type;
 }
 
 // Modules pouvant être désactivés par magasin (menus + routes).
 // MIROIR de backend/src/settings/settings.schema.ts (mêmes identifiants) —
 // verrouillé par modules-governance.spec.ts.
+// `comptoir`, `salle`, `reception` : modules des profils Snack-bar, Restaurant
+// et Hôtel, déclarés par le socle pour que les branches verticales ne
+// touchent pas ce miroir. Sans écran derrière, un module déclaré n'affiche rien.
 export const MODULES_DISPONIBLES = [
   { id: 'partenaires',           label: 'Partenaires (dépôt-vente, agences)' },
   { id: 'factures-fournisseurs', label: 'Factures fournisseurs (scan et lecture automatique — clé API requise)' },
+  { id: 'comptoir',              label: 'Comptoir tactile (snack-bar, bar)' },
+  { id: 'salle',                 label: 'Salle et cuisine (restaurant)' },
+  { id: 'reception',             label: 'Réception et chambres (hôtel, meublé)' },
 ] as const;
 export type ModuleId = (typeof MODULES_DISPONIBLES)[number]['id'];
 

@@ -105,6 +105,28 @@ export class PlatformController {
   }
 
   /**
+   * Type d'établissement — décision du revendeur, JOURNALISÉE (avant → après).
+   * `appliquerPrereglage` remplace modules et règles métier par ceux du type ;
+   * sinon seul le type change et les choix du patron survivent.
+   */
+  @Patch('boutiques/:id/type')
+  async type(
+    @Param('id') id: string,
+    @Body() body: { type: string; appliquerPrereglage?: boolean },
+    @Req() req: Request,
+  ) {
+    const acteur = (req as any)['user'];
+    const r = await this.provisionnement.changerType(id, body?.type, !!body?.appliquerPrereglage);
+    this.auditService.log({
+      type: 'modification', module: 'plateforme',
+      actorName: acteur.name, actorRole: acteur.role,
+      detail: `Type de « ${r.boutique.nom} » : ${r.avant} → ${r.apres}${r.prereglageApplique ? ' — préréglage appliqué' : ''}`,
+      meta: { boutiqueId: id, avant: r.avant, apres: r.apres, prereglageApplique: r.prereglageApplique },
+    });
+    return r;
+  }
+
+  /**
    * Prolongation d'un an — après un règlement reçu par le revendeur.
    *
    * Le corps décrit le règlement (montant, moyen, note) ; il est enregistré

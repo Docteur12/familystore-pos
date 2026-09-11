@@ -5,6 +5,7 @@ import * as bcrypt from 'bcryptjs';
 import { DemandeBoutique, DemandeBoutiqueDocument, StatutDemande, STATUTS_DEMANDE } from './schemas/demande-boutique.schema';
 import { ProvisionnementService } from './provisionnement.service';
 import { PaiementService } from './paiement/paiement.service';
+import { estTypeEtablissement } from '../settings/profils';
 
 export interface NouvelleDemandeBoutique {
   nom: string;
@@ -12,6 +13,7 @@ export interface NouvelleDemandeBoutique {
   patron: { nom: string; email: string; motDePasse: string };
   telephone?: string;
   message?: string;
+  typeEtablissement?: string;
 }
 
 /**
@@ -37,6 +39,8 @@ export class DemandesBoutiqueService {
     if (!d?.patron?.motDePasse || d.patron.motDePasse.length < 8) {
       throw new BadRequestException('Le mot de passe du patron doit compter au moins 8 caractères');
     }
+    const type = d.typeEtablissement ?? 'commerce';
+    if (!estTypeEtablissement(type)) throw new BadRequestException(`Type d'établissement inconnu : « ${type} »`);
     const email = demandeur.email.toLowerCase().trim();
 
     // Une seule demande en attente par propriétaire et par nom : le patron qui
@@ -55,6 +59,7 @@ export class DemandesBoutiqueService {
       },
       telephone: (d.telephone ?? '').trim(),
       message: (d.message ?? '').trim(),
+      typeEtablissement: type,
     });
     return this.vue(demande);
   }
@@ -110,6 +115,7 @@ export class DemandesBoutiqueService {
         ville: demande.ville,
         proprietaire: { email: demande.proprietaire.email, nom: demande.proprietaire.nom, telephone: demande.telephone },
         patron: { nom: demande.patron.nom, email: demande.patron.email, motDePasseHash: demande.patron.motDePasseHash },
+        typeEtablissement: estTypeEtablissement(demande.typeEtablissement) ? demande.typeEtablissement : 'commerce',
       });
       const { paiement } = await this.paiements.enregistrerReglementManuel(
         cree.boutique.id, reglement, acteur, 'creation_boutique',
@@ -159,6 +165,7 @@ export class DemandesBoutiqueService {
       patron: { nom: d.patron.nom, email: d.patron.email },
       telephone: d.telephone,
       message: d.message,
+      typeEtablissement: d.typeEtablissement ?? 'commerce',
       statut: d.statut,
       traiteeLe: d.traiteeLe,
       traiteePar: d.traiteePar,

@@ -19,6 +19,7 @@ export interface Product {
   expiryDate?:           string | null;
   magazinierThreshold?:  number;
   divers?:        boolean;   // article « divers » synthétique (non référencé)
+  stockSuivi?:    boolean;   // false : plat, nuitée, boisson au verre — la vente ne touche pas au stock (gamme)
   createdAt?:     string;    // date d'entrée du produit au catalogue (Mongo timestamps)
   prixVerrouille?: boolean;  // prix fixé par le magasinier → non modifiable par le gestionnaire
   prixModifiePar?: string;

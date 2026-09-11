@@ -4,6 +4,8 @@ import { getRapportConsolide, RapportConsolide as Rapport } from '../api/consoli
 import { getTokenPayload } from '../api/dashboard';
 import { localISODate } from '../utils/dates';
 import { t, dateLocale } from '../i18n';
+import { libelleType, typeEtablissement } from '../api/settings';
+import { typesPresents, sousTotauxParType } from '../utils/consolide';
 
 /**
  * Rapport consolidé — plusieurs boutiques cumulées.
@@ -111,6 +113,20 @@ export default function RapportConsolide() {
               </div>
             </div>
 
+            {/* Plusieurs métiers sous le même propriétaire : un sous-total par
+                type. Pour un mono-type, rien de plus — l'écran est celui d'avant. */}
+            {typesPresents(rapport).length > 1 && (
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+                {sousTotauxParType(rapport).map(s => (
+                  <div key={s.type} style={{ flex: '1 1 200px', background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '12px 16px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{libelleType(s.type).split(' (')[0]} · {s.boutiques}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-mono)' }}>{fmt(s.ca)} XAF</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--fs-ink-500)' }}>{fmt(s.ventes)} {t('ventes', 'sales')} · {t('panier', 'basket')} {fmt(s.panierMoyen)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Détail par boutique */}
             <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden' }}>
               <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--fs-line)', fontSize: 12, fontWeight: 700, color: 'var(--fs-ink-600)' }}>
@@ -120,6 +136,7 @@ export default function RapportConsolide() {
                 <thead>
                   <tr style={{ background: 'var(--fs-ivory)', textAlign: 'left' }}>
                     <th style={{ padding: '10px 18px' }}>{t('Boutique', 'Store')}</th>
+                    <th style={{ padding: '10px 18px' }}>{t('Type', 'Type')}</th>
                     <th style={{ padding: '10px 18px', textAlign: 'right' }}>{t('Chiffre d’affaires', 'Revenue')}</th>
                     <th style={{ padding: '10px 18px', textAlign: 'right' }}>{t('Ventes', 'Sales')}</th>
                     <th style={{ padding: '10px 18px', textAlign: 'right' }}>{t('Panier moyen', 'Average basket')}</th>
@@ -129,13 +146,14 @@ export default function RapportConsolide() {
                   {rapport.boutiques.map(b => (
                     <tr key={b.boutiqueId} style={{ borderTop: '1px solid var(--fs-line)' }}>
                       <td style={{ padding: '10px 18px', fontWeight: 600 }}>{b.nom}</td>
+                      <td style={{ padding: '10px 18px', fontSize: 12, color: 'var(--fs-ink-500)' }}>{libelleType(typeEtablissement(b)).split(' (')[0]}</td>
                       <td style={{ padding: '10px 18px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)' }}>{fmt(b.ca)}</td>
                       <td style={{ padding: '10px 18px', textAlign: 'right' }}>{fmt(b.ventes)}</td>
                       <td style={{ padding: '10px 18px', textAlign: 'right', fontFamily: 'var(--fs-font-mono)' }}>{fmt(b.panierMoyen)}</td>
                     </tr>
                   ))}
                   {rapport.boutiques.length === 0 && (
-                    <tr><td colSpan={4} style={{ padding: 18, color: 'var(--fs-ink-400)' }}>
+                    <tr><td colSpan={5} style={{ padding: 18, color: 'var(--fs-ink-400)' }}>
                       {t('Aucune boutique dans votre périmètre.', 'No store in your scope.')}
                     </td></tr>
                   )}

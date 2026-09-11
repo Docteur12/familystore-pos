@@ -8,6 +8,8 @@ import { Licence, LicenceDocument, MONTANT_LICENCE_ANNUELLE, joursAvantEcheance 
 import { User, UserDocument } from '../schemas/user.schema';
 import { Settings, SettingsDocument } from '../settings/settings.schema';
 import { runWithTenant } from '../tenancy/tenant-context';
+import { TypeEtablissement } from '../settings/settings.schema';
+import { PROFILS, prereglage, estTypeEtablissement } from '../settings/profils';
 
 /** État de licence consommé par la garde et par le bandeau de préavis. */
 export interface EtatLicence {
@@ -35,6 +37,8 @@ export interface DemandeBoutique {
    * pendant l'attente.
    */
   patron: { nom: string; email: string; motDePasse?: string; motDePasseHash?: string };
+  /** Profil métier de la gamme (défaut commerce) — pose les modules préréglés. */
+  typeEtablissement?: TypeEtablissement;
 }
 
 /**
@@ -99,6 +103,7 @@ export class ProvisionnementService {
         ville: b.ville,
         tenantId: String(b.tenantId),
         statut: b.statut,
+        typeEtablissement: b.typeEtablissement ?? 'commerce',
         proprietaire: b.proprietaire ? { nom: b.proprietaire.nom, email: b.proprietaire.email } : null,
         licence: licence
           ? {
@@ -179,6 +184,8 @@ export class ProvisionnementService {
       throw new BadRequestException('Le mot de passe du patron doit compter au moins 6 caractères');
     }
 
+    const type = demande.typeEtablissement ?? 'commerce';
+    if (!estTypeEtablissement(type)) throw new BadRequestException(`Type d'établissement inconnu : « ${type} »`);
     const proprietaire = await this.trouverOuCreerProprietaire(demande.proprietaire);
 
     const tenantId = new Types.ObjectId();
@@ -187,13 +194,18 @@ export class ProvisionnementService {
       ville: demande.ville?.trim() || 'Douala',
       tenantId,
       proprietaire: proprietaire._id,
+      typeEtablissement: type,
     });
 
     const licence = await this.creerLicence(boutique._id as Types.ObjectId, new Date());
 
     // Documents initiaux, écrits DANS le tenant de la nouvelle boutique.
     await runWithTenant(tenantId, async () => {
-      await this.settingsModel.create({ nomMagasin: demande.nom.trim(), ville: demande.ville?.trim() || 'Douala' });
+      // Le type et son préréglage (modules, règles métier) — CAMELEON-GAMME.md §2.2.
+      await this.settingsModel.create({
+        nomMagasin: demande.nom.trim(), ville: demande.ville?.trim() || 'Douala',
+        ...prereglage(type, { inactiviteMinutes: 10, seedFournisseursDemo: true, suiviPeremption: true }),
+      });
       await this.userModel.create({
         name: demande.patron.nom.trim(),
         email: demande.patron.email.toLowerCase().trim(),
@@ -224,6 +236,37 @@ export class ProvisionnementService {
     return this.vueLicence(licence);
   }
 
+  /**
+   * Change le TYPE d'une boutique — décision du revendeur, journalisée par le
+   * contrôleur. Écrit la source de vérité (Settings, dans le tenant) puis la
+   * copie (Boutique). Avec `appliquerPrereglage`, remplace aussi modules et
+   * règles métier par ceux du nouveau type ; sinon les choix du patron survivent.
+   */
+  async changerType(boutiqueId: string, type: unknown, appliquerPrereglage = false) {
+    if (!estTypeEtablissement(type)) throw new BadRequestException(`Type d'établissement inconnu : « ${type} »`);
+    const boutique = await this.boutiqueModel.findById(boutiqueId);
+    if (!boutique) throw new BadRequestException('Boutique introuvable');
+
+    const avant = await runWithTenant(boutique.tenantId, async () => {
+      const s = await this.settingsModel.findOne().lean();
+      const ancien = ((s as any)?.typeEtablissement ?? 'commerce') as TypeEtablissement;
+      const changements: Record<string, unknown> = { typeEtablissement: type };
+      if (appliquerPrereglage) {
+        const p = prereglage(type, (s as any)?.metier ?? {});
+        changements.modules = p.modules;
+        changements.metier = p.metier;
+      }
+      await this.settingsModel.updateOne({}, { $set: changements }, { upsert: true }).exec();
+      return ancien;
+    });
+    boutique.typeEtablissement = type;
+    await boutique.save();
+    return {
+      boutique: this.vueBoutique(boutique), avant, apres: type,
+      prereglageApplique: appliquerPrereglage, modules: PROFILS[type].modules,
+    };
+  }
+
   async changerStatutBoutique(boutiqueId: string, statut: 'active' | 'suspendue') {
     const boutique = await this.boutiqueModel.findByIdAndUpdate(boutiqueId, { statut }, { new: true });
     if (!boutique) throw new BadRequestException('Boutique introuvable');
@@ -252,6 +295,7 @@ export class ProvisionnementService {
     return {
       id: String(b._id), nom: b.nom, ville: b.ville,
       tenantId: String(b.tenantId), statut: b.statut,
+      typeEtablissement: b.typeEtablissement ?? 'commerce',
     };
   }
 
