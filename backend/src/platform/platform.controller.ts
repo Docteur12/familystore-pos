@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { ProvisionnementService, DemandeBoutique } from './provisionnement.service';
 import { AuthGuard } from '../auth/auth.guard';
@@ -6,6 +6,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AuditService } from '../audit/audit.service';
 import { PaiementService } from './paiement/paiement.service';
+import { DemandesBoutiqueService } from './demandes-boutique.service';
 
 /**
  * Back-office plateforme — réservé au `superadmin`.
@@ -27,8 +28,48 @@ export class PlatformController {
   constructor(
     private provisionnement: ProvisionnementService,
     private paiements: PaiementService,
+    private demandes: DemandesBoutiqueService,
     private auditService: AuditService,
   ) {}
+
+  // ── Demandes d'ouverture (mode manuel) ─────────────────────────────────
+
+  /** Toutes les demandes, en attente d'abord. `?statut=` pour filtrer. */
+  @Get('demandes')
+  listerDemandes(@Query('statut') statut?: string) {
+    return this.demandes.listerToutes(statut);
+  }
+
+  /** Accepte : crée la boutique, enregistre le règlement reçu, clôt la demande. */
+  @Post('demandes/:id/accepter')
+  async accepterDemande(
+    @Param('id') id: string,
+    @Body() body: { montant?: number; moyen?: string; note?: string } | undefined,
+    @Req() req: Request,
+  ) {
+    const acteur = (req as any)['user'];
+    const r = await this.demandes.accepter(id, body ?? {}, acteur);
+    this.auditService.log({
+      type: 'creation', module: 'plateforme',
+      actorName: acteur.name, actorRole: acteur.role,
+      detail: `Demande acceptée — boutique « ${r.boutique.nom} » créée, règlement ${r.paiement.reference}`,
+      meta: { demandeId: id, tenantId: r.boutique.tenantId, reference: r.paiement.reference, montant: r.paiement.montant, moyen: r.paiement.moyenReglement },
+    });
+    return r;
+  }
+
+  @Post('demandes/:id/refuser')
+  async refuserDemande(@Param('id') id: string, @Body() body: { motif?: string } | undefined, @Req() req: Request) {
+    const acteur = (req as any)['user'];
+    const demande = await this.demandes.refuser(id, body?.motif ?? '', acteur);
+    this.auditService.log({
+      type: 'modification', module: 'plateforme',
+      actorName: acteur.name, actorRole: acteur.role,
+      detail: `Demande d'ouverture « ${demande.nom} » refusée — ${demande.motifRefus}`,
+      meta: { demandeId: id },
+    });
+    return demande;
+  }
 
   /** Toutes les boutiques, avec l'état de leur licence. */
   @Get('boutiques')

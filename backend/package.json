@@ -22,7 +22,8 @@
     "demo:api": "node scripts/demo-api.js",
     "verifier:lot-e": "ts-node -r tsconfig-paths/register scripts/verifier-lot-e.ts",
     "init:boutique": "ts-node -r tsconfig-paths/register scripts/init-boutique.ts",
-    "creer:superadmin": "ts-node -r tsconfig-paths/register scripts/creer-superadmin.ts"
+    "creer:superadmin": "ts-node -r tsconfig-paths/register scripts/creer-superadmin.ts",
+    "provision:superadmin": "npm run creer:superadmin --"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

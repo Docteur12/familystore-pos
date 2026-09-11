@@ -15,9 +15,10 @@ import AdminSidebar from '../components/AdminSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import {
   listerBoutiques, prolongerLicence, changerStatutBoutique, paiementsBoutique, creerBoutique,
-  BoutiquePlateforme, PaiementPlateforme, MoyenReglement, MOYENS_REGLEMENT,
+  listerDemandes, accepterDemande, refuserDemande,
+  BoutiquePlateforme, PaiementPlateforme, MoyenReglement, MOYENS_REGLEMENT, Reglement, DemandeBoutique,
 } from '../api/plateforme';
-import { etiquetteLicence, trierBoutiques, libelleMoyen, montantLisible } from '../utils/plateforme';
+import { etiquetteLicence, trierBoutiques, libelleMoyen, montantLisible, trierDemandes, etiquetteDemande } from '../utils/plateforme';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { t, dateLocale } from '../i18n';
 
@@ -58,8 +59,17 @@ const fmtDate = (iso: string | null | undefined) =>
 
 // ── Modale de règlement ───────────────────────────────────────────────────────
 
-function ModaleReglement({ boutique, onFerme, onFait }: {
-  boutique: BoutiquePlateforme; onFerme: () => void; onFait: (message: string) => void;
+interface CibleReglement {
+  titre: string;
+  description: string;
+  /** Libellé du bouton de validation. */
+  action: string;
+  /** Enregistre le règlement ; renvoie le message de succès à afficher. */
+  valider: (r: Reglement) => Promise<string>;
+}
+
+function ModaleReglement({ cible, onFerme, onFait }: {
+  cible: CibleReglement; onFerme: () => void; onFait: (message: string) => void;
 }) {
   const [montant, setMontant] = useState(String(MONTANT_ANNUEL));
   const [moyen, setMoyen]     = useState<MoyenReglement>('mobile_money');
@@ -73,21 +83,11 @@ function ModaleReglement({ boutique, onFerme, onFait }: {
     if (m === 0 && !note.trim()) return setErreur(t('Un règlement à 0 doit être expliqué dans la note.', 'A zero payment must be explained in the note.'));
     setEnvoi(true); setErreur('');
     try {
-      const r = await prolongerLicence(boutique.id, { montant: m, moyen, note: note.trim() });
-      onFait(t(
-        `Licence de « ${boutique.nom} » prolongée jusqu'au ${fmtDate(r.dateEcheance)} — règlement ${montantLisible(m)} enregistré.`,
-        `Licence for "${boutique.nom}" extended to ${fmtDate(r.dateEcheance)} — payment ${montantLisible(m)} recorded.`,
-      ));
+      onFait(await cible.valider({ montant: m, moyen, note: note.trim() }));
     } catch (e: unknown) {
       setErreur(e instanceof Error ? e.message : t('Erreur', 'Error'));
     } finally { setEnvoi(false); }
   };
-
-  const echeance = boutique.licence?.dateEcheance;
-  const repartDe = boutique.licence && !boutique.licence.expiree
-    ? t(`Un an de plus à partir de l'échéance actuelle (${fmtDate(echeance)}) : le client ne perd aucun jour payé.`,
-        `One more year from the current expiry (${fmtDate(echeance)}): the customer loses no paid day.`)
-    : t('Un an à partir d’aujourd’hui.', 'One year from today.');
 
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onFerme(); }}
@@ -95,8 +95,8 @@ function ModaleReglement({ boutique, onFerme, onFait }: {
       <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--fs-line)' }}>
           <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{t('Règlement reçu', 'Payment received')}</p>
-          <h2 style={{ fontSize: 17, fontWeight: 800, margin: '2px 0 0', color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-display)' }}>{boutique.nom}</h2>
-          <p style={{ fontSize: 11.5, color: 'var(--fs-ink-500)', margin: '6px 0 0', lineHeight: 1.5 }}>{repartDe}</p>
+          <h2 style={{ fontSize: 17, fontWeight: 800, margin: '2px 0 0', color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-display)' }}>{cible.titre}</h2>
+          <p style={{ fontSize: 11.5, color: 'var(--fs-ink-500)', margin: '6px 0 0', lineHeight: 1.5 }}>{cible.description}</p>
         </div>
         <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {erreur && <div style={{ background: '#FBE9E5', color: '#8C2B16', padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600 }}>{erreur}</div>}
@@ -117,7 +117,7 @@ function ModaleReglement({ boutique, onFerme, onFait }: {
         </div>
         <div style={{ padding: '14px 20px', borderTop: '1px solid var(--fs-line)', display: 'flex', gap: 10 }}>
           <button onClick={valider} disabled={envoi} style={{ ...BOUTON('plein'), flex: 2, padding: '11px', opacity: envoi ? 0.7 : 1 }}>
-            {envoi ? t('Enregistrement…', 'Saving…') : t('Enregistrer et prolonger d’un an', 'Record and extend by one year')}
+            {envoi ? t('Enregistrement…', 'Saving…') : cible.action}
           </button>
           <button onClick={onFerme} style={{ ...BOUTON('ligne'), flex: 1, padding: '11px' }}>{t('Annuler', 'Cancel')}</button>
         </div>
@@ -226,13 +226,18 @@ export default function AdminBoutiques() {
   const [boutiques, setBoutiques] = useState<BoutiquePlateforme[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState('');
-  const [reglementPour, setReglementPour] = useState<BoutiquePlateforme | null>(null);
+  const [reglementPour, setReglementPour] = useState<CibleReglement | null>(null);
+  const [demandes, setDemandes] = useState<DemandeBoutique[]>([]);
   const [historiqueDe, setHistoriqueDe] = useState<string | null>(null);
   const [nouvelle, setNouvelle] = useState(false);
 
   const charger = useCallback(async () => {
     setChargement(true); setErreur('');
-    try { setBoutiques(trierBoutiques(await listerBoutiques())); }
+    try {
+      const [b, d] = await Promise.all([listerBoutiques(), listerDemandes().catch(() => [] as DemandeBoutique[])]);
+      setBoutiques(trierBoutiques(b));
+      setDemandes(trierDemandes(d));
+    }
     catch (e: unknown) { setErreur(e instanceof Error ? e.message : t('Erreur', 'Error')); }
     finally { setChargement(false); }
   }, []);
@@ -252,6 +257,45 @@ export default function AdminBoutiques() {
     } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
   };
 
+  const cibleProlongation = (b: BoutiquePlateforme): CibleReglement => ({
+    titre: b.nom,
+    action: t('Enregistrer et prolonger d’un an', 'Record and extend by one year'),
+    description: b.licence && !b.licence.expiree
+      ? t(`Un an de plus à partir de l'échéance actuelle (${fmtDate(b.licence.dateEcheance)}) : le client ne perd aucun jour payé.`,
+          `One more year from the current expiry (${fmtDate(b.licence.dateEcheance)}): the customer loses no paid day.`)
+      : t('Un an à partir d’aujourd’hui.', 'One year from today.'),
+    valider: async r => {
+      const res = await prolongerLicence(b.id, r);
+      return t(`Licence de « ${b.nom} » prolongée jusqu'au ${fmtDate(res.dateEcheance)} — règlement ${montantLisible(r.montant)} enregistré.`,
+               `Licence for "${b.nom}" extended to ${fmtDate(res.dateEcheance)} — payment ${montantLisible(r.montant)} recorded.`);
+    },
+  });
+
+  const cibleAcceptation = (d: DemandeBoutique): CibleReglement => ({
+    titre: t(`Ouvrir « ${d.nom} »`, `Open "${d.nom}"`),
+    action: t('Enregistrer et créer la boutique', 'Record and create the store'),
+    description: t(
+      `Demandée par ${d.proprietaire.nom} (${d.proprietaire.email}). La boutique sera créée avec une licence d'un an dès l'enregistrement du règlement.`,
+      `Requested by ${d.proprietaire.nom} (${d.proprietaire.email}). The store will be created with a one-year licence once the payment is recorded.`,
+    ),
+    valider: async r => {
+      const res = await accepterDemande(d.id, r);
+      return t(`Boutique « ${res.boutique.nom} » créée — règlement ${montantLisible(r.montant)} enregistré.`,
+               `Store "${res.boutique.nom}" created — payment ${montantLisible(r.montant)} recorded.`);
+    },
+  });
+
+  const refuser = async (d: DemandeBoutique) => {
+    const motif = window.prompt(t(`Motif du refus de « ${d.nom} » (le demandeur le verra) :`, `Reason for declining "${d.nom}" (the requester will see it):`));
+    if (motif === null) return;
+    try {
+      await refuserDemande(d.id, motif);
+      addToast(t('Demande refusée.', 'Request declined.'), 'success');
+      await charger();
+    } catch (e: unknown) { addToast(e instanceof Error ? e.message : t('Erreur', 'Error'), 'error'); }
+  };
+
+  const demandesATraiter = demandes.filter(d => d.statut === 'en_attente').length;
   const aRappeler = boutiques.filter(b => b.licence && (b.licence.expiree || b.licence.joursRestants <= 14)).length;
 
   return (
@@ -259,7 +303,7 @@ export default function AdminBoutiques() {
       <AdminSidebar/>
       <ToastContainer toasts={toasts} onRemove={removeToast}/>
       {reglementPour && (
-        <ModaleReglement boutique={reglementPour} onFerme={() => setReglementPour(null)}
+        <ModaleReglement cible={reglementPour} onFerme={() => setReglementPour(null)}
           onFait={m => { setReglementPour(null); addToast(m, 'success'); void charger(); }}/>
       )}
 
@@ -283,6 +327,58 @@ export default function AdminBoutiques() {
           {nouvelle && <FormulaireBoutique onFerme={() => setNouvelle(false)} onFait={m => { setNouvelle(false); addToast(m, 'success'); void charger(); }}/>}
 
           {erreur && <div style={{ background: '#FBE9E5', color: '#8C2B16', padding: '10px 12px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, marginBottom: 14 }}>{erreur}</div>}
+
+          {demandes.length > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <h2 style={{ fontSize: 14, fontWeight: 800, color: 'var(--fs-ink-900)', margin: '0 0 8px' }}>
+                {t('Demandes d’ouverture', 'Opening requests')}
+                {demandesATraiter > 0 && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#7C2D12', background: '#FEF3C7', padding: '2px 8px', borderRadius: 20 }}>{demandesATraiter} {t('à traiter', 'to process')}</span>}
+              </h2>
+              <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
+                  <thead><tr>
+                    <th style={TH}>{t('Boutique demandée', 'Requested store')}</th>
+                    <th style={TH}>{t('Demandeur', 'Requester')}</th>
+                    <th style={TH}>{t('Futur patron', 'Future manager')}</th>
+                    <th style={TH}>{t('Date', 'Date')}</th>
+                    <th style={TH}>{t('Statut', 'Status')}</th>
+                    <th style={{ ...TH, textAlign: 'right' }}>{t('Actions', 'Actions')}</th>
+                  </tr></thead>
+                  <tbody>
+                    {demandes.map(d => {
+                      const badge = etiquetteDemande(d.statut);
+                      return (
+                        <tr key={d.id} style={{ opacity: d.statut === 'en_attente' ? 1 : 0.7 }}>
+                          <td style={TD}>
+                            <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)' }}>{d.nom}</div>
+                            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{d.ville}{d.message ? ` · ${d.message}` : ''}</div>
+                          </td>
+                          <td style={TD}>
+                            <div>{d.proprietaire.nom}</div>
+                            <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{d.proprietaire.email}{d.telephone ? ` · ${d.telephone}` : ''}</div>
+                          </td>
+                          <td style={TD}><div>{d.patron.nom}</div><div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>{d.patron.email}</div></td>
+                          <td style={TD}>{fmtDate(d.cree)}</td>
+                          <td style={TD}>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: badge.fond, color: badge.texteCouleur, whiteSpace: 'nowrap' }}>{badge.texte}</span>
+                            {d.statut === 'refusee' && d.motifRefus && <div style={{ fontSize: 11, color: 'var(--fs-ink-400)', marginTop: 4 }}>{d.motifRefus}</div>}
+                          </td>
+                          <td style={{ ...TD, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {d.statut === 'en_attente' && (
+                              <div style={{ display: 'inline-flex', gap: 6 }}>
+                                <button onClick={() => setReglementPour(cibleAcceptation(d))} style={BOUTON('plein')}>{t('Règlement reçu → créer', 'Payment received → create')}</button>
+                                <button onClick={() => refuser(d)} style={BOUTON('danger')}>{t('Refuser', 'Decline')}</button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
@@ -324,7 +420,7 @@ export default function AdminBoutiques() {
                         </td>
                         <td style={{ ...TD, textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                            <button onClick={() => setReglementPour(b)} style={BOUTON('plein')}>{t('Règlement reçu → +1 an', 'Payment received → +1 year')}</button>
+                            <button onClick={() => setReglementPour(cibleProlongation(b))} style={BOUTON('plein')}>{t('Règlement reçu → +1 an', 'Payment received → +1 year')}</button>
                             <button onClick={() => setHistoriqueDe(ouvert ? null : b.id)} style={BOUTON('ligne')}>{t('Historique', 'History')}</button>
                             <button onClick={() => basculerStatut(b)} style={BOUTON(b.statut === 'active' ? 'danger' : 'ligne')}>
                               {b.statut === 'active' ? t('Suspendre', 'Suspend') : t('Réactiver', 'Reactivate')}

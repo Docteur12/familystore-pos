@@ -108,3 +108,49 @@ export async function paiementsBoutique(boutiqueId: string): Promise<PaiementPla
   if (!res.ok) return lire(res);
   return res.json();
 }
+
+// ── Demandes d'ouverture (mode manuel) ─────────────────────────────────────
+
+export type StatutDemande = 'en_attente' | 'acceptee' | 'refusee';
+
+export interface DemandeBoutique {
+  id: string;
+  nom: string;
+  ville: string;
+  proprietaire: { email: string; nom: string };
+  patron: { nom: string; email: string };
+  telephone: string;
+  message: string;
+  statut: StatutDemande;
+  traiteeLe: string | null;
+  traiteePar: string;
+  motifRefus: string;
+  boutiqueId: string | null;
+  referencePaiement: string;
+  cree: string | null;
+}
+
+/** Back-office : toutes les demandes, en attente d'abord. */
+export async function listerDemandes(statut?: StatutDemande): Promise<DemandeBoutique[]> {
+  const q = statut ? `?statut=${encodeURIComponent(statut)}` : '';
+  const res = await fetch(`/api/platform/demandes${q}`, { headers: authHeaders() });
+  if (!res.ok) return lire(res);
+  return res.json();
+}
+
+/** Accepte : crée la boutique et enregistre le règlement reçu. */
+export async function accepterDemande(id: string, reglement: Reglement) {
+  const res = await fetch(`/api/platform/demandes/${encodeURIComponent(id)}/accepter`, {
+    method: 'POST', headers: authHeaders(), body: JSON.stringify(reglement),
+  });
+  if (!res.ok) return lire(res);
+  return res.json();
+}
+
+export async function refuserDemande(id: string, motif: string): Promise<DemandeBoutique> {
+  const res = await fetch(`/api/platform/demandes/${encodeURIComponent(id)}/refuser`, {
+    method: 'POST', headers: authHeaders(), body: JSON.stringify({ motif }),
+  });
+  if (!res.ok) return lire(res);
+  return res.json();
+}

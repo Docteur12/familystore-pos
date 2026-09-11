@@ -5,7 +5,7 @@
  * boutiques expirées d'abord, puis celles qui approchent, puis les autres.
  * Une erreur de tri ou de libellé ici, c'est un client relancé trop tard.
  */
-import type { BoutiquePlateforme, LicenceBoutique, MoyenReglement } from '../api/plateforme';
+import type { BoutiquePlateforme, LicenceBoutique, MoyenReglement, DemandeBoutique, StatutDemande } from '../api/plateforme';
 import { MOYENS_REGLEMENT } from '../api/plateforme';
 import { niveauAlerte, NiveauAlerte } from './licence';
 import { t } from '../i18n';
@@ -52,4 +52,33 @@ export function montantLisible(montant: number, devise = 'XAF'): string {
   // fr-FR sépare les milliers par une espace fine insécable (U+202F) ou
   // insécable (U+00A0) : on les remplace par une espace ordinaire.
   return `${Math.round(montant).toLocaleString('fr-FR').replace(/[  ]/g, ' ')} ${devise}`;
+}
+
+// ── Demandes d'ouverture ───────────────────────────────────────────────────
+
+
+export interface EtiquetteDemande { texte: string; fond: string; texteCouleur: string }
+
+/** Badge d'une demande : lisible d'un coup d'œil dans la liste du revendeur. */
+export function etiquetteDemande(statut: StatutDemande): EtiquetteDemande {
+  switch (statut) {
+    case 'en_attente': return { texte: t('À traiter', 'To process'), fond: '#FEF3C7', texteCouleur: '#7C2D12' };
+    case 'acceptee':   return { texte: t('Acceptée', 'Accepted'),   fond: '#E6F4EA', texteCouleur: '#1E6B3A' };
+    case 'refusee':    return { texte: t('Refusée', 'Declined'),    fond: '#FEE2E2', texteCouleur: '#7F1D1D' };
+  }
+}
+
+/**
+ * Ordre d'affichage : à traiter d'abord (la plus ancienne en tête — elle
+ * attend depuis le plus longtemps), puis les traitées, les plus récentes
+ * d'abord.
+ */
+export function trierDemandes(demandes: DemandeBoutique[]): DemandeBoutique[] {
+  const date = (d: DemandeBoutique) => (d.cree ? new Date(d.cree).getTime() : 0);
+  return [...demandes].sort((a, b) => {
+    const attenteA = a.statut === 'en_attente' ? 0 : 1;
+    const attenteB = b.statut === 'en_attente' ? 0 : 1;
+    if (attenteA !== attenteB) return attenteA - attenteB;
+    return attenteA === 0 ? date(a) - date(b) : date(b) - date(a);
+  });
 }

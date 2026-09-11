@@ -12,6 +12,9 @@ import { Proprietaire, ProprietaireSchema } from './schemas/proprietaire.schema'
 import { Boutique, BoutiqueSchema } from './schemas/boutique.schema';
 import { Licence, LicenceSchema } from './schemas/licence.schema';
 import { Paiement, PaiementSchema } from './paiement/paiement.schema';
+import { DemandeBoutique, DemandeBoutiqueSchema } from './schemas/demande-boutique.schema';
+import { DemandesBoutiqueService } from './demandes-boutique.service';
+import { DemandesBoutiqueController } from './demandes-boutique.controller';
 import { PaiementService } from './paiement/paiement.service';
 import { PaiementController } from './paiement/paiement.controller';
 import { ReconciliationService } from './paiement/reconciliation.service';
@@ -38,18 +41,20 @@ import { Settings, SettingsSchema } from '../settings/settings.schema';
       { name: Boutique.name,     schema: BoutiqueSchema },
       { name: Licence.name,      schema: LicenceSchema },
       { name: Paiement.name,     schema: PaiementSchema },
+      { name: DemandeBoutique.name, schema: DemandeBoutiqueSchema },
       { name: User.name,         schema: UserSchema },
       { name: Settings.name,     schema: SettingsSchema },
     ]),
     AuthModule,
     MailModule,
   ],
-  controllers: [PlatformController, LicenceController, PaiementController],
+  controllers: [PlatformController, LicenceController, PaiementController, DemandesBoutiqueController],
   providers: [
     ProvisionnementService,
     RelanceLicenceService,
     PaiementService,
     ReconciliationService,
+    DemandesBoutiqueService,
     // Prestataire de paiement, choisi par PAIEMENT_FOURNISSEUR — « manuel »
     // par défaut : les licences sont activées par le superadmin après un
     // règlement de la main à la main. Le mode simulé est REFUSÉ en production
@@ -70,7 +75,7 @@ import { Settings, SettingsSchema } from '../settings/settings.schema';
     { provide: APP_INTERCEPTOR, useClass: LicenceInterceptor },
   ],
   exports: [
-    ProvisionnementService, RelanceLicenceService,
+    ProvisionnementService, RelanceLicenceService, DemandesBoutiqueService,
     PaiementService, ReconciliationService, PaiementSimuleProvider,
     MongooseModule,
   ],

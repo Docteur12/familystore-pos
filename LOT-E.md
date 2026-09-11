@@ -128,9 +128,19 @@ Ce que ça donne côté configuration :
   reprendre l'ancienne version de cette section dans l'historique git.
 
 Ce que voit le commerçant : le bandeau J-14/J-7/J-3/J-1 puis « expirée » avec
-le numéro à appeler ; la page « Ajouter une boutique » renvoie vers le
-revendeur au lieu d'un formulaire de paiement ; toute tentative d'ouvrir un
-paiement en ligne répond 400 avec le contact, sans rien écrire en base.
+le numéro à appeler ; toute tentative d'ouvrir un paiement en ligne répond 400
+avec le contact, sans rien écrire en base.
+
+**Ouvrir une boutique de plus (patron existant).** La page « Ajouter une
+boutique » devient un formulaire de **demande** (`POST /demandes-boutique`) :
+nom, ville, futur patron (mot de passe stocké haché), téléphone, message.
+Rien n'est créé. Les demandes apparaissent en tête de « Boutiques &
+licences » ; Valdes encaisse, puis **« Règlement reçu → créer »**
+(`POST /platform/demandes/:id/accepter`) : la boutique naît avec sa licence
+d'un an, un `Paiement` confirmé objet `creation_boutique` source `manuel` est
+écrit, la demande est close et son hachage effacé. Un refus porte un motif
+que le patron lit dans « Mes demandes ». Une demande déjà traitée ne se
+retraite pas (400).
 
 ### A6. Migrations déjà connues
 

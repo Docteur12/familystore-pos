@@ -17,7 +17,10 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { demanderBoutique, etatPaiement, reessayerPaiement, telephonePayeurParDefaut, Paiement } from '../api/paiements';
 import { normaliserTelephone, formatTelephoneAttendu } from '../utils/telephone';
 import { getEtatLicence, EtatLicence } from '../api/licence';
-import { t } from '../i18n';
+import { demanderOuverture, mesDemandes } from '../api/demandesBoutique';
+import type { DemandeBoutique } from '../api/plateforme';
+import { etiquetteDemande, trierDemandes } from '../utils/plateforme';
+import { t, dateLocale } from '../i18n';
 
 const SONDAGE_MS = 4000;
 
@@ -120,19 +123,7 @@ export default function AdminNouvelleBoutique() {
         <div style={{ padding: isNarrow ? '16px' : '20px 28px 40px', maxWidth: 620 }}>
 
           {licence?.paiementEnLigne === false && (
-            <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px' }}>
-              <p style={{ fontSize: 13.5, color: 'var(--fs-ink-900)', margin: 0, lineHeight: 1.7 }}>
-                {t(
-                  'L’ouverture d’une boutique se fait avec votre revendeur : il crée la boutique et pose sa licence dès le règlement reçu.',
-                  'Opening a store is done with your reseller: they create the store and set up its licence as soon as payment is received.',
-                )}
-              </p>
-              {licence.contact && (
-                <p style={{ fontSize: 15, fontWeight: 800, color: 'var(--fs-wine-700)', margin: '12px 0 0' }}>
-                  {t('Appelez le', 'Call')} {licence.contact}
-                </p>
-              )}
-            </div>
+            <DemandeOuverture contact={licence.contact} champ={champ} etiquette={etiquette}/>
           )}
 
           {!paiement && licence?.paiementEnLigne !== false && (
@@ -238,6 +229,111 @@ export default function AdminNouvelleBoutique() {
         </div>
       </main>
     </div>
+  );
+}
+
+// ── Demande d'ouverture — mode manuel ────────────────────────────────────────
+
+/**
+ * Sans paiement en ligne, le patron ne paie pas ici : il DEMANDE. Le
+ * revendeur le rappelle, encaisse, et accepte depuis son back-office — c'est
+ * l'acceptation qui crée la boutique. L'écran le dit tel quel, et montre
+ * l'état des demandes déjà faites.
+ */
+function DemandeOuverture({ contact, champ, etiquette }: {
+  contact?: string; champ: React.CSSProperties; etiquette: React.CSSProperties;
+}) {
+  const [f, setF] = useState({ nom: '', ville: 'Douala', patronNom: '', patronEmail: '', motDePasse: '', telephone: '', message: '' });
+  const [demandes, setDemandes] = useState<DemandeBoutique[]>([]);
+  const [erreur, setErreur] = useState('');
+  const [succes, setSucces] = useState('');
+  const [envoi, setEnvoi] = useState(false);
+  const maj = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF(prev => ({ ...prev, [k]: e.target.value }));
+
+  const charger = useCallback(() => { mesDemandes().then(d => setDemandes(trierDemandes(d))).catch(() => {}); }, []);
+  useEffect(() => { charger(); }, [charger]);
+
+  const soumettre = async () => {
+    setErreur(''); setSucces('');
+    if (!f.nom.trim())        return setErreur(t('Le nom de la boutique est obligatoire.', 'The store name is required.'));
+    if (!f.patronNom.trim())  return setErreur(t('Le nom du responsable est obligatoire.', 'The manager’s name is required.'));
+    if (!f.patronEmail.trim()) return setErreur(t('L’e-mail du responsable est obligatoire.', 'The manager’s email is required.'));
+    if (f.motDePasse.length < 8) return setErreur(t('Le mot de passe doit compter au moins 8 caractères.', 'The password must be at least 8 characters long.'));
+    setEnvoi(true);
+    try {
+      await demanderOuverture({
+        nom: f.nom.trim(), ville: f.ville.trim(),
+        patron: { nom: f.patronNom.trim(), email: f.patronEmail.trim(), motDePasse: f.motDePasse },
+        telephone: f.telephone.trim(), message: f.message.trim(),
+      });
+      setSucces(t(
+        `Demande envoyée. Votre revendeur vous rappelle${contact ? ` — ou appelez le ${contact}` : ''} pour le règlement ; la boutique sera ouverte dès réception.`,
+        `Request sent. Your reseller will call you back${contact ? ` — or call ${contact}` : ''} for payment; the store will open on receipt.`,
+      ));
+      setF({ nom: '', ville: 'Douala', patronNom: '', patronEmail: '', motDePasse: '', telephone: '', message: '' });
+      charger();
+    } catch (e: unknown) {
+      setErreur(e instanceof Error ? e.message : t('Erreur', 'Error'));
+    } finally { setEnvoi(false); }
+  };
+
+  const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(dateLocale()) : '—');
+
+  return (
+    <>
+      <div style={{ background: 'var(--fs-wine-100)', border: '1px solid var(--fs-wine-700)', borderRadius: 10, padding: '12px 14px', marginBottom: 20 }}>
+        <p style={{ fontSize: 12.5, color: 'var(--fs-ink-900)', margin: 0, lineHeight: 1.6 }}>
+          {t(
+            'La boutique est ouverte par votre revendeur dès le règlement reçu — rien n’est créé à l’envoi de la demande.',
+            'Your reseller opens the store once payment is received — nothing is created when the request is sent.',
+          )}
+          {contact && <> {t('Pour régler :', 'To pay:')} <strong>{contact}</strong>.</>}
+        </p>
+      </div>
+
+      {erreur && <div style={{ background: '#FBE9E5', color: '#8C2B16', padding: '10px 12px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, marginBottom: 16 }}>{erreur}</div>}
+      {succes && <div style={{ background: '#F1F7EF', color: '#2F5A2A', padding: '10px 12px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, marginBottom: 16 }}>{succes}</div>}
+
+      <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div><label style={etiquette}>{t('Nom de la boutique', 'Store name')}</label><input value={f.nom} onChange={maj('nom')} style={champ} placeholder={t('Ex. Bonamoussadi', 'e.g. Bonamoussadi')}/></div>
+        <div><label style={etiquette}>{t('Ville', 'City')}</label><input value={f.ville} onChange={maj('ville')} style={champ}/></div>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '4px 0 0' }}>{t('Responsable de la boutique', 'Store manager')}</p>
+        <div><label style={etiquette}>{t('Nom complet', 'Full name')}</label><input value={f.patronNom} onChange={maj('patronNom')} style={champ}/></div>
+        <div><label style={etiquette}>{t('Adresse e-mail', 'Email address')}</label><input type="email" value={f.patronEmail} onChange={maj('patronEmail')} style={champ}/></div>
+        <div><label style={etiquette}>{t('Mot de passe', 'Password')}</label><input type="password" value={f.motDePasse} onChange={maj('motDePasse')} style={champ} placeholder={t('8 caractères minimum', 'At least 8 characters')}/></div>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--fs-wine-700)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '4px 0 0' }}>{t('Pour vous joindre', 'To reach you')}</p>
+        <div><label style={etiquette}>{t('Téléphone', 'Phone')}</label><input value={f.telephone} onChange={maj('telephone')} style={champ} placeholder="6XXXXXXXX" inputMode="numeric"/></div>
+        <div><label style={etiquette}>{t('Message (facultatif)', 'Message (optional)')}</label><input value={f.message} onChange={maj('message')} style={champ} placeholder={t('Quartier, date souhaitée…', 'Neighbourhood, desired date…')}/></div>
+        <button onClick={soumettre} disabled={envoi}
+          style={{ marginTop: 4, padding: '12px', background: 'var(--fs-wine-700)', color: '#fff', border: '2px solid var(--fs-gold-400)', borderRadius: 10, fontSize: 13.5, fontWeight: 700, cursor: envoi ? 'default' : 'pointer', opacity: envoi ? 0.7 : 1 }}>
+          {envoi ? t('Envoi…', 'Sending…') : t('Envoyer la demande', 'Send the request')}
+        </button>
+      </div>
+
+      {demandes.length > 0 && (
+        <div style={{ marginTop: 22 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 800, color: 'var(--fs-ink-900)', margin: '0 0 8px' }}>{t('Mes demandes', 'My requests')}</h2>
+          <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, overflow: 'hidden' }}>
+            {demandes.map(d => {
+              const badge = etiquetteDemande(d.statut);
+              return (
+                <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderBottom: '1px solid var(--fs-line)', fontSize: 12.5 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, color: 'var(--fs-ink-900)' }}>{d.nom} <span style={{ fontWeight: 400, color: 'var(--fs-ink-400)' }}>· {d.ville}</span></div>
+                    <div style={{ fontSize: 11, color: 'var(--fs-ink-400)' }}>
+                      {t('Demandée le', 'Requested on')} {fmtDate(d.cree)}
+                      {d.statut === 'refusee' && d.motifRefus ? ` — ${d.motifRefus}` : ''}
+                      {d.statut === 'acceptee' ? ` — ${t('boutique ouverte, reconnectez-vous pour la voir dans le sélecteur', 'store opened, sign in again to see it in the selector')}` : ''}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: badge.fond, color: badge.texteCouleur, whiteSpace: 'nowrap' }}>{badge.texte}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

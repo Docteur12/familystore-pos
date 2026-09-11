@@ -226,6 +226,7 @@ export class PaiementService {
     boutiqueId: string,
     reglement: { montant?: number; moyen?: string; note?: string },
     acteur: { name?: string; email?: string },
+    objet: ObjetPaiement = 'renouvellement_licence',
   ) {
     const boutique = await this.boutiqueModel.findById(boutiqueId);
     if (!boutique) throw new NotFoundException('Boutique introuvable');
@@ -248,11 +249,17 @@ export class PaiementService {
     const reference = this.nouvelleReference();
     const detail = `Règlement manuel (${moyen}) reçu par ${enregistrePar}${note ? ` — ${note}` : ''}`;
 
+    // Création de boutique : la boutique EXISTE déjà (créée par l'acceptation
+    // de la demande). Le paiement est donc écrit directement confirmé, effet
+    // appliqué — passer par annoncer() la créerait une seconde fois.
+    const creation = objet === 'creation_boutique';
+    const maintenant = new Date();
+
     await this.paiementModel.create({
       _id,
       reference,
       fournisseur: 'manuel',
-      objet: 'renouvellement_licence',
+      objet,
       proprietaire: boutique.proprietaire,
       boutique: boutique._id,
       demandeBoutique: null,
@@ -265,9 +272,22 @@ export class PaiementService {
       paiementPrecedent: null,
       montant,
       devise: 'XAF',
-      statut: 'en_attente',
-      journal: [{ le: new Date(), de: 'en_attente', vers: 'en_attente', source: 'creation', detail }],
+      statut: creation ? 'confirme' : 'en_attente',
+      effetApplique: creation,
+      effetLe: creation ? maintenant : null,
+      journal: creation
+        ? [
+            { le: maintenant, de: 'en_attente', vers: 'en_attente', source: 'creation', detail },
+            { le: maintenant, de: 'en_attente', vers: 'confirme', source: 'manuel', detail: `Boutique « ${boutique.nom} » créée sur acceptation de la demande` },
+          ]
+        : [{ le: maintenant, de: 'en_attente', vers: 'en_attente', source: 'creation', detail }],
     });
+
+    if (creation) {
+      const licence = await this.provisionnement.licenceCourante(String(boutique.tenantId));
+      const paiement = await this.paiementModel.findOne({ reference });
+      return { licence, paiement: this.vue(paiement!) };
+    }
 
     const r = await this.annoncer(reference, 'confirme', 'manuel', detail);
     if (!r.effetApplique) {

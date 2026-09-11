@@ -90,6 +90,10 @@ export class LicenceInterceptor implements NestInterceptor {
     // ouvrir le paiement qui la renouvelle.
     if (chemin.startsWith('/api/paiements')) return true;
 
+    // Demande d'ouverture d'une AUTRE boutique (mode manuel) : même logique,
+    // elle ne concerne pas la boutique bloquée.
+    if (chemin.startsWith('/api/demandes-boutique')) return true;
+
     // Fermeture d'une session de caisse déjà ouverte.
     if (req.method === 'PATCH' && /^\/api\/sessions\/[^/]+\/close$/.test(chemin)) return true;
 
