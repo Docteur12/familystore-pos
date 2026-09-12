@@ -1,20 +1,16 @@
 /**
  * Constantes du module Snack-bar — motifs de stock, libellés partagés.
  *
- * PHASE 1 (socle profil métier non mergé) : le miroir des motifs de stock
- * (`schemas/stock-movement.schema.ts` + `Stocks.tsx › REASON_LABELS`) est un
- * fichier PARTAGÉ, interdit avant le signal. Les mouvements du snack sont donc
- * écrits avec des motifs EXISTANTS et une note explicite (« Réception 3
- * casier(s) × 24 », « Casse — … »).
- *
- * PHASE 2 : ajouter `reception_casier` et `casse` des deux côtés du miroir,
- * puis basculer ces deux constantes. Les tests du module lisent les
- * constantes, pas les littéraux : la bascule ne les casse pas.
+ * Les deux motifs propres au profil, `reception_casier` et `casse`, sont
+ * déclarés des deux côtés du miroir (`schemas/stock-movement.schema.ts` et
+ * `Stocks.tsx › REASON_LABELS`), sous la gouvernance de
+ * `motifs-stock-governance.spec.ts`. Les mouvements gardent en plus une note
+ * explicite (« Réception 3 casier(s) × 24 », « Casse — … »).
  */
 import type { MovementReason } from '../schemas/stock-movement.schema';
 
-export const MOTIF_RECEPTION_CASIER: MovementReason = 'reception';
-export const MOTIF_CASSE: MovementReason = 'adjustment';
+export const MOTIF_RECEPTION_CASIER: MovementReason = 'reception_casier';
+export const MOTIF_CASSE: MovementReason = 'casse';
 
 /**
  * Préfixe du nom des lignes de consigne dans une vente (`Sale.items`).

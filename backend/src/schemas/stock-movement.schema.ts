@@ -7,12 +7,14 @@ export type MovementType   = 'IN' | 'OUT';
 export type MovementReason =
   | 'restock' | 'sale' | 'adjustment' | 'reception'
   | 'annulation_vente' | 'modification_vente' | 'livraison_partenaire' | 'retour_partenaire'
-  | 'retour_entrepot' | 'retour_fournisseur';
+  | 'retour_entrepot' | 'retour_fournisseur'
+  | 'reception_casier' | 'casse';   // profil Snack-bar (module comptoir)
 
 const MOVEMENT_REASONS: MovementReason[] = [
   'restock', 'sale', 'adjustment', 'reception',
   'annulation_vente', 'modification_vente', 'livraison_partenaire', 'retour_partenaire',
   'retour_entrepot', 'retour_fournisseur',
+  'reception_casier', 'casse',
 ];
 
 @Schema({ timestamps: { createdAt: true, updatedAt: false } })
