@@ -29,7 +29,10 @@ const BACK  = path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'schem
 /** Motifs autorisés par le schéma : le tableau `MOVEMENT_REASONS = [...]`. */
 function motifsDuBackend(): string[] {
   const src = fs.readFileSync(BACK, 'utf8');
-  const bloc = src.match(/MOVEMENT_REASONS\s*:\s*MovementReason\[\]\s*=\s*\[([\s\S]*?)\]/);
+  // Deux formes acceptées : l'historique `MOVEMENT_REASONS: MovementReason[] = [...]`
+  // et, depuis le 12/09/2026, `MOVEMENT_REASONS = [...] as const` (le type en
+  // dérive — un profil de la gamme n'ajoute qu'une ligne au tableau).
+  const bloc = src.match(/MOVEMENT_REASONS\s*(?::\s*MovementReason\[\])?\s*=\s*\[([\s\S]*?)\]/);
   if (!bloc) throw new Error('MOVEMENT_REASONS introuvable dans stock-movement.schema.ts');
   return [...bloc[1].matchAll(/'([a-z_]+)'/g)].map(m => m[1]);
 }

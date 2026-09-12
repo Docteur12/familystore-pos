@@ -212,6 +212,10 @@ export class SalesService {
 
   // ── GET /api/sales/divers ─────────────────────────────────────────────────
   // Liste à plat les articles « divers » vendus (non référencés), à régulariser.
+  //
+  // Un vrai « divers » n'a PAS de produit : c'est ce qui le rend à régulariser
+  // (le créer au catalogue). Une ligne marquée divers qui porte un produit est
+  // déjà référencée — elle n'a rien à faire ici (défaut relevé le 12/09/2026).
 
   async getDiversSales(limit = 300) {
     const sales = await this.saleModel
@@ -227,7 +231,7 @@ export class SalesService {
 
     for (const s of sales) {
       for (const it of (s.items ?? [])) {
-        if ((it as any).divers) {
+        if ((it as any).divers && !(it as any).product) {
           rows.push({
             saleId:      String(s._id),
             name:        it.name,
