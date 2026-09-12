@@ -3,17 +3,33 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type StockMovementDocument = HydratedDocument<StockMovement>;
 
-export type MovementType   = 'IN' | 'OUT';
-export type MovementReason =
-  | 'restock' | 'sale' | 'adjustment' | 'reception'
-  | 'annulation_vente' | 'modification_vente' | 'livraison_partenaire' | 'retour_partenaire'
-  | 'retour_entrepot' | 'retour_fournisseur';
+export type MovementType = 'IN' | 'OUT';
 
-const MOVEMENT_REASONS: MovementReason[] = [
+/**
+ * Motifs de mouvement de stock — LE tableau fait foi, le type en dérive.
+ *
+ * Miroir de `frontend/src/pages/Stocks.tsx › REASON_LABELS` (libellés FR et
+ * EN), verrouillé par `motifs-stock-governance.spec.ts` : tout motif ajouté
+ * ici doit recevoir ses deux libellés, sinon la CI casse.
+ *
+ * Gamme Caméléon : un profil n'ajoute que des LIGNES à ce tableau (fichier
+ * partagé, ajouts seulement). Le type était une union littérale fermée qu'il
+ * fallait réécrire à chaque motif — remontée de la session Snack par
+ * `verifier:perimetre` le 12/09/2026.
+ *
+ *  - `reception_casier` : arrivage en casiers (snack-bar), converti en
+ *    bouteilles à l'entrée en réserve ;
+ *  - `casse` : bouteille cassée, produit perdu — sortie sans vente.
+ */
+export const MOVEMENT_REASONS = [
   'restock', 'sale', 'adjustment', 'reception',
   'annulation_vente', 'modification_vente', 'livraison_partenaire', 'retour_partenaire',
   'retour_entrepot', 'retour_fournisseur',
-];
+  // Gamme — profils
+  'reception_casier', 'casse',
+] as const;
+
+export type MovementReason = (typeof MOVEMENT_REASONS)[number];
 
 @Schema({ timestamps: { createdAt: true, updatedAt: false } })
 export class StockMovement {
