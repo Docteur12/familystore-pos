@@ -227,7 +227,10 @@ export class SalesService {
 
     for (const s of sales) {
       for (const it of (s.items ?? [])) {
-        if ((it as any).divers) {
+        // Un article divers à régulariser n'a PAS de produit. Une ligne
+        // `divers` qui en porte un (consigne d'une bouteille, module comptoir)
+        // est rattachée à son produit : elle n'a rien à régulariser ici.
+        if ((it as any).divers && !(it as any).product) {
           rows.push({
             saleId:      String(s._id),
             name:        it.name,
