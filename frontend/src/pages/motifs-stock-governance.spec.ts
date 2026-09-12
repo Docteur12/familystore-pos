@@ -27,14 +27,30 @@ const FRONT = path.resolve(__dirname, 'Stocks.tsx');
 const BACK  = path.resolve(__dirname, '..', '..', '..', 'backend', 'src', 'schemas', 'stock-movement.schema.ts');
 
 /** Motifs autorisés par le schéma : le tableau `MOVEMENT_REASONS = [...]`. */
-function motifsDuBackend(): string[] {
-  const src = fs.readFileSync(BACK, 'utf8');
-  // Deux formes acceptées : l'historique `MOVEMENT_REASONS: MovementReason[] = [...]`
+function motifsDe(src: string): string[] {
+  // Deux formes lues : l'historique `MOVEMENT_REASONS: MovementReason[] = [...]`
   // et, depuis le 12/09/2026, `MOVEMENT_REASONS = [...] as const` (le type en
   // dérive — un profil de la gamme n'ajoute qu'une ligne au tableau).
   const bloc = src.match(/MOVEMENT_REASONS\s*(?::\s*MovementReason\[\])?\s*=\s*\[([\s\S]*?)\]/);
   if (!bloc) throw new Error('MOVEMENT_REASONS introuvable dans stock-movement.schema.ts');
   return [...bloc[1].matchAll(/'([a-z_]+)'/g)].map(m => m[1]);
+}
+
+function motifsDuBackend(): string[] {
+  return motifsDe(fs.readFileSync(BACK, 'utf8'));
+}
+
+/**
+ * Le type `MovementReason` DÉRIVE du tableau — la forme fautive est l'union
+ * littérale fermée (`type MovementReason = 'a' | 'b'`) qui obligeait chaque
+ * profil de la gamme à réécrire la dernière ligne du type, ce que le
+ * périmètre des fichiers partagés interdit (ajouts seulement). Remontée par
+ * la session Snack le 12/09/2026.
+ */
+function typeDeriveDuTableau(src: string): boolean {
+  const derive = /type\s+MovementReason\s*=\s*\(\s*typeof\s+MOVEMENT_REASONS\s*\)\s*\[\s*number\s*\]/.test(src);
+  const unionFermee = /type\s+MovementReason\s*=\s*\|?\s*'[a-z_]+'/.test(src);
+  return derive && !unionFermee;
 }
 
 /** Libellés du frontend : les entrées `code: t('fr', 'en')` de REASON_LABELS. */
@@ -82,5 +98,35 @@ describe('motifs de mouvement de stock — libellés FR/EN', () => {
 
   it('les deux listes coïncident exactement', () => {
     expect([...frontend.keys()].sort()).toEqual([...backend].sort());
+  });
+
+  it('le type MovementReason dérive du tableau — un profil n’ajoute qu’une ligne', () => {
+    expect(typeDeriveDuTableau(fs.readFileSync(BACK, 'utf8'))).toBe(true);
+  });
+});
+
+describe('garde-fou sur le garde-fou — le détecteur détecte', () => {
+  const ancienneForme = [
+    "export type MovementReason =",
+    "  | 'restock' | 'sale' | 'adjustment';",
+    "const MOVEMENT_REASONS: MovementReason[] = ['restock', 'sale', 'adjustment'];",
+  ].join('\n');
+  const formeDerivee = [
+    "export const MOVEMENT_REASONS = ['restock', 'sale', 'adjustment'] as const;",
+    "export type MovementReason = (typeof MOVEMENT_REASONS)[number];",
+  ].join('\n');
+
+  it('TÉMOIN NÉGATIF — l’union littérale fermée fait échouer la gouvernance', () => {
+    expect(typeDeriveDuTableau(ancienneForme)).toBe(false);
+  });
+
+  it('TÉMOIN NÉGATIF — un type dérivé DOUBLÉ d’une union fermée reste refusé', () => {
+    expect(typeDeriveDuTableau(formeDerivee + "\ntype MovementReason = 'restock' | 'sale';")).toBe(false);
+  });
+
+  it('TÉMOIN POSITIF — la forme dérivée passe, et les deux formes livrent leurs motifs', () => {
+    expect(typeDeriveDuTableau(formeDerivee)).toBe(true);
+    expect(motifsDe(ancienneForme)).toEqual(['restock', 'sale', 'adjustment']);
+    expect(motifsDe(formeDerivee)).toEqual(['restock', 'sale', 'adjustment']);
   });
 });
