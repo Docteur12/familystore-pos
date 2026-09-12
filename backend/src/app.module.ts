@@ -28,6 +28,7 @@ import { BonsLivraisonModule } from './bons-livraison/bons-livraison.module';
 import { PartenairesModule } from './partenaires/partenaires.module';
 import { CategoriesModule } from './categories/categories.module';
 import { FacturesFournisseursModule } from './factures-fournisseurs/factures-fournisseurs.module';
+import { ComptoirModule } from './comptoir/comptoir.module';
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { FacturesFournisseursModule } from './factures-fournisseurs/factures-fou
     PartenairesModule,
     CategoriesModule,
     FacturesFournisseursModule,   // factures fournisseurs : import, lecture automatique, validation → réception
+    ComptoirModule,               // profil Snack-bar (module optionnel `comptoir`) : casiers, consignes, réserve
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: AppThrottlerGuard }],

@@ -118,6 +118,7 @@ const SECTIONS: NavSection[] = [
       { id: 'go-stock',      label: t('Gestion de stock', 'Inventory'), icon: D.stockSpace,  path: '/stocks'     },
       { id: 'go-magazinier', label: t('Magasinier', 'Warehouse'),       icon: D.magSpace,    path: '/magazinier' },
       { id: 'go-partenaires',label: t('Partenaires', 'Partners'),      icon: D.equipe,      path: '/partenaires', module: 'partenaires' },
+      { id: 'go-comptoir',   label: t('Comptoir', 'Counter'),          icon: D.caisseSpace, path: '/comptoir',    module: 'comptoir' },
     ],
   },
 ];

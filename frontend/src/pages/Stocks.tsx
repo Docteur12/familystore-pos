@@ -37,6 +37,8 @@ const REASON_LABELS: Record<string, string> = {
   retour_partenaire:    t('Retour partenaire', 'Partner return'),
   retour_entrepot:      t('Retour entrepôt', 'Warehouse return'),
   retour_fournisseur:   t('Retour fournisseur', 'Supplier return'),
+  reception_casier:     t('Réception par casier', 'Crate delivery'),
+  casse:                t('Casse', 'Breakage'),
 };
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
