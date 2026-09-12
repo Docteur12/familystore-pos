@@ -13,6 +13,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getAllProducts, Product } from '../api/products';
+import StocksSidebar from '../components/StocksSidebar';
 import ToastContainer, { useToast } from '../components/Toast';
 import { displayName } from '../utils/text';
 import { t, dateLocale } from '../i18n';
@@ -75,8 +76,11 @@ export default function StocksReserve() {
   };
 
   return (
-    <div data-testid="reserve" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
+      <StocksSidebar alertCount={0} />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <main style={{ flex: 1, overflowX: 'hidden', overflowY: 'auto', background: 'var(--fs-ivory)' }}>
+    <div data-testid="reserve" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>{t('Réserve — casiers, consignes, vides', 'Stockroom — crates, deposits, empties')}</h1>
@@ -174,6 +178,8 @@ export default function StocksReserve() {
           onFait={(b) => apresAction(t(`Casse enregistrée : −${b} bouteilles`, `Breakage recorded: −${b} bottles`))}
           onErreur={m => addToast(m, 'error')} />
       )}
+    </div>
+      </main>
     </div>
   );
 }

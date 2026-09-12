@@ -80,6 +80,12 @@ const EXACT: Record<string, string> = {
                                                           'Reading refused by the model — unusable document or unexpected content.',
   'Lecture incomplète : la réponse ne respecte pas le format attendu. Réessayez avec une photo plus nette.':
                                                           'Incomplete read: the response does not match the expected format. Try again with a sharper photo.',
+  // Profil Snack-bar (module comptoir)
+  'Identifiant de produit invalide':                      'Invalid product identifier',
+  "Conditionnement non défini pour ce produit : indiquez d'abord le nombre de bouteilles par casier":
+                                                          'No packaging set for this product: first enter the number of bottles per crate',
+  "Ce produit n'a pas de consigne":                       'This product carries no deposit',
+  'Date invalide (attendu AAAA-MM-JJ)':                   'Invalid date (expected YYYY-MM-DD)',
 };
 
 const PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
@@ -101,6 +107,9 @@ const PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/^Moyen de règlement invalide : « (.+) »$/,                  m => `Invalid payment method: "${m[1]}"`],
   [/^Statut inconnu : « (.+) »$/,                               m => `Unknown status: "${m[1]}"`],
   [/^Type d'établissement inconnu : « (.+) »$/,                  m => `Unknown business type: "${m[1]}"`],
+  // Profil Snack-bar (module comptoir)
+  [/^Vides rendus \((\d+)\) supérieurs aux vides en réserve \((\d+)\)$/, m => `Empties returned (${m[1]}) exceed empties in stock (${m[2]})`],
+  [/^Stock insuffisant : disponible (\d+), demandé (\d+)$/,     m => `Insufficient stock: ${m[1]} available, ${m[2]} requested`],
 ];
 
 export function translateBackendMessage(msg: string): string {

@@ -54,6 +54,7 @@ const NAV_ITEMS: { id: string; label: string; icon: string; path: string; module
   { id: 'fournisseurs',label: t('Fournisseurs', 'Suppliers'),        icon: D.fournisseurs, path: '/stocks/fournisseurs' },
   { id: 'ecarts',      label: t('Écarts de stock', 'Stock discrepancies'),     icon: D.alertes,      path: '/stocks/ecarts'       },
   { id: 'divers',      label: t('Articles divers', 'Miscellaneous items'),     icon: D.divers,       path: '/stocks/divers'       },
+  { id: 'reserve',     label: t('Réserve (casiers, consignes)', 'Stockroom (crates, deposits)'), icon: D.reception, path: '/stocks/reserve', module: 'comptoir' },
 ];
 
 export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number }) {

@@ -53,6 +53,8 @@ import PartenairesAgencesMaquette from './pages/PartenairesAgencesMaquette';
 import { getTokenPayload } from './api/dashboard';
 import { typeEtablissement } from './api/settings';
 import { accueilCaissier } from './api/profils';
+import Comptoir          from './pages/Comptoir';
+import StocksReserve     from './pages/StocksReserve';
 
 /**
  * Accueils de profil DÉJÀ branchés dans les routes ci-dessous. Une branche
@@ -62,6 +64,7 @@ import { accueilCaissier } from './api/profils';
  */
 const ACCUEILS_IMPLEMENTES: ReadonlySet<string> = new Set([
   '/caisse-pin',
+  '/comptoir',     // profil Snack-bar
 ]);
 
 // ── Sécurité machine partagée : pas de reprise automatique de session ────────
@@ -229,6 +232,9 @@ export default function App() {
         <Route path="/magazinier"          element={<RequireRole role={['magazinier','patron']}><Magazinier /></RequireRole>} />
         <Route path="/partenaires"         element={<RequireModule id="partenaires"><RequireRole role={['patron','commercial']}><Partenaires /></RequireRole></RequireModule>} />
         <Route path="/maquette/agences"    element={<RequireModule id="partenaires"><PartenairesAgencesMaquette /></RequireModule>} />
+        {/* Profil Snack-bar — module optionnel `comptoir` */}
+        <Route path="/comptoir"            element={<RequireModule id="comptoir"><RequireRole role={['caissier','patron','gestionnaire']}><Comptoir /></RequireRole></RequireModule>} />
+        <Route path="/stocks/reserve"      element={<RequireModule id="comptoir"><RequireAuthBare><StocksReserve /></RequireAuthBare></RequireModule>} />
       </Routes>
     </BrowserRouter>
     </SettingsProvider>

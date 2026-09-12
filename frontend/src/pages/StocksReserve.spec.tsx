@@ -10,6 +10,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import React, { act } from 'react';
 import { createRoot, Root } from 'react-dom/client';
+import { MemoryRouter } from 'react-router-dom';
 import StocksReserve from './StocksReserve';
 import { definirJeton } from '../services/storage';
 
@@ -81,7 +82,8 @@ async function monter() {
   conteneur = document.createElement('div');
   document.body.appendChild(conteneur);
   racine = createRoot(conteneur);
-  await act(async () => { racine.render(<StocksReserve />); });
+  // La page porte la barre latérale de l'espace stock (liens) : un routeur est requis.
+  await act(async () => { racine.render(<MemoryRouter initialEntries={['/stocks/reserve']}><StocksReserve /></MemoryRouter>); });
   await attendre(() => $$('[data-testid="ligne-reserve"]').length === 1);
 }
 
