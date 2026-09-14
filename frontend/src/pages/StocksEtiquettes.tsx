@@ -10,9 +10,10 @@ import { t, dateLocale } from '../i18n';
 // Encodage Code39 partagé (utils/code39) : le MÊME code à l'écran et à
 // l'impression — les barres imprimées étaient décoratives, illisibles à la
 // douchette, alors que l'aperçu montrait un vrai code.
-import { drawCode39, barresHtml, rectsCode39 } from '../utils/code39';
+import { drawCode39, barresHtml } from '../utils/code39';
 import { skuProduit } from '../utils/sku';
 import { uniteAffichee } from '../utils/unites';
+import { dessinerEtiquetteBrother, BROTHER_62 } from '../utils/etiquette-brother';
 
 function BarcodeCanvas({ value, width = 200, height = 44 }: { value: string; width?: number; height?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -36,35 +37,24 @@ const skuOf = (p: Product): string => skuProduit(p);
 // rectangles jsPDF posés au millimètre, imprimés depuis la visionneuse PDF.
 // L'impression HTML du navigateur rastérise et lisse des barres de 0,3 mm —
 // sur le terrain, la douchette lisait le PDF de test et pas l'étiquette HTML.
-async function imprimerPdfBrother(produits: Product[]): Promise<void> {
+async function imprimerPdfBrother(produits: Product[], enseigne: string): Promise<void> {
   const { jsPDF } = await import('jspdf');
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [62, 29] });
+  const { largeur, hauteur } = BROTHER_62;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [largeur, hauteur] });
   const num = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
   produits.forEach((p, i) => {
-    if (i > 0) doc.addPage([62, 29], 'landscape');
-    const sku  = skuOf(p);
-    const code = sku.replace(/-/g, '').slice(0, 14);
-    doc.setTextColor(0, 0, 0);
-    const nom = displayName(p.name);
-    // La QL-800 ne peut pas imprimer les ~2 premiers millimètres du rouleau :
-    // le contenu démarre à 5,6 mm — la zone morte reste vide. Et le bas de
-    // l'étiquette est REMONTÉ : glissée dans un porte-étiquette, la dernière
-    // ligne (le prix) sortait cachée par le rail du support.
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
-    doc.text(nom.length > 34 ? nom.slice(0, 33) + '…' : nom, 2, 5.6);
-    // Barres : mêmes cotes que l'étiquette de test qui se scanne — zone
-    // 4 → 58 mm, zones blanches de silence de chaque côté.
-    doc.setFillColor(0, 0, 0);
-    for (const r of rectsCode39(code, 4, 54)) doc.rect(r.x, 6.8, r.w, 9.2, 'F');
-    doc.setFont('courier', 'bold'); doc.setFontSize(7);
-    doc.text(sku, 31, 18.6, { align: 'center' });
-    // Unité · quantité à gauche (traduite selon la langue du magasin) ;
-    // PRIX gros et lisible de loin à droite.
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
-    doc.text(`${uniteAffichee(p.unit)}${p.valeur ? ' · ' + p.valeur : ''}`, 2, 24.6);
-    doc.setFontSize(12.5);
-    doc.text(`${num(p.price)} XAF`, 60, 25.0, { align: 'right' });
+    if (i > 0) doc.addPage([largeur, hauteur], 'landscape');
+    const sku = skuOf(p);
+    // Dessin et cotes validées à la QL-800 : utils/etiquette-brother.ts (testé).
+    dessinerEtiquetteBrother(doc, {
+      nom: displayName(p.name),
+      code: sku.replace(/-/g, '').slice(0, 14),
+      sku,
+      // Unité traduite selon la langue du magasin.
+      uniteQuantite: `${uniteAffichee(p.unit)}${p.valeur ? ' · ' + p.valeur : ''}`,
+      prix: `${num(p.price)} XAF`,
+    }, enseigne);
   });
 
   // Visionneuse PDF du navigateur — on imprime depuis là, exactement comme
@@ -226,7 +216,9 @@ export default function StocksEtiquettes() {
     // Brother : PDF vectoriel (la chaîne validée à la douchette), pas
     // d'impression HTML — voir imprimerPdfBrother.
     if (template === 'brother') {
-      await imprimerPdfBrother(toPrint);
+      // L'enseigne du magasin, telle que saisie — vide, rien ne s'imprime à sa
+      // place (une étiquette est remise au client : jamais une autre marque).
+      await imprimerPdfBrother(toPrint, (settings.nomMagasin ?? '').trim());
       return;
     }
 
