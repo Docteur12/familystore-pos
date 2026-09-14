@@ -47,14 +47,14 @@ const plain = (s: string) => s.replace(/\*/g, '');
 export interface PrintSettings {
   auto:    boolean;
   copies:  number;
-  /** Hauteur (mm) des étiquettes Brother 62 — 29 par défaut, plus pour remplir un porte-étiquette haut. */
+  /** Hauteur (mm) des étiquettes Brother 62 — 39 par défaut (porte-étiquettes Radiance), 29 = étiquettes prédécoupées. */
   etiquetteHauteurMm?: number;
 }
 
 export const PRINT_DEFAULTS: PrintSettings = {
   auto:    false,
   copies:  1,
-  etiquetteHauteurMm: 29,
+  etiquetteHauteurMm: 39,
 };
 
 const LS_KEY = 'fs_print_settings';
