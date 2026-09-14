@@ -51,8 +51,6 @@ async function imprimerPdfBrother(produits: Product[], enseigne: string): Promis
       nom: displayName(p.name),
       code: sku.replace(/-/g, '').slice(0, 14),
       sku,
-      // Unité traduite selon la langue du magasin.
-      uniteQuantite: `${uniteAffichee(p.unit)}${p.valeur ? ' · ' + p.valeur : ''}`,
       prix: `${num(p.price)} XAF`,
     }, enseigne);
   });
