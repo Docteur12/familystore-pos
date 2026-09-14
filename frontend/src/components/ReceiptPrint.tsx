@@ -206,18 +206,76 @@ export function buildReceiptHTML(data: ReceiptData): string {
 </html>`;
 }
 
+/** Marqueur du cadre d'impression — un seul à la fois dans la page. */
+const ATTR_CADRE = 'data-impression-ticket';
+
+/** Délai maximal d'attente des images du ticket avant d'imprimer quand même. */
+const ATTENTE_IMAGES_MS = 1500;
+
+/**
+ * Imprime un ticket dans un CADRE CACHÉ de la page — jamais dans une fenêtre.
+ *
+ * Il ouvrait une fenêtre séparée (`window.open`). Chrome ne l'autorise que
+ * dans la foulée immédiate d'un clic, et une seule fois par clic : dès que
+ * quelque chose d'autre consommait ce clic — l'ancien essai d'ouverture du
+ * tiroir par port série, ou une vente lente avant l'impression automatique —
+ * la fenêtre était bloquée et le caissier voyait « Autorisez les popups pour
+ * imprimer ». Constaté chez Radiance le 14/09/2026. Les copies 2 et suivantes,
+ * ouvertes une seconde plus tard, étaient bloquées à coup sûr, sans message.
+ *
+ * Un cadre dans la page n'est pas une fenêtre : aucun bloqueur ne s'applique,
+ * aucune autorisation à demander, et l'impression automatique marche même
+ * après un enregistrement de vente lent. Les copies partent en UN seul
+ * travail d'impression, une page par copie (le massicot coupe entre deux).
+ */
 export function doPrint(html: string, copies = 1) {
-  for (let i = 0; i < copies; i++) {
+  const n = Math.max(1, Math.floor(Number(copies)) || 1);
+
+  // Un cadre resté d'une impression précédente (clic répété) est retiré.
+  document.querySelectorAll(`iframe[${ATTR_CADRE}]`).forEach(c => c.remove());
+
+  // Le ticket est un document complet : on garde son <head> (styles, @page)
+  // et on répète son <body> autant de fois qu'il y a de copies.
+  const source = new DOMParser().parseFromString(html, 'text/html');
+  const corps = source.body.innerHTML;
+
+  const cadre = document.createElement('iframe');
+  cadre.setAttribute(ATTR_CADRE, '');
+  cadre.setAttribute('aria-hidden', 'true');
+  cadre.setAttribute('tabindex', '-1');
+  // Ni `display:none` (Chrome imprimerait une page blanche), ni fenêtre :
+  // un cadre de taille nulle, hors de vue.
+  cadre.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+  document.body.appendChild(cadre);
+
+  const fenetre = cadre.contentWindow;
+  const doc = cadre.contentDocument ?? fenetre?.document;
+  if (!fenetre || !doc) { cadre.remove(); return; }
+
+  doc.documentElement.lang = source.documentElement.lang || document.documentElement.lang;
+  doc.head.innerHTML = source.head.innerHTML
+    + '<style>.copie-ticket{break-after:page;page-break-after:always}.copie-ticket:last-child{break-after:auto;page-break-after:auto}</style>';
+  doc.body.innerHTML = Array.from({ length: n }, () => `<div class="copie-ticket">${corps}</div>`).join('');
+
+  let retire = false;
+  const retirer = () => { if (!retire) { retire = true; cadre.remove(); } };
+  fenetre.addEventListener('afterprint', retirer);
+
+  // Les images (logo) doivent être chargées, sinon elles manquent au papier.
+  const images = Array.from(doc.images).filter(img => !img.complete);
+  const imagesPretes = Promise.race([
+    Promise.all(images.map(img => new Promise<void>(ok => { img.onload = () => ok(); img.onerror = () => ok(); }))),
+    new Promise<void>(ok => setTimeout(ok, ATTENTE_IMAGES_MS)),
+  ]);
+
+  void imagesPretes.then(() => {
     setTimeout(() => {
-      const w = window.open('', '_blank', 'width=350,height=700,menubar=no,toolbar=no');
-      if (!w) { if (i === 0) alert(t('Autorisez les popups pour imprimer.', 'Please allow popups to print.')); return; }
-      w.document.write(html);
-      w.document.close();
-      setTimeout(() => {
-        try { w.focus(); w.print(); setTimeout(() => w.close(), 1200); } catch { /* ignore */ }
-      }, 400);
-    }, i * 1000);
-  }
+      try { fenetre.focus(); fenetre.print(); }
+      catch { retirer(); return; }
+      // Filet : certains navigateurs n'émettent pas `afterprint`.
+      setTimeout(retirer, 60_000);
+    }, 50);
+  });
 }
 
 // Génération PDF reçu (base64) pour archivage ─────────────────────────────────
@@ -332,16 +390,8 @@ export function buildReceiptPDF(data: ReceiptData): string {
   return doc.output('datauristring').split(',')[1] ?? '';
 }
 
-// Ouverture tiroir-caisse via ESC/POS (navigator.serial — nécessite HTTPS + autorisation)
-export async function openCashDrawer() {
-  if (!('serial' in navigator)) return;
-  try {
-    const port = await (navigator as any).serial.requestPort();
-    await port.open({ baudRate: 9600 });
-    const writer = port.writable.getWriter();
-    // ESC p 0 25 250
-    await writer.write(new Uint8Array([0x1b, 0x70, 0x00, 0x19, 0xfa]));
-    writer.releaseLock();
-    await port.close();
-  } catch { /* annulé ou non supporté */ }
-}
+// Plus d'ouverture du tiroir-caisse depuis le navigateur. L'essai par port
+// série (navigator.serial) ne pouvait pas aboutir — une imprimante ticket USB
+// est un périphérique d'impression Windows, pas un port série — et il
+// consommait la permission du clic : Chrome bloquait alors le ticket.
+// Retiré le 14/09/2026, comme sur la branche Caméléon (22/08/2026).

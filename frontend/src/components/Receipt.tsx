@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  ReceiptData, buildReceiptHTML, doPrint, getPrintSettings, openCashDrawer,
+  ReceiptData, buildReceiptHTML, doPrint, getPrintSettings,
 } from './ReceiptPrint';
 import { formatVolume, displayName } from '../utils/text';
 import { OFFRE_DEFAULTS, StoreIdentity } from '../api/settings';
@@ -174,7 +174,11 @@ export default function Receipt({ data, onNewSale }: Props) {
         {/* Actions */}
         <div style={{ padding: '0 24px 20px', display: 'flex', gap: 10 }}>
           <button
-            onClick={() => { handlePrint(); openCashDrawer(); }}
+            // Imprimer, et rien d'autre dans ce clic : l'essai d'ouverture du
+            // tiroir par port série consommait la permission du clic, et Chrome
+            // bloquait alors le ticket (« Please allow popups », Radiance,
+            // 14/09/2026).
+            onClick={handlePrint}
             style={{
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               padding: '11px 0',
