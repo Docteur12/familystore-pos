@@ -46,8 +46,8 @@ git push -u origin main
    | `VITE_APP_NAME` | `Family Store POS` | `Radiance POS` |
    | `VITE_APP_SHORT_NAME` | `Family Store` | `Radiance` |
    | `VITE_APP_LANG` | `fr` | `en` |
-   | `VITE_THEME_COLOR` | `#8B1A2B` | `#221C1A` |
-   | `VITE_BG_COLOR` | `#F5F0E8` | `#FCF8EA` |
+   | `VITE_THEME_COLOR` | `#8B1A2B` | `#E96790` (rose du logo, depuis le 14/09/2026 — avant : `#221C1A`) |
+   | `VITE_BG_COLOR` | `#F5F0E8` | `#FFF5F8` (blanc rosé — avant : `#FCF8EA`) |
    | `VITE_API_BASE` | *(vide — proxy Netlify)* | `https://<service-radiance>.onrender.com` |
    | `VITE_BRAND_ICONS` | *(vide — icônes Family Store)* | `radiance` (jeu `frontend/public/brand/radiance/`) |
 

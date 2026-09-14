@@ -46,8 +46,10 @@ export const IDENTITES: Record<string, Record<string, unknown>> = {
     telephonesTicket: ['+237 677286468', '+237 686577135'],
     adresse:          'Bonamoussadi',
     ville:            'Douala',
-    couleurPrincipale:'#221C1A',
-    couleurSecondaire:'#C9A24A',
+    // Nouvelle identité (14/09/2026) : le logo « Radiance Essentials » est
+    // rose sur blanc — fini le noir et or. Rose dominant mesuré sur le logo.
+    couleurPrincipale:'#E96790',
+    couleurSecondaire:'#D2467A',
     typeEtablissement: 'commerce',
     modules:          ['aucun'],
     metier:           { inactiviteMinutes: 30, seedFournisseursDemo: false },
