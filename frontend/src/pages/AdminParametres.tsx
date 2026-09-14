@@ -232,10 +232,10 @@ export default function AdminParametres() {
 
   const OFFRE_KEYS: { key: keyof OffreFacture; csv: string; label: string; ph: string }[] = [
     { key: 'titre',      csv: 'TITRE_OFFRE',    label: t('Titre de l\'offre', 'Offer title'),   ph: t('ex : Ne laissez pas votre remise expirer !', "e.g.: Don't let your discount expire!") },
-    { key: 'message',    csv: 'MESSAGE_OFFRE',  label: t('Message de l\'offre', 'Offer message'), ph: t('ex : *Merci pour votre achat !* Family Store vous offre 5 %…', 'e.g.: *Thank you for your purchase!* Family Store offers you 5%…') },
+    { key: 'message',    csv: 'MESSAGE_OFFRE',  label: t('Message de l\'offre', 'Offer message'), ph: t('ex : *Merci pour votre achat !* Profitez de 5 % sur votre prochaine visite…', 'e.g.: *Thank you for your purchase!* Enjoy 5% off your next visit…') },
     { key: 'validite',   csv: 'VALIDITE_OFFRE', label: t('Validité', 'Validity'),            ph: t('ex : *Offre valable jusqu\'au 31 août 2026 uniquement.*', 'e.g.: *Offer valid until 31 August 2026 only.*') },
     { key: 'cta',        csv: 'CALL_TO_ACTION', label: t('Appel à l\'action', 'Call to action'),   ph: t('ex : *Revenez avant le 31 août avec cette facture…*', 'e.g.: *Come back before 31 August with this receipt…*') },
-    { key: 'salutation', csv: 'SALUTATION_FIN', label: t('Salutation de fin', 'Closing greeting'),   ph: t('ex : *À très bientôt chez Family Store !*', 'e.g.: *See you soon at Family Store!*') },
+    { key: 'salutation', csv: 'SALUTATION_FIN', label: t('Salutation de fin', 'Closing greeting'),   ph: t('ex : *À très bientôt !*', 'e.g.: *See you soon!*') },
   ];
 
   const saveOffre = async (next: OffreFacture, msg = t('Offre marketing enregistrée ✅', 'Marketing offer saved ✅')) => {

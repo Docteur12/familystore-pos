@@ -3,6 +3,10 @@ import { t } from '../i18n';
 
 // Offre marketing imprimée en pied de facture — les segments entre
 // *astérisques* sont rendus en gras sur le ticket.
+//
+// Défaut VIDE (miroir du schéma backend). Jusqu'au 14/09/2026 il portait
+// « Family Store vous offre 5 % » : imprimé sur les reçus de Radiance, dont
+// les Settings n'avaient pas ce champ. Verrouillé par offre-defaut-vide.spec.ts.
 export interface OffreFacture {
   titre: string;
   message: string;
@@ -13,7 +17,7 @@ export interface OffreFacture {
 
 export const OFFRE_DEFAULTS: OffreFacture = {
   titre:      '',
-  message:    'Pour vous remercier, *Family Store vous offre 5 %* de réduction sur votre prochain achat. Présentez simplement cette facture à la caisse pour bénéficier de cette offre.',
+  message:    '',
   validite:   '',
   cta:        '',
   salutation: '',

@@ -81,11 +81,17 @@ export class Settings {
 
   // Offre marketing imprimée en pied de facture — éditable (import/export CSV).
   // Les segments entre *astérisques* sont rendus en gras sur le ticket.
+  //
+  // Défaut VIDE. Jusqu'au 14/09/2026, le défaut portait le nom « Family
+  // Store » et une remise de 5 % : Radiance, dont les Settings n'avaient pas
+  // ce champ, imprimait cette promesse au nom d'un autre commerce sur ses
+  // reçus. Un pied de ticket vide ne gêne personne ; une offre inventée
+  // engage. Verrouillé par test/settings/offre-defaut-vide.spec.ts.
   @Prop({
     type: { titre: String, message: String, validite: String, cta: String, salutation: String },
     default: {
       titre:      '',
-      message:    'Pour vous remercier, *Family Store vous offre 5 %* de réduction sur votre prochain achat. Présentez simplement cette facture à la caisse pour bénéficier de cette offre.',
+      message:    '',
       validite:   '',
       cta:        '',
       salutation: '',
