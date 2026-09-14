@@ -13,7 +13,8 @@ import { t, dateLocale } from '../i18n';
 import { drawCode39, barresHtml } from '../utils/code39';
 import { skuProduit } from '../utils/sku';
 import { uniteAffichee } from '../utils/unites';
-import { dessinerEtiquetteBrother, BROTHER_62 } from '../utils/etiquette-brother';
+import { dessinerEtiquetteBrother, BROTHER_62, HAUTEURS_BROTHER, hauteurValide } from '../utils/etiquette-brother';
+import { getPrintSettings, savePrintSettings } from '../components/ReceiptPrint';
 
 function BarcodeCanvas({ value, width = 200, height = 44 }: { value: string; width?: number; height?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -37,9 +38,9 @@ const skuOf = (p: Product): string => skuProduit(p);
 // rectangles jsPDF posés au millimètre, imprimés depuis la visionneuse PDF.
 // L'impression HTML du navigateur rastérise et lisse des barres de 0,3 mm —
 // sur le terrain, la douchette lisait le PDF de test et pas l'étiquette HTML.
-async function imprimerPdfBrother(produits: Product[], enseigne: string): Promise<void> {
+async function imprimerPdfBrother(produits: Product[], enseigne: string, hauteur: number): Promise<void> {
   const { jsPDF } = await import('jspdf');
-  const { largeur, hauteur } = BROTHER_62;
+  const { largeur } = BROTHER_62;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [largeur, hauteur] });
   const num = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
@@ -52,7 +53,7 @@ async function imprimerPdfBrother(produits: Product[], enseigne: string): Promis
       code: sku.replace(/-/g, '').slice(0, 14),
       sku,
       prix: `${num(p.price)} XAF`,
-    }, enseigne);
+    }, enseigne, hauteur);
   });
 
   // Visionneuse PDF du navigateur — on imprime depuis là, exactement comme
@@ -182,6 +183,14 @@ export default function StocksEtiquettes() {
   // Brother 62 par défaut : c'est le format de l'étiqueteuse validée en
   // boutique — celui qu'on imprime réellement au quotidien.
   const [template,  setTemplate]  = useState<Template>('brother');
+  // Hauteur des étiquettes Brother : réglage du POSTE (le porte-étiquette du
+  // magasin ne change pas), mémorisé avec les autres réglages d'impression.
+  const [hauteurBrother, setHauteurBrother] = useState<number>(() => hauteurValide(getPrintSettings().etiquetteHauteurMm));
+  const changerHauteur = (h: number) => {
+    const v = hauteurValide(h);
+    setHauteurBrother(v);
+    savePrintSettings({ ...getPrintSettings(), etiquetteHauteurMm: v });
+  };
   const [selected,  setSelected]  = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -216,7 +225,7 @@ export default function StocksEtiquettes() {
     if (template === 'brother') {
       // L'enseigne du magasin, telle que saisie — vide, rien ne s'imprime à sa
       // place (une étiquette est remise au client : jamais une autre marque).
-      await imprimerPdfBrother(toPrint, (settings.nomMagasin ?? '').trim());
+      await imprimerPdfBrother(toPrint, (settings.nomMagasin ?? '').trim(), hauteurBrother);
       return;
     }
 
@@ -311,9 +320,19 @@ export default function StocksEtiquettes() {
                   color: template === t.id ? '#fff' : 'var(--fs-ink-500)',
                   fontFamily: 'var(--fs-font-sans)',
                 }}>
-                  {t.label} <span style={{ opacity: 0.7, fontSize: 10 }}>{t.size}</span>
+                  {t.label} <span style={{ opacity: 0.7, fontSize: 10 }}>{t.id === 'brother' ? `62×${hauteurBrother} mm` : t.size}</span>
                 </button>
               ))}
+              {template === 'brother' && (
+                <label title={t('Hauteur coupée sur le rouleau continu — à choisir pour remplir le porte-étiquette', 'Cut length on the continuous roll — pick the one that fills the label holder')}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--fs-ink-500)', marginLeft: 6 }}>
+                  {t('Hauteur', 'Height')}
+                  <select value={hauteurBrother} onChange={e => changerHauteur(Number(e.target.value))}
+                    style={{ padding: '5px 8px', borderRadius: 8, border: '1.5px solid var(--fs-line-2)', fontSize: 12, fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
+                    {HAUTEURS_BROTHER.map((h: number) => <option key={h} value={h}>{h} mm</option>)}
+                  </select>
+                </label>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <div style={{ position: 'relative' }}>

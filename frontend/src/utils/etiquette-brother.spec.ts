@@ -17,7 +17,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { jsPDF } from 'jspdf';
-import { dessinerEtiquetteBrother, COTES, BROTHER_62, TextesEtiquette } from './etiquette-brother';
+import { dessinerEtiquetteBrother, COTES, BROTHER_62, TextesEtiquette, cotes, hauteurValide } from './etiquette-brother';
 
 const CHEWING_GUM: TextesEtiquette = {
   nom: '5IVE Chewing Gum', code: '022000005144', sku: '022000005144', prix: '1 500 XAF',
@@ -82,5 +82,43 @@ describe('étiquette Brother 62 — enseigne seule et prix', () => {
       expect(w.y, `${w.texte} trop bas`).toBeLessThanOrEqual(COTES.prixY);
     }
     expect(COTES.enseigneY - COTES.skuY).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe('hauteur réglable — remplir un porte-étiquette plus haut', () => {
+  it('à 29 mm, les cotes sont exactement celles validées à la QL-800', () => {
+    const c = cotes(29);
+    expect(c).toMatchObject({ nomY: 5.6, barresY: 6.8, barresHauteur: 9.2, skuY: 18.6, enseigneY: 24.6, prixY: 25.0, nomTaille: 9.5, prixTaille: 12.5 });
+    expect(cotes()).toEqual(c);
+  });
+
+  it('à 39 mm, les barres grandissent et la ligne du bas reste à 4 mm du bord', () => {
+    const c = cotes(39);
+    expect(c.hauteur).toBe(39);
+    expect(c.barresHauteur).toBeGreaterThan(cotes(29).barresHauteur);
+    expect(c.prixY).toBe(35);
+    expect(c.enseigneY).toBe(34.6);
+    // La référence sous les barres ne mord pas sur la ligne du bas.
+    expect(c.enseigneY - c.skuY).toBeGreaterThanOrEqual(3);
+    // Rien dans la zone morte du haut.
+    expect(c.nomY).toBeGreaterThanOrEqual(5.6);
+  });
+
+  it('dessine réellement à 39 mm : tout dans la page, prix et enseigne en bas', () => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [62, 39] });
+    const ecrits: { texte: string; y: number }[] = [];
+    vi.spyOn(doc, 'text').mockImplementation(((texte: string, _x: number, y: number) => { ecrits.push({ texte, y }); return doc; }) as never);
+    dessinerEtiquetteBrother(doc, CHEWING_GUM, 'Radiance Essentials', 39);
+    for (const w of ecrits) { expect(w.y).toBeGreaterThan(0); expect(w.y).toBeLessThan(39); }
+    expect(ecrits.find(w => w.texte === '1 500 XAF')!.y).toBe(35);
+    expect(ecrits.find(w => w.texte === 'Radiance Essentials')!.y).toBe(34.6);
+  });
+
+  it('une hauteur absurde retombe sur 29', () => {
+    expect(hauteurValide(0)).toBe(29);
+    expect(hauteurValide(999)).toBe(29);
+    expect(hauteurValide('abc')).toBe(29);
+    expect(hauteurValide(39)).toBe(39);
+    expect(hauteurValide(39.4)).toBe(39);
   });
 });
