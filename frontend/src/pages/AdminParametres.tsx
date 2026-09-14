@@ -99,6 +99,7 @@ interface SForm {
   slogan: string;
   signatureTicket: string;
   mentionsLegales: string;
+  enteteTicket: 'nom' | 'logo';
   telephonesTicket: string;   // un numéro par ligne
   // Modules et règles métier
   modules: ModuleId[];
@@ -125,6 +126,7 @@ function toSForm(s: StoreSettings): SForm {
     slogan:            s.slogan ?? '',
     signatureTicket:   s.signatureTicket ?? '',
     mentionsLegales:   s.mentionsLegales ?? '',
+    enteteTicket:      s.enteteTicket === 'logo' ? 'logo' : 'nom',
     telephonesTicket:  (s.telephonesTicket ?? []).join('\n'),
     // Liste vide côté serveur = tous les modules actifs (rétro-compatibilité)
     modules:           (s.modules && s.modules.length) ? s.modules.filter((x): x is ModuleId => (MODULES_DISPONIBLES as readonly { id: string }[]).some(m => m.id === x)) : MODULES_DISPONIBLES.map(m => m.id),
@@ -150,6 +152,7 @@ function fromSForm(f: SForm): Partial<StoreSettings> {
     slogan:            f.slogan.trim(),
     signatureTicket:   f.signatureTicket.trim(),
     mentionsLegales:   f.mentionsLegales.trim(),
+    enteteTicket:      f.enteteTicket,
     telephonesTicket:  f.telephonesTicket.split(/\r?\n/).map(x => x.trim()).filter(Boolean),
     // [] signifierait « tout actif » (rétro-compat) : « rien » = [MODULE_AUCUN]
     modules:           f.modules.length ? f.modules : [MODULE_AUCUN],
@@ -625,6 +628,24 @@ export default function AdminParametres() {
               {t("En-tête du ticket de caisse, des PDF et des e-mails. Un champ vide n'imprime rien.", 'Header of the receipt, PDFs and e-mails. An empty field prints nothing.')}
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={LABEL_STYLE}>{t('En-tête du ticket', 'Receipt header')}</label>
+                <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', fontSize: 13 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                    <input type="radio" name="enteteTicket" checked={form.enteteTicket === 'nom'} onChange={() => setField('enteteTicket', 'nom')}/>
+                    {t('Le nom du magasin, en gros', 'The store name, large')}
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: form.logoUrl ? 'pointer' : 'not-allowed', opacity: form.logoUrl ? 1 : 0.5 }}>
+                    <input type="radio" name="enteteTicket" checked={form.enteteTicket === 'logo'} disabled={!form.logoUrl} onChange={() => setField('enteteTicket', 'logo')}/>
+                    {t('Le logo du magasin', 'The store logo')}
+                  </label>
+                </div>
+                <p style={{ fontSize: 11, color: 'var(--fs-ink-400)', margin: '4px 0 0' }}>
+                  {form.logoUrl
+                    ? t('Le logo est imprimé en noir sur le ticket thermique ; il remplace le nom, le reste de l’en-tête ne change pas.', 'The logo is printed in black on the thermal receipt; it replaces the name, the rest of the header is unchanged.')
+                    : t('Téléversez d’abord un logo (section Identité) pour pouvoir le mettre en tête du ticket.', 'Upload a logo first (Identity section) to put it at the top of the receipt.')}
+                </p>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
                 <Field label={t('Signature (sous le nom)', 'Signature (under the name)')} value={form.signatureTicket} onChange={mkChange('signatureTicket')} placeholder={t('ex : BY RDCT', 'e.g.: BY RDCT')}/>
                 <Field label={t('Slogan', 'Slogan')} value={form.slogan} onChange={mkChange('slogan')} placeholder={t('ex : Beauté • Saveur • Bien-être', 'e.g.: Beauty • Flavour • Well-being')}/>

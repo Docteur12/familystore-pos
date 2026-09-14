@@ -36,7 +36,7 @@ export interface ReceiptData {
 }
 
 // Identité par défaut si le ticket est construit sans paramètres chargés.
-const STORE_FALLBACK: StoreIdentity = { nom: 'Family Store', signature: '', slogan: '', mentionsLegales: '', adresse: '', telephones: [] };
+const STORE_FALLBACK: StoreIdentity = { nom: 'Family Store', signature: '', slogan: '', mentionsLegales: '', adresse: '', telephones: [], entete: 'nom', logoUrl: '' };
 
 // Échappe le HTML puis convertit *segment* en <b>segment</b> (gras du ticket).
 const escHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -137,6 +137,9 @@ export function buildReceiptHTML(data: ReceiptData): string {
     .solid { border-top: 2px solid #000; margin: 9px 0; }
     .dash  { border-top: 1px dashed #000; margin: 8px 0; }
     .store { font-size: 23px; font-weight: 700; line-height: 1.05; }
+    /* Logo en tête : borné en largeur ET en hauteur, converti en noir profond
+       pour la thermique (un rose imprimé en gris clair ne se voit pas). */
+    .logo  { display: block; margin: 0 auto 4px; max-width: 54mm; max-height: 24mm; width: auto; height: auto; filter: grayscale(1) contrast(1.8); }
     .rdct  { font-size: 10px; letter-spacing: 1px; margin-top: 3px; }
     .tag   { font-size: 11px; margin-top: 2px; }
     .info  { display: flex; justify-content: space-between; gap: 6px; font-size: 9px; line-height: 1.5; }
@@ -160,7 +163,9 @@ export function buildReceiptHTML(data: ReceiptData): string {
 </head>
 <body>
   <div class="center">
-    <div class="store">${escHtml(store.nom)}</div>
+    ${store.entete === 'logo'
+      ? `<img class="logo" src="${store.logoUrl}" alt="${escHtml(store.nom)}">`
+      : `<div class="store">${escHtml(store.nom)}</div>`}
     ${store.signature ? `<div class="rdct">${escHtml(store.signature)}</div>` : ''}
     ${store.slogan ? `<div class="tag">${escHtml(store.slogan)}</div>` : ''}
     ${store.mentionsLegales ? `<div class="legal">${escHtml(store.mentionsLegales)}</div>` : ''}
@@ -280,6 +285,29 @@ export function doPrint(html: string, copies = 1) {
 
 // Génération PDF reçu (base64) pour archivage ─────────────────────────────────
 
+/** Hauteur réservée au logo dans le PDF (mm) — l'image y est inscrite en gardant ses proportions. */
+const HAUTEUR_LOGO_PDF = 22;
+
+/**
+ * Dessine le logo centré dans une boîte 54 × 22 mm. Renvoie `false` si l'image
+ * n'est pas exploitable (format inconnu, données corrompues) : l'appelant
+ * imprime alors le nom — jamais une en-tête vide.
+ */
+function dessinerLogoPdf(doc: jsPDF, logoUrl: string, largeurUtile: number, y: number): boolean {
+  try {
+    const props = doc.getImageProperties(logoUrl);
+    if (!props.width || !props.height) return false;
+    const boiteL = 54, boiteH = HAUTEUR_LOGO_PDF;
+    const k = Math.min(boiteL / props.width, boiteH / props.height);
+    const l = props.width * k, h = props.height * k;
+    const x = 2 + (largeurUtile - l) / 2;
+    doc.addImage(logoUrl, props.fileType, x, y - 4 + (boiteH - h) / 2, l, h);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function buildReceiptPDF(data: ReceiptData): string {
   const doc  = new jsPDF({ unit: 'mm', format: [80, 297], orientation: 'portrait' });
   const W    = 76; // largeur utile
@@ -308,7 +336,9 @@ export function buildReceiptPDF(data: ReceiptData): string {
   const fmt = (n: number) => String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
   // En-tête (identité du magasin : Paramètres). Helvetica ne connaît pas « • » : on l'imprime « · ».
-  line(store.nom, 22, true, 'center');
+  if (store.entete === 'logo' && !dessinerLogoPdf(doc, store.logoUrl, W, y)) line(store.nom, 22, true, 'center');
+  else if (store.entete === 'logo') y += HAUTEUR_LOGO_PDF + 2;
+  else line(store.nom, 22, true, 'center');
   if (store.signature)       line(store.signature, 8, false, 'center');
   if (store.slogan)          line(store.slogan.replace(/•/g, '·'), 9, false, 'center');
   if (store.mentionsLegales) line(store.mentionsLegales.replace(/•/g, '·'), 7, false, 'center');

@@ -54,7 +54,16 @@ export class Settings {
   mentionsLegales: string;     // ex. « NIU : … • RC : … »
 
   @Prop({ type: [String], default: [] })
-  telephonesTicket: string[];  // numéros imprimés sur le ticket (2-3 max)
+  telephonesTicket: string[];
+
+  /**
+   * En-tête du ticket : le NOM du magasin en gros (historique) ou son LOGO
+   * (Settings.logoUrl). Demande de Radiance (14/09/2026) avec son nouveau
+   * logo. Sans logo téléversé, le frontend retombe sur le nom : un ticket ne
+   * sort jamais sans en-tête.
+   */
+  @Prop({ default: 'nom', enum: ['nom', 'logo'] })
+  enteteTicket: 'nom' | 'logo';  // numéros imprimés sur le ticket (2-3 max)
 
   // ── Modules optionnels ───────────────────────────────────────────────────
   // Modules activés pour ce magasin (voir MODULES_DISPONIBLES). Un module

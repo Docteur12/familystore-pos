@@ -37,6 +37,7 @@ export interface StoreSettings {
   signatureTicket?: string;        // ex. « BY RDCT »
   mentionsLegales?: string;        // ex. « NIU : … • RC : … »
   telephonesTicket?: string[];     // numéros imprimés sur le ticket
+  enteteTicket?: 'nom' | 'logo';   // en-tête du ticket : le nom en gros, ou le logo
   // Modules activés (vide = tous). Voir MODULES_DISPONIBLES.
   // Contient les ids actifs, ou [MODULE_AUCUN] pour « aucun module optionnel ».
   modules?: string[];
@@ -169,6 +170,10 @@ export interface StoreIdentity {
   mentionsLegales: string; // « NIU : … • RC : … » — vide : ligne omise
   adresse: string;         // « Bonamoussadi – Douala »
   telephones: string[];    // numéros affichés à droite de l'en-tête
+  /** En-tête : le nom en gros, ou le logo. `logo` seulement si un logo existe. */
+  entete: 'nom' | 'logo';
+  /** Logo du magasin (data URL ou URL), imprimé quand `entete === 'logo'`. */
+  logoUrl: string;
 }
 
 export function storeIdentity(s: StoreSettings): StoreIdentity {
@@ -183,5 +188,9 @@ export function storeIdentity(s: StoreSettings): StoreIdentity {
     mentionsLegales: (s.mentionsLegales ?? '').trim(),
     adresse,
     telephones:      tels.length ? tels : ((s.telephone ?? '').trim() ? [s.telephone.trim()] : []),
+    // Le logo ne remplace le nom que s'il existe : sans logo, le réglage
+    // « logo » retombe sur le nom — un ticket ne sort jamais sans en-tête.
+    entete:          s.enteteTicket === 'logo' && (s.logoUrl ?? '').trim() ? 'logo' : 'nom',
+    logoUrl:         (s.logoUrl ?? '').trim(),
   };
 }

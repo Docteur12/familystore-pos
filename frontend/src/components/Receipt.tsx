@@ -6,7 +6,7 @@ import { formatVolume, displayName } from '../utils/text';
 import { OFFRE_DEFAULTS, StoreIdentity } from '../api/settings';
 import { t, dateLocale } from '../i18n';
 
-const STORE_FALLBACK: StoreIdentity = { nom: 'Family Store', signature: '', slogan: '', mentionsLegales: '', adresse: '', telephones: [] };
+const STORE_FALLBACK: StoreIdentity = { nom: 'Family Store', signature: '', slogan: '', mentionsLegales: '', adresse: '', telephones: [], entete: 'nom', logoUrl: '' };
 
 // Rend un texte marketing : les segments entre *astérisques* passent en gras.
 function BoldText({ text }: { text: string }) {
@@ -61,7 +61,9 @@ export default function Receipt({ data, onNewSale }: Props) {
 
         {/* Header */}
         <div style={{ padding: '18px 24px 8px', textAlign: 'center', color: '#111' }}>
-          <p style={{ fontWeight: 700, fontSize: 32, margin: 0, lineHeight: 1.05 }}>{store.nom}</p>
+          {store.entete === 'logo'
+            ? <img src={store.logoUrl} alt={store.nom} style={{ display: 'block', margin: '0 auto 6px', maxWidth: 220, maxHeight: 90, width: 'auto', height: 'auto' }}/>
+            : <p style={{ fontWeight: 700, fontSize: 32, margin: 0, lineHeight: 1.05 }}>{store.nom}</p>}
           {store.signature && <p style={{ fontSize: 12, letterSpacing: '0.12em', color: '#555', margin: '3px 0' }}>{store.signature}</p>}
           {store.slogan && <p style={{ fontSize: 13, color: '#333', margin: 0 }}>{store.slogan}</p>}
         </div>
