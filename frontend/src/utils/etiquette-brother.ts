@@ -27,15 +27,21 @@ import { rectsCode39 } from './code39';
 
 export const BROTHER_62 = { largeur: 62, hauteur: 29 } as const;
 
+/**
+ * Hauteur PAR DÉFAUT (mm) : 39, celle des porte-étiquettes de Radiance
+ * (demande du 14/09/2026). La 29 reste la référence des cotes validées.
+ */
+export const HAUTEUR_DEFAUT = 39;
+
 /** Hauteurs proposées (mm) — la 29 est celle des étiquettes prédécoupées DK-11209. */
 export const HAUTEURS_BROTHER = [29, 34, 39, 44, 50] as const;
 export const HAUTEUR_MIN = 29;
 export const HAUTEUR_MAX = 60;
 
-/** Borne une hauteur saisie : hors plage ou absurde → 29. */
+/** Borne une hauteur saisie : hors plage ou absurde → la hauteur par défaut. */
 export function hauteurValide(h: unknown): number {
   const n = Math.round(Number(h));
-  if (!Number.isFinite(n) || n < HAUTEUR_MIN || n > HAUTEUR_MAX) return BROTHER_62.hauteur;
+  if (!Number.isFinite(n) || n < HAUTEUR_MIN || n > HAUTEUR_MAX) return HAUTEUR_DEFAUT;
   return n;
 }
 
@@ -67,7 +73,7 @@ export interface Cotes {
  * validées à la QL-800 ; au-delà, les barres et les polices grandissent, la
  * ligne du bas reste à 4,4 mm du bord.
  */
-export function cotes(hauteur: number = BROTHER_62.hauteur): Cotes {
+export function cotes(hauteur: number = HAUTEUR_DEFAUT): Cotes {
   const h = hauteurValide(hauteur);
   const extra = h - BROTHER_62.hauteur;                 // 0 à 31 mm
   const k = Math.min(1.3, 1 + extra / 40);              // polices : +30 % au plus
@@ -96,8 +102,29 @@ export function ajuster(doc: jsPDF, texte: string, largeurMax: number): string {
   return t.trimEnd() + '…';
 }
 
+/** Taille de police minimale (pt) de l'enseigne avant de la couper. */
+export const ENSEIGNE_TAILLE_MIN = 5;
+/** Place (mm) que le prix doit laisser à l'enseigne avant de rétrécir lui-même. */
+export const LARGEUR_MIN_ENSEIGNE = 18;
+
+/**
+ * Fait TENIR un texte dans `largeurMax` en réduisant la police d'abord (jusqu'à
+ * `tailleMin`), en coupant avec « … » seulement si ça ne suffit pas. Renvoie la
+ * taille retenue et le texte à écrire ; laisse la police réglée à cette taille.
+ *
+ * Radiance (14/09/2026) : à 39 mm, le prix grossit et « Radiance Essentials »
+ * sortait « Radiance Essent… ». Une enseigne coupée est pire qu'une enseigne
+ * un peu plus petite.
+ */
+export function faireTenir(doc: jsPDF, texte: string, largeurMax: number, taille: number, tailleMin = ENSEIGNE_TAILLE_MIN): { texte: string; taille: number } {
+  let t = taille;
+  doc.setFontSize(t);
+  while (doc.getTextWidth(texte) > largeurMax && t - 0.5 >= tailleMin) { t -= 0.5; doc.setFontSize(t); }
+  return { texte: ajuster(doc, texte, largeurMax), taille: t };
+}
+
 /** Dessine UNE étiquette sur la page courante du document, aux cotes de `hauteur`. */
-export function dessinerEtiquetteBrother(doc: jsPDF, e: TextesEtiquette, enseigne: string, hauteur: number = BROTHER_62.hauteur): void {
+export function dessinerEtiquetteBrother(doc: jsPDF, e: TextesEtiquette, enseigne: string, hauteur: number = HAUTEUR_DEFAUT): void {
   const c = cotes(hauteur);
   doc.setTextColor(0, 0, 0);
 
@@ -112,15 +139,22 @@ export function dessinerEtiquetteBrother(doc: jsPDF, e: TextesEtiquette, enseign
   doc.text(e.sku, c.skuX, c.skuY, { align: 'center' });
 
   // Prix à droite — mesuré d'abord : c'est lui qui borne la colonne de gauche.
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(c.prixTaille);
-  const prixGauche = c.bordDroit - doc.getTextWidth(e.prix);
+  // Sur une étiquette haute, le prix grossit ; s'il ne laisse plus la place
+  // minimale à l'enseigne, il redescend jusqu'à sa taille validée (29 mm).
+  doc.setFont('helvetica', 'bold');
+  let taillePrix = c.prixTaille;
+  const placeGauche = () => c.bordDroit - doc.getTextWidth(e.prix) - c.espacePrix - c.margeGauche;
+  doc.setFontSize(taillePrix);
+  while (placeGauche() < LARGEUR_MIN_ENSEIGNE && taillePrix - 0.5 >= COTES.prixTaille) { taillePrix -= 0.5; doc.setFontSize(taillePrix); }
   doc.text(e.prix, c.bordDroit, c.prixY, { align: 'right' });
-  const largeurGauche = Math.max(8, prixGauche - c.espacePrix - c.margeGauche);
+  const largeurGauche = Math.max(8, placeGauche());
 
-  // Enseigne, petit gras italique — seule sur la ligne du bas.
+  // Enseigne, petit gras italique — seule sur la ligne du bas. Elle rétrécit
+  // pour tenir entière ; coupée seulement si même la plus petite ne tient pas.
   const nomEnseigne = enseigne.trim();
   if (nomEnseigne) {
-    doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(c.enseigneTaille);
-    doc.text(ajuster(doc, nomEnseigne, largeurGauche), c.margeGauche, c.enseigneY);
+    doc.setFont('helvetica', 'bolditalic');
+    const { texte } = faireTenir(doc, nomEnseigne, largeurGauche, c.enseigneTaille);
+    doc.text(texte, c.margeGauche, c.enseigneY);
   }
 }

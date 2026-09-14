@@ -17,7 +17,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { jsPDF } from 'jspdf';
-import { dessinerEtiquetteBrother, COTES, BROTHER_62, TextesEtiquette, cotes, hauteurValide } from './etiquette-brother';
+import { dessinerEtiquetteBrother, COTES, BROTHER_62, TextesEtiquette, cotes, hauteurValide, ENSEIGNE_TAILLE_MIN } from './etiquette-brother';
 
 const CHEWING_GUM: TextesEtiquette = {
   nom: '5IVE Chewing Gum', code: '022000005144', sku: '022000005144', prix: '1 500 XAF',
@@ -35,7 +35,7 @@ function dessiner(e: TextesEtiquette, enseigne: string) {
     ecrits.push({ texte, x, y, police: f.fontName, style: f.fontStyle, taille: doc.getFontSize(), align: options?.align });
     return texteOriginal(texte, x, y, options as never);
   }) as never);
-  dessinerEtiquetteBrother(doc, e, enseigne);
+  dessinerEtiquetteBrother(doc, e, enseigne, 29);   // les cotes VALIDÉES : celles de la 29 mm
 
   /** Étendue horizontale (mm) d'un texte écrit, à sa police. */
   const etendue = (w: Ecrit) => {
@@ -89,7 +89,7 @@ describe('hauteur réglable — remplir un porte-étiquette plus haut', () => {
   it('à 29 mm, les cotes sont exactement celles validées à la QL-800', () => {
     const c = cotes(29);
     expect(c).toMatchObject({ nomY: 5.6, barresY: 6.8, barresHauteur: 9.2, skuY: 18.6, enseigneY: 24.6, prixY: 25.0, nomTaille: 9.5, prixTaille: 12.5 });
-    expect(cotes()).toEqual(c);
+    expect(cotes()).toEqual(cotes(39));   // le défaut est désormais 39 mm
   });
 
   it('à 39 mm, les barres grandissent et la ligne du bas reste à 4 mm du bord', () => {
@@ -114,11 +114,43 @@ describe('hauteur réglable — remplir un porte-étiquette plus haut', () => {
     expect(ecrits.find(w => w.texte === 'Radiance Essentials')!.y).toBe(34.6);
   });
 
-  it('une hauteur absurde retombe sur 29', () => {
-    expect(hauteurValide(0)).toBe(29);
-    expect(hauteurValide(999)).toBe(29);
-    expect(hauteurValide('abc')).toBe(29);
+  it('une hauteur absurde retombe sur le défaut, 39', () => {
+    expect(hauteurValide(0)).toBe(39);
+    expect(hauteurValide(999)).toBe(39);
+    expect(hauteurValide('abc')).toBe(39);
+    expect(hauteurValide(29)).toBe(29);
     expect(hauteurValide(39)).toBe(39);
     expect(hauteurValide(39.4)).toBe(39);
+  });
+});
+
+describe('l’enseigne tient entière — elle rétrécit avant d’être coupée', () => {
+  const dessinerA = (hauteur: number, prix: string, enseigne: string) => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [62, hauteur] });
+    const ecrits: { texte: string; taille: number }[] = [];
+    vi.spyOn(doc, 'text').mockImplementation(((texte: string) => { ecrits.push({ texte, taille: doc.getFontSize() }); return doc; }) as never);
+    dessinerEtiquetteBrother(doc, { ...CHEWING_GUM, prix }, enseigne, hauteur);
+    return ecrits;
+  };
+
+  it('à 39 mm avec « 15 000 XAF », « Radiance Essentials » sort ENTIER (cas réel du 14/09)', () => {
+    const ecrits = dessinerA(39, '15 000 XAF', 'Radiance Essentials');
+    const e = ecrits.find(w => w.texte.startsWith('Radiance'))!;
+    expect(e.texte).toBe('Radiance Essentials');
+    expect(e.taille).toBeLessThanOrEqual(cotes(39).enseigneTaille);
+    expect(e.taille).toBeGreaterThanOrEqual(ENSEIGNE_TAILLE_MIN);
+  });
+
+  it('même avec un prix à sept chiffres, l’enseigne tient entière à 29 comme à 39 mm', () => {
+    for (const h of [29, 39, 50]) {
+      const e = dessinerA(h, '1 250 000 XAF', 'Radiance Essentials').find(w => w.texte.startsWith('Radiance'))!;
+      expect(e.texte, `${h} mm`).toBe('Radiance Essentials');
+    }
+  });
+
+  it('une enseigne interminable est coupée, mais seulement à la taille minimale', () => {
+    const e = dessinerA(29, '1 250 000 XAF', 'Radiance Essentials Beauty & Wellness Center Bonamoussadi Douala').find(w => w.texte.startsWith('Radiance'))!;
+    expect(e.texte.endsWith('…')).toBe(true);
+    expect(e.taille).toBe(ENSEIGNE_TAILLE_MIN);
   });
 });
