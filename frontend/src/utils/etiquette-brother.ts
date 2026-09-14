@@ -9,9 +9,9 @@
  *    sortait cachée par le rail du support.
  *
  * Bas de l'étiquette : à droite le PRIX, gros, lisible de loin ; à gauche, en
- * petit, l'ENSEIGNE (gras italique) au-dessus de l'unité · quantité. Radiance a
- * demandé l'enseigne (06/09), puis la quantité à sa place, puis l'enseigne de
- * retour (14/09) : les deux tiennent, l'une au-dessus de l'autre.
+ * petit, l'ENSEIGNE (gras italique), seule. Radiance a demandé l'enseigne
+ * (06/09), puis la quantité à sa place, puis l'enseigne de retour et la
+ * quantité retirée (14/09) : « juste Radiance Essentials ».
  *
  * L'enseigne vient des paramètres du magasin. Vide, rien ne s'imprime à sa
  * place — jamais le nom d'un autre commerce ni celui du logiciel : une
@@ -32,8 +32,6 @@ export interface TextesEtiquette {
   code: string;
   /** Référence lisible sous les barres. */
   sku: string;
-  /** « piece · 15 » — vide si rien à dire. */
-  uniteQuantite: string;
   /** « 1 500 XAF ». */
   prix: string;
 }
@@ -45,8 +43,8 @@ export const COTES = {
   nomY: 5.6,
   barresX: 4, barresLargeur: 54, barresY: 6.8, barresHauteur: 9.2,
   skuX: 31, skuY: 18.6,
-  enseigneY: 21.9,
-  uniteY: 24.6,
+  /** Ligne du bas, à la place validée au porte-étiquette (rail du support). */
+  enseigneY: 24.6,
   prixY: 25.0,
   /** Blanc minimal entre l'enseigne et le prix. */
   espacePrix: 3,
@@ -81,16 +79,10 @@ export function dessinerEtiquetteBrother(doc: jsPDF, e: TextesEtiquette, enseign
   doc.text(e.prix, c.bordDroit, c.prixY, { align: 'right' });
   const largeurGauche = Math.max(8, prixGauche - c.espacePrix - c.margeGauche);
 
-  // Enseigne, petit gras italique.
+  // Enseigne, petit gras italique — seule sur la ligne du bas.
   const nomEnseigne = enseigne.trim();
   if (nomEnseigne) {
     doc.setFont('helvetica', 'bolditalic'); doc.setFontSize(6.5);
     doc.text(ajuster(doc, nomEnseigne, largeurGauche), c.margeGauche, c.enseigneY);
-  }
-
-  // Unité · quantité.
-  if (e.uniteQuantite.trim()) {
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(6.5);
-    doc.text(ajuster(doc, e.uniteQuantite, largeurGauche), c.margeGauche, c.uniteY);
   }
 }
