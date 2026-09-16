@@ -304,22 +304,25 @@ export default function StocksFactures() {
                 </div>
 
                 {/* Actions */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
-                  <button onClick={() => ouvrirJustificatif(selection._id).catch(e => addToast(e.message, 'error'))} style={bouton('#fff', 'var(--fs-ink-700)')}>
-                    📎 {t('Voir le justificatif', 'View attachment')} <span style={{ fontWeight: 400, fontSize: 11 }}>({selection.nomFichier}, {Math.round(selection.taille / 1024)} Ko)</span>
-                  </button>
+                {/* Sur téléphone (16/09/2026, HERVAN) : la barre passait à la ligne et
+                    « Valider » finissait sous la barre du navigateur — la cliente ne le
+                    trouvait pas. En colonne : Valider en PREMIER et pleine largeur. */}
+                <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', justifyContent: 'space-between', alignItems: isNarrow ? 'stretch' : 'center', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
                   {selection.statut === 'a_verifier' && (
-                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <label style={{ fontSize: 12, color: 'var(--fs-ink-600)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', gap: 10, alignItems: isNarrow ? 'stretch' : 'center', flexWrap: 'wrap', order: isNarrow ? 0 : 1 }}>
+                      <button onClick={valider} disabled={occupe} style={{ ...bouton('#1D7A4E'), opacity: occupe ? 0.6 : 1, padding: isNarrow ? '14px 16px' : '9px 16px', fontSize: isNarrow ? 15 : 13, order: isNarrow ? 0 : 2 }}>
+                        {occupe ? t('Enregistrement…', 'Saving…') : t('✓ Valider → réception en entrepôt', '✓ Validate → warehouse receipt')}
+                      </button>
+                      <label style={{ fontSize: 12, color: 'var(--fs-ink-600)', display: 'flex', alignItems: 'center', gap: 6, order: isNarrow ? 1 : 0 }}>
                         <input type="checkbox" checked={majPrixAchat} onChange={e => setMajPrixAchat(e.target.checked)}/>
                         {t('Reporter les prix dans le prix d’achat', 'Update purchase prices')}
                       </label>
-                      <button onClick={rejeter} disabled={occupe} style={bouton('#FEE2E2', '#991B1B')}>{t('Rejeter', 'Reject')}</button>
-                      <button onClick={valider} disabled={occupe} style={{ ...bouton('#1D7A4E'), opacity: occupe ? 0.6 : 1 }}>
-                        {occupe ? t('Enregistrement…', 'Saving…') : t('✓ Valider → réception en entrepôt', '✓ Validate → warehouse receipt')}
-                      </button>
+                      <button onClick={rejeter} disabled={occupe} style={{ ...bouton('#FEE2E2', '#991B1B'), order: isNarrow ? 2 : 1 }}>{t('Rejeter', 'Reject')}</button>
                     </div>
                   )}
+                  <button onClick={() => ouvrirJustificatif(selection._id).catch(e => addToast(e.message, 'error'))} style={{ ...bouton('#fff', 'var(--fs-ink-700)'), order: isNarrow ? 3 : 0 }}>
+                    📎 {t('Voir le justificatif', 'View attachment')} <span style={{ fontWeight: 400, fontSize: 11 }}>({selection.nomFichier}, {Math.round(selection.taille / 1024)} Ko)</span>
+                  </button>
                   {selection.statut === 'validee' && (
                     <span style={{ fontSize: 12, color: '#166534', fontWeight: 600 }}>{t('Réception enregistrée', 'Receipt recorded')}{selection.valideeLe ? ` · ${new Date(selection.valideeLe).toLocaleString(dateLocale())}` : ''}</span>
                   )}
