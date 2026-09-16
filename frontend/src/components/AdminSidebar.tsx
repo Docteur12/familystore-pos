@@ -58,6 +58,9 @@ const SECTIONS: NavSection[] = [
       { id: 'journal',      label: t('Journal des ventes', 'Sales journal'),  icon: D.journal,      path: '/admin/journal'        },
       { id: 'compta',       label: t('Comptabilité', 'Accounting'),        icon: D.compta,       path: '/admin/comptabilite'  },
       { id: 'factures',     label: t('Historique factures', 'Invoice history'), icon: D.factures,     path: '/admin/factures'       },
+      // Achats : la lecture automatique des factures fournisseurs, ici aussi —
+      // le patron qui achète ne doit pas passer par l'espace Stock (HERVAN).
+      { id: 'factures-fournisseurs', label: t('Factures fournisseurs', 'Supplier invoices'), icon: D.factures, path: '/admin/factures-fournisseurs', module: 'factures-fournisseurs' },
     ],
   },
   {

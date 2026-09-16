@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import StocksSidebar from '../components/StocksSidebar';
+import AdminSidebar from '../components/AdminSidebar';
+import ReceptionFacture from '../components/ReceptionFacture';
 import ToastContainer, { useToast } from '../components/Toast';
 import { getAllProducts, Product } from '../api/products';
 import {
@@ -14,9 +16,10 @@ import { t, dateLocale } from '../i18n';
  *
  * La lecture automatique propose ; la personne décide, ligne par ligne :
  * produit existant (appariement proposé, modifiable), produit à créer, ou
- * ligne ignorée (transport, remise). La validation déclenche la réception
- * fournisseur standard : stock entrepôt, mouvements tracés, justificatif
- * archivé et relié.
+ * ligne ignorée (transport, remise). La validation FIGE le contenu (produits
+ * créés à stock 0) ; rien n'entre en stock. C'est la réception — le magasinier
+ * compte ce qui est arrivé (ReceptionFacture) — qui crée la réception
+ * fournisseur standard : stock entrepôt, mouvements tracés, justificatif relié.
  */
 
 type Mode = 'existant' | 'nouveau' | 'ignorer';
@@ -35,7 +38,8 @@ interface LigneEdit {
 const fmtN = (n: number) => Math.round(n).toLocaleString(dateLocale());
 const STATUTS = [
   { key: 'a_verifier', label: t('À vérifier', 'To review'),  couleur: '#B45309', fond: '#FEF3C7' },
-  { key: 'validee',    label: t('Validées', 'Validated'),    couleur: '#166534', fond: '#DCFCE7' },
+  { key: 'validee',    label: t('En attente de livraison', 'Awaiting delivery'), couleur: '#1D4ED8', fond: '#DBEAFE' },
+  { key: 'recue',      label: t('Reçues', 'Received'),        couleur: '#166534', fond: '#DCFCE7' },
   { key: 'rejetee',    label: t('Rejetées', 'Rejected'),     couleur: '#991B1B', fond: '#FEE2E2' },
 ] as const;
 const CONFIANCE: Record<string, { label: string; couleur: string }> = {
@@ -56,7 +60,12 @@ const versEdit = (f: FactureFournisseur): LigneEdit[] => f.lignes.map(l => ({
   recherche: '',
 }));
 
-export default function StocksFactures() {
+/**
+ * La même page sert deux espaces : Gestion de stock (gestionnaire) et
+ * Administration (patron). HERVAN (16/09/2026) : c'est le patron qui achète à
+ * l'étranger et scanne les factures — il ne doit pas changer d'espace pour ça.
+ */
+export default function StocksFactures({ espace = 'stock' }: { espace?: 'stock' | 'admin' }) {
   const { toasts, addToast, removeToast } = useToast();
   const isNarrow = useIsMobile(1024);
   // Deux entrées : l'appareil photo (capture) ET un fichier existant. Avec
@@ -67,7 +76,7 @@ export default function StocksFactures() {
 
   const [produits, setProduits] = useState<Product[]>([]);
   const [factures, setFactures] = useState<FactureFournisseur[]>([]);
-  const [filtre, setFiltre] = useState<'a_verifier' | 'validee' | 'rejetee' | 'toutes'>('a_verifier');
+  const [filtre, setFiltre] = useState<'a_verifier' | 'validee' | 'recue' | 'rejetee' | 'toutes'>('a_verifier');
   const [selection, setSelection] = useState<FactureFournisseur | null>(null);
   const [lignes, setLignes] = useState<LigneEdit[]>([]);
   const [fournisseur, setFournisseur] = useState('');
@@ -126,7 +135,7 @@ export default function StocksFactures() {
     setOccupe(true);
     try {
       const r = await validerFacture(selection._id, { fournisseur, numeroFacture: numero, lignes: corps, mettreAJourPrixAchat: majPrixAchat });
-      addToast(t(`✓ ${r.articlesRecus} article(s) en entrepôt, ${r.produitsCrees} produit(s) créé(s)`, `✓ ${r.articlesRecus} item(s) in warehouse, ${r.produitsCrees} product(s) created`), 'success');
+      addToast(t(`✓ Facture validée — ${r.articlesAttendus} article(s) attendu(s), ${r.produitsCrees} produit(s) créé(s). Le stock entrera quand le magasinier confirmera l’arrivée.`, `✓ Invoice validated — ${r.articlesAttendus} item(s) expected, ${r.produitsCrees} product(s) created. Stock will enter once the warehouse confirms arrival.`), 'success');
       await charger(); setSelection(null);
       getAllProducts().then(setProduits).catch(() => {});
     } catch (err) {
@@ -158,7 +167,7 @@ export default function StocksFactures() {
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', position: 'fixed', top: 0, left: 0, fontFamily: 'var(--fs-font-sans)' }}>
-      <StocksSidebar/>
+      {espace === 'admin' ? <AdminSidebar/> : <StocksSidebar/>}
       <ToastContainer toasts={toasts} onRemove={removeToast}/>
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
 
@@ -166,7 +175,7 @@ export default function StocksFactures() {
         {/* Sur téléphone, le bouton du menu (fixe, en haut à gauche) recouvrait le titre : on lui laisse la place. */}
         <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 14px 12px 76px' : '12px 24px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Gestion de stock', 'Stock management')}</p>
+            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{espace === 'admin' ? t('Achats', 'Purchasing') : t('Gestion de stock', 'Stock management')}</p>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{t('Factures fournisseurs', 'Supplier invoices')}</h1>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -311,7 +320,7 @@ export default function StocksFactures() {
                   {selection.statut === 'a_verifier' && (
                     <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', gap: 10, alignItems: isNarrow ? 'stretch' : 'center', flexWrap: 'wrap', order: isNarrow ? 0 : 1 }}>
                       <button onClick={valider} disabled={occupe} style={{ ...bouton('#1D7A4E'), opacity: occupe ? 0.6 : 1, padding: isNarrow ? '14px 16px' : '9px 16px', fontSize: isNarrow ? 15 : 13, order: isNarrow ? 0 : 2 }}>
-                        {occupe ? t('Enregistrement…', 'Saving…') : t('✓ Valider → réception en entrepôt', '✓ Validate → warehouse receipt')}
+                        {occupe ? t('Enregistrement…', 'Saving…') : t('✓ Valider le contenu → en attente de livraison', '✓ Validate content → awaiting delivery')}
                       </button>
                       <label style={{ fontSize: 12, color: 'var(--fs-ink-600)', display: 'flex', alignItems: 'center', gap: 6, order: isNarrow ? 1 : 0 }}>
                         <input type="checkbox" checked={majPrixAchat} onChange={e => setMajPrixAchat(e.target.checked)}/>
@@ -323,10 +332,20 @@ export default function StocksFactures() {
                   <button onClick={() => ouvrirJustificatif(selection._id).catch(e => addToast(e.message, 'error'))} style={{ ...bouton('#fff', 'var(--fs-ink-700)'), order: isNarrow ? 3 : 0 }}>
                     📎 {t('Voir le justificatif', 'View attachment')} <span style={{ fontWeight: 400, fontSize: 11 }}>({selection.nomFichier}, {Math.round(selection.taille / 1024)} Ko)</span>
                   </button>
-                  {selection.statut === 'validee' && (
-                    <span style={{ fontSize: 12, color: '#166534', fontWeight: 600 }}>{t('Réception enregistrée', 'Receipt recorded')}{selection.valideeLe ? ` · ${new Date(selection.valideeLe).toLocaleString(dateLocale())}` : ''}</span>
+                  {selection.statut === 'recue' && (
+                    <span style={{ fontSize: 12, color: '#166534', fontWeight: 600 }}>{t('Livraison reçue, stock entré en entrepôt', 'Delivery received, stock entered into warehouse')}{selection.recueLe ? ` · ${new Date(selection.recueLe).toLocaleString(dateLocale())}` : ''}</span>
                   )}
                 </div>
+                {/* Second temps : la marchandise est-elle arrivée ? Le magasinier (ou la
+                    direction) compte et confirme — c'est ici que le stock bouge. */}
+                {selection.statut === 'validee' && (
+                  <div style={{ marginTop: 14 }}>
+                    <ReceptionFacture facture={selection} onDone={async f => {
+                      addToast(t('✓ Livraison reçue — stock entré en entrepôt', '✓ Delivery received — stock entered into warehouse'), 'success');
+                      await charger(); setSelection(f); setFiltre('recue');
+                    }}/>
+                  </div>
+                )}
               </div>
             )}
           </div>
