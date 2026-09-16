@@ -7,6 +7,7 @@ import { getAllReceptions } from '../api/magazinier';
 import { getEcartsCount }  from '../api/ecarts';
 import { useIsMobile } from '../hooks/useIsMobile';
 import StoreLogo from './StoreLogo';
+import { maquettesVisibles } from '../config/logo-marque';
 import { t } from '../i18n';
 
 const LS_RECEPTION_SEEN = 'receptions_last_seen';
@@ -143,7 +144,7 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
           <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)', padding: '0 14px', marginBottom: 6 }}>
             {t('Gestion', 'Management')}
           </p>
-          {NAV_ITEMS.filter(item => !item.module || hasModule(item.module)).map(item => {
+          {NAV_ITEMS.filter(item => (!item.module || hasModule(item.module)) && (item.id !== 'depots' || maquettesVisibles())).map(item => {
             const isActive = item.id === activeId;
             return (
               <Link key={item.id} to={item.path}
@@ -187,14 +188,16 @@ export default function StocksSidebar({ alertCount = 0 }: { alertCount?: number 
           </Link>
         )}
 
-        {/* Dépôt */}
-        <div style={{ margin: '0 10px 10px', padding: '10px 12px', background: 'rgba(255,255,255,0.07)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--fs-gold-400)', marginBottom: 4 }}>
-            {t('Dépôt principal', 'Main depot')}
+        {/* Magasin — données réelles des Paramètres, rien d'inventé */}
+        {(settings.nomMagasin || settings.ville) && (
+          <div style={{ margin: '0 10px 10px', padding: '10px 12px', background: 'rgba(255,255,255,0.07)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--fs-gold-400)', marginBottom: 4 }}>
+              {t('Magasin', 'Store')}
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#fff' }}>{(settings.nomMagasin || '').trim()}</div>
+            {settings.ville && <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{settings.ville}</div>}
           </div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#fff' }}>Akwa · Douala</div>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{t('4 dépôts', '4 depots')}</div>
-        </div>
+        )}
 
         {/* User */}
         <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 8 }}>

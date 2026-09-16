@@ -17,7 +17,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { logoAffiche, manuelUrl } from './logo-marque';
+import { logoAffiche, manuelUrl, maquettesVisibles } from './logo-marque';
 
 const RACINE = resolve(__dirname, '..', '..');
 const src = (chemin: string) => readFileSync(resolve(RACINE, 'src', chemin), 'utf8');
@@ -57,6 +57,23 @@ describe('manuelUrl — le manuel d’un autre commerce ne se sert jamais', () =
   });
   it('AdminSidebar ne code plus le chemin du manuel Family Store en dur', () => {
     expect(src('components/AdminSidebar.tsx')).not.toMatch(/manuel-family-store/);
+  });
+});
+
+describe('maquettesVisibles — la page Dépôts (localStorage, sans backend) ne sort pas du build par défaut', () => {
+  it('visible sur le build par défaut, cachée pour un build de marque', () => {
+    expect(maquettesVisibles({})).toBe(true);
+    expect(maquettesVisibles({ VITE_BRAND_ICONS: 'hervan' })).toBe(false);
+    expect(maquettesVisibles({ VITE_BRAND_ICONS: 'radiance' })).toBe(false);
+  });
+  it('le menu Stock conditionne l’entrée Dépôts à maquettesVisibles', () => {
+    expect(src('components/StocksSidebar.tsx')).toMatch(/maquettesVisibles\(\)/);
+  });
+  it('plus aucune adresse ni compte de dépôts inventés dans le menu et la page', () => {
+    // Témoins de la régression : « Akwa », « 4 dépôts », « Rue de la Joie », « Bâtiment A ».
+    for (const f of ['components/StocksSidebar.tsx', 'pages/StocksDepots.tsx']) {
+      expect(src(f), f).not.toMatch(/Akwa|4 dépôts|4 depots|Rue de la Joie|Bâtiment A|Building A/);
+    }
   });
 });
 

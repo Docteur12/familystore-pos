@@ -38,6 +38,19 @@ export function manuelUrl(env: Record<string, string | undefined> = import.meta.
   return icones ? '' : '/manuel-family-store.pdf';
 }
 
+/**
+ * Les MAQUETTES (écrans sans backend, données dans le localStorage du poste)
+ * ne s'affichent que sur le build par défaut. Cas vécu (HERVAN, 16/09/2026) :
+ * la page « Dépôts » montrait « Dépôt principal — Rue de la Joie, Akwa »,
+ * « Entrepôt secondaire », « 4 dépôts » — l'adresse d'un autre commerce et
+ * des transferts qui ne touchent aucun stock réel. Un client qui découvre le
+ * logiciel ne peut pas savoir que c'est une maquette. Cachée hors du build par
+ * défaut tant qu'un vrai module n'existe pas.
+ */
+export function maquettesVisibles(env: Record<string, string | undefined> = import.meta.env as Record<string, string | undefined>): boolean {
+  return !String(env.VITE_BRAND_ICONS ?? '').trim();
+}
+
 /** URL du logo à afficher, ou chaîne vide si l'on doit écrire le nom. */
 export function logoAffiche(logoUrl?: string | null, env: Record<string, string | undefined> = import.meta.env as Record<string, string | undefined>): string {
   const propre = String(logoUrl ?? '').trim();

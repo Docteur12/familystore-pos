@@ -33,10 +33,12 @@ interface Transfert {
 const LS_DEPOTS = 'fs_depots';
 const LS_TRANSFERTS = 'fs_transferts';
 
-const DEFAULT_DEPOTS: Depot[] = [
-  { id: '1', name: t('Dépôt principal', 'Main depot'), address: 'Rue de la Joie, Akwa', city: 'Douala', phone: '+237 6XX XXX XXX', localisation: t('Bâtiment A', 'Building A'), main: true },
-  { id: '2', name: t('Entrepôt secondaire', 'Secondary warehouse'), address: t('Zone industrielle', 'Industrial zone'), city: 'Douala', phone: '+237 6XX XXX XXX', localisation: t('Bâtiment B', 'Building B'), main: false },
-];
+// Aucun dépôt inventé au premier affichage (ils portaient l'adresse d'un autre
+// commerce) : la liste part vide, l'utilisateur crée les siens. Cette page
+// reste une MAQUETTE — données dans le localStorage du poste, transferts sans
+// effet sur le stock réel — visible sur le build par défaut seulement (voir
+// config/logo-marque.ts, maquettesVisibles).
+const DEFAULT_DEPOTS: Depot[] = [];
 
 function loadDepots(): Depot[] {
   try { return JSON.parse(localStorage.getItem(LS_DEPOTS) ?? '') as Depot[]; } catch { return DEFAULT_DEPOTS; }
@@ -189,7 +191,7 @@ export default function StocksDepots() {
                     {([
                       { key: 'name',         label: t('Nom *', 'Name *'),                placeholder: t('ex: Entrepôt Nord', 'e.g. North warehouse') },
                       { key: 'city',         label: t('Ville', 'City'),                  placeholder: t('ex: Douala', 'e.g. Douala') },
-                      { key: 'address',      label: t('Adresse', 'Address'),             placeholder: t('ex: Rue de la Joie', 'e.g. Rue de la Joie') },
+                      { key: 'address',      label: t('Adresse', 'Address'),             placeholder: t('ex : Rue du Marché', 'e.g. Market Street') },
                       { key: 'phone',        label: t('Téléphone', 'Phone'),             placeholder: '+237 6XX XXX XXX' },
                       { key: 'localisation', label: t('Localisation', 'Location'),       placeholder: t('ex: Bâtiment C, Allée A-12', 'e.g. Building C, Aisle A-12') },
                     ] as { key: keyof typeof form; label: string; placeholder: string }[]).map(f => (
@@ -207,6 +209,12 @@ export default function StocksDepots() {
                 </div>
               )}
 
+              {depots.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--fs-ink-400)', fontSize: 13, padding: '40px 10px', lineHeight: 1.6 }}>
+                  {t('Aucun dépôt enregistré sur ce poste.', 'No depot recorded on this station.')}<br/>
+                  {t('« Nouveau dépôt » pour en créer un. Ces fiches restent locales à ce poste.', '“New depot” to create one. These records stay local to this station.')}
+                </div>
+              )}
               {/* Depot cards */}
               <div style={{ display: 'grid', gridTemplateColumns: isNarrow ? '1fr' : 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
                 {depots.map(depot => (
