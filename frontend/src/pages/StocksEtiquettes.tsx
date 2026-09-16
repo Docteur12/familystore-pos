@@ -14,6 +14,7 @@ import { skuProduit } from '../utils/sku';
 import { uniteAffichee } from '../utils/unites';
 import { dessinerEtiquetteBrother, BROTHER_62, HAUTEURS_BROTHER, hauteurValide } from '../utils/etiquette-brother';
 import { getPrintSettings, savePrintSettings } from '../components/ReceiptPrint';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 function BarcodeCanvas({ value, width = 200, height = 44 }: { value: string; width?: number; height?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -174,6 +175,8 @@ function LabelCard({ product, template, selected, onToggle }: {
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function StocksEtiquettes() {
+  // Sur téléphone, le bouton du menu (fixe, en haut à gauche) recouvrait le titre.
+  const isMobile = useIsMobile();
   const { settings } = useSettings();
   const nomMagasin = settings.nomMagasin || 'Family Store';
   const [products,  setProducts]  = useState<Product[]>([]);
@@ -304,7 +307,7 @@ export default function StocksEtiquettes() {
 
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 24px', flexShrink: 0 }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isMobile ? '12px 14px 12px 68px' : '12px 24px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
             <div>
               <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Gestion de stock', 'Stock management')}</p>

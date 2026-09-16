@@ -1,5 +1,6 @@
 import { authHeaders } from './http';
 import { t } from '../i18n';
+import { preparerFichierFacture, conseilFormat } from '../utils/preparer-image';
 
 /** Une ligne lue sur la facture, avec la proposition d'appariement. */
 export interface LigneFacture {
@@ -59,7 +60,16 @@ async function lire<T>(res: Response, erreur: string): Promise<T> {
 }
 
 /** Lit le fichier choisi (photo/PDF) et l'envoie à la lecture automatique. */
-export async function importerFacture(fichier: File): Promise<FactureFournisseur> {
+export async function importerFacture(original: File): Promise<FactureFournisseur> {
+  // Au téléphone, la photo est réduite et ré-encodée en JPEG avant de partir
+  // (poids, limites du serveur et du lecteur, données mobiles à l'étranger).
+  // Voir utils/preparer-image.ts. Un HEIC que le navigateur ne sait pas lire
+  // ressort inchangé : on l'explique ici plutôt que de laisser le serveur
+  // répondre « format non pris en charge ».
+  const fichier = await preparerFichierFacture(original);
+  if (fichier === original && /heic|heif/i.test(original.type)) {
+    throw new Error(conseilFormat(original.type, t) ?? t('Format non pris en charge', 'Unsupported format'));
+  }
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const fr = new FileReader();
     fr.onload = () => resolve(String(fr.result));

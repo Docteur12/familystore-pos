@@ -59,6 +59,10 @@ const versEdit = (f: FactureFournisseur): LigneEdit[] => f.lignes.map(l => ({
 export default function StocksFactures() {
   const { toasts, addToast, removeToast } = useToast();
   const isNarrow = useIsMobile(1024);
+  // Deux entrées : l'appareil photo (capture) ET un fichier existant. Avec
+  // la seule entrée « capture », un téléphone n'ouvrait QUE la caméra —
+  // impossible de choisir une photo déjà prise ou un PDF reçu par WhatsApp.
+  const photoRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [produits, setProduits] = useState<Product[]>([]);
@@ -159,7 +163,8 @@ export default function StocksFactures() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* En-tête */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: '12px 24px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        {/* Sur téléphone, le bouton du menu (fixe, en haut à gauche) recouvrait le titre : on lui laisse la place. */}
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 14px 12px 76px' : '12px 24px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
             <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Gestion de stock', 'Stock management')}</p>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0 }}>{t('Factures fournisseurs', 'Supplier invoices')}</h1>
@@ -170,9 +175,13 @@ export default function StocksFactures() {
                 {o.label} <span style={{ opacity: 0.7 }}>({o.key === 'toutes' ? factures.length : factures.filter(f => f.statut === o.key).length})</span>
               </button>
             ))}
-            <input ref={fileRef} type="file" accept="image/*,application/pdf" capture="environment" style={{ display: 'none' }} onChange={surFichier}/>
-            <button onClick={() => fileRef.current?.click()} disabled={lecture} style={{ ...bouton('var(--fs-wine-700)'), opacity: lecture ? 0.6 : 1 }}>
-              {lecture ? t('Lecture en cours…', 'Reading…') : t('📷 Scanner / Importer une facture', '📷 Scan / Import an invoice')}
+            <input ref={photoRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={surFichier}/>
+            <input ref={fileRef} type="file" accept="image/*,application/pdf" style={{ display: 'none' }} onChange={surFichier}/>
+            <button onClick={() => photoRef.current?.click()} disabled={lecture} style={{ ...bouton('var(--fs-wine-700)'), opacity: lecture ? 0.6 : 1 }}>
+              {lecture ? t('Lecture en cours…', 'Reading…') : t('📷 Prendre en photo', '📷 Take a photo')}
+            </button>
+            <button onClick={() => fileRef.current?.click()} disabled={lecture} style={{ ...bouton('#fff', 'var(--fs-ink-900)'), border: '1.5px solid var(--fs-line-2)', opacity: lecture ? 0.6 : 1 }}>
+              {t('📁 Importer un fichier', '📁 Import a file')}
             </button>
           </div>
         </div>

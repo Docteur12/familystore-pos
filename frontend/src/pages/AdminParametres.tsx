@@ -451,7 +451,7 @@ export default function AdminParametres() {
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowX: 'hidden', overflowY: isNarrow ? 'auto' : 'hidden', background: 'var(--fs-ivory)' }}>
 
         {/* Header */}
-        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0, paddingLeft: isMobile ? 52 : (isNarrow ? 16 : 28) }}>
+        <div style={{ background: '#fff', borderBottom: '1px solid var(--fs-line)', padding: isNarrow ? '12px 16px' : '12px 28px', flexShrink: 0, paddingLeft: isMobile ? 68 : (isNarrow ? 16 : 28) }}>
           <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fs-ink-400)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 2px' }}>{t('Système', 'System')}</p>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--fs-ink-900)', margin: 0, fontFamily: 'var(--fs-font-display)' }}>{t('Paramètres magasin', 'Store settings')}</h1>
         </div>
@@ -464,7 +464,7 @@ export default function AdminParametres() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
               <div style={{ width: 80, height: 80, borderRadius: 12, border: '2px dashed var(--fs-line-2)', background: 'var(--fs-ivory)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
                 {form.logoUrl
-                  ? <img src={form.logoUrl} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+                  ? <img src={form.logoUrl} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }}/>
                   : <span style={{ fontSize: 28 }}>🏪</span>}
               </div>
               <div style={{ flex: 1 }}>
