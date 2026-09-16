@@ -9,6 +9,7 @@ import { queueProduitLocal, queueReceptionLocale, getPendingMagazin, syncMagazin
 import { useIsMobile }       from '../hooks/useIsMobile';
 import AutocompleteInput     from '../components/AutocompleteInput';
 import ImportExportProduits  from '../components/ImportExportProduits';
+import LivraisonsAttendues   from '../components/LivraisonsAttendues';
 import Partenaires           from './Partenaires';
 import {
   createReception, getDemandes, marquerEnvoye, getHistorique, createEnvoi,
@@ -850,6 +851,9 @@ export default function Magazinier() {
           ════════════════════════════════════════════════════════════════ */}
           {tab === 'receptions' && (
             <div style={{ maxWidth: 640 }}>
+              {/* Factures validées par la direction, marchandise pas encore comptée :
+                  le magasinier confirme l'arrivée ici — c'est ce qui fait entrer le stock. */}
+              <LivraisonsAttendues onRecu={() => addToast(t('✓ Livraison reçue — stock entré en entrepôt', '✓ Delivery received — stock entered into warehouse'), 'success')}/>
               <div style={{ background: '#fff', border: '1px solid var(--fs-line)', borderRadius: 12, padding: 24, boxShadow: 'var(--fs-shadow-sm)' }}>
 
                 {/* Fournisseur avec autocomplete */}

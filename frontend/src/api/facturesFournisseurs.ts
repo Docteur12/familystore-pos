@@ -12,6 +12,8 @@ export interface LigneFacture {
   produitId: string | null;
   produitNom: string | null;
   appariement: 'existant' | 'nouveau';
+  /** Quantité comptée à l'arrivée par le magasinier (posée par la réception). */
+  quantiteRecue?: number | null;
 }
 
 export interface FactureFournisseur {
@@ -19,7 +21,8 @@ export interface FactureFournisseur {
   nomFichier: string;
   mimeType: string;
   taille: number;
-  statut: 'a_verifier' | 'validee' | 'rejetee';
+  /** a_verifier → validee (contenu contrôlé, en attente de livraison) → recue (stock entré) ; ou rejetee. */
+  statut: 'a_verifier' | 'validee' | 'recue' | 'rejetee';
   fournisseur: string;
   numeroFacture: string;
   dateFacture: string;
@@ -32,6 +35,7 @@ export interface FactureFournisseur {
   motifRejet: string;
   createdAt: string;
   valideeLe: string | null;
+  recueLe?: string | null;
 }
 
 /** Ce que l'écran de contrôle renvoie pour chaque ligne. */
@@ -46,9 +50,16 @@ export interface LigneValidee {
 
 export interface ResultatValidation {
   facture: FactureFournisseur;
-  receptionId: string | null;
   produitsCrees: number;
+  /** Articles attendus à la livraison — rien n'est encore en stock. */
+  articlesAttendus: number;
+}
+
+export interface ResultatReception {
+  facture: FactureFournisseur;
+  receptionId: string | null;
   articlesRecus: number;
+  ecarts: string[];
 }
 
 const BASE = '/api/factures-fournisseurs';
@@ -82,6 +93,14 @@ export async function importerFacture(original: File): Promise<FactureFournisseu
     body: JSON.stringify({ fichierBase64, mimeType: fichier.type || 'image/jpeg', nomFichier: fichier.name }),
   });
   return lire(res, t('Échec de la lecture de la facture', 'Invoice reading failed'));
+}
+
+/** Le magasinier confirme l'arrivée : quantités comptées par produit (0 = non livré). */
+export async function recevoirFacture(id: string, corps: { lignes?: { produitId: string | null; quantiteRecue: number }[]; note?: string }): Promise<ResultatReception> {
+  const res = await fetch(`${BASE}/${id}/recevoir`, {
+    method: 'POST', headers: { ...authHeaders(), 'Content-Type': 'application/json' }, body: JSON.stringify(corps),
+  });
+  return lire(res, t('Échec de la réception', 'Receipt failed'));
 }
 
 export async function getFactures(statut?: string): Promise<FactureFournisseur[]> {

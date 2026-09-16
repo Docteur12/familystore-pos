@@ -4,7 +4,7 @@ import { AuthGuard } from '../auth/auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AuditService } from '../audit/audit.service';
-import { CorpsValidation, FacturesFournisseursService } from './factures-fournisseurs.service';
+import { CorpsReception, CorpsValidation, FacturesFournisseursService } from './factures-fournisseurs.service';
 
 /**
  * Factures fournisseurs — import, lecture automatique, contrôle, validation.
@@ -58,8 +58,23 @@ export class FacturesFournisseursController {
     this.audit.log({
       type: 'creation', module: 'stock',
       actorName: actor.name, actorRole: actor.role,
-      detail: `Facture fournisseur validée : ${r.facture.fournisseur}${r.facture.numeroFacture ? ' n° ' + r.facture.numeroFacture : ''} — ${r.articlesRecus} article(s) en entrepôt, ${r.produitsCrees} produit(s) créé(s)`,
-      meta: { factureId: id, receptionId: String(r.receptionId), articlesRecus: r.articlesRecus, produitsCrees: r.produitsCrees },
+      detail: `Facture fournisseur validée : ${r.facture.fournisseur}${r.facture.numeroFacture ? ' n° ' + r.facture.numeroFacture : ''} — ${r.articlesAttendus} article(s) attendu(s), ${r.produitsCrees} produit(s) créé(s) ; en attente de livraison`,
+      meta: { factureId: id, articlesAttendus: r.articlesAttendus, produitsCrees: r.produitsCrees },
+    });
+    return r;
+  }
+
+  // POST /api/factures-fournisseurs/:id/recevoir — { lignes?: [{ produitId, quantiteRecue }], note? }
+  // Le magasinier confirme l'arrivée : c'est ICI que le stock entrepôt bouge.
+  @Post(':id/recevoir')
+  async recevoir(@Param('id') id: string, @Body() corps: CorpsReception, @Req() req: Request) {
+    const actor = (req as any)['user'];
+    const r = await this.service.recevoir(id, corps ?? {}, actor.sub ?? actor.userId ?? actor.id);
+    this.audit.log({
+      type: 'creation', module: 'stock',
+      actorName: actor.name, actorRole: actor.role,
+      detail: `Livraison reçue : ${r.facture.fournisseur}${r.facture.numeroFacture ? ' n° ' + r.facture.numeroFacture : ''} — ${r.articlesRecus} article(s) en entrepôt${r.ecarts.length ? ' ; écarts : ' + r.ecarts.join(', ') : ''}`,
+      meta: { factureId: id, receptionId: String(r.receptionId), articlesRecus: r.articlesRecus, ecarts: r.ecarts },
     });
     return r;
   }

@@ -29,7 +29,7 @@ import { Reception, ReceptionSchema } from '../../src/schemas/reception.schema';
 import { Fournisseur, FournisseurSchema } from '../../src/schemas/fournisseur.schema';
 import { ouvrirBaseDeTest, fermerBaseDeTest, viderCollections } from '../helpers/db';
 
-describe('Factures fournisseurs — import, contrôle, validation', () => {
+describe('Factures fournisseurs — import, contrôle, validation, réception', () => {
   let module: TestingModule;
   let service: FacturesFournisseursService;
   let connection: Connection;
@@ -101,33 +101,107 @@ describe('Factures fournisseurs — import, contrôle, validation', () => {
     expect(Buffer.from(archive.fichier).toString('utf8')).toBe(factureJson);
   });
 
-  it('la validation crée le produit manquant, réceptionne en ENTREPÔT et trace tout', async () => {
+  /** Contrôle du contenu par la direction : savon connu (24), robe à créer (10). */
+  const corpsControle = (f: any) => ({
+    lignes: [
+      { designation: 'SAVON DOVE 90G', quantite: 24, prixUnitaire: 400, produitId: String(f.lignes[0].produitId) },
+      { designation: 'Robe Enfant Coton Bleu 4 ans', quantite: 10, prixUnitaire: 5140, creer: { name: 'Robe Enfant Coton Bleu 4 ans', price: 9000, category: 'Vêtements Fille' } },
+    ],
+  });
+
+  it('la VALIDATION crée le produit manquant et fige le contenu — SANS toucher au stock', async () => {
+    // Décision HERVAN (16/09/2026) : le patron valide de l'étranger, la marchandise
+    // arrive des jours plus tard. Un stock qui bouge ici serait un stock faux.
     const f = await service.importer(corpsImport(), USER);
-    const r = await service.valider(String(f._id), {
-      lignes: [
-        { designation: 'SAVON DOVE 90G', quantite: 24, prixUnitaire: 400, produitId: String(f.lignes[0].produitId) },
-        { designation: 'Robe Enfant Coton Bleu 4 ans', quantite: 10, prixUnitaire: 5140, creer: { name: 'Robe Enfant Coton Bleu 4 ans', price: 9000, category: 'Vêtements Fille' } },
-      ],
-    }, USER);
+    const r = await service.valider(String(f._id), corpsControle(f), USER);
 
     expect(r.produitsCrees).toBe(1);
-    expect(r.articlesRecus).toBe(34);
+    expect(r.articlesAttendus).toBe(34);
     expect(r.facture.statut).toBe('validee');
-    expect(r.receptionId).toBeTruthy();
+    expect(r.facture.receptionId).toBeNull();
 
     const savon = await produits.findOne({ barcode: '8720181240751' }).lean() as any;
-    expect(savon!.stockMagazin).toBe(12 + 24);
-    expect(savon!.stock).toBe(5);                            // la boutique n'a pas bougé
-    expect(savon!.costPrice).toBe(350);                      // prix d'achat inchangé sans option
-
+    expect(savon!.stockMagazin).toBe(12);                    // RIEN n'est entré
+    expect(savon!.stock).toBe(5);
     const robe = await produits.findOne({ name: 'Robe Enfant Coton Bleu 4 ans' }).lean() as any;
-    expect(robe).toMatchObject({ price: 9000, costPrice: 5140, stockMagazin: 10, stock: 0, category: 'Vêtements Fille' });
+    expect(robe).toMatchObject({ price: 9000, costPrice: 5140, stockMagazin: 0, stock: 0, category: 'Vêtements Fille' });
+    expect(await receptions.countDocuments({})).toBe(0);
+    expect(await mouvements.countDocuments({})).toBe(0);
+  });
+
+  it('la RÉCEPTION par le magasinier entre en ENTREPÔT, quantités comptées, écarts tracés', async () => {
+    const f = await service.importer(corpsImport(), USER);
+    await service.valider(String(f._id), corpsControle(f), USER);
+    const robe = await produits.findOne({ name: 'Robe Enfant Coton Bleu 4 ans' }).lean() as any;
+
+    // 24 savons arrivés sur 24 ; 8 robes sur 10 (colis incomplet).
+    const r = await service.recevoir(String(f._id), {
+      lignes: [
+        { produitId: String(f.lignes[0].produitId), quantiteRecue: 24 },
+        { produitId: String(robe._id), quantiteRecue: 8 },
+      ],
+      note: 'BL 4471',
+    }, USER);
+
+    expect(r.facture.statut).toBe('recue');
+    expect(r.articlesRecus).toBe(32);
+    expect(r.ecarts).toEqual(['Robe Enfant Coton Bleu 4 ans : 8/10']);
+    expect(r.facture.lignes.map((l: any) => l.quantiteRecue)).toEqual([24, 8]);
+
+    expect((await produits.findOne({ barcode: '8720181240751' }).lean() as any).stockMagazin).toBe(12 + 24);
+    expect((await produits.findById(robe._id).lean() as any).stockMagazin).toBe(8);
 
     const reception = await receptions.findOne({}).lean() as any;
     expect(reception).toMatchObject({ fournisseur: 'Grossiste Akwa', idempotencyKey: `facture-fournisseur:${f._id}` });
     expect(reception!.items).toHaveLength(2);
+    expect(reception!.note).toMatch(/Écarts : Robe Enfant Coton Bleu 4 ans : 8\/10/);
+    expect(reception!.note).toMatch(/BL 4471/);
     expect(await mouvements.countDocuments({ type: 'IN', reason: 'reception' })).toBe(2);
     expect(await fournisseurs.countDocuments({ name: /grossiste akwa/i })).toBe(1);
+  });
+
+  it('réception sans détail = tout est arrivé conforme ; une ligne comptée à 0 n’entre pas', async () => {
+    const f = await service.importer(corpsImport(), USER);
+    await service.valider(String(f._id), corpsControle(f), USER);
+    const r = await service.recevoir(String(f._id), {}, USER);
+    expect(r.articlesRecus).toBe(34);
+    expect(r.ecarts).toEqual([]);
+
+    const g = await service.importer(corpsImport(), USER);
+    await service.valider(String(g._id), corpsControle(g), USER);
+    const r2 = await service.recevoir(String(g._id), { lignes: [{ produitId: String(g.lignes[0].produitId), quantiteRecue: 24 }] }, USER);
+    expect(r2.articlesRecus).toBe(24);                        // la robe, non comptée, n'entre pas
+    expect(r2.ecarts).toEqual(['Robe Enfant Coton Bleu 4 ans : 0/10']);
+  });
+
+  it('ordre imposé : pas de réception avant validation, une seule réception, rien après', async () => {
+    const f = await service.importer(corpsImport(), USER);
+    await expect(service.recevoir(String(f._id), {}, USER)).rejects.toThrow(/d’abord être validée/);
+    await service.valider(String(f._id), corpsControle(f), USER);
+    await service.recevoir(String(f._id), {}, USER);
+    await expect(service.recevoir(String(f._id), {}, USER)).rejects.toThrow(/déjà été réceptionnée/);
+    await expect(service.valider(String(f._id), corpsControle(f), USER)).rejects.toThrow(BadRequestException);
+    expect(await receptions.countDocuments({})).toBe(1);
+    expect((await produits.findOne({ barcode: '8720181240751' }).lean() as any).stockMagazin).toBe(36);
+  });
+
+  it('refuse une réception où rien n’est arrivé', async () => {
+    const f = await service.importer(corpsImport(), USER);
+    await service.valider(String(f._id), corpsControle(f), USER);
+    await expect(service.recevoir(String(f._id), { lignes: [{ produitId: String(f.lignes[0].produitId), quantiteRecue: 0 }] }, USER)).rejects.toThrow(/Aucune quantité reçue/);
+    expect(await receptions.countDocuments({})).toBe(0);
+  });
+
+  it('compatibilité : une facture « validee » de l’ancien flux, déjà reçue, est exposée « recue »', async () => {
+    const f = await service.importer(corpsImport(), USER);
+    await service.valider(String(f._id), corpsControle(f), USER);
+    // Ancien flux : la validation posait directement une receptionId.
+    const factures = connection.model(FactureFournisseur.name);
+    await factures.updateOne({ _id: f._id }, { $set: { receptionId: new Types.ObjectId() } });
+    expect((await service.obtenir(String(f._id))).statut).toBe('recue');
+    expect((await service.lister('validee')).map((x: any) => String(x._id))).not.toContain(String(f._id));
+    expect((await service.lister('recue')).map((x: any) => String(x._id))).toContain(String(f._id));
+    await expect(service.recevoir(String(f._id), {}, USER)).rejects.toThrow(/déjà été réceptionnée/);
   });
 
   it('option : reporter le prix de la facture dans le prix d’achat', async () => {
@@ -139,7 +213,7 @@ describe('Factures fournisseurs — import, contrôle, validation', () => {
     expect((await produits.findOne({ barcode: '8720181240751' }).lean() as any).costPrice).toBe(400);
   });
 
-  it('une ligne ignorée n’entre pas ; une facture ne se valide qu’une fois', async () => {
+  it('une ligne ignorée n’est pas retenue ; une facture ne se valide qu’une fois', async () => {
     const f = await service.importer(corpsImport(), USER);
     const corps = {
       lignes: [
@@ -148,11 +222,10 @@ describe('Factures fournisseurs — import, contrôle, validation', () => {
       ],
     };
     const r = await service.valider(String(f._id), corps, USER);
-    expect(r.articlesRecus).toBe(24);
+    expect(r.articlesAttendus).toBe(24);
+    expect(r.facture.lignes).toHaveLength(1);
     expect(await produits.countDocuments({})).toBe(1);        // rien créé pour la ligne ignorée
     await expect(service.valider(String(f._id), corps, USER)).rejects.toThrow(BadRequestException);
-    expect((await produits.findOne({ barcode: '8720181240751' }).lean() as any).stockMagazin).toBe(36);
-    expect(await receptions.countDocuments({})).toBe(1);
   });
 
   it('refuse une quantité nulle et un fournisseur vide', async () => {

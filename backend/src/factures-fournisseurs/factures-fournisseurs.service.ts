@@ -28,15 +28,25 @@ export interface CorpsValidation {
   mettreAJourPrixAchat?: boolean;
 }
 
+/** Ce que le magasinier renvoie à l'arrivée : par produit, la quantité comptée. */
+export interface CorpsReception {
+  /** Absent = tout est arrivé conforme à la facture. */
+  lignes?: { produitId: string | null; quantiteRecue: number }[];
+  note?: string;
+}
+
 /**
- * Import → lecture automatique → contrôle humain → réception fournisseur.
+ * Import → lecture automatique → contrôle humain (VALIDATION) → arrivée de la
+ * marchandise (RÉCEPTION) → stock entrepôt.
  *
  * Rien n'entre en stock à l'import : l'extraction est une PROPOSITION stockée
- * `a_verifier`. C'est la validation — par une personne, ligne par ligne — qui
- * crée les produits manquants et déclenche la réception (stock entrepôt,
- * mouvements tracés, fournisseur), via le même service que la réception
- * manuelle du magasinier. Une facture validée ne l'est qu'une fois : la
- * réception porte une clé d'idempotence dérivée de la facture.
+ * `a_verifier`. La validation — par une personne, ligne par ligne — fige le
+ * contenu et crée les produits manquants (à stock 0), mais ne touche PAS au
+ * stock. C'est la réception, quand le magasinier a compté les colis, qui
+ * déclenche la réception fournisseur (stock entrepôt, mouvements tracés,
+ * fournisseur) via le même service que sa réception manuelle. Une facture ne
+ * se reçoit qu'une fois : la réception porte une clé d'idempotence dérivée
+ * de la facture.
  */
 @Injectable()
 export class FacturesFournisseursService {
@@ -50,6 +60,9 @@ export class FacturesFournisseursService {
   private sansFichier(doc: any) {
     const o = typeof doc?.toObject === 'function' ? doc.toObject() : { ...doc };
     delete o.fichier;
+    // Ancien flux (avant le 16/09/2026) : « validee » créait la réception.
+    // Ces documents portent une receptionId : ils sont bel et bien reçus.
+    if (o.statut === 'validee' && o.receptionId) o.statut = 'recue';
     return o;
   }
 
@@ -94,15 +107,21 @@ export class FacturesFournisseursService {
 
   // ── Consultation ──────────────────────────────────────────────────────────
 
-  lister(statut?: string) {
-    const filtre = statut ? { statut } : {};
-    return this.factureModel.find(filtre).sort({ createdAt: -1 }).limit(200).lean();
+  async lister(statut?: string) {
+    // « validee » = en attente de livraison : on exclut les anciennes
+    // validées déjà reçues (receptionId posée) ; « recue » les inclut.
+    const filtre: Record<string, unknown> =
+      statut === 'validee' ? { statut, receptionId: null }
+      : statut === 'recue' ? { $or: [{ statut }, { statut: 'validee', receptionId: { $ne: null } }] }
+      : statut ? { statut } : {};
+    const docs = await this.factureModel.find(filtre).sort({ createdAt: -1 }).limit(200).lean();
+    return docs.map(d => this.sansFichier(d));
   }
 
   async obtenir(id: string) {
     const doc = await this.factureModel.findById(id).lean();
     if (!doc) throw new NotFoundException('Facture introuvable');
-    return doc;
+    return this.sansFichier(doc);
   }
 
   /** Le justificatif archivé — seul endroit où `fichier` est chargé. */
@@ -116,20 +135,19 @@ export class FacturesFournisseursService {
     return { fichier, mimeType: doc.mimeType, nomFichier: doc.nomFichier };
   }
 
-  // ── Validation → réception ────────────────────────────────────────────────
+  // ── Validation (contrôle du contenu — rien en stock) ─────────────────────
 
   async valider(id: string, corps: CorpsValidation, userId: string) {
     const facture = await this.factureModel.findById(id);
     if (!facture) throw new NotFoundException('Facture introuvable');
     if (facture.statut !== 'a_verifier') {
-      throw new BadRequestException(`Cette facture est déjà ${facture.statut === 'validee' ? 'validée' : 'rejetée'}.`);
+      throw new BadRequestException(`Cette facture est déjà ${facture.statut === 'rejetee' ? 'rejetée' : 'validée'}.`);
     }
     const fournisseur = (corps.fournisseur ?? facture.fournisseur ?? '').trim();
     if (!fournisseur) throw new BadRequestException('Le nom du fournisseur est requis.');
     const retenues = (corps.lignes ?? []).filter(l => !l.ignorer);
-    if (retenues.length === 0) throw new BadRequestException('Aucune ligne à réceptionner.');
+    if (retenues.length === 0) throw new BadRequestException('Aucune ligne à retenir.');
 
-    const items: { productId: string; quantity: number }[] = [];
     const lignesFinales: LigneFacture[] = [];
     let produitsCrees = 0;
 
@@ -160,31 +178,71 @@ export class FacturesFournisseursService {
         produitsCrees++;
       }
 
-      items.push({ productId: String(produit._id), quantity: quantite });
       lignesFinales.push({
         designation: l.designation, quantite, prixUnitaire,
         prixTotal: prixUnitaire == null ? null : prixUnitaire * quantite,
         reference: null, produitId: produit._id as Types.ObjectId, produitNom: produit.name, appariement: l.produitId ? 'existant' : 'nouveau',
+        quantiteRecue: null,
       });
     }
 
-    const numero = (corps.numeroFacture ?? facture.numeroFacture ?? '').trim();
-    const reception = await this.magazinier.createReception({
-      fournisseur, items,
-      note: `Facture fournisseur${numero ? ' n° ' + numero : ''} — import lecture automatique`,
-      idempotencyKey: `facture-fournisseur:${facture._id}`,
-    }, userId);
-
+    // Rien en stock ici : la marchandise n'est pas encore arrivée. C'est la
+    // réception (recevoir) qui créera la réception fournisseur.
     facture.statut = 'validee';
     facture.fournisseur = fournisseur;
-    facture.numeroFacture = numero;
+    facture.numeroFacture = (corps.numeroFacture ?? facture.numeroFacture ?? '').trim();
     facture.lignes = lignesFinales;
     facture.valideePar = new Types.ObjectId(userId);
     facture.valideeLe = new Date();
+    facture.receptionId = null;
+    await facture.save();
+
+    return { facture: this.sansFichier(facture), produitsCrees, articlesAttendus: lignesFinales.reduce((s, l) => s + l.quantite, 0) };
+  }
+
+  // ── Réception (le magasinier a compté ce qui est arrivé) → stock ─────────
+
+  async recevoir(id: string, corps: CorpsReception, userId: string) {
+    const facture = await this.factureModel.findById(id);
+    if (!facture) throw new NotFoundException('Facture introuvable');
+    if (facture.receptionId) throw new BadRequestException('Cette livraison a déjà été réceptionnée.');
+    if (facture.statut === 'a_verifier') throw new BadRequestException('La facture doit d’abord être validée (contrôle du contenu) avant de recevoir la marchandise.');
+    if (facture.statut !== 'validee') throw new BadRequestException('Seule une facture validée peut être réceptionnée.');
+
+    const comptees = corps.lignes ? new Map(corps.lignes.map(l => [String(l.produitId ?? ''), Number(l.quantiteRecue)])) : null;
+    const items: { productId: string; quantity: number }[] = [];
+    const lignes: LigneFacture[] = [];
+    const ecarts: string[] = [];
+    for (const l of facture.toObject().lignes as LigneFacture[]) {
+      const pid = l.produitId ? String(l.produitId) : '';
+      // Sans compte du magasinier pour cette ligne : rien n'est arrivé (0), jamais « comme la facture » par défaut.
+      const q = comptees ? (comptees.get(pid) ?? 0) : l.quantite;
+      if (!Number.isFinite(q) || q < 0) throw new BadRequestException(`Quantité reçue invalide pour « ${l.designation} ».`);
+      lignes.push({ ...l, quantiteRecue: q });
+      if (q !== l.quantite) ecarts.push(`${l.produitNom ?? l.designation} : ${q}/${l.quantite}`);
+      if (pid && q > 0) items.push({ productId: pid, quantity: q });
+    }
+    if (items.length === 0) throw new BadRequestException('Aucune quantité reçue : indiquez ce qui est arrivé.');
+
+    const numero = facture.numeroFacture;
+    const reception = await this.magazinier.createReception({
+      fournisseur: facture.fournisseur, items,
+      note: [
+        `Facture fournisseur${numero ? ' n° ' + numero : ''} — arrivée confirmée par le magasinier`,
+        ecarts.length ? `Écarts : ${ecarts.join(', ')}` : '',
+        (corps.note ?? '').trim(),
+      ].filter(Boolean).join(' · '),
+      idempotencyKey: `facture-fournisseur:${facture._id}`,
+    }, userId);
+
+    facture.statut = 'recue';
+    facture.lignes = lignes;
+    facture.recuePar = new Types.ObjectId(userId);
+    facture.recueLe = new Date();
     facture.receptionId = (reception as any)._id ?? null;
     await facture.save();
 
-    return { facture: this.sansFichier(facture), receptionId: facture.receptionId, produitsCrees, articlesRecus: items.reduce((s, i) => s + i.quantity, 0) };
+    return { facture: this.sansFichier(facture), receptionId: facture.receptionId, articlesRecus: items.reduce((s, i) => s + i.quantity, 0), ecarts };
   }
 
   async rejeter(id: string, motif: string, userId: string) {
