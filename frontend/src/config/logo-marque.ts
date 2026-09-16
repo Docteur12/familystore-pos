@@ -21,6 +21,23 @@
  */
 import logoFs from '../assets/logo-fs.jpg';
 
+/**
+ * Manuel d'utilisation (PDF) du build, ou chaîne vide s'il n'y en a pas — le
+ * menu cache alors l'entrée. Même incident HERVAN : le lien pointait en dur
+ * sur /manuel-family-store.pdf, un manuel de 29 pages au nom et aux couleurs
+ * d'un autre commerce, servi tel quel sur hervan-pos (et sur Radiance, en
+ * français, depuis le 21/08). Repli : `VITE_MANUEL_URL` (posé par
+ * vite.config.ts quand public/brand/<VITE_BRAND_ICONS>/manuel.pdf existe,
+ * servi en /manuel.pdf) ; build par défaut → le manuel Family Store ; jeu
+ * d'icônes sans manuel → rien.
+ */
+export function manuelUrl(env: Record<string, string | undefined> = import.meta.env as Record<string, string | undefined>): string {
+  const marque = String(env.VITE_MANUEL_URL ?? '').trim();
+  if (marque) return marque;
+  const icones = String(env.VITE_BRAND_ICONS ?? '').trim();
+  return icones ? '' : '/manuel-family-store.pdf';
+}
+
 /** URL du logo à afficher, ou chaîne vide si l'on doit écrire le nom. */
 export function logoAffiche(logoUrl?: string | null, env: Record<string, string | undefined> = import.meta.env as Record<string, string | undefined>): string {
   const propre = String(logoUrl ?? '').trim();

@@ -27,6 +27,10 @@ function brandFromEnv(mode: string) {
     // sien) : public/brand/<nom>/logo.png, copié à la racine de dist par
     // brandIcons → servi en /logo.png. Vide si le jeu n'en a pas.
     logo:       env.VITE_LOGO_MARQUE || (env.VITE_BRAND_ICONS && existsSync(resolve(process.cwd(), 'public', 'brand', env.VITE_BRAND_ICONS, 'logo.png')) ? '/logo.png' : ''),
+    // Manuel d'utilisation de la marque : public/brand/<nom>/manuel.pdf, copié
+    // lui aussi à la racine de dist → /manuel.pdf. Vide si le jeu n'en a pas
+    // (le menu cache alors l'entrée, plutôt que de servir celui d'un autre).
+    manuel:     env.VITE_MANUEL_URL || (env.VITE_BRAND_ICONS && existsSync(resolve(process.cwd(), 'public', 'brand', env.VITE_BRAND_ICONS, 'manuel.pdf')) ? '/manuel.pdf' : ''),
   };
 }
 type Brand = ReturnType<typeof brandFromEnv>;
@@ -85,6 +89,7 @@ export default defineConfig(({ mode }) => {
   define: {
     'import.meta.env.VITE_LOGO_MARQUE': JSON.stringify(brand.logo),
     'import.meta.env.VITE_BRAND_ICONS': JSON.stringify(brand.icons),
+    'import.meta.env.VITE_MANUEL_URL': JSON.stringify(brand.manuel),
   },
   plugins: [
     react(),

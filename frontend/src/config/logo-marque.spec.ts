@@ -17,7 +17,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { logoAffiche } from './logo-marque';
+import { logoAffiche, manuelUrl } from './logo-marque';
 
 const RACINE = resolve(__dirname, '..', '..');
 const src = (chemin: string) => readFileSync(resolve(RACINE, 'src', chemin), 'utf8');
@@ -41,6 +41,22 @@ describe('logoAffiche — ordre de repli', () => {
   it('build par défaut (sans jeu d’icônes) → logo-fs.jpg, comme avant', () => {
     const r = logoAffiche('', {});
     expect(r).toMatch(/logo-fs/);
+  });
+});
+
+describe('manuelUrl — le manuel d’un autre commerce ne se sert jamais', () => {
+  it('build de marque avec son manuel → /manuel.pdf', () => {
+    expect(manuelUrl({ VITE_MANUEL_URL: '/manuel.pdf', VITE_BRAND_ICONS: 'hervan' })).toBe('/manuel.pdf');
+  });
+  it('build de marque SANS manuel → rien (l’entrée du menu disparaît), jamais le manuel Family Store', () => {
+    expect(manuelUrl({ VITE_BRAND_ICONS: 'hervan' })).toBe('');
+    expect(manuelUrl({ VITE_BRAND_ICONS: 'radiance' })).toBe('');
+  });
+  it('build par défaut → le manuel Family Store, comme avant', () => {
+    expect(manuelUrl({})).toBe('/manuel-family-store.pdf');
+  });
+  it('AdminSidebar ne code plus le chemin du manuel Family Store en dur', () => {
+    expect(src('components/AdminSidebar.tsx')).not.toMatch(/manuel-family-store/);
   });
 });
 

@@ -6,7 +6,7 @@ import { logAccesEspace } from '../api/audit';
 import { useSettings } from '../contexts/SettingsContext';
 import type { ModuleId } from '../api/settings';
 import { useIsMobile } from '../hooks/useIsMobile';
-import { logoAffiche } from '../config/logo-marque';
+import { logoAffiche, manuelUrl } from '../config/logo-marque';
 import { t } from '../i18n';
 
 const BG       = 'var(--fs-wine-900)';
@@ -80,8 +80,10 @@ const SECTIONS: NavSection[] = [
       { id: 'parametres',   label: t('Paramètres magasin', 'Store settings'), icon: D.parametres,   path: '/admin/parametres' },
       { id: 'audit',        label: t('Audit & logs', 'Audit & logs'),       icon: D.audit,        path: '/admin/audit'      },
       { id: 'exports',      label: t('Exports', 'Exports'),            icon: D.exports,      path: '/admin/exports'    },
-      // Manuel d'utilisation (PDF servi par l'app) — s'ouvre dans un nouvel onglet
-      { id: 'manuel',       label: t("Manuel d'utilisation", 'User manual'), icon: D.manuel,     path: '/manuel-family-store.pdf', external: true },
+      // Manuel d'utilisation (PDF servi par l'app) — s'ouvre dans un nouvel
+      // onglet. Celui de la MARQUE du build (config/logo-marque.ts) ; sans
+      // manuel propre, pas d'entrée : on ne sert pas celui d'un autre commerce.
+      ...(manuelUrl() ? [{ id: 'manuel', label: t("Manuel d'utilisation", 'User manual'), icon: D.manuel, path: manuelUrl(), external: true }] : []),
     ],
   },
   {
