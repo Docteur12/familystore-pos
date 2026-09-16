@@ -23,6 +23,10 @@ function brandFromEnv(mode: string) {
     bgColor:    env.VITE_BG_COLOR       || '#F5F0E8',
     apiUrl:     (env.VITE_API_URL       || 'https://familystore-pos.onrender.com').replace(/\/+$/, ''),
     icons:      env.VITE_BRAND_ICONS    || '',   // jeu d'icônes de public/brand/<nom>
+    // Logo de MARQUE du build (repli quand le magasin n'a pas téléversé le
+    // sien) : public/brand/<nom>/logo.png, copié à la racine de dist par
+    // brandIcons → servi en /logo.png. Vide si le jeu n'en a pas.
+    logo:       env.VITE_LOGO_MARQUE || (env.VITE_BRAND_ICONS && existsSync(resolve(process.cwd(), 'public', 'brand', env.VITE_BRAND_ICONS, 'logo.png')) ? '/logo.png' : ''),
   };
 }
 type Brand = ReturnType<typeof brandFromEnv>;
@@ -76,6 +80,12 @@ function brandIcons(b: Brand): Plugin {
 export default defineConfig(({ mode }) => {
   const brand = brandFromEnv(mode);
   return {
+  // Lus par src/config/logo-marque.ts : le logo de marque du build et le jeu
+  // d'icônes, figés dans le bundle (exposeBrand n'est pas appelé ici).
+  define: {
+    'import.meta.env.VITE_LOGO_MARQUE': JSON.stringify(brand.logo),
+    'import.meta.env.VITE_BRAND_ICONS': JSON.stringify(brand.icons),
+  },
   plugins: [
     react(),
     htmlBrand(brand),

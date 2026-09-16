@@ -6,7 +6,7 @@ import { logAccesEspace } from '../api/audit';
 import { useSettings } from '../contexts/SettingsContext';
 import type { ModuleId } from '../api/settings';
 import { useIsMobile } from '../hooks/useIsMobile';
-import logoFs from '../assets/logo-fs.jpg';
+import { logoAffiche } from '../config/logo-marque';
 import { t } from '../i18n';
 
 const BG       = 'var(--fs-wine-900)';
@@ -259,10 +259,16 @@ export default function AdminSidebar() {
       )}
 
       <aside className="fs-sidebar-drawer" style={sidebarStyle}>
-        {/* Logo du magasin (personnalisé via Paramètres, sinon logo Family Store) */}
+        {/* Logo du magasin (Paramètres), sinon logo de marque du build, sinon le nom — voir config/logo-marque.ts */}
         <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ background: '#fdf9f0', borderRadius: 10, border: '1px solid var(--fs-gold-400)', padding: '6px 8px', overflow: 'hidden' }}>
-            <img src={settings.logoUrl || logoFs} alt={settings.nomMagasin} style={{ width: '100%', display: 'block', borderRadius: 6 }}/>
+            {logoAffiche(settings.logoUrl) ? (
+              <img src={logoAffiche(settings.logoUrl)} alt={settings.nomMagasin} style={{ width: '100%', display: 'block', borderRadius: 6 }}/>
+            ) : (
+              <div style={{ minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 4px', fontFamily: 'var(--fs-font-display)', fontWeight: 700, fontSize: 15, lineHeight: 1.15, color: 'var(--fs-wine-700)', textAlign: 'center', wordBreak: 'break-word' }}>
+                {(settings.nomMagasin || '').trim()}
+              </div>
+            )}
           </div>
           <div style={{ fontSize: 9, color: 'var(--fs-gold-400)', letterSpacing: '0.14em', textTransform: 'uppercase', textAlign: 'center', marginTop: 6 }}>{t('Administration', 'Administration')}</div>
         </div>

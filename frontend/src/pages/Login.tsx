@@ -162,7 +162,7 @@ export default function Login() {
                   <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--fs-ink-400)', display: 'flex', alignItems: 'center' }}>
                     <MailIcon/>
                   </span>
-                  <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder="email@familystore.cm" required autoFocus
+                  <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder={t('adresse@exemple.cm', 'address@example.cm')} required autoFocus
                     style={{ width: '100%', paddingLeft: 40, paddingRight: 14, paddingTop: 11, paddingBottom: 11, border: '1px solid var(--fs-line-2)', borderRadius: 'var(--fs-r-md)', outline: 'none', fontSize: 14, background: 'var(--fs-ivory)', color: 'var(--fs-ink-900)', fontFamily: 'var(--fs-font-sans)', boxSizing: 'border-box' }}/>
                 </div>
               </div>
@@ -220,7 +220,7 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="email@familystore.cm"
+                  placeholder={t('adresse@exemple.cm', 'address@example.cm')}
                   required
                   autoFocus
                   style={{
