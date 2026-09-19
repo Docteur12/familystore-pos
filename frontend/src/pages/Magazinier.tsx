@@ -328,7 +328,7 @@ export default function Magazinier() {
   // Catégories et sous-catégories dérivées des produits existants
   const knownCategories    = [...new Set(['Beauté','Hygiène','Parfumerie','Épicerie','Boissons','Alimentation','Bien-être','Maison', ...products.map(p => p.category).filter(Boolean) as string[]])].sort((a, b) => a.localeCompare(b, dateLocale()));
   const knownSubCategories = [...new Set(products.map(p => p.subCategory).filter(Boolean) as string[])].sort((a, b) => a.localeCompare(b, dateLocale()));
-  const UNITS = ['unité','kg','g','L','mL','pièce','boîte','sachet','bouteille'];
+  const UNITS = ['unité','kg','g','L','mL','pièce','boîte','sachet','bouteille','ans','mois','taille','pointure'];
 
   // ── Scanner QR ─────────────────────────────────────────────────────────────
   const [scanTarget, setScanTarget] = useState<'newprod' | number | null>(null);

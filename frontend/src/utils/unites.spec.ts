@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * Unités — la donnée française s'affiche en anglais chez un magasin anglophone.
  *
@@ -33,5 +34,31 @@ describe('uniteEn — unités françaises traduites, internationales conservées
   it('vide ou absent → chaîne vide', () => {
     expect(uniteEn('')).toBe('');
     expect(uniteEn(undefined)).toBe('');
+  });
+});
+
+import { declinaison, UNITES_TAILLE } from './unites';
+
+describe('declinaison — la taille / l’âge d’un article (étiquette de vêtement)', () => {
+  it('âges et tailles : la forme imprimée', () => {
+    expect(declinaison('ans', '4')).toBe('4 ans');
+    expect(declinaison('ans', '1')).toBe('1 an');
+    expect(declinaison('mois', '6')).toBe('6 mois');
+    expect(declinaison('taille', 'M')).toBe('T. M');
+    expect(declinaison('pointure', '28')).toBe('P. 28');
+    expect(declinaison(' Ans ', ' 8 ')).toBe('8 ans');          // casse et espaces
+  });
+  it('contenances : valeur + unité', () => {
+    expect(declinaison('mL', '250')).toBe('250 mL');
+    expect(declinaison('g', '90')).toBe('90 g');
+  });
+  it('rien quand l’unité est un conditionnement ou qu’aucune valeur n’est saisie', () => {
+    expect(declinaison('pièce', '15')).toBe('');                // Radiance : « pièce · 15 » ne revient pas
+    expect(declinaison('boîte', '2')).toBe('');
+    expect(declinaison('ans', '')).toBe('');
+    expect(declinaison(undefined, undefined)).toBe('');
+  });
+  it('les unités de taille proposées à la saisie', () => {
+    expect([...UNITES_TAILLE]).toEqual(['ans', 'mois', 'taille', 'pointure']);
   });
 });

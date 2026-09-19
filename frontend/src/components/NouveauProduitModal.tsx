@@ -15,7 +15,8 @@ import { suiviPeremptionActif } from '../api/settings';
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const CATEGORIES = ['Beauté', 'Hygiène', 'Parfumerie', 'Épicerie', 'Boissons', 'Alimentation', 'Bien-être', 'Maison'];
-const UNITS = ['unité', 'kg', 'g', 'L', 'mL', 'pièce', 'boîte', 'sachet', 'bouteille'];
+// 'ans', 'mois', 'taille', 'pointure' : déclinaisons des vêtements et chaussures (voir utils/unites.ts, declinaison).
+const UNITS = ['unité', 'kg', 'g', 'L', 'mL', 'pièce', 'boîte', 'sachet', 'bouteille', 'ans', 'mois', 'taille', 'pointure'];
 // Libellés affichés des unités — les VALEURS envoyées au backend restent en français.
 const UNIT_LABELS: Record<string, string> = {
   'unité': t('unité', 'unit'), 'pièce': t('pièce', 'piece'), 'boîte': t('boîte', 'box'), 'bouteille': t('bouteille', 'bottle'),
@@ -558,13 +559,14 @@ export default function NouveauProduitModal({ onClose, onCreated, onUpdated, pro
             <div>
               <label style={LABEL_STYLE}>{t('Valeur', 'Value')} <span style={{ fontWeight: 400, textTransform: 'none' }}>{t('(nombre — unité = champ Unité)', '(number — unit = Unit field)')}</span></label>
               <input
-                type="number"
-                inputMode="decimal"
+                // « taille » accepte des lettres (S, M, 110 cm…) ; les autres unités restent numériques.
+                type={form.unit === 'taille' ? 'text' : 'number'}
+                inputMode={form.unit === 'taille' ? 'text' : 'decimal'}
                 min={0}
                 step="any"
                 value={form.valeur}
-                onChange={e => setField('valeur')(e.target.value.replace(/[^0-9.,]/g, ''))}
-                placeholder={t('ex: 50', 'e.g. 50')}
+                onChange={e => setField('valeur')(form.unit === 'taille' ? e.target.value.slice(0, 8) : e.target.value.replace(/[^0-9.,]/g, ''))}
+                placeholder={form.unit === 'ans' || form.unit === 'mois' ? t('ex: 4', 'e.g. 4') : form.unit === 'taille' ? t('ex: M ou 110', 'e.g. M or 110') : form.unit === 'pointure' ? t('ex: 28', 'e.g. 28') : t('ex: 50', 'e.g. 50')}
                 style={INPUT_STYLE}
               />
             </div>

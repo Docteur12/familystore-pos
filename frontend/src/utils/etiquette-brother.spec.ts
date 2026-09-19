@@ -154,3 +154,35 @@ describe('l’enseigne tient entière — elle rétrécit avant d’être coupé
     expect(e.taille).toBe(ENSEIGNE_TAILLE_MIN);
   });
 });
+
+describe('étiquette de vêtement — la taille / l’âge en gros à la place de l’enseigne', () => {
+  const ROBE: TextesEtiquette = { nom: 'Robe Coton Bleue', code: 'HE000127', sku: 'HE-000127', prix: '12 500 XAF', declinaison: '4 ans' };
+
+  it('la déclinaison sort en CAPITALES grasses, sur la ligne du prix, et l’enseigne ne s’imprime pas', () => {
+    const { ecrits } = dessiner(ROBE, 'HERVAN Élite');
+    const taille = ecrits.find(w => w.texte === '4 ANS')!;
+    expect(taille, 'déclinaison absente').toBeTruthy();
+    expect(taille.style).toBe('bold');
+    expect(taille.x).toBe(COTES.margeGauche);
+    expect(taille.y).toBe(COTES.prixY);
+    expect(taille.taille).toBeGreaterThanOrEqual(10);            // « en gros » : bien plus que l'enseigne (6,5 pt)
+    expect(ecrits.some(w => w.texte === 'HERVAN Élite')).toBe(false);
+  });
+
+  it('elle ne mord jamais sur le prix, même longue, et reste lisible', () => {
+    const cher = { ...ROBE, prix: '1 250 000 XAF', declinaison: '12 mois — prématuré' };
+    const { ecrits, etendue } = dessiner(cher, 'HERVAN Élite');
+    const prix = etendue(ecrits.find(w => w.texte === cher.prix)!);
+    const taille = ecrits.find(w => w.y === COTES.prixY && w.align !== 'right')!;
+    expect(etendue(taille).droite).toBeLessThanOrEqual(prix.gauche - COTES.espacePrix + 0.01);
+    expect(taille.taille).toBeGreaterThanOrEqual(8);
+  });
+
+  it('témoin : sans déclinaison (ou vide), l’enseigne garde sa place — Radiance inchangé', () => {
+    for (const d of [undefined, '', '   ']) {
+      const { ecrits } = dessiner({ ...ROBE, declinaison: d }, 'Radiance Essentials');
+      expect(ecrits.some(w => w.texte === 'Radiance Essentials')).toBe(true);
+      expect(ecrits.some(w => w.y === COTES.prixY && w.align !== 'right')).toBe(false);
+    }
+  });
+});

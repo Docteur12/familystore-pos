@@ -11,7 +11,7 @@ import { t, dateLocale } from '../i18n';
 // douchette, alors que l'aperçu montrait un vrai code.
 import { drawCode39, barresHtml } from '../utils/code39';
 import { skuProduit } from '../utils/sku';
-import { uniteAffichee } from '../utils/unites';
+import { uniteAffichee, declinaison } from '../utils/unites';
 import { dessinerEtiquetteBrother, BROTHER_62, HAUTEURS_BROTHER, hauteurValide } from '../utils/etiquette-brother';
 import { getPrintSettings, savePrintSettings } from '../components/ReceiptPrint';
 import { useIsMobile } from '../hooks/useIsMobile';
@@ -38,7 +38,7 @@ const skuOf = (p: Product): string => skuProduit(p);
 // rectangles jsPDF posés au millimètre, imprimés depuis la visionneuse PDF.
 // L'impression HTML du navigateur rastérise et lisse des barres de 0,3 mm —
 // sur le terrain, la douchette lisait le PDF de test et pas l'étiquette HTML.
-async function imprimerPdfBrother(produits: Product[], enseigne: string, hauteur: number): Promise<void> {
+async function imprimerPdfBrother(produits: Product[], enseigne: string, hauteur: number, basGauche: 'enseigne' | 'declinaison'): Promise<void> {
   const { jsPDF } = await import('jspdf');
   const { largeur } = BROTHER_62;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [largeur, hauteur] });
@@ -53,6 +53,8 @@ async function imprimerPdfBrother(produits: Product[], enseigne: string, hauteur
       code: sku.replace(/-/g, '').slice(0, 14),
       sku,
       prix: `${num(p.price)} XAF`,
+      // Option « taille / âge » : sans déclinaison sur la fiche, l'enseigne reprend sa place.
+      declinaison: basGauche === 'declinaison' ? declinaison(p.unit, p.valeur) : '',
     }, enseigne, hauteur);
   });
 
@@ -193,6 +195,9 @@ export default function StocksEtiquettes() {
     setHauteurBrother(v);
     savePrintSettings({ ...getPrintSettings(), etiquetteHauteurMm: v });
   };
+  // Bas gauche de l'étiquette : l'enseigne, ou la taille/âge de l'article (vêtements) — réglage du poste.
+  const [basGauche, setBasGauche] = useState<'enseigne' | 'declinaison'>(() => getPrintSettings().etiquetteBasGauche === 'declinaison' ? 'declinaison' : 'enseigne');
+  const changerBasGauche = (v: 'enseigne' | 'declinaison') => { setBasGauche(v); savePrintSettings({ ...getPrintSettings(), etiquetteBasGauche: v }); };
   const [selected,  setSelected]  = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -227,7 +232,7 @@ export default function StocksEtiquettes() {
     if (template === 'brother') {
       // L'enseigne du magasin, telle que saisie — vide, rien ne s'imprime à sa
       // place (une étiquette est remise au client : jamais une autre marque).
-      await imprimerPdfBrother(toPrint, (settings.nomMagasin ?? '').trim(), hauteurBrother);
+      await imprimerPdfBrother(toPrint, (settings.nomMagasin ?? '').trim(), hauteurBrother, basGauche);
       return;
     }
 
@@ -332,6 +337,17 @@ export default function StocksEtiquettes() {
                   <select value={hauteurBrother} onChange={e => changerHauteur(Number(e.target.value))}
                     style={{ padding: '5px 8px', borderRadius: 8, border: '1.5px solid var(--fs-line-2)', fontSize: 12, fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
                     {HAUTEURS_BROTHER.map((h: number) => <option key={h} value={h}>{h} mm</option>)}
+                  </select>
+                </label>
+              )}
+              {template === 'brother' && (
+                <label title={t('En bas à gauche de l’étiquette : le nom du magasin, ou la taille / l’âge de l’article en gros (vêtements, chaussures)', 'Bottom left of the label: the store name, or the item’s size / age in large type (clothing, shoes)')}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--fs-ink-500)', marginLeft: 6 }}>
+                  {t('Bas gauche', 'Bottom left')}
+                  <select value={basGauche} onChange={e => changerBasGauche(e.target.value === 'declinaison' ? 'declinaison' : 'enseigne')}
+                    style={{ padding: '5px 8px', borderRadius: 8, border: '1.5px solid var(--fs-line-2)', fontSize: 12, fontFamily: 'var(--fs-font-sans)', background: '#fff' }}>
+                    <option value="enseigne">{t('Enseigne', 'Store name')}</option>
+                    <option value="declinaison">{t('Taille / âge', 'Size / age')}</option>
                   </select>
                 </label>
               )}

@@ -54,6 +54,12 @@ export interface TextesEtiquette {
   sku: string;
   /** « 1 500 XAF ». */
   prix: string;
+  /**
+   * Taille / âge / contenance (« 4 ans », « P. 28 »). Fournie et non vide,
+   * elle s'imprime EN GROS en bas à gauche, À LA PLACE de l'enseigne — étiquette
+   * de vêtement (HERVAN, 19/09/2026) : le carton porte déjà la marque.
+   */
+  declinaison?: string;
 }
 
 export interface Cotes {
@@ -104,6 +110,8 @@ export function ajuster(doc: jsPDF, texte: string, largeurMax: number): string {
 
 /** Taille de police minimale (pt) de l'enseigne avant de la couper. */
 export const ENSEIGNE_TAILLE_MIN = 5;
+/** Taille de police minimale (pt) de la déclinaison : elle doit rester lisible de loin. */
+export const DECLINAISON_TAILLE_MIN = 8;
 /** Place (mm) que le prix doit laisser à l'enseigne avant de rétrécir lui-même. */
 export const LARGEUR_MIN_ENSEIGNE = 18;
 
@@ -148,6 +156,16 @@ export function dessinerEtiquetteBrother(doc: jsPDF, e: TextesEtiquette, enseign
   while (placeGauche() < LARGEUR_MIN_ENSEIGNE && taillePrix - 0.5 >= COTES.prixTaille) { taillePrix -= 0.5; doc.setFontSize(taillePrix); }
   doc.text(e.prix, c.bordDroit, c.prixY, { align: 'right' });
   const largeurGauche = Math.max(8, placeGauche());
+
+  // Étiquette de vêtement : la taille / l'âge, en CAPITALES grasses, aussi grosse
+  // que le prix et sur la même ligne de base — à la place de l'enseigne.
+  const taille = (e.declinaison ?? '').trim();
+  if (taille) {
+    doc.setFont('helvetica', 'bold');
+    const { texte } = faireTenir(doc, taille.toUpperCase(), largeurGauche, taillePrix, DECLINAISON_TAILLE_MIN);
+    doc.text(texte, c.margeGauche, c.prixY);
+    return;
+  }
 
   // Enseigne, petit gras italique — seule sur la ligne du bas. Elle rétrécit
   // pour tenir entière ; coupée seulement si même la plus petite ne tient pas.

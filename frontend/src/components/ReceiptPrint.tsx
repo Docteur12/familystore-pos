@@ -49,6 +49,8 @@ export interface PrintSettings {
   copies:  number;
   /** Hauteur (mm) des étiquettes Brother 62 — 39 par défaut (porte-étiquettes Radiance), 29 = étiquettes prédécoupées. */
   etiquetteHauteurMm?: number;
+  /** Bas gauche de l'étiquette Brother : l'enseigne (défaut) ou la taille/âge de l'article (vêtements). */
+  etiquetteBasGauche?: 'enseigne' | 'declinaison';
 }
 
 export const PRINT_DEFAULTS: PrintSettings = {
